@@ -3,7 +3,7 @@
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
@@ -158,7 +158,7 @@ the choice starts writing your results: at 90 % the constant-impedance feeder
 sheds a fifth of its demand, the constant-power feeder none of it, and every
 derived number (losses, import, headroom) moves with them.
 
-## 4. Behaviour near collapse — stressed until something gives
+## [4. Behavior near collapse — stressed until something gives](@id 4.-Behaviour-near-collapse-—-stressed-until-something-gives)
 
 Voltage stability is where the models diverge *qualitatively*, not by
 percentages. The LV1 feeder is far too stiff to collapse in any realistic
@@ -247,8 +247,8 @@ Three regimes, one table:
   ([spec §6](spec/load.md), *conditioning only*). A constant-current load's
   voltage declines linearly and would happily continue below half nominal;
   the *model implementation* declares that region out of scope. The lesson
-  generalises: every voltage-dependent load model was fitted (or assumed)
-  around nominal voltage, and extrapolating it toward collapse is a modelling
+  generalizes: every voltage-dependent load model was fitted (or assumed)
+  around nominal voltage, and extrapolating it toward collapse is a modeling
   decision — the engine's floor just makes that decision explicit. The
   [`W.LOAD.NL_NO_VMIN`](findings.md) finding warns when a voltage-dependent
   load has no engineering `v_min` on its bus for exactly this reason.
@@ -272,7 +272,7 @@ Three regimes, one table:
 The equations are settled; the science is in matching the model to the
 device population, the timescale, and the voltage range of your study.
 
-| Load population | Steady-state behaviour | Defensible default |
+| Load population | Steady-state behavior | Defensible default |
 |---|---|---|
 | Power-electronic (SMPS, EV chargers, LED drivers, inverter HVAC) | regulated DC bus holds P as V moves | `constant_power` |
 | Resistive heating, incandescent | admittance-like at the timescale of a snapshot | `constant_impedance` |
@@ -291,7 +291,7 @@ Three caveats that separate a defensible choice from a convenient one:
   the average of device exponents, and it drifts with time of day and weather.
   The measurement-based ZIP literature (Hajagos & Danai 1998; Collin et al.
   2014 for modern LV device mixes; the IEEE Task Force reports of 1993/1995
-  that standardised the ZIP form) is the right calibration source.
+  that standardized the ZIP form) is the right calibration source.
 - **The exponent range you fitted is the range you may use** — §4's floor made
   that concrete. Near-nominal fits extrapolated to collapse studies are the
   classic silent error; the conservative fallback there is `constant_power`.
@@ -361,7 +361,7 @@ for (name, (V, Pm)) in ("wide 0.85–1.10" => wide, "narrow 0.98–1.02" => narr
 end
 ```
 
-The wide campaign shrugs — the coefficients move but stay recognisable. The
+The wide campaign shrugs — the coefficients move but stay recognizable. The
 narrow campaign returns **nonsense**: coefficients far outside ``[0,1]``,
 including a large negative ``\alpha_i``, from *one* half-percent error. The
 mechanism is the condition number printed above: over a ±2 % voltage window,
@@ -371,9 +371,9 @@ tiny excursion), so the least-squares problem cannot tell Z from I from P —
 points from a quiet feeder**. This is why practical campaigns exploit tap
 changes, staged switching, or naturally disturbed periods, and why fitted ZIP
 coefficients in the wild sometimes carry those out-of-range values: they are
-conditioning artefacts, not physics. For estimation at network scale —
+conditioning artifacts, not physics. For estimation at network scale —
 recovering load models *and* line parameters from smart-meter data with
-proper regularisation — see Vanin & Geth,
+proper regularization — see Vanin & Geth,
 [arXiv:2506.04949](https://arxiv.org/abs/2506.04949), and the companion
 package [PowerOptLab.jl](https://github.com/frederikgeth/PowerOptLab.jl).
 
@@ -399,7 +399,7 @@ package [PowerOptLab.jl](https://github.com/frederikgeth/PowerOptLab.jl).
     tutorial exercised, including delta and split-phase sub-loads. The
     [impedance-models tutorial](tutorial_impedance_models.md) is this
     tutorial's sibling for the *network* side of the same question — model
-    fidelity as a modelling decision. The [VVWO tutorial](tutorial_vvwo.md)
+    fidelity as a modeling decision. The [VVWO tutorial](tutorial_vvwo.md)
     puts voltage-dependent *generation* (inverter droop) through the same
     kind of reasoning, and the [units tutorial](tutorial_units.md) covers the
     conventions everything here relied on.

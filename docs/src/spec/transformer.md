@@ -6,8 +6,8 @@ primary and secondary share no conductor, only magnetic flux. (Step-voltage
 [Regulators](regulator.md).) Because the winding topologies differ qualitatively, each
 configuration is a distinct data-model object: `single_phase`, `center_tap`,
 `wye_delta`, `delta_wye`, and the general `n_winding`. Every model is built from an
-idealised winding pair plus three loss components. Parts 1–5 state the foundational
-model; [part 6](#6.-Implementation-in-BMOPFTools) records the realisation. Symbols are
+idealized winding pair plus three loss components. Parts 1–5 state the foundational
+model; [part 6](#6.-Implementation-in-BMOPFTools) records the realization. Symbols are
 defined in [Notation](notation.md).
 
 !!! note "What a “winding” counts — ports, not physical coils"
@@ -71,7 +71,7 @@ supported winding limits.
 | `v_nom_from`, `v_nom_to` | $\textcolor{red}{U^{\text{ref}}_i},\ \textcolor{red}{U^{\text{ref}}_j}$ | turns ratio $\textcolor{red}{N}=\textcolor{red}{U^{\text{ref}}_i}/\textcolor{red}{U^{\text{ref}}_j}$ |
 | `r/x_series_from` | $\textcolor{brown}{Z^{\text{fr}}_x}=\textcolor{red}{R^{\text{fr}}_x}+\textcolor{brown}{j}\textcolor{red}{X^{\text{fr}}_x}$ | from-winding leakage |
 | `r/x_series_to` | $\textcolor{brown}{Z^{\text{to}}_x}=\textcolor{red}{R^{\text{to}}_x}+\textcolor{brown}{j}\textcolor{red}{X^{\text{to}}_x}$ | to-winding leakage |
-| `g/b_no_load` | $\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}{B_0}$ | magnetising shunt |
+| `g/b_no_load` | $\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}{B_0}$ | magnetizing shunt |
 | `r/x_neutral_*` | $\textcolor{brown}{y_n}=1/(\textcolor{red}{R_n}+\textcolor{brown}{j}\textcolor{red}{X_n})$ | neutral grounding |
 | `tap` | $\textcolor{red}{\tau}$ (fixed) or $\tau$ (variable) | $\textcolor{red}{N}_{\text{eff}}=\textcolor{red}{N}\,\tau$ |
 | `s_rating` | $\textcolor{red}{S^{\max}_x}$ | nameplate |
@@ -92,13 +92,13 @@ $\textcolor{red}{N}_{\text{eff}}$ becomes a decision variable.
 
 ## 4. Equality constraints
 
-### The idealised winding pair
+### [The idealized winding pair](@id The-idealised-winding-pair)
 
 Every transformer is built from **ideal winding pairs** obeying flux linkage, complex-
 power conservation, and winding KCL. With winding EMFs $\textcolor{blue}{E^{\text{fr}}_x},\textcolor{blue}{E^{\text{to}}_x}$
 and the reference voltages standing in for the turns ratio:
 
-![Idealised single-phase transformer: a pair of magnetically coupled windings.](assets/idealised_tx.svg)
+![Idealized single-phase transformer: a pair of magnetically coupled windings.](assets/idealised_tx.svg)
 
 ```math
 \frac{\textcolor{blue}{E^{\text{fr}}_x}}{\textcolor{red}{U^{\text{ref}}_i}} = \frac{\textcolor{blue}{E^{\text{to}}_x}}{\textcolor{red}{U^{\text{ref}}_j}},
@@ -122,7 +122,7 @@ family of picture, differing only in how the windings connect.
   $\textcolor{brown}{Z_x}=\textcolor{brown}{Z^{\text{fr}}_x}+\textcolor{red}{N}_{\text{eff}}^2\,\textcolor{brown}{Z^{\text{to}}_x}$,
   the ideal voltage relation becomes
   $\textcolor{blue}{V^{\text{fr}}_x} - \textcolor{red}{N}_{\text{eff}}\,\textcolor{blue}{V^{\text{to}}_x} = \textcolor{brown}{Z_x}\,\textcolor{blue}{I_{x,\text{fr}}}$.
-- **No-load (magnetising) shunt.** A single $\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}{B_0}$
+- **No-load (magnetizing) shunt.** A single $\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}{B_0}$
   sits across **winding 2** (the to-side coil), referred to that coil's voltage, adding
   a current $\textcolor{brown}{Y_0}\,\textcolor{blue}{V^{\text{to}}_x}$ to the to-side
   terminal — the core-loss/excitation branch (OpenDSS places it on winding 2, verified
@@ -136,21 +136,21 @@ family of picture, differing only in how the windings connect.
 
 Read on the standard per-winding-pair equivalent circuit — shown here for the archetypal
 two-winding (single-phase) transformer, the reference picture every subtype below
-specialises:
+specializes:
 
-![Two-winding (single-phase) loss equivalent circuit: a series winding impedance on each coil about the ideal core, their referred series sum forming the short-circuit impedance, and a no-load shunt (core loss + magnetisation) on the secondary coil.](assets/single_phase_loss.svg)
+![Two-winding (single-phase) loss equivalent circuit: a series winding impedance on each coil about the ideal core, their referred series sum forming the short-circuit impedance, and a no-load shunt (core loss + magnetization) on the secondary coil.](assets/single_phase_loss.svg)
 
 - **Winding series impedance** — each coil carries a series leakage,
   $\textcolor{brown}{Z^{\text{fr}}_x}=\textcolor{red}{R^{\text{fr}}_x}+\textcolor{brown}{j}\textcolor{red}{X^{\text{fr}}_x}$
   (from) and $\textcolor{brown}{Z^{\text{to}}_x}$ (to). This is the copper/leakage loss.
-- **Short-circuit impedance** — a short-circuit test shorts one side and energises the
+- **Short-circuit impedance** — a short-circuit test shorts one side and energizes the
   other, so it measures the *series sum* of the two leakages referred to one side,
   $\textcolor{brown}{Z_{\text{sc}}}=\textcolor{brown}{Z^{\text{fr}}_x}+\textcolor{red}{N}_{\text{eff}}^{2}\textcolor{brown}{Z^{\text{to}}_x}$.
   It is **not** a separate element, and the split between the two windings is a
-  *modelling choice*, since the test fixes only the sum (see the note below).
-- **No-load loss and magnetisation** — the shunt $\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}{B_0}$
+  *modeling choice*, since the test fixes only the sum (see the note below).
+- **No-load loss and magnetization** — the shunt $\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}{B_0}$
   on the winding-2 coil carries the **core (no-load) loss** $\textcolor{red}{G_0}$ and the
-  **magnetising** susceptance $\textcolor{red}{B_0}$, as an open-circuit test measures.
+  **magnetizing** susceptance $\textcolor{red}{B_0}$, as an open-circuit test measures.
 
 The **optional neutral-grounding branch** $\textcolor{brown}{y_n}=1/(\textcolor{red}{R_n}+\textcolor{brown}{j}\textcolor{red}{X_n})$
 (shown on the from-side neutral) is the third loss element: an internal branch from a wye
@@ -171,9 +171,9 @@ clear; it attaches to whichever winding carries a groundable neutral (`single_ph
     fields so the convention is explicit rather than assumed.
 
 The subtypes below re-arrange exactly these three elements: **single-phase** is the
-picture above; **centre-tap** replaces the single secondary arm with two LV-leg arms;
+picture above; **center-tap** replaces the single secondary arm with two LV-leg arms;
 **wye–delta / delta–wye** wrap the pair in a Δ/Y connection with a $\sqrt{3}$ referral;
-and **n-winding** generalises the two leakage arms to a star.
+and **n-winding** generalizes the two leakage arms to a star.
 
 ### Single-phase (wye–wye)
 
@@ -189,22 +189,22 @@ $\textcolor{brown}{Z_x}=\textcolor{brown}{Z^{\text{fr}}_x}+\textcolor{red}{N}_{\
 ```
 
 The to-side terminal current is $\textcolor{blue}{I_{x,\text{to},k}}+\textcolor{brown}{Y_0}\textcolor{blue}{V^{\text{to}}_{x,k}}$
-(series + magnetising); the neutral grounding branch, if present, adds its current at
+(series + magnetizing); the neutral grounding branch, if present, adds its current at
 the shared neutral.
 
 ### Center-tap (split-phase)
 
-One HV winding drives **two anti-series LV legs** sharing a centre-tap neutral: two from
+One HV winding drives **two anti-series LV legs** sharing a center-tap neutral: two from
 terminals $[t^{\text{ph}},t^{\text{n}}]$, three to terminals $[t_1,t^{\text{n}},t_2]$.
 The two half-windings are tightly coupled, so the model is a genuine three-winding
 (coupled-coil) unit, not two independent legs.
 
-![Centre-tap transformer: one HV winding, two anti-series LV legs sharing a centre-tap neutral.](assets/split_phase_tx.svg)
+![Center-tap transformer: one HV winding, two anti-series LV legs sharing a center-tap neutral.](assets/split_phase_tx.svg)
 
 Writing $\textcolor{blue}{V^{\text{hv}}}=\textcolor{blue}{U_{i,t^{\text{ph}}}}-\textcolor{blue}{U_{i,t^{\text{n}}}}$,
 $\textcolor{blue}{v_1}=\textcolor{blue}{U_{j,t_1}}-\textcolor{blue}{U_{j,t^{\text{n}}}}$,
 $\textcolor{blue}{v_2}=\textcolor{blue}{U_{j,t^{\text{n}}}}-\textcolor{blue}{U_{j,t_2}}$ (winding 3
-dotted at the centre tap), HV series current $\textcolor{blue}{I_s}$ and leg currents
+dotted at the center tap), HV series current $\textcolor{blue}{I_s}$ and leg currents
 $\textcolor{blue}{I_{\ell 1}},\textcolor{blue}{I_{\ell 2}}$:
 
 ```math
@@ -214,7 +214,7 @@ $\textcolor{blue}{I_{\ell 1}},\textcolor{blue}{I_{\ell 2}}$:
 \end{aligned}
 ```
 
-with the ampere-turn coupling and centre-tap KCL
+with the ampere-turn coupling and center-tap KCL
 
 ```math
 \textcolor{red}{N}_{\text{eff}}\,\textcolor{blue}{I_s} + \textcolor{blue}{I_{\ell 1}} - \textcolor{blue}{I_{\ell 2}} = 0,
@@ -222,9 +222,9 @@ with the ampere-turn coupling and centre-tap KCL
 \textcolor{blue}{I_n} + \textcolor{blue}{I_{\ell 1}} + \textcolor{blue}{I_{\ell 2}} = 0,
 ```
 
-where $\textcolor{blue}{I_n}$ is the centre-tap current (the leg imbalance). The HV series
+where $\textcolor{blue}{I_n}$ is the center-tap current (the leg imbalance). The HV series
 current returns through the HV neutral, $\textcolor{blue}{I_{x,\text{fr},n}}=-\textcolor{blue}{I_s}$.
-The magnetising shunt $\textcolor{brown}{Y_0}$ sits across winding 2 (LV leg 1,
+The magnetizing shunt $\textcolor{brown}{Y_0}$ sits across winding 2 (LV leg 1,
 $\textcolor{blue}{v_1}$). The $\mp\textcolor{red}{N}_{\text{eff}}\textcolor{brown}{Z^{\text{to}}_x}$
 sign difference between the legs is the reversed dotting of winding 3; using $+$ for both
 makes the legs identical and loses the load-imbalance physics.
@@ -233,7 +233,7 @@ The same three loss elements ([The loss equivalent circuit](#The-loss-equivalent
 but as a genuine three-winding unit its leakage is a **star** of arms — an HV arm and one
 per LV leg, not a single series pair — with the no-load shunt on leg 1:
 
-![Centre-tap loss equivalent circuit: an HV winding series impedance and a series impedance on each of the two anti-series LV legs, with a no-load shunt (core loss + magnetisation) on leg 1.](assets/center_tap_loss.svg)
+![Center-tap loss equivalent circuit: an HV winding series impedance and a series impedance on each of the two anti-series LV legs, with a no-load shunt (core loss + magnetization) on leg 1.](assets/center_tap_loss.svg)
 
 ### Wye–delta and delta–wye
 
@@ -266,7 +266,7 @@ The current transform is the transpose (power-conservative),
 $\textcolor{red}{n^{\text{eff}}}\,\textcolor{blue}{I_{x,\text{del},k}} = -(\textcolor{blue}{I_{x,\text{wye},k}}-\textcolor{blue}{I_{x,\text{wye},k'}})$,
 and the wye star point satisfies
 $\textcolor{blue}{I_{x,\text{wye},n}}+\sum_k\textcolor{blue}{I_{x,\text{wye},k}}=0$. The
-magnetising shunt sits across the winding-2 coils (a delta of branches when the delta is
+magnetizing shunt sits across the winding-2 coils (a delta of branches when the delta is
 winding 2, phase-to-neutral when the wye is winding 2); the wye neutral may be grounded
 through $\textcolor{brown}{y_n}$.
 
@@ -274,7 +274,7 @@ The same three loss elements ([The loss equivalent circuit](#The-loss-equivalent
 here wrap a delta primary and a wye secondary, with the $\sqrt{3}$ folded into the
 effective ratio $\textcolor{red}{n^{\text{eff}}}$:
 
-![Delta–wye per-winding-pair loss equivalent circuit: a delta primary coil and wye secondary coil about the ideal core, each with its series winding impedance; the two leakages in series form the short-circuit impedance, and a no-load shunt (core loss plus magnetisation) hangs off the secondary coil.](assets/dy_loss_model.svg)
+![Delta–wye per-winding-pair loss equivalent circuit: a delta primary coil and wye secondary coil about the ideal core, each with its series winding impedance; the two leakages in series form the short-circuit impedance, and a no-load shunt (core loss plus magnetization) hangs off the secondary coil.](assets/dy_loss_model.svg)
 
 ### General n-winding
 
@@ -298,13 +298,13 @@ per phase/leg:
 The coil voltage $\textcolor{blue}{U_k}$ is phase-to-neutral for a wye winding and
 line-to-line for a delta winding (whose `v_nom` is the line-to-line coil voltage, so the
 $\sqrt{3}$ lives in $\textcolor{red}{N_k}$). Each wye coil returns its phase currents
-through its neutral; each delta coil injects between its two phase nodes. The magnetising
-shunt again sits across winding 2's coil. Tap optimisation is **not** supported for
+through its neutral; each delta coil injects between its two phase nodes. The magnetizing
+shunt again sits across winding 2's coil. Tap optimization is **not** supported for
 `n_winding` (the ratios are fixed).
 
 This is the general form of the loss model: the leakage is a **star of per-winding arms**
 (referred to winding 1) meeting at a common core node, with the no-load shunt at that
-node. It generalises the [two-winding picture](#The-loss-equivalent-circuit) — where the
+node. It generalizes the [two-winding picture](#The-loss-equivalent-circuit) — where the
 two arms in series *are* the single short-circuit impedance — to $n$ windings, where each
 unordered pair $(i,j)$ has
 its own short-circuit reactance $\textcolor{brown}{x_{\text{sc}}}[i,j]$ (the field `x_sc`
@@ -335,13 +335,13 @@ Optional per-conductor current boxes on the winding-current components, from `i_
 **Nameplate power.** The winding-pair power transfer is bounded by the rating,
 $|\textcolor{blue}{E^{\text{fr}}_x}\,(\textcolor{blue}{I_{x,\text{fr}}})^{*}| \le \textcolor{red}{S^{\max}_x}/\textcolor{red}{n_x}$
 with $\textcolor{red}{n_x}$ the number of winding pairs (1 single-phase, 3 three-phase;
-centre-tap uses 1 on the from winding and 2 on the to legs).
+center-tap uses 1 on the from winding and 2 on the to legs).
 
 ## 6. Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
-Each subtype's device behaviour also has an exact nodal **primitive admittance**
+Each subtype's device behavior also has an exact nodal **primitive admittance**
 $\textcolor{brown}{\mathbf{Y}_x}$ (`Yprim`); the closed-form matrices — the natural
 artifact for cross-checking against OpenDSS or another implementation — are collected on
 the [Transformer primitive admittance](transformer-admittance.md) page, and the OPF
@@ -391,15 +391,15 @@ stamped in rectangular form ([`transformer.jl`](https://github.com/frederikgeth/
     leakage exactly. Exact Yd/Dy tap referral is deferred.
 
 !!! warning "n-winding and loss detail beyond the PDF"
-    The general `n_winding` transformer, the per-winding no-load magnetising shunt
+    The general `n_winding` transformer, the per-winding no-load magnetizing shunt
     (`g/b_no_load`), and internal neutral grounding (`r/x_neutral_*`) extend the Task
     Force PDF's transformer section; document them in the superseding spec.
 
 !!! note "Center-tap neutral grounding — supported, pending data-model cleanup"
     `single_phase` and `center_tap` share the `single_phase_or_center_tap_transformer`
-    schema, which exposes `r/x_neutral_from`/`_to`. **Both builders honour them**: an
+    schema, which exposes `r/x_neutral_from`/`_to`. **Both builders honor them**: an
     internal $\textcolor{brown}{y_n}=1/(\textcolor{red}{R_n}+\textcolor{brown}{j}\textcolor{red}{X_n})$
-    grounding branch — `*_from` grounds the HV neutral, `*_to` grounds the centre-tap
+    grounding branch — `*_from` grounds the HV neutral, `*_to` grounds the center-tap
     neutral. This is accepted for OpenDSS compatibility; a future **data-cleanup** pass
     should reify such grounding as an explicit external [`shunt`](shunt.md) object (exactly
     equivalent — verified by an OPF equivalence test) so the transformer zoo stays simpler.

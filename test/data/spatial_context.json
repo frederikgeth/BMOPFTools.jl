@@ -1,0 +1,28 @@
+{
+  "meta": {"coordinate_reference_system": "EPSG:4326"},
+  "bus": {
+    "hv": {"longitude": 153.0, "latitude": -27.0, "terminal_names": ["1", "2", "3"]},
+    "lv": {"longitude": 153.0, "latitude": -27.0, "terminal_names": ["1", "2", "3", "4"]},
+    "tertiary": {"longitude": 153.001, "latitude": -27.0, "terminal_names": ["1", "2", "3"]},
+    "open_a": {"longitude": 153.002, "latitude": -27.0},
+    "open_b": {"longitude": 153.002, "latitude": -27.0},
+    "unlinked_a": {"longitude": 153.003, "latitude": -27.0},
+    "unlinked_b": {"longitude": 153.003, "latitude": -27.0}
+  },
+  "switch": {
+    "tie": {"bus_from": "open_a", "bus_to": "open_b", "open_switch": true,
+      "terminal_map_from": ["1"], "terminal_map_to": ["1"]}
+  },
+  "transformer": {
+    "delta_wye": {
+      "onsite": {"bus_from": "hv", "bus_to": "lv", "terminal_map_from": ["1", "2", "3"], "terminal_map_to": ["1", "2", "3", "4"]}
+    },
+    "n_winding": {
+      "three_ports": {"windings": [
+        {"bus": "hv", "terminal_map": ["1", "2", "3"]},
+        {"bus": "lv", "terminal_map": ["1", "2", "3", "4"]},
+        {"bus": "tertiary", "terminal_map": ["1", "2", "3"]}
+      ]}
+    }
+  }
+}

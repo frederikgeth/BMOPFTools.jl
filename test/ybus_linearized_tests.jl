@@ -157,18 +157,30 @@
                     k = "$(bid).$(get(_TN, t, t))"
                     haskey(odsv, k) && (v0[(bid, t)] = odsv[k])
                 end
+                # The source-equivalent EMF nodes are internal to PowerIO.
+                # Fill their prescribed phasors explicitly; never substitute zero
+                # for a missing physical-bus voltage from the independent oracle.
+                source_nodes = Set{Tuple{String,String}}()
+                for source in values(net["voltage_source"])
+                    for (t, magnitude, angle) in zip(source["terminal_map"], source["v_magnitude"], source["v_angle"])
+                        nd = (source["bus"], t)
+                        push!(source_nodes, nd)
+                        v0[nd] = magnitude * cis(angle)
+                    end
+                end
                 for fold in (:constant_z, :all)
                     lin = ybus_linearized(net; fold=fold, v0=v0)
                     n = length(lin.nodes)
                     Vv = zeros(ComplexF64, n)
                     for (nd, i) in lin.index
                         i == 0 && continue
-                        haskey(v0, nd) && (Vv[i] = v0[nd])
+                        @test haskey(v0, nd)
+                        Vv[i] = v0[nd]
                     end
                     resid = lin.Y * Vv .- lin.i_comp(Vv)
                     maxr = 0.0
                     for (i, nd) in enumerate(lin.nodes)
-                        nd[1] == srcbus && continue     # source injects; skip
+                        nd in source_nodes && continue  # only prescribed EMF nodes inject
                         maxr = max(maxr, abs(resid[i]))
                     end
                     @test maxr < atol

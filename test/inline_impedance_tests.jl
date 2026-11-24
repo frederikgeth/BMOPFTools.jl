@@ -1,5 +1,5 @@
 # Inline ABSOLUTE line impedances (Ω/S on the line object, replacing a
-# linecode reference). Units by location: linecode = per metre × length,
+# linecode reference). Units by location: linecode = per meter × length,
 # line = section total, never scaled. Covers consistency rules, validation
 # findings, round-trip, simplify merging, PMD export, and (gated) PF parity
 # in both per-unit modes.
@@ -7,7 +7,7 @@
 # 4-wire fixture: the same network expressed with a linecode+length and with
 # the equivalent inline totals.
 function _inline_fixture(; inline::Bool)
-    lc_pm = Dict{String,Any}(   # simple decoupled per-metre code, 4 conductors
+    lc_pm = Dict{String,Any}(   # simple decoupled per-meter code, 4 conductors
         "R_series_1_1" => 4e-4, "R_series_2_2" => 4e-4,
         "R_series_3_3" => 4e-4, "R_series_4_4" => 4e-4,
         "X_series_1_1" => 3e-4, "X_series_2_2" => 3e-4,
@@ -89,7 +89,7 @@ end
         @test "E.INT.LINE_DIM_MISMATCH" in [f.code for f in analyze(net2).findings]
 
         # implied per-length plausibility: values far too small for totals
-        # over 500 m (e.g. per-metre data pasted in as totals, then some)
+        # over 500 m (e.g. per-meter data pasted in as totals, then some)
         net3 = _inline_fixture(inline=true)
         for k in collect(keys(net3["line"]["l1"]))
             if startswith(k, "R_series_") || startswith(k, "X_series_")

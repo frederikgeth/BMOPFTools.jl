@@ -79,7 +79,7 @@ function _apply_generation!(net′::Dict{String,Any},
     end
 end
 
-# Standardise a single-phase device's `i_max` to the per-conductor [phase, neutral]
+# Standardize a single-phase device's `i_max` to the per-conductor [phase, neutral]
 # form. A single-phase generator/IBR has ONE current (the phase and its return
 # carry the same magnitude), so a length-1 `i_max` is duplicated to length 2 — the
 # canonical per-conductor shape — without changing the physics (the engine still
@@ -95,7 +95,7 @@ function _normalize_single_phase_imax!(net′::Dict{String,Any},
         dev["i_max"] = [Float64(v[1]), Float64(v[1])]
         push!(entries, TransformEntry(ctype, id, "i_max", old, dev["i_max"],
             "per_conductor_imax_single_phase", :standard,
-            "single-phase i_max standardised to per-conductor [phase, neutral]"))
+            "single-phase i_max standardized to per-conductor [phase, neutral]"))
     end
     for (gid, g) in get(net′, "generator", Dict())
         g isa Dict || continue

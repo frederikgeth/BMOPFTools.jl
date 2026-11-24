@@ -12,7 +12,7 @@
 
 Clear
 
-! Base frequency locked to 50 Hz (BMOPF's modelling frequency).  The OpenDSS
+! Base frequency locked to 50 Hz (BMOPF's modeling frequency).  The OpenDSS
 ! default (60 Hz, or whatever a Windows GUI session persisted) would otherwise
 ! rescale every reactance.  See docs/src/validation.md.
 Set DefaultBaseFreq=50

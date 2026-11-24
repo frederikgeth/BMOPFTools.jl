@@ -3,13 +3,16 @@
 
 Build an undirected graph of the network and compute:
 - Number of connected components
-- Radial vs meshed topology (cycle detection)
+- Radial vs meshed topology (cycle detection over phase-carrying branches;
+  cycles closed only by neutral-only branches, such as a neutral bond beside a
+  service transformer, are counted separately as `neutral_only_cycle_rank`)
 - Degree statistics
 - Tree depth and longest path from voltage source
 - Open-switch isolated sections
 """
 function connectivity_analysis(net::Dict{String,Any},
-                                findings::Vector{Finding}; voltage_levels=nothing)::Dict{String,Any}
+                                findings::Vector{Finding}; voltage_levels=nothing,
+                                config::Dict=_DEFAULT_CONFIG)::Dict{String,Any}
     result = Dict{String,Any}()
 
     buses = get(net, "bus", Dict())
@@ -19,6 +22,8 @@ function connectivity_analysis(net::Dict{String,Any},
         result["n_components"] = 0
         result["structure"] = _topology_structure(net, Dict{String,Any}(), inventory)
         result["switch_scenarios"] = _switch_scenarios(net, inventory)
+        spatial = _spatial_analysis(net, Dict{String,Any}(), findings; config=config)
+        spatial === nothing || (result["spatial"] = spatial)
         return result
     end
 
@@ -31,6 +36,12 @@ function connectivity_analysis(net::Dict{String,Any},
     # SimpleGraph deduplicates parallel edges and drops self-loops, so count
     # branch elements separately — radiality must see every physical branch.
     n_branches = Ref(0)
+    # Neutral-only lines/switches keep buses connected but carry no phase
+    # conductor. Radiality is assessed on the phase-carrying graph.
+    roles = _index_roles(net)
+    g_phase = SimpleGraph(n)
+    n_phase_branches = Ref(0)
+    n_neutral_only = Ref(0)
 
     # Check for branch self-loops (bus_from == bus_to) before adding edges.
     function check_self_loop!(comp_type, id, bus_a, bus_b)
@@ -47,20 +58,26 @@ function connectivity_analysis(net::Dict{String,Any},
     # excluded from the branch count: SimpleGraph silently drops them, so
     # counting them would flag a radial network as meshed. They are already
     # reported separately as E.CONN.SELF_LOOP.
-    function add_edge_safe!(bus_a, bus_b)
+    function add_edge_safe!(bus_a, bus_b; neutral_only::Bool=false)
         (bus_a isa AbstractString && bus_b isa AbstractString) || return
         i = get(bus_index, bus_a, nothing)
         j = get(bus_index, bus_b, nothing)
         (i === nothing || j === nothing || i == j) && return
         n_branches[] += 1
         add_edge!(g, i, j)
+        if neutral_only
+            n_neutral_only[] += 1
+        else
+            n_phase_branches[] += 1
+            add_edge!(g_phase, i, j)
+        end
     end
 
     # Lines
     for (id, l) in get(net, "line", Dict())
         bf = get(l, "bus_from", nothing); bt = get(l, "bus_to", nothing)
         check_self_loop!("line", id, bf, bt)
-        add_edge_safe!(bf, bt)
+        add_edge_safe!(bf, bt; neutral_only=_neutral_only_branch(l, roles))
     end
 
     # Closed switches only
@@ -68,7 +85,7 @@ function connectivity_analysis(net::Dict{String,Any},
         bf = get(sw, "bus_from", nothing); bt = get(sw, "bus_to", nothing)
         check_self_loop!("switch", id, bf, bt)
         get(sw, "open_switch", false) && continue
-        add_edge_safe!(bf, bt)
+        add_edge_safe!(bf, bt; neutral_only=_neutral_only_branch(sw, roles))
     end
 
     # Transformers (each winding pair is an edge)
@@ -137,13 +154,18 @@ function connectivity_analysis(net::Dict{String,Any},
 
     # Radial vs meshed: a forest on n vertices has exactly n - n_components
     # edges. Use the physical branch count, not ne(g), so parallel branches
-    # between the same bus pair are detected as cycles.
-    n_edges         = n_branches[]
+    # between the same bus pair are detected as cycles. Radiality concerns the
+    # phase-carrying branches; neutral-only branches close cycles only through
+    # transformers or parallel phase paths, which is counted separately.
     n_vertices      = nv(g)
-    tree_edge_count = n_vertices - n_comps
+    n_edges         = n_phase_branches[]
+    tree_edge_count = n_vertices - length(connected_components(g_phase))
     is_radial       = (n_edges == tree_edge_count)
+    neutral_cycles  = (n_branches[] - (n_vertices - n_comps)) - (n_edges - tree_edge_count)
     result["is_radial"]       = is_radial
     result["n_extra_edges"]   = n_edges - tree_edge_count  # 0 for radial
+    result["n_neutral_only_branches"] = n_neutral_only[]
+    result["neutral_only_cycle_rank"] = neutral_cycles
 
     # Tree depth from each voltage source bus
     if !isempty(vsrc_buses)
@@ -231,7 +253,7 @@ function connectivity_analysis(net::Dict{String,Any},
                 :network, nothing,
                 "Galvanic zone anchored at bus '$(z.label)' is split-phase " *
                 "(fed by center_tap transformer '$(ct_id)'): legs $(sort(collect(z.phases))) " *
-                "are anti-phase about the centre-tap neutral.",
+                "are anti-phase about the center-tap neutral.",
                 Dict{String,Any}("zone_anchor" => z.label, "center_tap" => ct_id,
                                  "phases" => sort(collect(z.phases)))))
         elseif z.topology == :swer
@@ -256,12 +278,13 @@ function connectivity_analysis(net::Dict{String,Any},
             "Network contains $(n_edges - tree_edge_count) extra edge(s) forming cycles — not purely radial.",
             Dict{String,Any}(
                 "extra_edges" => n_edges - tree_edge_count,
+                "neutral_only_cycle_rank" => neutral_cycles,
                 "simple_cycle_rank" => whole["simple_cycle_rank"],
                 "parallel_excess" => whole["parallel_excess"],
                 "transformer_mediated_cycle_rank" => whole["transformer_mediated_cycle_rank"],
                 "cycle_closing_branches" => structure["cycle_closing_branches"])))
     end
-    spatial = _spatial_analysis(net, levels, findings)
+    spatial = _spatial_analysis(net, levels, findings; config=config)
     spatial === nothing || (result["spatial"] = spatial)
 
     result
@@ -391,7 +414,10 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
         if a == b
             push!(zone_edges[a], edge)
         else
-            edge.continuous && continue  # zone construction must keep these together
+            # A continuous branch between zones can only be a neutral-only
+            # line or switch. It is skipped on purpose: a neutral bond is not
+            # a zone interface.
+            edge.continuous && continue
             transformer_id = edge.kind == "transformer:n_winding" ? first(rsplit(edge.id, ":"; limit=2)) : edge.id
             push!(incident[a], "$(edge.kind):$transformer_id")
             push!(incident[b], "$(edge.kind):$transformer_id")
@@ -433,53 +459,14 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
         end
     end
 
-    # This compares declarations only. Identical fields do not establish that
-    # two parallel records refer to the same physical asset.
-    line_groups = Dict{Tuple{String,String},Vector{Tuple{String,Any,Bool}}}()
-    for (id, line) in get(net, "line", Dict())
-        a = get(line, "bus_from", nothing); b = get(line, "bus_to", nothing)
-        (a isa AbstractString && b isa AbstractString && a != b && a in busset && b in busset) || continue
-        pair = minmax(String(a), String(b))
-        push!(get!(line_groups, pair, Tuple{String,Any,Bool}[]), (string(id), line, a == pair[1]))
-    end
-    classes = Dict(k => 0 for k in ("incomplete_terminal_map", "terminal_map_disagreement",
-                                      "same_declared_fields", "different_declared_fields"))
-    witnesses = Dict{String,Any}[]
-    n_groups = 0
-    for pair in sort!(collect(keys(line_groups)))
-        members = line_groups[pair]
-        length(members) < 2 && continue
-        n_groups += 1
-        sort!(members, by=first)
-        maps = Any[]; fields = Any[]
-        for (_, line, forward) in members
-            from_map = get(line, forward ? "terminal_map_from" : "terminal_map_to", nothing)
-            to_map = get(line, forward ? "terminal_map_to" : "terminal_map_from", nothing)
-            push!(maps, (from_map, to_map))
-            push!(fields, Dict(k => v for (k, v) in line if
-                               !(k in ("bus_from", "bus_to", "terminal_map_from", "terminal_map_to", "meta"))))
-        end
-        class = any(m -> !(m[1] isa AbstractVector && m[2] isa AbstractVector) ||
-                         isempty(m[1]) || isempty(m[2]), maps) ? "incomplete_terminal_map" :
-                !all(m -> isequal(m, maps[1]), maps) ? "terminal_map_disagreement" :
-                all(f -> isequal(f, fields[1]), fields) ? "same_declared_fields" :
-                "different_declared_fields"
-        classes[class] += 1
-        if count(w -> w["classification"] == class, witnesses) < 5
-            push!(witnesses, Dict{String,Any}(
-                "bus_pair" => collect(pair), "line_ids" => [m[1] for m in members],
-                "classification" => class,
-                "voltage_level" => get(level_by_bus, pair[1], "unassigned")))
-        end
-    end
+    parallel = _parallel_line_evidence(net; level_by_bus=level_by_bus, busset=busset)
+    delete!(parallel, "groups") # full groups remain only in the legacy redundancy result
     Dict{String,Any}(
         "whole_network" => whole, "voltage_tiers" => tiers, "galvanic_zones" => zones,
         "cycle_closing_branches" => closing,
         "conductor_paths" => _conductor_paths(net, voltage_levels),
         "n_cross_tier_edges" => cross_level, "n_skipped_branches" => skipped,
-        "parallel_lines" => Dict{String,Any}(
-            "n_groups" => n_groups, "classification_counts" => classes,
-            "witnesses" => witnesses, "witnesses_per_class_limit" => 5))
+        "parallel_lines" => parallel)
 end
 
 """
@@ -499,6 +486,10 @@ that is not a 120° rotation.
   conductors, but its voltage source's angle arrangement is zero/quadrature/
   anti-phase/incoherent rather than a 120° rotation, so it cannot establish a
   rotating 3-phase field.
+
+Phase conductors are counted with the case's resolved terminal roles
+(`terminal_conventions`, or the naming convention when none is declared):
+neutral- and earth-role labels are not phases.
 """
 function _check_supply_phase_consistency(net::Dict{String,Any},
                                          findings::Vector{Finding},
@@ -507,8 +498,9 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
     vsrcs = get(net, "voltage_source", Dict())
     xfmr  = get(net, "transformer", Dict())
 
+    is_return = _return_label_predicate(net)
     _nphase(tm) = let v = Vector{String}(string.(tm)), nt = _neutral_terminal(v)
-        count(t -> t != nt && lowercase(t) != "n", v)
+        count(t -> !is_return(t, nt), v)
     end
     function _bus_nphase(bid)
         b = get(buses, bid, nothing)
@@ -543,7 +535,7 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
             va = Float64.(get(vs, "v_angle", Float64[]))
             angs = Float64[]
             for (k, t) in enumerate(tm)
-                (t == nt || lowercase(t) == "n") && continue
+                is_return(t, nt) && continue
                 k <= length(va) && push!(angs, va[k])
             end
             np = _nphase(tm)
@@ -624,8 +616,19 @@ closed switches, and the galvanically-continuous transformer subtypes
 (`single_phase_autotransformer`, `open_delta_regulator`, listed in
 `GALVANIC_CONTINUOUS_SUBTYPES`). Isolating transformer subtypes are NOT
 included as edges. Returns a list of bus-name sets, one per zone.
+
+By default, zones describe phase-conductor continuity. Lines and closed switches
+that map only neutral- or earth-role terminals at both ends (see
+`_neutral_only_branch`), such as a primary-to-secondary neutral bond across a
+service transformer, carry no phase conductor and do not join zones.
+
+Pass `include_neutral_only=true` for conductor continuity instead: every line and
+closed switch joins its buses. Per-unit scaling needs this form, because a
+branch current is scaled by one endpoint's current base while KCL at the other
+endpoint uses that bus's base, so both ends must share one power base.
 """
-function _galvanic_zones(net::Dict{String,Any})::Vector{Set{String}}
+function _galvanic_zones(net::Dict{String,Any};
+                         include_neutral_only::Bool=false)::Vector{Set{String}}
     buses = collect(keys(get(net, "bus", Dict())))
     isempty(buses) && return Set{String}[]
 
@@ -643,12 +646,15 @@ function _galvanic_zones(net::Dict{String,Any})::Vector{Set{String}}
         push!(adj[b], a)
     end
 
+    roles = include_neutral_only ? nothing : _index_roles(net)
     for (_, l) in get(net, "line", Dict())
+        _neutral_only_branch(l, roles) && continue
         f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
         (f isa AbstractString && t isa AbstractString && f != t) && add_edge!(f, t)
     end
     for (_, sw) in get(net, "switch", Dict())
         get(sw, "open_switch", false) && continue
+        _neutral_only_branch(sw, roles) && continue
         f = get(sw, "bus_from", nothing); t = get(sw, "bus_to", nothing)
         (f isa AbstractString && t isa AbstractString && f != t) && add_edge!(f, t)
     end
@@ -692,7 +698,7 @@ Returns one entry per zone: `(buses, label, phases, topology, feed)` where
 `topology` is one of:
 
 - `:split_phase` — a `center_tap` transformer's `bus_to` lies in the zone
-  (the modelled cause of split-phase service; NA 120-0-120, AU 230-0-230);
+  (the modeled cause of split-phase service; NA 120-0-120, AU 230-0-230);
 - `:swer` — the zone is single-wire (one distinct phase conductor across all its
   buses) **and** transformer-isolated (contains no voltage-source bus), the
   Single-Wire-Earth-Return signature;
@@ -766,4 +772,75 @@ function _classify_zones(net::Dict{String,Any})
                     topology = topology, feed = feed))
     end
     out
+end
+
+# Endpoint-normalized declaration comparison, shared by topology and redundancy.
+# Ordered conductor coordinates are compared strictly; no inferred permutation.
+function _parallel_line_evidence(net; level_by_bus=Dict(), busset=nothing)
+    groups = Dict{Tuple{String,String},Vector{Tuple{String,Any,Bool}}}()
+    for (id, line) in get(net, "line", Dict())
+        line isa AbstractDict || continue
+        a = get(line, "bus_from", nothing); b = get(line, "bus_to", nothing)
+        a isa AbstractString && b isa AbstractString && a != b || continue
+        busset !== nothing && !(a in busset && b in busset) && continue
+        pair = minmax(String(a), String(b))
+        push!(get!(groups, pair, Tuple{String,Any,Bool}[]), (string(id), line, a == pair[1]))
+    end
+    names = ("incomplete_terminal_map", "terminal_map_disagreement", "unsupported_orientation",
+             "same_declared_fields", "different_declared_fields")
+    counts = Dict(k => 0 for k in names); members_by_class = copy(counts); excess_by_class = copy(counts)
+    multiplicities = Dict{String,Int}(); full = Dict{String,Any}[]; witnesses = Dict{String,Any}[]
+    for pair in sort!(collect(keys(groups)))
+        members = sort!(groups[pair], by=first); n = length(members)
+        n > 1 || continue
+        maps = Any[]; fields = Any[]; supported = true
+        for (_, line, forward) in members
+            fm = get(line, forward ? "terminal_map_from" : "terminal_map_to", nothing)
+            tm = get(line, forward ? "terminal_map_to" : "terminal_map_from", nothing)
+            push!(maps, (fm, tm))
+            normalized = Dict{String,Any}()
+            for (k, v) in line
+                k in ("bus_from", "bus_to", "terminal_map_from", "terminal_map_to", "meta") && continue
+                key = k; value = v
+                if !forward
+                    m = match(r"^([GB])_(from|to)_(.+)$", k)
+                    if m !== nothing
+                        key = "$(m[1])_$(m[2] == "from" ? "to" : "from")_$(m[3])"
+                    elseif k in ("va_diff_min", "va_diff_max")
+                        key = k == "va_diff_min" ? "va_diff_max" : "va_diff_min"
+                        if v isa Real || (v isa AbstractVector && all(x -> x isa Real, v))
+                            value = -v
+                        else
+                            supported = false
+                        end
+                    end
+                end
+                normalized[key] = value
+            end
+            push!(fields, normalized)
+        end
+        validmap(m) = m isa AbstractVector && !isempty(m) && all(t -> t isa AbstractString, m) && length(unique(m)) == length(m)
+        class = any(m -> !validmap(m[1]) || !validmap(m[2]) || length(m[1]) != length(m[2]), maps) ? "incomplete_terminal_map" :
+            !all(m -> isequal(m, maps[1]), maps) ? "terminal_map_disagreement" :
+            !supported ? "unsupported_orientation" :
+            all(f -> isequal(f, fields[1]), fields) ? "same_declared_fields" : "different_declared_fields"
+        counts[class] += 1; members_by_class[class] += n; excess_by_class[class] += n-1
+        multiplicities[string(n)] = get(multiplicities, string(n), 0)+1
+        ids = [m[1] for m in members]
+        push!(full, Dict{String,Any}("bus_from" => pair[1], "bus_to" => pair[2], "line_ids" => ids,
+            "classification" => class, "n_members" => n, "n_excess" => n-1))
+        if count(w -> w["classification"] == class, witnesses) < 5
+            push!(witnesses, Dict{String,Any}("bus_pair" => collect(pair), "line_ids" => ids[1:min(end, 5)],
+                "classification" => class, "n_members" => n, "n_excess" => n-1,
+                "members_truncated" => n > 5, "voltage_level" => get(level_by_bus, pair[1], "unassigned")))
+        end
+    end
+    Dict{String,Any}("n_groups" => length(full), "groups" => full, "classification_counts" => counts,
+        "member_counts_by_class" => members_by_class, "excess_counts_by_class" => excess_by_class,
+        "multiplicity_counts" => multiplicities, "n_parallel_excess" => sum(values(excess_by_class)),
+        "n_identical_group_excess" => excess_by_class["same_declared_fields"],
+        "witnesses" => witnesses, "witnesses_per_class_limit" => 5, "member_witness_limit" => 5,
+        "witnesses_truncated" => length(witnesses) < length(full),
+        "comparison_basis" => "ordered_maps_and_all_declared_fields_except_meta_with_endpoint_shunts_and_signed_angle_bounds_normalized",
+        "asset_identity" => "unassessed")
 end

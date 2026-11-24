@@ -131,7 +131,9 @@ end
             # whereas the authored capability requires Q>=-300.
             @test -0.75 * only(net["ibr"]["pv"]["p_min"]) <
                 only(net["ibr"]["pv"]["q_min"])
-            for family in (:ibr_p_lower, :ibr_power_factor, :ibr_q_lower, :ibr_q_upper)
+            # p_min == p_max == 1200 pins P as one equality row.
+            @test only(net["ibr"]["pv"]["p_max"]) == 1200.0
+            for family in (:ibr_p_equality, :ibr_power_factor, :ibr_q_lower, :ibr_q_upper)
                 @test OpfModelKey(:constraint, family, ("pv", 1)) in opf_object_keys(ctx)
             end
             r = solve_reactive_limit(net; per_unit=pu)
@@ -190,6 +192,72 @@ end
             @test result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
             @test result["ibr"]["pv"]["a"]["pg"] ≈ cap/0.75 atol=1e-3
             @test result["ibr"]["pv"]["a"]["qg"] ≈ cap atol=1e-3
+        end
+    end
+end
+
+# A static pinned operating point (p_min == p_max, q_min == q_max) is one
+# equality row, not a zero-width inequality pair: the pair has no interior and
+# made per-unit IBR power flows intermittently land on a low-voltage root.
+@testset "Equal static IBR P/Q bounds stamp one equality row" begin
+    keyset(ctx) = Set(k.family for k in opf_object_keys(ctx)
+                      if k.kind == :constraint && k.index == ("pv", 1))
+    @testset "pinned P and Q ($topology, pu=$pu)" for
+            topology in ("SINGLE_PHASE", "FOUR_LEG", "THREE_LEG"), pu in (false, true)
+        net = reactive_limit_net(; topology, pf=nothing)
+        inv = net["ibr"]["pv"]; n = length(inv["p_min"])
+        inv["p_min"] = fill(600.0, n); inv["p_max"] = fill(600.0, n)
+        inv["q_min"] = fill(-100.0, n); inv["q_max"] = fill(-100.0, n)
+        restored = JSON3.read(JSON3.write(net), Dict{String,Any})
+        ctx = build_opf_model(restored; per_unit=pu)
+        families = keyset(ctx)
+        @test :ibr_p_equality in families && :ibr_q_equality in families
+        @test isempty(intersect(families,
+            Set([:ibr_p_lower, :ibr_p_upper, :ibr_q_lower, :ibr_q_upper])))
+        row = constraint_object(opf_object(ctx,
+            OpfModelKey(:constraint, :ibr_p_equality, ("pv", 1))))
+        @test row.set isa MOI.EqualTo
+        pu || @test row.set.value ≈ 600.0
+        result = solve_reactive_limit(restored; per_unit=pu)
+        @test result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        for phase in net["voltage_source"]["source"]["terminal_map"]
+            @test result["ibr"]["pv"][phase]["pg"] ≈ 600.0 atol=1e-3
+            @test result["ibr"]["pv"][phase]["qg"] ≈ -100.0 atol=1e-3
+        end
+    end
+
+    @testset "unequal and one-sided bounds keep inequality rows" begin
+        net = reactive_limit_net(; pf=nothing)
+        families = keyset(build_opf_model(net))
+        @test issubset(Set([:ibr_p_lower, :ibr_p_upper, :ibr_q_lower, :ibr_q_upper]), families)
+        @test :ibr_p_equality ∉ families && :ibr_q_equality ∉ families
+        delete!(net["ibr"]["pv"], "p_min"); delete!(net["ibr"]["pv"], "q_max")
+        families = keyset(build_opf_model(net))
+        @test :ibr_p_upper in families && :ibr_q_lower in families
+        @test isempty(intersect(families,
+            Set([:ibr_p_lower, :ibr_q_upper, :ibr_p_equality, :ibr_q_equality])))
+    end
+
+    @testset "a parameter bound equal to its partner keeps both rows" begin
+        net = reactive_limit_net(; pf=nothing)
+        net["ibr"]["pv"]["p_min"] = [600.0]
+        model = Model(Ipopt.Optimizer); set_silent(model)
+        available = @variable(model, set=Parameter(600.0))
+        spec = OpfBuildSpec(coefficient_providers=Dict(
+            OpfCoefficientKey(:availability, :ibr, "pv", :p_max, 1) =>
+                OpfCoefficientProvider(:EqualBoundTest, (ctx, key, default) -> available)))
+        ctx = build_opf_model(net; model, build_spec=spec, per_unit=false)
+        families = keyset(ctx)
+        @test :ibr_p_lower in families && :ibr_p_upper in families
+        @test :ibr_p_equality ∉ families
+        @objective(model, Max, opf_object(ctx, opf_ibr_power_key("pv", 1)))
+        enforce_kcl!(ctx)
+        for available_p in (600.0, 800.0)
+            set_parameter_value(available, available_p)
+            resolve_opf!(ctx)
+            r = extract_result(ctx)
+            @test r["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+            @test r["ibr"]["pv"]["a"]["pg"] ≈ available_p atol=1e-3
         end
     end
 end

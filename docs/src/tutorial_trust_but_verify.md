@@ -1,5 +1,8 @@
 # Trust but verify: validating one solved OPF
 
+For an additional check by re-solving a pinned dispatch, continue to
+[Solution projection and power-flow comparison](solution_projection.md).
+
 *What a solver's status guarantees — and what it does not.*
 
 A nonlinear OPF solver ends with a verdict like `LOCALLY_SOLVED`. It is tempting
@@ -17,7 +20,7 @@ dictionary alone. This tutorial does exactly that on a feeder small enough to
 have a closed-form answer, then compares those checks with the narrower coverage of the toolkit profiler.
 
 *Prerequisites: a Julia environment with `BMOPFTools`, `JuMP` and `Ipopt` — see
-the [end-to-end tutorial](tutorial_end_to_end.md) first.*
+the [bundled first-case walkthrough](first_case.md) first.*
 
 ## 1. A feeder with a known answer
 
@@ -108,7 +111,7 @@ loading_percent = I_solved / imax * 100
 **Check 5 — losses and the objective.** The line dissipates `I²R`; that must
 equal the reported network loss. And the objective is **zero** — not a bug:
 there is no *costed* generator, so this is a pure feasibility problem (a power
-flow written as an OPF), and its objective has nothing to minimise.
+flow written as an OPF), and its objective has nothing to minimize.
 
 ```@example trustverify
 (loss_hand = I_solved^2 * R,
@@ -192,7 +195,7 @@ acceptance tolerance. The verdict does **not** guarantee that:
 - the point is **operationally sensible** — a 38 %-loss or a collapsed-voltage
   solution can be a perfectly valid KKT point;
 - the **model is the one you meant** — the solver validates the equations you
-  wrote, not your modelling assumptions. That gap is the subject of
+  wrote, not your modeling assumptions. That gap is the subject of
   [From nameplate data to a defensible model](tutorial_nameplate.md).
 
 !!! tip "The habit"

@@ -7,7 +7,7 @@
 # Convention matches OpenDSS Yprim / DumpYprim: SI units (siemens), positive
 # current = into the element, symmetric (Y = Yᵀ — reciprocal, NOT Hermitian).
 #
-# Construction: transpose(C) * y_prim * C + Y₀ (magnetising shunt across the
+# Construction: transpose(C) * y_prim * C + Y₀ (magnetizing shunt across the
 # winding-2 / to-side coil, the OpenDSS convention), where C maps node voltages
 # to per-core winding voltages and y_prim is the block-diagonal primitive
 # admittance. This guarantees Y = Yᵀ (a plain transpose — NOT the adjoint). In
@@ -23,7 +23,7 @@
 #   center_tap    — 3-winding star-equivalent T-model (§4)
 
 """
-    transformer_yprim(xfmr, subtype) -> (nodes, Y)
+    transformer_yprim(xfmr, subtype; config=_DEFAULT_CONFIG, shunt_only=false) -> (nodes, Y)
 
 Return the nodal admittance block for a single transformer data dict.
 
@@ -42,10 +42,18 @@ The regulator subtypes `"single_phase_autotransformer"` and
 `"open_delta_regulator"` use the fixed-tap effective ratio `n_eff`
 (`BMOPFTools._autotransformer_ratio`) in place of the nameplate turns ratio.
 
-Raises an `ArgumentError` for unknown subtypes. Returns `([], zeros(0,0))` when
-the transformer is degenerate (zero `v_nom_to`, missing terminal maps).
+Raises `ArgumentError` for unknown subtypes, invalid ratios, or leakage at/below
+`xfmr_z_min_ohm` on the effective coil reference basis. Use `ybus_augmented`
+for supported small/zero-leakage couplings. `shunt_only=true` explicitly returns
+only finite shunts for inspection (ordinary two-winding, center-tap and regulator subtypes);
+that block alone is not a complete network element.
 """
-function transformer_yprim(xfmr::Dict{String,Any}, subtype::AbstractString)
+function transformer_yprim(xfmr::Dict{String,Any}, subtype::AbstractString;
+                           config=_DEFAULT_CONFIG, shunt_only::Bool=false)
+    subtype in ("single_phase", "center_tap", "wye_delta", "delta_wye") &&
+        _ybus_xfmr_turns_ratio(xfmr)
+    shunt_only && return _transformer_shunt_yprim(xfmr, subtype)
+    _require_finite_xfmr_primitive(xfmr, subtype, config)
     subtype == "single_phase" && return _yprim_single_phase(xfmr)
     subtype == "center_tap"   && return _yprim_center_tap(xfmr)
     subtype == "wye_delta"    && return _yprim_yd(xfmr; wye_is_from=true)
@@ -53,6 +61,20 @@ function transformer_yprim(xfmr::Dict{String,Any}, subtype::AbstractString)
     subtype == "single_phase_autotransformer" && return _yprim_autotransformer(xfmr)
     subtype == "open_delta_regulator"          && return _yprim_open_delta(xfmr)
     throw(ArgumentError("unknown transformer subtype: $(repr(subtype))"))
+end
+
+# Finite part retained when the series relation is represented by aliases or
+# constraint rows. Do not zero or mutate input impedances: the primitive itself
+# owns the shunt placement and can omit only its series contribution.
+function _transformer_shunt_yprim(xfmr, subtype)
+    subtype == "single_phase" && return _yprim_single_phase(xfmr; series=false)
+    subtype == "wye_delta" && return _yprim_yd(xfmr; wye_is_from=true, series=false)
+    subtype == "delta_wye" && return _yprim_yd(xfmr; wye_is_from=false, series=false)
+    subtype == "n_winding" && return nwinding_yprim(xfmr; shunt_only=true)
+    subtype == "center_tap" && return _yprim_center_tap(xfmr; series=false)
+    subtype == "single_phase_autotransformer" && return _yprim_autotransformer(xfmr; series=false)
+    subtype == "open_delta_regulator" && return _yprim_open_delta(xfmr; series=false)
+    throw(ArgumentError("shunt-only primitive is not supported for $subtype"))
 end
 
 """
@@ -163,7 +185,7 @@ end
 # drift apart (Dy roll direction, L-N vs L-L coils, tap in the ratio).
 #
 # Covered subtypes: single_phase, wye_delta, delta_wye — the ideal-capable set
-# `_xfmr_alias_pairs` recognises. center_tap (3-winding star, not rank-1) and
+# `_xfmr_alias_pairs` recognizes. center_tap (3-winding star, not rank-1) and
 # the regulator subtypes keep their own builders.
 
 const _WindingIncidence = NamedTuple{
@@ -189,7 +211,55 @@ function _xfmr_winding_incidence(xfmr::Dict{String,Any},
     subtype == "single_phase" && return _winding_incidence_single_phase(xfmr)
     subtype == "wye_delta"    && return _winding_incidence_yd(xfmr; wye_is_from=true)
     subtype == "delta_wye"    && return _winding_incidence_yd(xfmr; wye_is_from=false)
+    subtype in ("single_phase_autotransformer", "open_delta_regulator") &&
+        return _winding_incidence_regulator(xfmr, subtype)
     throw(ArgumentError("no winding incidence for transformer subtype: $(repr(subtype))"))
+end
+
+function _winding_incidence_regulator(x, subtype)
+    ratios = _ybus_regulator_ratios(x, subtype)
+    if subtype == "single_phase_autotransformer"
+        inc = _winding_incidence_single_phase(x)
+        length(inc) == 1 || throw(ArgumentError("single-phase regulator requires exactly one coil per side"))
+        _autotransformer_bond(x) # validate the shared reference domain
+        return _WindingIncidence[merge(only(inc),(ratio=only(ratios),))]
+    end
+    _open_delta_bond(x) # validates connection and phase counts
+    tmf=string.(x["terminal_map_from"]); tmt=string.(x["terminal_map_to"])
+    pf=_phase_positions(tmf); pt=_phase_positions(tmt)
+    pairs=_OPEN_DELTA_YPRIM_PAIRS[uppercase(strip(string(x["connection"])))]
+    _WindingIncidence[(w1_nodes=[(x["bus_from"],tmf[pf[p]]),(x["bus_from"],tmf[pf[q]])],
+        w1_coeffs=[1.,-1.], w2_nodes=[(x["bus_to"],tmt[pt[p]]),(x["bus_to"],tmt[pt[q]])],
+        w2_coeffs=[1.,-1.], ratio=ratios[k]) for (k,(p,q)) in enumerate(pairs)]
+end
+
+function _autotransformer_bond(x)
+    tmf=string.(get(x,"terminal_map_from",String[])); tmt=string.(get(x,"terminal_map_to",String[]))
+    pf=_xfmr_winding_pairs(tmf); pt=_xfmr_winding_pairs(tmt)
+    length(pf)==length(pt)==1 || throw(ArgumentError("single-phase regulator requires one coil per side"))
+    qf=only(pf)[2]; qt=only(pt)[2]
+    (qf===nothing)==(qt===nothing) || throw(ArgumentError("regulator shared reference must exist on both sides"))
+    qf===nothing && return nothing # both references are implicit earth
+    ((string(x["bus_from"]),tmf[qf]),(string(x["bus_to"]),tmt[qt]))
+end
+
+# Primitive and augmented paths consume identical voltage coefficients.
+function _xfmr_core_row(nodes, ent)
+    c=zeros(Float64,length(nodes))
+    for (nd,cf) in zip(vcat(ent.w1_nodes,ent.w2_nodes),vcat(ent.w1_coeffs,-ent.ratio.*ent.w2_coeffs))
+        c[findfirst(==(nd),nodes)] += cf
+    end
+    c
+end
+
+# Each block supplies coil incidence and the corresponding impedance matrix.
+# Ordinary/regulator cores are independent; multiport subtypes extend this seam.
+function _xfmr_port_blocks(x, subtype)
+    subtype == "n_winding" && return _nwinding_port_blocks(x)
+    subtype == "center_tap" && return _center_tap_port_blocks(x)
+    inc=_xfmr_winding_incidence(x,subtype)
+    zs=_xfmr_leakage_values(x,subtype)
+    [(_WindingIncidence[ent],fill(ComplexF64(zs[min(k,end)]),1,1)) for (k,ent) in enumerate(inc)]
 end
 
 function _winding_incidence_single_phase(xfmr::Dict{String,Any})
@@ -266,7 +336,7 @@ end
 
 # ── single_phase ────────────────────────────────────────────────────────────
 
-function _yprim_single_phase(xfmr::Dict{String,Any})
+function _yprim_single_phase(xfmr::Dict{String,Any}; series::Bool=true)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
     tm_fr = Vector{String}(get(xfmr, "terminal_map_from", String[]))
@@ -338,10 +408,10 @@ function _yprim_single_phase(xfmr::Dict{String,Any})
             C[2, nidx!(nd...)] = cf
         end
 
-        if !iszero(Z)
+        if series && !iszero(Z)
             Y .+= transpose(C) * ((1.0/Z) * [1.0 -N; -N N^2]) * C
         end
-        # No-load (magnetising) shunt across the TO coil (p_to − q_to). OpenDSS
+        # No-load (magnetizing) shunt across the TO coil (p_to − q_to). OpenDSS
         # places the exciting branch on winding 2, referred to winding 2's coil
         # voltage — verified against its Yprim. `g/b_no_load` are therefore on
         # the to-side base (`from_dss` derives them there).
@@ -362,7 +432,7 @@ end
 
 # ── center_tap ──────────────────────────────────────────────────────────────
 
-function _yprim_center_tap(xfmr::Dict{String,Any})
+function _yprim_center_tap(xfmr::Dict{String,Any}; series::Bool=true)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
     tm_fr = Vector{String}(get(xfmr, "terminal_map_from", String[]))
@@ -386,7 +456,7 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
     # Internal neutral-grounding branch (OpenDSS rneut/xneut): y_n from a shared
     # neutral terminal to earth — a diagonal stamp, matching OpenDSS's Yprim and
     # the OPF builder `_add_center_tap_transformer!`. `r/x_neutral_from` grounds
-    # the HV neutral (node 2); `r/x_neutral_to` grounds the LV centre-tap neutral
+    # the HV neutral (node 2); `r/x_neutral_to` grounds the LV center-tap neutral
     # (node 4). Both terminals always exist for a center_tap, so no arity guard.
     yn_fr = _xfmr_yn(xfmr, "from")
     yn_to = _xfmr_yn(xfmr, "to")
@@ -396,17 +466,17 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
         (b_fr, tm_fr[1]), (b_fr, tm_fr[2]),
         (b_to, tm_to[1]), (b_to, tm_to[2]), (b_to, tm_to[3]),
     ]
-    # Diagonal stamp: HV neutral = node 2, LV centre tap = node 4.
+    # Diagonal stamp: HV neutral = node 2, LV center tap = node 4.
     _stamp_ct_yn!(Y) = (Y[2,2] += yn_fr; Y[4,4] += yn_to)
 
     # 3-port star admittance (all referred to LV).
     # Arms: HV (impedance Z1/N², admitted y1=N²/Z1), LV1 (Z2, y2), LV2 (Z2, y2).
     # LV-leg-2 winding spans V_c→V_g (same direction as leg-1 V_a→V_g).
-    if iszero(Z1) || iszero(Z2)
+    if !series || iszero(Z1) || iszero(Z2)
         # A zero star arm makes the coupling (partly) ideal, which has no
         # admittance form: the series block is singular. Still stamp the no-load
         # shunt (previously dropped) so a zero-leakage unit keeps its core loss.
-        @warn "center_tap transformer has a zero series star arm; the ideal " *
+        series && @warn "center_tap transformer has a zero series star arm; the ideal " *
               "coupling has no admittance form — exporting the (singular) shunt-only Yprim."
         Y_deg = zeros(ComplexF64, 5, 5)
         Y0 = G0 + im*B0                    # across winding 2 (LV leg 1: nodes 3-4)
@@ -429,8 +499,8 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
     # Connection matrix C (3×5): maps node voltages [p,m,a,g,c] to winding voltages.
     # Row 1: V_HV_ref = (V_p - V_m)/N
     # Row 2: V_leg1   = V_a - V_g   (winding 2 dotted at leg 1)
-    # Row 3: V_leg2   = V_g - V_c   (winding 3 dotted at the centre tap g)
-    # Winding 3 is dotted at the centre tap, so its voltage is V_g − V_c (NOT
+    # Row 3: V_leg2   = V_g - V_c   (winding 3 dotted at the center tap g)
+    # Winding 3 is dotted at the center tap, so its voltage is V_g − V_c (NOT
     # V_c − V_g). The opposite sign makes the two LV legs identical instead of
     # series-aiding; with the correct sign this Yprim matches OpenDSS exactly.
     C = zeros(ComplexF64, 3, 5)
@@ -440,7 +510,7 @@ function _yprim_center_tap(xfmr::Dict{String,Any})
 
     Y_core = transpose(C) * Y3 * C
 
-    # No-load (magnetising) shunt across winding 2 = LV leg 1 (nodes 3-4, the
+    # No-load (magnetizing) shunt across winding 2 = LV leg 1 (nodes 3-4, the
     # t1-tn coil at the per-leg voltage). OpenDSS places the ENTIRE exciting
     # branch on winding 2 — not split across the legs, and not on the HV side
     # (verified against its Yprim). `g/b_no_load` are on the per-leg LV base.
@@ -454,7 +524,7 @@ end
 
 # ── wye_delta / delta_wye ───────────────────────────────────────────────────
 
-function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
+function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool, series::Bool=true)
     if wye_is_from
         b_wye  = get(xfmr, "bus_from", "")
         b_del  = get(xfmr, "bus_to",   "")
@@ -529,7 +599,9 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
         [(b_del, t) for t in tm_del],
     )
 
-    if iszero(Z_total)
+    if !series
+        # The caller represents the series relation through aliases/constraints.
+    elseif iszero(Z_total)
         @warn "wye_delta/delta_wye transformer has zero effective series impedance; " *
               "the ideal coupling has no admittance form — exporting the (singular) shunt-only Yprim."
     else
@@ -581,7 +653,7 @@ function _yprim_yd(xfmr::Dict{String,Any}; wye_is_from::Bool)
     # Neutral-grounding branch: diagonal stamp at the wye neutral terminal.
     use_yn && (Y[n_pos, n_pos] += yn_wye)
 
-    # No-load (magnetising) shunt across the WINDING-2 (to-side) coils, referred
+    # No-load (magnetizing) shunt across the WINDING-2 (to-side) coils, referred
     # to winding 2's coil voltage — OpenDSS places the exciting branch on
     # winding 2 (verified against its Yprim). `g/b_no_load` is the total on the
     # to-side coil base, split equally over the n_ph coils and stamped across
@@ -620,8 +692,8 @@ end
 # Nodes: [fr_ph, to_ph, (fr_q), (to_q)]. One core spanning (V_fr_ph − V_fr_q)
 # and (V_to_ph − V_to_q), primitive yt·[1 −n_eff; −n_eff n_eff²] via Y = Cᵀ·yprim·C.
 # The winding reference q is the neutral (line-to-neutral SVR) or the second phase
-# (line-to-line SVR); the shared bushing tie is an OPF topological constraint.
-function _yprim_autotransformer(xfmr::Dict{String,Any})
+# (line-to-line SVR); both OPF and network Ybus impose the shared bushing bond.
+function _yprim_autotransformer(xfmr::Dict{String,Any}; series::Bool=true)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
     tm_fr = Vector{String}(get(xfmr, "terminal_map_from", String[]))
@@ -632,7 +704,8 @@ function _yprim_autotransformer(xfmr::Dict{String,Any})
         @warn "single_phase_autotransformer: needs a phase conductor on each side."
         return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
     end
-    n_eff = _autotransformer_ratio(xfmr)
+    ent = only(_xfmr_winding_incidence(xfmr, "single_phase_autotransformer"))
+    n_eff = ent.ratio
 
     r1 = Float64(get(xfmr, "r_series_from", 0.0))
     x1 = Float64(get(xfmr, "x_series_from", 0.0))
@@ -654,19 +727,9 @@ function _yprim_autotransformer(xfmr::Dict{String,Any})
     n_tot = length(nodes)
 
     Y = zeros(ComplexF64, n_tot, n_tot)
-    if iszero(Z)
-        # Ideal regulator: the series block is singular; only the shunt is finite.
-        iszero(G0) && iszero(B0) &&
-            @warn "single_phase_autotransformer has zero series impedance; Yprim is singular."
-    else
-        yt = 1.0 / Z
-        # C (2 winding-voltage rows × n_tot): row 1 = from coil (ph_fr − n_fr),
-        # row 2 = to coil (ph_to − n_to).
-        C = zeros(ComplexF64, 2, n_tot)
-        C[1, 1] = 1.0;  idx_fr_n != 0 && (C[1, idx_fr_n] = -1.0)
-        C[2, 2] = 1.0;  idx_to_n != 0 && (C[2, idx_to_n] = -1.0)
-        prim = yt * [1.0 -n_eff; -n_eff n_eff^2]
-        Y .= transpose(C) * prim * C
+    if series
+        c = _xfmr_core_row(nodes, ent)
+        Y .= (c * transpose(c)) / Z
     end
 
     # No-load shunt ACROSS the from winding (ph_fr − ref_fr), matching the OPF
@@ -695,7 +758,7 @@ const _OPEN_DELTA_YPRIM_PAIRS = Dict{String,Tuple{Tuple{Int,Int},Tuple{Int,Int}}
 # Monolithic open-delta regulator: two line-to-line regulating cores across the
 # phase pairs implied by `connection`, each with its own tap. No neutral winding
 # path. Nodes: [fr_1,fr_2,fr_3,(fr_n), to_1,to_2,to_3,(to_n)].
-function _yprim_open_delta(xfmr::Dict{String,Any})
+function _yprim_open_delta(xfmr::Dict{String,Any}; series::Bool=true)
     b_fr  = get(xfmr, "bus_from", "")
     b_to  = get(xfmr, "bus_to",   "")
     tm_fr = Vector{String}(get(xfmr, "terminal_map_from", String[]))
@@ -709,11 +772,8 @@ function _yprim_open_delta(xfmr::Dict{String,Any})
         return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
     end
 
-    taps = Float64.(get(xfmr, "tap_ratio", Float64[]))
-    rt   = string(get(xfmr, "regulator_type", "B"))
-    a1 = length(taps) >= 1 ? taps[1] : 1.0
-    a2 = length(taps) >= 2 ? taps[2] : a1
-    n_eff = (_autotransformer_neff(a1, rt), _autotransformer_neff(a2, rt))
+    inc = _xfmr_winding_incidence(xfmr, "open_delta_regulator")
+    n_eff = [e.ratio for e in inc]
 
     r1 = Float64(get(xfmr, "r_series_from", 0.0))
     x1 = Float64(get(xfmr, "x_series_from", 0.0))
@@ -735,13 +795,9 @@ function _yprim_open_delta(xfmr::Dict{String,Any})
     for (j, (p, q)) in enumerate(pairs)
         ne = n_eff[j]
         Z  = (r1 + ne^2 * r2) + im*(x1 + ne^2 * x2)
-        if !iszero(Z)
-            yt = 1.0 / Z
-            C = zeros(ComplexF64, 2, n_tot)
-            C[1, fr_pos(p)] = 1.0;  C[1, fr_pos(q)] = -1.0
-            C[2, to_pos(p)] = 1.0;  C[2, to_pos(q)] = -1.0
-            prim = yt * [1.0 -ne; -ne ne^2]
-            Y .+= transpose(C) * prim * C
+        if series
+            c = _xfmr_core_row(nodes, inc[j])
+            Y .+= (c * transpose(c)) / Z
         end
         # No-load shunt across the from-side line-to-line pair (p − q).
         if !iszero(Y0)
@@ -775,20 +831,20 @@ end
 # stamped per leg via the connection-aware coil incidence P: a WYE coil maps to
 # its phase-neutral pair, a DELTA coil to its phase-phase pair (so delta windings
 # couple phase nodes). The optional no-load shunt is stamped across winding 2 (OpenDSS convention).
-function nwinding_yprim(xfmr::Dict{String,Any})
+function nwinding_yprim(xfmr::Dict{String,Any}; config=_DEFAULT_CONFIG, shunt_only::Bool=false)
+    _validate_nw_ybus_domain(xfmr)
+    shunt_only || _require_finite_xfmr_primitive(xfmr, "n_winding", config)
+    _nwinding_yprim(xfmr;series=!shunt_only)
+end
+
+function _nwinding_yprim(xfmr::Dict{String,Any}; series::Bool=true)
     ws = _nw_windings(xfmr)
     nW = length(ws)
     nW < 2 && return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
 
     N  = _nw_turns_ratios(xfmr)
     ZB = _nw_zb_matrix(xfmr)                         # (n-1)×(n-1), referred to wdg 1
-    local YB
-    try
-        YB = inv(ZB)
-    catch
-        @warn "n_winding transformer ZB is singular; Yprim skipped."
-        return (Tuple{String,String}[], zeros(ComplexF64, 0, 0))
-    end
+    YB = series ? inv(ZB) : zeros(ComplexF64,size(ZB))
 
     # Referred n-port admittance with winding 1 as reference: Yref = Cᵀ YB C,
     # C[i, :] = e_1 − e_{i+1}. Then de-refer by the turns ratios.
@@ -834,7 +890,7 @@ function nwinding_yprim(xfmr::Dict{String,Any})
         end
         Y .+= transpose(P) * Yw * P
 
-        # No-load (magnetising) shunt across WINDING 2's coil — OpenDSS places
+        # No-load (magnetizing) shunt across WINDING 2's coil — OpenDSS places
         # the exciting branch on winding 2 (verified against its Yprim), not
         # winding 1. `g/b_no_load` are on winding 2's coil base.
         if !iszero(Y0) && nW >= 2
@@ -852,4 +908,114 @@ function nwinding_yprim(xfmr::Dict{String,Any})
     end
 
     nodes, Y
+end
+
+
+# Two LV-referred ports eliminate the inaccessible star potential without
+# inverting any arm: uH-uL1=zH*(i1+i2)+zL*i1 and
+# uH-uL2=zH*(i1+i2)+zL*i2. The second LV coil is dotted at the center tap.
+function _center_tap_port_blocks(x)
+    tf=string.(get(x,"terminal_map_from",String[])); tt=string.(get(x,"terminal_map_to",String[]))
+    length(tf)==2 && length(tt)==3 && allunique(tf) && allunique(tt) ||
+        throw(ArgumentError("center_tap requires distinct [phase,neutral] and [leg1,neutral,leg2] terminals"))
+    n=_xfmr_checked_ratio(_xfmr_turns_ratio(x)*_xfmr_tap_mult(x))
+    f=string(x["bus_from"]); t=string(x["bus_to"])
+    h=[(f,tf[1]),(f,tf[2])]
+    inc=_WindingIncidence[
+        (w1_nodes=h,w1_coeffs=[1/n,-1/n],w2_nodes=[(t,tt[1]),(t,tt[2])],w2_coeffs=[1.,-1.],ratio=1.),
+        (w1_nodes=h,w1_coeffs=[1/n,-1/n],w2_nodes=[(t,tt[2]),(t,tt[3])],w2_coeffs=[1.,-1.],ratio=1.)]
+    z=_xfmr_leakage_values(x,"center_tap"); zh=z[1]; zl=z[2]
+    [(inc,ComplexF64[zh+zl zh; zh zh+zl])]
+end
+
+# Validate the geometry actually interpreted by the n-winding Ybus seam.
+# Do not silently reinterpret unknown connections as WYE or ignore terminals.
+function _validate_nw_ybus_domain(x)
+    raw=get(x,"windings",nothing)
+    raw isa AbstractVector && length(raw)>=2 || throw(ArgumentError("n_winding requires at least two windings"))
+    finite_real(v)=v isa Real && !(v isa Bool) && isfinite(v)
+    phase_count=nothing
+    for w in raw
+        w isa AbstractDict || throw(ArgumentError("n_winding winding must be an object"))
+        v=get(w,"v_nom",nothing)
+        finite_real(v) && v>0 || throw(ArgumentError("n_winding requires positive finite coil voltages"))
+        finite_real(get(w,"r_winding",0.)) || throw(ArgumentError("n_winding resistance must be finite"))
+        bus=get(w,"bus",nothing)
+        bus isa AbstractString && !isempty(bus) || throw(ArgumentError("n_winding requires a bus per winding"))
+        tm=get(w,"terminal_map",nothing)
+        tm isa AbstractVector && all(t->t isa AbstractString,tm) || throw(ArgumentError("invalid n_winding terminal map"))
+        labels=lowercase.(tm)
+        allunique(labels) && all(t->t in ("a","b","c","n"),labels) ||
+            throw(ArgumentError("n_winding terminal labels must be distinct a/b/c/n"))
+        ph=count(!=("n"),labels)
+        1<=ph<=3 || throw(ArgumentError("n_winding requires one to three phases"))
+        if phase_count===nothing
+            phase_count=ph
+        elseif ph!=phase_count
+            throw(ArgumentError("n_winding phase counts must agree"))
+        end
+        connection=uppercase(string(get(w,"configuration","WYE")))
+        connection in ("WYE","DELTA") || throw(ArgumentError("n_winding supports WYE and DELTA only"))
+        if connection=="DELTA"
+            ph==3 && !("n" in labels) || throw(ArgumentError("n_winding DELTA requires three phases and no neutral"))
+            roll=get(w,"delta_roll",1)
+            roll isa Integer && !(roll isa Bool) && roll in (-1,1) ||
+                throw(ArgumentError("n_winding delta_roll must be +1 or -1"))
+        end
+        any(k->haskey(w,k),("r_neutral","x_neutral")) &&
+            throw(ArgumentError("n_winding grounding must be an explicit network shunt"))
+    end
+    any(k->haskey(x,k),("r_neutral_from","x_neutral_from","r_neutral_to","x_neutral_to")) &&
+        throw(ArgumentError("n_winding grounding must be an explicit network shunt"))
+    pairs=get(x,"x_sc",nothing)
+    pairs isa AbstractDict || throw(ArgumentError("n_winding requires explicit pairwise x_sc"))
+    expected=Set("$(i)_$(j)" for i in 1:length(raw) for j in i+1:length(raw))
+    Set(keys(pairs))==expected && all(finite_real,values(pairs)) ||
+        throw(ArgumentError("n_winding x_sc must contain every explicit finite pair"))
+    all(k->finite_real(get(x,k,0.)),("g_no_load","b_no_load")) ||
+        throw(ArgumentError("n_winding no-load admittance must be finite"))
+    nothing
+end
+
+function _nwinding_port_blocks(x)
+    _validate_nw_ybus_domain(x)
+    ws=_nw_windings(x); N=_nw_turns_ratios(x); Z=_nw_zb_matrix(x)
+    nph=length(first(_nw_phase_terminals(ws[1].terminal_map)))
+    blocks=Tuple{Vector{_WindingIncidence},Matrix{ComplexF64}}[]
+    for p in 1:nph
+        coils=Tuple{Vector{Tuple{String,String}},Vector{Float64}}[]
+        for w in ws
+            ph,neu=_nw_phase_terminals(w.terminal_map)
+            nd=[(w.bus,ph[p])]; cf=[1.]
+            if w.connection=="DELTA"
+                push!(nd,(w.bus,ph[_nw_delta_other(p,nph,w.delta_roll)])); push!(cf,-1.)
+            elseif neu!==nothing
+                push!(nd,(w.bus,neu)); push!(cf,-1.)
+            end
+            push!(coils,(nd,cf))
+        end
+        inc=_WindingIncidence[(w1_nodes=coils[1][1],w1_coeffs=coils[1][2],
+            w2_nodes=coils[k][1],w2_coeffs=coils[k][2],ratio=1/N[k]) for k in 2:length(ws)]
+        push!(blocks,(inc,Z))
+    end
+    blocks
+end
+
+# Validate network references before aliases or stamps can turn an absent node
+# into earth (PSK-000002). Implicit WYE earth is represented by omitting the
+# neutral from the winding map, never by naming an undeclared terminal.
+function _validate_nw_ybus_references(net)
+    buses = get(net, "bus", Dict())
+    for (id, x) in get(get(net, "transformer", Dict()), "n_winding", Dict())
+        _validate_nw_ybus_domain(x)
+        for (k, w) in enumerate(x["windings"])
+            bus = get(buses, w["bus"], nothing)
+            bus isa AbstractDict || throw(ArgumentError(
+                "n_winding '$id' winding $k references an undeclared bus"))
+            terminals = get(bus, "terminal_names", nothing)
+            terminals isa AbstractVector && all(t -> t in terminals, w["terminal_map"]) ||
+                throw(ArgumentError("n_winding '$id' winding $k references an undeclared terminal"))
+        end
+    end
+    nothing
 end

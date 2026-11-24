@@ -53,7 +53,7 @@ function _add_nwinding_variables!(model, net)
     cr_nw, ci_nw
 end
 
-# Tap optimisation is NOT supported for n_winding (the ratio is held fixed at the
+# Tap optimization is NOT supported for n_winding (the ratio is held fixed at the
 # nominal turns ratio). If the data carries tap field(s) — on the transformer or
 # any winding — reject it so the unsupported request is not silently dropped.
 const _NW_TAP_KEYS = ("tap", "tap_min", "tap_max",
@@ -66,7 +66,7 @@ function _assert_nwinding_supported_tap(tid, xfmr)
             w isa AbstractDict && any(haskey(w, k) for k in _NW_TAP_KEYS) for w in ws))
     end
     hit && throw(ArgumentError("n_winding transformer '$(tid)' carries tap field(s), but tap " *
-        "optimisation is not supported for n_winding — the ratio is held FIXED at " *
+        "optimization is not supported for n_winding — the ratio is held FIXED at " *
         "the nominal turns ratio. Remove the tap fields, or model the regulated " *
         "winding with a supported subtype (single_phase, center_tap, wye_delta, " *
         "delta_wye, single_phase_autotransformer, open_delta_regulator)."))
@@ -227,7 +227,7 @@ function _add_nwinding_constraints!(model, net, vars, kcl_r, kcl_i;
                  @expression(model, sum(ci[(tid, k, pk)] for pk in 1:length(phs))))
         end
 
-        # Optional no-load (magnetising) shunt across WINDING 2's coil — OpenDSS
+        # Optional no-load (magnetizing) shunt across WINDING 2's coil — OpenDSS
         # places the exciting branch on winding 2 (verified against its Yprim),
         # referred to winding 2's coil voltage.
         g = Float64(get(xfmr, "_g_no_load_pu", get(xfmr, "g_no_load", 0.0)))

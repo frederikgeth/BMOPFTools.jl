@@ -8,7 +8,7 @@
 #   rank-one derivation → re-simulate the OC and SC factory tests on the
 #   constructed model and recover the datasheet numbers → cross-check the whole
 #   mapping through OpenDSS text + from_dss → n-winding x_sc/ZB with the PSD
-#   realisability test.
+#   realizability test.
 #
 # The point. %Z, Pcu, P0, I0 are per-unit on the machine's own bases; BMOPF
 # wants ohms/siemens on specific windings (core branch on winding 2's coil).
@@ -140,8 +140,8 @@ println("SC: I = ", round.(i_sc3; digits=2), " A (rated ",
         " W (Pcu = ", Pcu3, ")")
 @assert isapprox(p_oc3, P03; rtol=5e-3) && isapprox(p_sc3, Pcu3; rtol=1e-3)
 
-# ── 5. n-winding: x_sc → ZB + realisability ──────────────────────────────────
-sep("5. 20 MVA 33/11/6.6 kV 3-winding: x_sc matrix, ZB, PSD realisability")
+# ── 5. n-winding: x_sc → ZB + realizability ──────────────────────────────────
+sep("5. 20 MVA 33/11/6.6 kV 3-winding: x_sc matrix, ZB, PSD realizability")
 Sn = 20e6
 v_coil = [33_000.0, 11_000.0/sqrt(3), 6_600.0/sqrt(3)]
 z_coil1 = 3*v_coil[1]^2/Sn
@@ -166,4 +166,4 @@ ZB_engine = BMOPFTools._nw_zb_matrix(nw)
 @assert isapprox(ZB_hand, ZB_engine; rtol=1e-12)
 println("ZB = ", round.(ZB_hand; sigdigits=5))
 println("eigvals(imag ZB) = ", round.(eigvals(imag.(ZB_hand)); sigdigits=4),
-        "  (all ≥ 0 → realisable)")
+        "  (all ≥ 0 → realizable)")

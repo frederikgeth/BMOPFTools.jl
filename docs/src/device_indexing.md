@@ -3,9 +3,8 @@
 `integrity_check` and `spec_conformance_check` resolve declared terminal roles
 through the shared convention helpers. The checks describe the package's
 supported indexing domains; the same array length can mean different things for
-different devices. They do not reorder or mutate the case. The implementation
-and regression evidence are linked to PSK-000002 in `knowledge/executable.toml`;
-the scientific claim remains book-owned.
+different devices. They do not reorder or mutate the case. These indexing checks do not establish
+grounding adequacy or electrical equivalence.
 
 ## Field coverage
 
@@ -91,3 +90,10 @@ indexing or converting invalid payloads. They are static validation passes, not
 a guarantee that every analysis or solver entrypoint accepts arbitrary
 schema-invalid input. No OPF model, parsing behavior, branch/winding endpoint
 rule (#409), or declaration-list hygiene rule (#410) changes here.
+
+OpenDSS intake reserves `n_ref` for a separate, perfectly grounded node-0
+return. A bus may carry both conductor neutral `n` and `n_ref`; this bounded
+case is assessed without merging the returns. Each winding/device map still
+selects its own return, and `n` remains the bus neutral used for voltage bounds.
+Other multiple-neutral declarations retain their unassessed diagnostics. See
+[the intake semantics](conversion.md#earth-terminal).

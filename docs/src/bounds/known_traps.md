@@ -2,7 +2,7 @@
 
 A gallery of small instances that *exhibit* each pathology from
 [Bounds, Branches, and Feasibility](index.md). Each entry states what it demonstrates,
-a minimal construction, the expected behaviour per formulation, and what to look for. A
+a minimal construction, the expected behavior per formulation, and what to look for. A
 validator can use these as targeted tests: *"give me the input that should expose my
 bug."*
 
@@ -22,7 +22,7 @@ non-coercive objective over a non-compact set has no optimum.
 a *linear* objective (e.g. minimize a single weighted injection, or maximize
 $\sum |V_i|$).
 
-**Expected behaviour:**
+**Expected behavior:**
 
 | Formulation | Outcome |
 |---|---|
@@ -46,7 +46,7 @@ the inverse of the [case augmentation](../augmentation.md) step.
 reactance $X$, constant-power load $P + jQ$ chosen so the radicand
 $\tfrac{E^4}{4} - X^2P^2 - XE^2Q$ is small and positive (loaded but below the nose).
 
-**Expected behaviour:** two real AC solutions $V_+ \approx 1$ p.u. and
+**Expected behavior:** two real AC solutions $V_+ \approx 1$ p.u. and
 $V_- \ll 1$ p.u.; an exact relaxation and a high-voltage-started nonconvex solve both
 return $V_+$; a flat-but-low or adversarially started Newton solve can land on $V_-$.
 
@@ -68,7 +68,7 @@ a loading the network cannot serve.
 [Kocuk, Dey & Sun (2016)](https://doi.org/10.1109/TPWRS.2015.2402640). Pick a
 load just beyond the nose (radicand $< 0$).
 
-**Expected behaviour:**
+**Expected behavior:**
 
 | Formulation | Outcome |
 |---|---|
@@ -92,7 +92,7 @@ the relaxed $\ell_{ij}$ slack.
 **Construction:** a small radial feeder with DER; objective = **maximize PV injection**
 (or maximize export), full bounds, SOC-BFM.
 
-**Expected behaviour:** the SOC solution reports inflated currents; the cone gap
+**Expected behavior:** the SOC solution reports inflated currents; the cone gap
 $\ell_{ij} - |S_{ij}|^2/v_i$ is strictly positive on loaded branches;
 `primal_feasibility_report` against the AC model is non-empty. Switching the objective to
 *maximize injection net of losses* restores exactness.
@@ -114,7 +114,7 @@ the relaxation inexact, exact, or feasible-while-AC-infeasible
 **Construction:** the same two-bus, one-generator system with a binding
 $\underline{P}^g > 0$; sweep the lower bound to move between the three outcomes.
 
-**Expected behaviour:** a single small instance reproduces all three approximation
+**Expected behavior:** a single small instance reproduces all three approximation
 outcomes as the lower bound varies — a compact regression test for any relaxation
 implementation.
 
@@ -137,7 +137,7 @@ failure leaves the multipliers non-unique without corrupting the primal point.
 (a source-like / regulated bus). Equivalently, give two same-bus generators identical cost
 coefficients, or a single generator a zero cost vector.
 
-**Expected behaviour:** `LOCALLY_SOLVED` with a sane primal dispatch but **non-unique or
+**Expected behavior:** `LOCALLY_SOLVED` with a sane primal dispatch but **non-unique or
 blown-up duals**; convergence is slow; a zero-cost generator (non-coercive objective) can
 even surface as diverging iterates (`NORM_LIMIT`). The *dispatch* is unaffected — re-solving
 from a second start returns the same primal point with different multipliers.
@@ -160,7 +160,7 @@ power map's Jacobian rank drops and an all-zero voltage profile becomes feasible
 voltage floor (allow $|V| \ge 0$). The constant-power equation $p = v_r c_r + v_i c_i$
 then admits $v_r = v_i = 0$ with the current free.
 
-**Expected behaviour:** a sub-network collapses toward $\sim 0$ V with indeterminate
+**Expected behavior:** a sub-network collapses toward $\sim 0$ V with indeterminate
 currents; Ipopt churns in restoration or returns a physically meaningless point.
 
 **Look for:** a cluster of terminals at near-zero voltage with large or arbitrary currents;
@@ -181,7 +181,7 @@ genuinely non-smooth as voltage → 0, with an unbounded Hessian.
 $\gamma < 2$ (or a ZIP constant-current term $s = \sqrt{W}$), and $W = v_r^2 + v_i^2$
 allowed to approach zero.
 
-**Expected behaviour:** exploding Lagrangian-Hessian entries, vanishing step sizes, and
+**Expected behavior:** exploding Lagrangian-Hessian entries, vanishing step sizes, and
 Ipopt churning in its `Restoration` phase as the argument nears zero.
 
 **Look for:** tiny steps and growing curvature reported in the Ipopt log on a feeder that
@@ -202,7 +202,7 @@ constraint $\sum_g S^g = \sum_d S^d + \text{losses}$ on top of full per-terminal
 Because summing the nodal balances already yields this identity, the added row is a linear
 combination of the KCL rows.
 
-**Expected behaviour:** the problem is mathematically unchanged but the KKT system is
+**Expected behavior:** the problem is mathematically unchanged but the KKT system is
 singular along the redundant direction; Ipopt stalls with non-unique multipliers or
 terminates with diverging iterates (`NORM_LIMIT`), even though the primal dispatch (if it
 converges) is fine.

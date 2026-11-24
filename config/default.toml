@@ -42,7 +42,7 @@ z_spread_info = 1e3
 z_spread_warn = 1e5
 # Source voltage headroom: warn if a voltage source's fixed v_magnitude is
 # within this fraction of the (v_max - v_min) band from either bound, on the
-# source bus or a same-base neighbour (risk of OPF infeasibility)
+# source bus or a same-base neighbor (risk of OPF infeasibility)
 source_v_margin_frac = 0.05
 
 # ---------------------------------------------------------------------------
@@ -93,12 +93,12 @@ reach_long_m  = 300000.0
 tolerance = 0.15
 
 # ---------------------------------------------------------------------------
-# Provenance: neutral-earthing classification  (provenance/wires_grounding.jl)
-# ---------------------------------------------------------------------------
+# Earthing reports use exact zero constraints and finite impedance evidence.
+# Legacy earth_solid_ohm/earth_isolated_ohm thresholds no longer classify
+# protective-earthing systems or turn finite impedances into perfect grounds.
 [provenance.grounding]
-# |Z| (Ω) below this at a bus: "solid" earth
+# Retained for configuration-file compatibility; ignored by earthing reports.
 earth_solid_ohm = 1.0
-# |Z| (Ω) above this (or absent): isolated (I) system
 earth_isolated_ohm = 200.0
 
 # ---------------------------------------------------------------------------
@@ -125,7 +125,7 @@ z_total = 1e-4          # Ω effective (Z·length) on all diagonals
 # Augmentation: voltage-level snapping  (augmentation/voltage_bounds.jl)
 #
 # When enabled, augment_case snaps each bus's derived nominal voltage to the
-# nearest standardised level (IEC 60038 / ANSI C84.1) before computing voltage
+# nearest standardized level (IEC 60038 / ANSI C84.1) before computing voltage
 # bounds, and writes the snapped value back as bus["v_declared"]. This fixes
 # imported cases whose LV transformers are rated 240/250 V but whose bounds
 # should be referenced to the standard 230 V. A bus that already carries an
@@ -133,7 +133,7 @@ z_total = 1e-4          # Ω effective (Z·length) on all diagonals
 #
 # Snap rule: nearest standard level within the relative `tolerance` band; a
 # value outside every band is left unchanged (so genuinely non-standard buses
-# are preserved). Off by default — no behaviour change unless enabled.
+# are preserved). Off by default — no behavior change unless enabled.
 #
 # Levels are PHASE-TO-NEUTRAL (per-conductor) volts, matching how v_nom is
 # reported. The familiar line-to-line name is given in a comment in the preset
@@ -151,7 +151,7 @@ levels = []             # extra phase-to-neutral volts, merged with the preset
 # When enabled, augment_case fills any volt_var/volt_watt sub-object that an
 # IBR's control_profile declares but leaves blank, using the region preset
 # selected by `region`. Explicit values already present are never overwritten.
-# Off by default — no behaviour change unless enabled.
+# Off by default — no behavior change unless enabled.
 #
 # Voltages are PHASE-TO-NEUTRAL SI volts (nominal 230 V). q_limits/p_limits are
 # fractions of s_max (VA_FRACTION). Presets are the AS/NZS 4777.2:2020 default
@@ -220,3 +220,22 @@ breakpoints = [242.0, 250.0]
 p_limits    = [0.20, 1.00]
 p_unit      = "VA_FRACTION"
 p_ref       = "S_MAX"
+[spatial]
+# Run automatically when bus coordinate fields exist. False skips the entire pass.
+enabled = true
+# Descriptive inventory only: no automatic snapping, merging or rewiring.
+proximity_enabled = true
+proximity_radius_m = 1.0
+max_candidate_pairs = 1000000
+witness_limit = 20
+
+# Review candidates only; spans are absolute review thresholds, not defects.
+discrepancy_enabled = true
+max_topology_pairs = 100000
+max_series_hops = 8
+route_endpoint_tolerance_m = 5.0
+long_span_threshold_m = 10000.0
+
+# Separate review capture from the short diagnostic witness lists.
+review_enabled = true
+max_review_candidates = 5000

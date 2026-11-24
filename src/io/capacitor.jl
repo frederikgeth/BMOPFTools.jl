@@ -26,7 +26,7 @@ function _cap_susceptances(cap::Dict{String,Any})::Vector{Float64}
     q = Float64.(get(cap, "q_rated", Float64[]))
     v = Float64(get(cap, "v_nom", 1.0))
     # B = q_rated / v_nom² is undefined at v_nom ≤ 0. Silently zeroing the
-    # susceptance (the old behaviour) masks a data error as a no-op capacitor;
+    # susceptance (the old behavior) masks a data error as a no-op capacitor;
     # reject it instead. (v_nom defaults to 1.0 when absent.)
     v > 0.0 || error("Capacitor requires a strictly positive v_nom (got $v); " *
         "the susceptance B = q_rated / v_nom² is undefined at zero.")

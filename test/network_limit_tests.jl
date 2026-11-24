@@ -187,7 +187,7 @@
         V2r = (vr1 - 0.5*vr2 + s3*vi2 - 0.5*vr3 - s3*vi3) / 3
         V2i = (vi1 - s3*vr2 - 0.5*vi2 + s3*vr3 - 0.5*vi3) / 3
         V2  = sqrt(V2r^2 + V2i^2)
-        # Scaffold assertion: realised negative sequence respects its bound.
+        # Scaffold assertion: realized negative sequence respects its bound.
         @test V2 <= vneg_max + 1e-2
     end
 
@@ -281,7 +281,7 @@
     #
     # Class A on the IMPLICIT neutral current. A star device's neutral return
     # carries −Σ(phase currents); a 4th i_max entry caps it via
-    # (Σ crg)² + (Σ cig)² ≤ i_max_neutral². We incentivise injection on phase a
+    # (Σ crg)² + (Σ cig)² ≤ i_max_neutral². We incentivize injection on phase a
     # only (so |Iₙ| ≈ |Iₐ|), drive it onto a small neutral cap, and recompute the
     # neutral magnitude from the primal phase currents.
     # ─────────────────────────────────────────────────────────────────────────
@@ -326,7 +326,7 @@
 
         # (c) SINGLE_PHASE IBR: phase and return are ONE current, so a per-conductor
         # i_max = [phase, neutral] must bind at the tighter entry (one constraint,
-        # not two). 1φ feeder, incentivise injection, cap the return at 8 A.
+        # not two). 1φ feeder, incentivize injection, cap the return at 8 A.
         spnet = parse_bmopf("""
         {"bus":{"src":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
                 "b":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],
@@ -349,7 +349,7 @@
     # L-SMAX-LINE: branch apparent-power limit (`s_max` on the line)
     #
     # Class D. Ground-referenced per conductor: |S_k| = v_k·|I_tot,k| ≤ s_max_k.
-    # A 1φ feeder with a generator incentivised to export; the phase-conductor
+    # A 1φ feeder with a generator incentivized to export; the phase-conductor
     # s_max is tight (5 kVA) and the neutral loose. Recompute |S| = vm·cm_fr at
     # the from-end and assert it hits the cap while i_max stays slack.
     # ─────────────────────────────────────────────────────────────────────────
@@ -409,7 +409,7 @@
     # L-SMAX-XFMR: transformer nameplate cap (`s_rating`)
     #
     # The nameplate is a required field and is always enforced as a per-winding
-    # coil apparent-power cap. A 1φ transformer feeding an incentivised generator
+    # coil apparent-power cap. A 1φ transformer feeding an incentivized generator
     # export: with s_rating present the delivered power is capped near the
     # nameplate; strip s_rating from the dict to solve without the limit.
     # ─────────────────────────────────────────────────────────────────────────

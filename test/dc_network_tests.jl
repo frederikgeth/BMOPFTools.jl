@@ -1,4 +1,4 @@
-# DC-network OPF tests: converter stations modelled as DC-coupled IBRs.
+# DC-network OPF tests: converter stations modeled as DC-coupled IBRs.
 # Included from runtests.jl when JuMP and Ipopt are in the load path.
 #
 # Each fixture is a minimal converter station whose optimal dispatch is
@@ -355,7 +355,7 @@ end
     end
 
     @testset "droop driven past band → saturates at Σs_max" begin
-        # master pins v_dc = 1000, vD's droop centred at 600 with a stiff slope ⇒
+        # master pins v_dc = 1000, vD's droop centered at 600 with a stiff slope ⇒
         # the droop line demands huge power; it must clamp at +s_max = 8000 W.
         net = mk(1000.0, "\"dc_v_set\":600.0,\"dc_droop\":1.0e-5,\"dc_p_ref\":0.0")
         res = solve_opf(net)
@@ -367,7 +367,7 @@ end
 @testset "DC network — dangling converter detection" begin
     # AC source on f1 → conv → dcA ── dc line ── dcB → conv → bare bus x.
     # Bus x has no AC source/grounding and no grid-forming converter, so it is
-    # energised only through the MVDC link → flagged as not embedded.
+    # energized only through the MVDC link → flagged as not embedded.
     net = Dict{String,Any}(
         "bus" => Dict{String,Any}(
             "f1" => Dict{String,Any}("terminal_names"=>["a","n"],

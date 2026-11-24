@@ -5,7 +5,7 @@
 #      non-source bus terminal and injected directly into KCL.
 #      This lets those KCL equations absorb residual current; it does not relax
 #      the remaining hard constraints or guarantee NLP feasibility/convergence.
-#   2. The objective minimises the L2² norm of all slack injections rather
+#   2. The objective minimizes the L2² norm of all slack injections rather
 #      than generation cost, with a documented transformer tie-break term.
 #
 # Interpretation: at a converged local solution, non-zero slacks indicate where
@@ -28,7 +28,7 @@ variables enlarge the feasible set by relaxing **KCL**. They can absorb residual
 current wherever they are present, but cannot reconcile mutually contradictory
 hard constraints or guarantee convergence of the nonconvex NLP.
 
-For a converged solve, non-zero residuals localise and quantify where that local
+For a converged solve, non-zero residuals localize and quantify where that local
 relaxed point pays to violate KCL. They do not certify that the original problem
 has no zero-residual solution elsewhere. The raw `"objective"` is the squared
 slack norm in the model's working coordinates (plus the documented transformer
@@ -99,10 +99,10 @@ function build_feasibility!(ctx::OpfContext, slack::Dict{Symbol,Any})
     bus_terminals = ctx.bus_terminals; grounded = ctx.grounded
     kcl_r = ctx.kcl_r; kcl_i = ctx.kcl_i
 
-    # Use level-aware start values so that LV buses are initialised at ~250 V
+    # Use level-aware start values so that LV buses are initialized at ~250 V
     # rather than at the source voltage (~6350 V). When a case lacks useful
     # voltage bounds, this reduces attraction to a degenerate high-voltage local
-    # minimum; it is an initialisation heuristic, not a convergence guarantee.
+    # minimum; it is an initialization heuristic, not a convergence guarantee.
     _run_opf_stage!(ctx, :start_values, () -> begin
         _set_level_aware_start_values!(vars, working, bus_terminals, grounded)
         transport = _set_topology_aware_voltage_start_values!(
@@ -145,7 +145,7 @@ function build_feasibility!(ctx::OpfContext, slack::Dict{Symbol,Any})
     slack[:cs_r] = cs_r
     slack[:cs_i] = cs_i
 
-    # ── Objective: minimise L2² of all slack injections ───────────────────────
+    # ── Objective: minimize L2² of all slack injections ───────────────────────
     # A tiny linear term (−1e-6 × delta-side cr_xf) breaks the sign/circulation
     # degeneracy of Yd/Dy transformers: both current branches (and any uniform
     # delta loop current) give identical slack for passive transformers with
@@ -163,7 +163,7 @@ function build_feasibility!(ctx::OpfContext, slack::Dict{Symbol,Any})
         wye_is_from = (subtype == "wye_delta")
         # The unobservable state is the delta circulation current — a uniform loop
         # current that adds equally to all delta arm currents without affecting
-        # terminal voltages or wye-side KCL.  Penalise the delta-side phase currents
+        # terminal voltages or wye-side KCL.  Penalize the delta-side phase currents
         # to break this degeneracy.  For Yd the delta is the to-side; for Dy it is
         # the from-side.
         side_del = wye_is_from ? "to" : "fr"

@@ -1,8 +1,8 @@
-# [What are you actually optimising?](@id tutorial-objectives)
+# [What are you actually optimizing?](@id tutorial-objectives)
 
 *One feeder, six objectives, six different answers.*
 
-`solve_opf` minimises generation cost. That is a choice, not a law, and on a
+`solve_opf` minimizes generation cost. That is a choice, not a law, and on a
 distribution feeder it is frequently the wrong one — least-cost dispatch has no
 opinion about losses and no opinion at all about unbalance.
 
@@ -22,7 +22,7 @@ midpoint, and an **expensive local generator** at the load end. The grid supply
 is cheap (0.30/kWh) and far away; the local generator is dear (0.45/kWh) and
 close.
 
-That price gap is what makes "minimise cost" and "minimise losses" *different
+That price gap is what makes "minimize cost" and "minimize losses" *different
 questions*.
 
 ```@example objectives
@@ -106,19 +106,19 @@ study("cost + unbal",  ctx -> [opf_generation_cost_term(ctx; weight = 1.0),
 expensive local generator idle and hauls everything down a resistive feeder;
 least-loss dispatch buys the dear local power instead and cuts losses by roughly
 three quarters, for about 28% more money. Neither answer is wrong — they answer
-different questions. If you have ever assumed minimising losses is a reasonable
-proxy for minimising cost, this row is the counterexample.
+different questions. If you have ever assumed minimizing losses is a reasonable
+proxy for minimizing cost, this row is the counterexample.
 
 **Balancing is not free.** Driving `|V₂|` to near zero roughly doubles the
 losses relative to least-cost dispatch, because the STATCOM circulates active
 power between phases to do it and that circulation has `I²R` attached.
 
 **Voltage unbalance and current unbalance actively conflict.** This is the row
-worth staring at. Minimising the neutral current drives `|In|` to essentially
+worth staring at. Minimizing the neutral current drives `|In|` to essentially
 zero — and makes `|V₂|` *dramatically worse* than any other objective, including
 doing nothing about unbalance at all. Zero neutral current is not the same
-condition as balanced voltage, and optimising for one can wreck the other. If
-someone hands you "we minimise unbalance", ask **which** unbalance.
+condition as balanced voltage, and optimizing for one can wreck the other. If
+someone hands you "we minimize unbalance", ask **which** unbalance.
 
 **A small weight buys a cheap improvement.** The combined objective barely moves
 the cost while measurably reducing `|V₂|` at the load end — the near-flat part of
@@ -129,7 +129,7 @@ the Pareto front. Trading the *whole* way to balanced is the expensive part.
 Not here — and that is worth understanding rather than glossing over.
 
 `:magnitude` is the group-lasso norm; its selling point is *sparsity*, driving a
-few targets to zero rather than shrinking all of them. That behaviour needs the
+few targets to zero rather than shrinking all of them. That behavior needs the
 targets to be **independently controllable**. On this radial feeder `mid` and
 `end` sit on the same path with one compensator between them, so their `V₂` move
 together: there is effectively one degree of freedom and nothing to choose
@@ -145,7 +145,7 @@ no ε to size.
     `build_opf_model` defers KCL so a `model_hook!` can still contribute to the
     nodal accumulators. Until [`enforce_kcl!`](@ref) runs the network is
     **electrically disconnected** — bus voltages are free variables and your
-    objective is minimised without physics; an unbalance objective in particular
+    objective is minimized without physics; an unbalance objective in particular
     reaches exactly zero with every compensator idle, which reads as a triumph.
 
     Skipping it is now an error rather than a wrong number: `JuMP.optimize!`
@@ -202,7 +202,7 @@ The full list, with the numbers, is under
 
 ## Where to go next
 
-- [Choosing an objective](objectives.md) — the full catalogue, the ε guidance,
+- [Choosing an objective](objectives.md) — the full catalog, the ε guidance,
   and which quantities do and do not need a square root.
 - [D-STATCOM unbalance study](@ref statcom-unbalance) — why a four-leg converter
   can balance a feeder at all.

@@ -10,7 +10,7 @@
 !  (slack)      |  1-ph 12.7/12.7            |                     |
 !               |  earth confined to SWER  [dx1: 25 kVA       [dx2: 10 kVA
 !         (MV neutral earthed)               single-ended       split-phase
-!                                            N-0]               centre-tap N-0-N]
+!                                            N-0]               center-tap N-0-N]
 !                                              |                    |
 !                                            lv_1 (0.24 kV)      lv_2 (0.48 kV, 0-N-0)
 !                                            1-ph load           two 0.24 kV legs
@@ -29,7 +29,7 @@
 !   SWER voltage         12.7 kV phase-earth (= 22 kV / sqrt(3))
 !   Isolating xfmr       <= 300 kVA, 12.7 kV (across one MV phase-earth) -> 12.7 kV SWER
 !   Distribution xfmrs   25 kVA single-ended N-0; 10 kVA split-phase N-0-N
-!   LV utilisation       0.24 kV single-ended; 0.48 kV centre-tapped (240-0-240)
+!   LV utilization       0.24 kV single-ended; 0.48 kV center-tapped (240-0-240)
 !   Load density         < 0.5 kVA/km; single customer < 3.5 kVA
 ! Refs: ScienceDirect, "Rural SWER distribution networks - associated problems
 !   and cost-effective solutions", IJEPES 2011; Ergon Distribution Annual
@@ -50,7 +50,7 @@
 
 Clear
 
-! Base frequency locked to 50 Hz (BMOPF's modelling frequency).  The OpenDSS
+! Base frequency locked to 50 Hz (BMOPF's modeling frequency).  The OpenDSS
 ! default (60 Hz, or whatever a Windows GUI session persisted) would otherwise
 ! rescale every reactance.  See docs/src/validation.md.
 Set DefaultBaseFreq=50

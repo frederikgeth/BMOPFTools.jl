@@ -20,7 +20,7 @@ So the bar for a contribution is: does it improve how faithfully the pipeline
 adds noise, or that fires on a distinction without a difference, is a regression
 even if it is technically correct.
 
-## Prioritise high-impact, high-likelihood findings
+## [Prioritize high-impact, high-likelihood findings](@id Prioritise-high-impact,-high-likelihood-findings)
 
 New findings should be triaged on two axes:
 
@@ -30,7 +30,7 @@ New findings should be triaged on two axes:
 - **Likelihood** — how often does the condition actually occur in real
   converted data?
 
-Prioritise findings that are **high on both**. The
+Prioritize findings that are **high on both**. The
 [Task Force feedback document](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/docs/taskforce_feedback.md)
 is ordered roughly by impact for exactly this reason; new findings should aim for
 the top of that ordering, not the long tail. Every new code still needs a row in
@@ -64,6 +64,6 @@ migration for existing cases.
 ## See also
 
 - [Analysis & reports](../analysis.md) — what each pass computes.
-- [Finding-code reference](../findings.md) — the complete catalogue.
+- [Finding-code reference](../findings.md) — the complete catalog.
 - [Methodology notes](../methodology.md) — the physics and linear algebra behind
   the provenance checks.

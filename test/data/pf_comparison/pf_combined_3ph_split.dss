@@ -11,7 +11,7 @@
 !
 ! Conventions match the other pf_comparison fixtures: model=ideal stiff source,
 ! Vminpu=0 Vmaxpu=2 (constant P/Q), solid grounding reactors, DefaultBaseFreq=50
-! (BMOPF's modelling frequency), tight solve tolerance.
+! (BMOPF's modeling frequency), tight solve tolerance.
 
 Clear
 Set DefaultBaseFreq=50

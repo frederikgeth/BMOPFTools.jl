@@ -1,0 +1,14 @@
+{
+  "linecode": {
+    "four_wire": {
+      "R_series_1_1": 2.01, "R_series_2_2": 2.04, "R_series_3_3": 2.09, "R_series_4_4": 1.0,
+      "R_series_1_2": 0.02, "R_series_2_1": 0.02, "R_series_1_3": 0.03, "R_series_3_1": 0.03,
+      "R_series_2_3": 0.06, "R_series_3_2": 0.06, "R_series_1_4": 0.1, "R_series_4_1": 0.1,
+      "R_series_2_4": 0.2, "R_series_4_2": 0.2, "R_series_3_4": 0.3, "R_series_4_3": 0.3,
+      "X_series_1_1": 2.01, "X_series_2_2": 2.04, "X_series_3_3": 2.09, "X_series_4_4": 1.0,
+      "X_series_1_2": 0.02, "X_series_2_1": 0.02, "X_series_1_3": 0.03, "X_series_3_1": 0.03,
+      "X_series_2_3": 0.06, "X_series_3_2": 0.06, "X_series_1_4": 0.1, "X_series_4_1": 0.1,
+      "X_series_2_4": 0.2, "X_series_4_2": 0.2, "X_series_3_4": 0.3, "X_series_4_3": 0.3
+    }
+  }
+}

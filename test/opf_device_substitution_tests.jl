@@ -180,4 +180,83 @@
             @test_throws ErrorException build_opf_model(net; per_unit=false)
         end
     end
+    # A static pinned operating point is one equality row per quantity: a
+    # zero-width inequality pair has no interior and ill-conditions Ipopt.
+    @testset "equal static generator P/Q bounds stamp one equality row" begin
+        families(ctx, k) = Set(key.family for key in opf_object_keys(ctx; kind=:constraint)
+                               if key.index == ("g", k))
+        box = Set([:generator_p_lower, :generator_p_upper,
+                   :generator_q_lower, :generator_q_upper])
+        function gen_net(cfg)
+            net = source_net(["a", "b", "c"], fill(120.0, 3), [0.0, -2pi/3, 2pi/3])
+            tm = cfg == "SINGLE_PHASE" ? ["a", "n"] : cfg == "WYE" ? ["a", "b", "c", "n"] :
+                 ["a", "b", "c"]
+            if cfg != "DELTA"
+                append!(net["bus"]["b"]["terminal_names"], ["n"])
+                net["bus"]["b"]["perfectly_grounded_terminals"] = ["n"]
+            end
+            n = cfg == "SINGLE_PHASE" ? 1 : 3
+            p = [300.0, 500.0, 900.0][1:n]; q = [20.0, -30.0, 40.0][1:n]
+            net["generator"] = Dict("g" => Dict{String,Any}("bus" => "b",
+                "configuration" => cfg, "terminal_map" => tm,
+                "p_min" => p, "p_max" => p, "q_min" => q, "q_max" => q,
+                "s_max" => fill(5000.0, n), "cost" => fill(0.1, n)))
+            return net, p, q
+        end
+        for cfg in ("SINGLE_PHASE", "WYE", "DELTA"), pu in (false, true)
+            net, p, q = gen_net(cfg)
+            net = roundtrip(net)
+            ctx = build_opf_model(net; per_unit=pu)
+            for k in eachindex(p)
+                fams = families(ctx, k)
+                @test :generator_p_equality in fams && :generator_q_equality in fams
+                @test isempty(intersect(fams, box))
+                row = JuMP.constraint_object(opf_object(ctx,
+                    OpfModelKey(:constraint, :generator_p_equality, ("g", k))))
+                @test row.set isa JuMP.MOI.EqualTo
+                pu || @test row.set.value ≈ p[k]
+            end
+            res = solve_opf(net; per_unit=pu, solver_options=(
+                "bound_relax_factor" => 0.0, "tol" => 1e-10, "constr_viol_tol" => 1e-10))
+            @test res["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+            terminals = cfg == "DELTA" ? ["a", "b", "c"] : ["a", "b", "c"][eachindex(p)]
+            for (k, t) in enumerate(terminals)
+                @test res["generator"]["g"][t]["pg"] ≈ p[k] atol=1e-4
+                @test res["generator"]["g"][t]["qg"] ≈ q[k] atol=1e-4
+            end
+        end
+
+        # Unequal and one-sided bounds keep their inequality rows.
+        net, _, _ = gen_net("SINGLE_PHASE")
+        g = net["generator"]["g"]; g["p_min"] = [0.0]; g["q_min"] = [-100.0]
+        fams = families(build_opf_model(net), 1)
+        @test issubset(box, fams)
+        @test :generator_p_equality ∉ fams && :generator_q_equality ∉ fams
+        delete!(g, "p_min"); delete!(g, "q_max")
+        fams = families(build_opf_model(net), 1)
+        @test :generator_p_upper in fams && :generator_q_lower in fams
+        @test isempty(intersect(fams, Set([:generator_p_lower, :generator_q_upper,
+                                           :generator_p_equality, :generator_q_equality])))
+
+        # A parameter bound equal to its partner keeps both rows, so a re-solve
+        # can move it: lowering p_min lets the cost-minimizing dispatch follow.
+        net, _, _ = gen_net("SINGLE_PHASE")
+        model = JuMP.Model(Ipopt.Optimizer); JuMP.set_silent(model)
+        minimum_p = JuMP.@variable(model, set=JuMP.Parameter(300.0))
+        spec = OpfBuildSpec(coefficient_providers=Dict(
+            OpfCoefficientKey(:limit, :generator, "g", :p_min, 1) =>
+                OpfCoefficientProvider(:EqualBoundTest, (ctx, key, default) -> minimum_p)))
+        ctx = build_opf_model(net; model, build_spec=spec, per_unit=false)
+        fams = families(ctx, 1)
+        @test :generator_p_lower in fams && :generator_p_upper in fams
+        @test :generator_p_equality ∉ fams
+        enforce_kcl!(ctx)
+        for p_floor in (300.0, 100.0)
+            JuMP.set_parameter_value(minimum_p, p_floor)
+            resolve_opf!(ctx)
+            r = extract_result(ctx)
+            @test r["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+            @test r["generator"]["g"]["a"]["pg"] ≈ p_floor atol=1e-3
+        end
+    end
 end

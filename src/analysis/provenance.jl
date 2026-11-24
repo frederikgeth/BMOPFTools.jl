@@ -6,12 +6,12 @@ modeling assumptions explicit:
 
 1. **Linecode impedance classification** — per linecode, classify the phase
    block of the series impedance matrix:
-   - `decoupled`        — diagonal matrix: positive-sequence-only data; the
-                          three phases are mathematically independent.
-   - `exactly_balanced` — equal self and equal mutual entries: constructed
-                          from sequence parameters (r1,x1,r0,x0) or under a
-                          transposition assumption. The implied Z1/Z0 are
-                          recovered and reported.
+   - `decoupled`        — negligible series coupling: review whether a
+                          simplified model or sequence-coordinate data was supplied.
+   - `exactly_balanced` — equal self and equal mutual entries: suggests sequence
+                          parameterization or a transposition/symmetry assumption;
+                          physical symmetry is an alternative. Implied Z1/Z0
+                          are recovered and reported.
    - `near_balanced`    — balanced within 1%: possibly physical (twisted /
                           bundled symmetric cable construction).
    - `distinct`         — consistent with first-principles geometry (Carson).
@@ -21,11 +21,12 @@ modeling assumptions explicit:
    (`series` / `symmetric_pi` / `asymmetric_pi` / `gamma`) and the case study
    is audited for model consistency: a network-wide model is reported as
    uniform, a mix of topologies is flagged for review, and asymmetric-π,
-   Γ-sections and modelled shunt conductance are called out individually.
+   Γ-sections and modeled shunt conductance are called out individually.
 
-2. **Wires per voltage level** — 3-wire vs 4-wire classification. A 3-wire
-   LV level is flagged as likely Kron-reduced (LV is physically 4-wire);
-   3-wire MV is normal. A 4-wire network whose neutrals are all perfectly
+2. **Wires per voltage level** — represented branch-conductor counts and
+   neutral incidence. Missing LV neutral conductors prompt review for prior
+   neutral elimination, including Kron reduction; genuine three-wire networks
+   and other equivalents are alternatives. A network whose neutrals are all perfectly
    grounded is exactly Kron-reducible (redundant variables).
 
 3. **Neutral grounding** — builds the neutral-conductor continuity graph and
@@ -50,7 +51,7 @@ function provenance_analysis(net::Dict{String,Any},
     result["opendss_defaults"]    = _check_opendss_defaults(net, findings,
                                                               result["linecodes"])
     result["impedance_transform"] = _classify_impedance_transformation(
-                                        net, findings, result["linecodes"])
+                                        net, findings, result["linecodes"]; voltage_levels=vl)
     result["earthing_zones"]      = _earthing_zones(net, vl)
     _check_regulator_patterns(net, findings, vl)
     _check_bus_shunts(net, findings)
@@ -117,8 +118,7 @@ function _convention_statement(result::Dict{String,Any})::String
     wl = get(result, "wires_by_level", Dict())
     for (label, info) in sort(collect(wl), by = x -> -x[2]["nominal_v"])
         w = info["wires"]
-        note = w == "3-wire" && info["is_lv"] ? " (likely Kron-reduced)" : ""
-        push!(parts, "$label: $w$note")
+        push!(parts, "$label: $w")
     end
 
     g = get(result, "grounding", Dict())
@@ -126,7 +126,7 @@ function _convention_statement(result::Dict{String,Any})::String
         conv = get(g, "convention", "")
         ng   = get(g, "n_grounding_points", 0)
         nfl  = get(g, "n_floating", 0)
-        gdesc = conv == "implicit" ? "implicit (Kron-style) grounding" :
+        gdesc = conv == "no_neutral_branches" ? "no neutral branches represented" :
                 get(g, "all_perfectly_grounded", false) ?
                     "perfectly grounded at every bus (Kron-reducible)" :
                 "$(ng) grounding point(s)" * (nfl > 0 ? ", $nfl floating neutral section(s)" : "")
@@ -157,6 +157,7 @@ end
 # Sub-module includes
 # ---------------------------------------------------------------------------
 
+include("provenance/interpretation.jl")
 include("provenance/linecodes.jl")
 include("provenance/wires_grounding.jl")
 include("provenance/data_quality.jl")

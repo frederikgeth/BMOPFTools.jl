@@ -72,7 +72,7 @@ function augment_case(net::Dict{String,Any};
 
     # ── Pass 0: voltage-level snapping (optional, config-driven) ──────────────
     # Snap each bus's derived nominal to a standard IEC/ANSI level and write
-    # v_declared, so the bounds pass references the standardised voltage.
+    # v_declared, so the bounds pass references the standardized voltage.
     _apply_voltage_snap!(net′, entries, _voltage_snap_cfg(config), bus_voltage_map)
 
     # ── Pass 1: voltage bounds ────────────────────────────────────────────────

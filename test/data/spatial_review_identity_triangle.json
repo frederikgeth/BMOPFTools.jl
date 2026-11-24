@@ -1,0 +1,13 @@
+{
+  "meta": {"crs": {"type": "cartesian", "units": "m"}},
+  "bus": {
+    "a": {"x": 0.0, "y": 0.0, "terminal_names": ["a"]},
+    "b": {"x": 1.0, "y": 0.0, "terminal_names": ["a"]},
+    "c": {"x": 2.0, "y": 0.0, "terminal_names": ["a"]}
+  },
+  "line": {
+    "ab": {"bus_from": "a", "bus_to": "b", "length": 1.0, "terminal_map_from": ["a"], "terminal_map_to": ["a"]},
+    "bc": {"bus_from": "b", "bus_to": "c", "length": 1.0, "terminal_map_from": ["a"], "terminal_map_to": ["a"]},
+    "ac": {"bus_from": "a", "bus_to": "c", "length": 2.0, "terminal_map_from": ["a"], "terminal_map_to": ["a"]}
+  }
+}

@@ -110,7 +110,7 @@ function solve_pmd_en(net::Dict;
     vscale_probe = BMOPFTools.to_pmd(net)["settings"]["voltage_scale_factor"]
     inject_pmd_bounds!(net; vscale=vscale_probe)
     eng = BMOPFTools.to_pmd(net)
-    # `to_pmd` emits JSON-flavoured data (string enums); apply PMD's JSON-import
+    # `to_pmd` emits JSON-flavored data (string enums); apply PMD's JSON-import
     # correction to get native enums/matrices, exactly as PMD's own reader does.
     PMD.correct_json_import!(eng)
     eng["data_model"] = PMD.ENGINEERING

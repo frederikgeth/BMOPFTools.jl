@@ -15,7 +15,7 @@ constraints. Symbols are defined in [Notation](notation.md).
 | `description` | string | Free-text notes or caveats |
 | `created` | string (ISO 8601) | Creation timestamp, UTC |
 | `modified` | string (ISO 8601) | Last-revision timestamp, UTC |
-| `license` | string | SPDX identifier (e.g. `CC-BY-4.0`) or an `https://` URI to the licence |
+| `license` | string | SPDX identifier (e.g. `CC-BY-4.0`) or an `https://` URI to the license |
 | `frequency` | number (Hz) | Nominal system frequency — **check-only** (validated against `line_geometry`/linecode derivation frequency; never rescales) |
 | `authors` | object[] | Ordered authors — see below |
 | `data_sources` | object[] | Upstream data references — see below |
@@ -36,7 +36,7 @@ without the `https://orcid.org/` prefix).
   versioned, dereferenceable URI (a floating reference to `main` is acceptable in draft).
 - Dates must be UTC and should include a time component (`THH:MM:SSZ`); a date-only
   value is permitted when the time is unknown.
-- `license` should be a URI when the licence needs specific attribution language beyond
+- `license` should be a URI when the license needs specific attribution language beyond
   an SPDX identifier.
 - Unknown fields may be present; conformant readers must ignore them.
 - `frequency` is a consistency check only — it never defaults or rescales any quantity.

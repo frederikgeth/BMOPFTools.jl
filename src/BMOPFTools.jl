@@ -1,7 +1,7 @@
 """
     BMOPFTools
 
-A Julia library for parsing, validating, analysing, and reporting on
+A Julia library for parsing, validating, analyzing, and reporting on
 BMOPF-format distribution network datasets.
 
 The network data model is a plain `Dict{String,Any}` that mirrors the
@@ -15,7 +15,7 @@ data, so data flows naturally to and from JSON without conversion.
     report = analyze(net)               # run all analyses
     render(report, stdout)              # terminal output
     render(report, "report.md")         # markdown file
-    to_dss(net, "out/Master.dss")       # write OpenDSS (via PowerIO.jl)
+    to_dss(net, "out/Master.dss"; allow_unverified_ratings=true)       # write OpenDSS (via PowerIO.jl)
 
 See also: `write_bmopf`, `to_pmd`, `to_dss`.
 """
@@ -83,7 +83,7 @@ const COMPONENT_COLLECTIONS = (
     TS_COMPONENT_COLLECTIONS
 
 Subset of `COMPONENT_COLLECTIONS` whose instances may carry a
-`"time_series"` sub-dict that `get_snapshot` can actually materialise. Consumed
+`"time_series"` sub-dict that `get_snapshot` can actually materialize. Consumed
 by `_any_component_has_ts_ref` (which decides whether a network counts as a
 time-series network) and by `get_snapshot` (which resolves the references).
 
@@ -94,7 +94,7 @@ Currently this is every component collection except `control_profile`.
     …) are nested *inside* control-law sub-objects, but `_resolve_component_ts!`
     only scales top-level numeric or vector params on a component. A
     `time_series` reference on a control profile therefore has no top-level value
-    to scale, and resolving it would throw rather than materialise a snapshot.
+    to scale, and resolving it would throw rather than materialize a snapshot.
 
     Including `control_profile` here is the natural fix once the resolver grows
     nested-path support (e.g. a `"volt_var.breakpoints"` key); until then it is
@@ -302,9 +302,47 @@ struct TerminalRoles
 end
 
 # Terminal-name label treated as neutral by the fallback naming convention
-# (case-insensitive `"n"`/`"N"`). This is the single definition of the guess we
+# (case-insensitive `"n"`/`"N"`, plus reserved import return `"n_ref"`). This is the definition of the guess we
 # make when a case declares no `terminal_conventions`.
-_is_convention_neutral(name) = lowercase(string(name)) == "n"
+_is_convention_neutral(name) = lowercase(string(name)) in ("n", _GROUNDED_REFERENCE_LABEL)
+
+# Label from_dss gives a materialized OpenDSS node-0 return (PSK-000002). It is
+# classified as a neutral-role label, but when it is also perfectly grounded at
+# its bus it is the mathematical reference, not a conductor neutral.
+const _GROUNDED_REFERENCE_LABEL = "n_ref"
+
+"""True when terminal `t` of `bus` is the perfectly grounded node-0 return."""
+_is_grounded_reference(bus, t) = bus isa AbstractDict &&
+    string(t) == _GROUNDED_REFERENCE_LABEL &&
+    string(t) in string.(get(bus, "perfectly_grounded_terminals", String[]))
+
+"""Neutral-role terminals of `bus` that are conductor neutrals (grounded node-0 returns excluded)."""
+_conductor_neutrals(bus, neutral_labels) =
+    [t for t in get(bus, "terminal_names", String[])
+     if t in neutral_labels && !_is_grounded_reference(bus, t)]
+
+"""True when terminal label `t` is classified only as a neutral or earth return."""
+_return_only_label(t, roles) = t isa AbstractString && !(t in roles.phase) &&
+    (t in roles.neutral || t in roles.earth)
+
+"""
+    _neutral_only_branch(branch, roles) -> Bool
+
+True when a line or switch maps only neutral- or earth-role terminals at both
+ends, for example a primary-to-secondary neutral bond `["4"] => ["4"]` under
+`terminal_conventions.neutral = ["4"]`. Such a branch carries no phase
+conductor between its buses. Pass roles from `_index_roles(net)`; `nothing`, malformed maps, and labels with
+no role or with a phase role keep the branch phase-carrying.
+"""
+function _neutral_only_branch(branch, roles)::Bool
+    (roles isa TerminalRoles && branch isa AbstractDict) || return false
+    for key in ("terminal_map_from", "terminal_map_to")
+        tm = get(branch, key, nothing)
+        tm isa AbstractVector && !isempty(tm) || return false
+        all(t -> _return_only_label(t, roles), tm) || return false
+    end
+    true
+end
 
 """
     _terminal_roles(net) -> TerminalRoles
@@ -359,10 +397,30 @@ neutral by the case's declared label(s) rather than the hard-wired `"n"` guess.
 _neutral_labels(net::Dict{String,Any})::Set{String} = _terminal_roles(net).neutral
 
 """
+    _return_label_predicate(net) -> (label, fallback_neutral) -> Bool
+
+Classify a terminal-map label as a return (neutral or earth) conductor with the
+case's resolved terminal roles; a label that also carries a phase role is not a
+return. Without a declaration the naming convention also applies to map
+labels. When the declaration is malformed (`_index_roles(net) === nothing`),
+fall back to the naming convention: the map's first convention neutral
+(`fallback_neutral`, from `_neutral_terminal(map)`) or any `"n"`/`"N"` label.
+`fallback_neutral` is read only in that malformed-declaration case; with
+resolved roles it is ignored.
+"""
+function _return_label_predicate(net::Dict{String,Any})
+    roles = _index_roles(net)
+    roles === nothing && return (t, nt) -> t == nt || lowercase(t) == "n"
+    returns = setdiff(union(roles.neutral, roles.earth), roles.phase)
+    # Inferred roles only see bus labels; keep the naming convention for maps.
+    roles.inferred ? (t, _) -> t in returns || _is_convention_neutral(t) : (t, _) -> t in returns
+end
+
+"""
     _terminal_conventions_dict(net) -> Dict{String,Any}
 
 Build an exportable `terminal_conventions` block for `net`. If the case already
-declares one it is returned verbatim (sorted for a stable serialisation);
+declares one it is returned verbatim (sorted for a stable serialization);
 otherwise the roles are inferred from the naming convention and promoted to an
 explicit block (`phase`/`neutral` populated from the bus terminal names, `earth`
 empty). Used by `from_dss` to record the convention it knows at ingest and by
@@ -416,10 +474,10 @@ end
 
 Identify the neutral terminal of a bus (or of a terminal-name/`terminal_map`
 vector). For a bus, the explicit `neutral_terminal` field is checked first
-(materialised from `terminal_conventions` at ingest). Otherwise, when a
+(materialized from `terminal_conventions` at ingest). Otherwise, when a
 `neutral_labels` set is supplied (typically `_neutral_labels(net)`), a terminal
 whose label is in that set is the neutral; when it is omitted, the fallback
-naming convention applies — a terminal named `"n"`/`"N"` (any case) is neutral.
+naming convention applies — a terminal named `"n"`/`"N"` or the reserved import return `"n_ref"` is a return.
 Returns `nothing` if no neutral can be identified.
 
 The OpenDSS numeric convention `["1","2","3","4"]` is resolved at import time by
@@ -470,13 +528,11 @@ end
 Return the 1-based positions of the non-neutral conductors in `terminal_map`.
 """
 function _phase_positions(terminal_map::AbstractVector)::Vector{Int}
-    np = _neutral_pos(terminal_map)
-    [k for k in eachindex(terminal_map) if k != np]
+    [k for k in eachindex(terminal_map) if !_is_convention_neutral(terminal_map[k])]
 end
 
 function _phase_positions(terminal_map::AbstractVector, neutral_labels)::Vector{Int}
-    np = _neutral_pos(terminal_map, neutral_labels)
-    [k for k in eachindex(terminal_map) if k != np]
+    [k for k in eachindex(terminal_map) if !(string(terminal_map[k]) in neutral_labels)]
 end
 
 """
@@ -579,7 +635,7 @@ end
 
 Effective from→to turns ratio `n_eff` for a step voltage regulator at fixed tap
 ratio `a` (regulated/source, e.g. `a ∈ [0.9, 1.1]`). The OPF uses the wye-wye
-convention `V_fr = n_eff·V_to` (so `V_to = V_fr/n_eff`). To realise a regulated
+convention `V_fr = n_eff·V_to` (so `V_to = V_fr/n_eff`). To realize a regulated
 voltage `V_to = a·V_fr` for the standard ANSI **Type B** regulator we therefore
 need `n_eff = 1/a`; **Type A** (series winding on the regulated side) is the
 reciprocal connection, `n_eff = a`. See `_add_autotransformer!`.
@@ -605,7 +661,7 @@ function _autotransformer_ratio(xfmr::Dict{String,Any})::Float64
 end
 
 # ── Continuous tap (free-variable) support ─────────────────────────────────────
-# A transformer's tap is OPTIMISABLE when bounds are present and strictly ordered
+# A transformer's tap is OPTIMIZABLE when bounds are present and strictly ordered
 # (mirrors the implicit generator/IBR free-variable pattern). Ordinary transformers
 # (single_phase, wye_delta, delta_wye) use a dimensionless multiplier `tap` on the
 # nominal from-side ratio N0 = v_nom_from/v_nom_to; the regulator subtypes use their
@@ -705,11 +761,11 @@ end
 Whether a line carries its own ABSOLUTE impedance matrices (`R_series_i_j`
 [Ω], `X_series_i_j` [Ω], optional `G_*`/`B_*` [S]) instead of a `linecode`
 reference. Units are unambiguous by location: linecode matrices are per
-metre and scale with `length`; inline line matrices are section totals and
+meter and scale with `length`; inline line matrices are section totals and
 are **never** scaled by length (`length`, if present, is descriptive only).
 A line must have exactly one impedance source (`E.INT.LINE_IMPEDANCE_SOURCE`).
 """
-_line_has_inline_z(line::Dict{String,Any})::Bool =
+_line_has_inline_z(line::AbstractDict)::Bool =
     haskey(line, "R_series_1_1") || haskey(line, "X_series_1_1")
 
 # ---------------------------------------------------------------------------
@@ -731,8 +787,10 @@ include("io/project_solution.jl")
 include("io/sideload_coordinates.jl")
 include("io/nwinding.jl")
 include("io/capacitor.jl")
+include("io/transformer_leakage.jl")
 include("io/to_ybus.jl")
 include("io/ybus.jl")
+include("io/load_geometry.jl")
 include("io/ybus_linearized.jl")
 include("io/ybus_augmented.jl")
 
@@ -748,9 +806,19 @@ include("analysis/transformer_phase.jl")
 include("analysis/inventory.jl")
 include("analysis/voltage_levels.jl")
 include("analysis/spatial.jl")
+include("analysis/coordinate_semantics.jl")
+include("analysis/spatial_proximity.jl")
+include("analysis/spatial_topology.jl")
+include("analysis/spatial_routes.jl")
+include("analysis/spatial_review_evidence.jl")
+include("analysis/spatial_review.jl")
+include("analysis/spatial_review_decisions.jl")
 include("analysis/switch_scenarios.jl")
 include("analysis/connectivity.jl")
 include("analysis/diversity.jl")
+include("analysis/finding_interpretation.jl")
+include("analysis/winding_limit_coverage.jl")
+include("analysis/feeder_reach.jl")
 include("analysis/operational.jl")
 include("analysis/load_models.jl")
 include("analysis/provenance.jl")
@@ -779,8 +847,10 @@ include("network/kron_reduce.jl")
 include("network/neutral_kron.jl")
 
 include("report/formatting.jl")
+include("report/assessment_coverage.jl")
 include("report/render_terminal.jl")
 include("report/render_markdown.jl")
+include("report/spatial_review_export.jl")
 include("report/render_ascii_tree.jl")
 include("report/render_solution_markdown.jl")
 include("report/render_json.jl")
@@ -796,13 +866,17 @@ include("augmentation.jl")
 # ---------------------------------------------------------------------------
 
 """
-    analyze(net::Dict{String,Any}; t_index::Int=1) -> SummaryReport
+    analyze(net::Dict{String,Any}; t_index::Int=1, config=load_config()) -> SummaryReport
 
 Run all analysis and validation passes on a BMOPF network dict and return
 a [`SummaryReport`](@ref).
 
+Geospatial analysis runs automatically when buses contain coordinate fields.
+Pass a configuration with `config["spatial"]["enabled"] = false` to skip the
+entire spatial pass while retaining the other analysis and validation passes.
+
 For snapshot networks, `t_index` is ignored. For networks with a
-`"time_series"` key, the snapshot at `t_index` is materialised first.
+`"time_series"` key, the snapshot at `t_index` is materialized first.
 """
 function analyze(net::Dict{String,Any}; t_index::Int=1, config::Dict=_DEFAULT_CONFIG)
     working = is_timeseries(net) ? get_snapshot(net, t_index) : net
@@ -813,7 +887,7 @@ function analyze(net::Dict{String,Any}; t_index::Int=1, config::Dict=_DEFAULT_CO
     results[:inventory]      = inventory_analysis(working, findings)
     results[:voltage_levels] = voltage_level_analysis(working, findings)
     results[:connectivity]   = connectivity_analysis(working, findings;
-        voltage_levels=results[:voltage_levels])
+        voltage_levels=results[:voltage_levels], config=config)
     results[:diversity]      = diversity_analysis(working, findings)
     results[:operational]    = operational_analysis(working, findings; config=config)
     results[:load_models]    = load_model_analysis(working, findings)
@@ -828,6 +902,8 @@ function analyze(net::Dict{String,Any}; t_index::Int=1, config::Dict=_DEFAULT_CO
     results[:integrity]      = integrity_check(working, findings)
     results[:spec]           = spec_conformance_check(working, findings)
     results[:benchmark]      = benchmark_readiness_check(working, findings)
+
+    results[:assessment] = _assessment_coverage(results)
 
     SummaryReport(
         get(net, "name", nothing),
@@ -849,13 +925,13 @@ analyze(path::AbstractString; kwargs...) = analyze(parse_bmopf(path); kwargs...)
 
 Render a [`SummaryReport`](@ref) to `dest`.
 
-- `dest::IO`            — writes terminal-formatted text (ANSI colour if tty)
+- `dest::IO`            — writes terminal-formatted text (ANSI color if tty)
 - `dest::AbstractString` — writes to file; format inferred from extension
   (`.json` → structured JSON via [`render_json`](@ref), `.md` → Markdown,
   anything else → plain text)
 
 # Keyword arguments
-- `color::Bool` — force-enable/disable ANSI colour for IO dest (default: auto)
+- `color::Bool` — force-enable/disable ANSI color for IO dest (default: auto)
 - `verbose::Bool` — include INFO-level findings (default: `true`)
 """
 function render(report::SummaryReport, dest::IO; color::Bool=get(dest, :color, false), verbose::Bool=true)
@@ -981,7 +1057,7 @@ ReLU surrogate. `encoding=:softplus` uses
 output units.
 
 This numeric method is suitable as an exact control-law oracle outside an
-optimisation model and as a reference for quantifying smoothing error.
+optimization model and as a reference for quantifying smoothing error.
 """
 function piecewise_linear_value(input::Real,
                                 breakpoints::AbstractVector{<:Real},
@@ -1069,7 +1145,7 @@ All results are returned in SI units regardless. Per-unit conditioning is
 particularly important for DC networks, whose converter ports couple voltage
 and current bilinearly; pass `per_unit=false` only to reproduce a raw-SI solve.
 
-For controlled nondimensionalisation experiments, pass [`OpfScaling`](@ref).
+For controlled nondimensionalization experiments, pass [`OpfScaling`](@ref).
 An explicit `scaling_policy` is authoritative over the legacy `per_unit` and
 `s_base` keywords. `OpfScaling(:classic)` selects the legacy convention,
 `OpfScaling(:si)` selects raw SI coordinates, and the custom form accepts
@@ -1206,7 +1282,7 @@ export solve_opf
 
 Feasibility-relaxed variant of [`solve_opf`](@ref). Adds elastic slack current
 injections at every non-source bus terminal so that KCL can always be satisfied,
-then minimises the L2² norm of those slacks.
+then minimizes the L2² norm of those slacks.
 
 The added variables can absorb KCL residuals at the terminals where they are
 present, but they do not relax contradictory hard bounds or guarantee convergence
@@ -1311,7 +1387,7 @@ ordered model components into that canonical component basis before physical
 unit scaling is applied.
 
 `reference_physical_scale` is an optional positive device or operating scale
-for nondimensionalisation experiments. It is not the model-to-SI coordinate
+for nondimensionalization experiments. It is not the model-to-SI coordinate
 conversion and its provenance must be stated in `reference_scale_source`.
 The declaration is metadata only: registering a block never changes the model.
 """
@@ -1703,7 +1779,7 @@ end
     ConsistentPerUnitScaling(; s_base, voltage_bases,
                                dc_voltage_base=nothing, name=:custom)
 
-An explicit, physically consistent nondimensionalisation policy. A positive
+An explicit, physically consistent nondimensionalization policy. A positive
 voltage base must be supplied for every AC bus. Connected lines and switches
 must share a voltage base and transformer-side bases must respect the declared
 turns ratio; BMOPFTools validates these invariants before building a model.
@@ -1748,8 +1824,9 @@ end
                          name=:zone_local)
 
 Experimental coordinate policy with a voltage and power base for every AC bus.
-Power bases must be constant inside each galvanically continuous zone; they may
-change only across an isolating transformer. The corresponding current,
+Power bases must be constant inside each galvanically continuous zone (buses
+joined by lines, closed switches or regulators, including neutral-only bonds);
+they may change only across an isolating transformer. The corresponding current,
 impedance, and admittance bases are derived locally as `S/V`, `V^2/S`, and
 `S/V^2`.
 
@@ -1891,7 +1968,7 @@ function OpfScaling(
     )
 end
 
-"""Return a serialisable, defensive description of an OPF scaling policy."""
+"""Return a serializable, defensive description of an OPF scaling policy."""
 function opf_scaling_policy_data(policy::AbstractOpfScalingPolicy)
     if policy isa SIUnitsScaling
         return Dict{String,Any}(
@@ -2224,7 +2301,7 @@ Return a defensive, versioned description of a staged model's scaling,
 semantic blocks, initialization provenance, and qualified coordinate
 interfaces. Optional proposed AC bases affect only the transformer-interface
 audit; this function never modifies the model. Native semantic blocks are
-materialised lazily after KCL finalisation; inspect `capabilities` for
+materialized lazily after KCL finalization; inspect `capabilities` for
 `semantic_blocks_available` and `semantic_blocks_registered` before relying on
 their completeness. Bind the returned schema once when several fields are
 needed; each call rebuilds its defensive evidence dictionaries.
@@ -2391,17 +2468,17 @@ makes a composed objective mean the same thing in `per_unit=true` and
 via [`opf_physical_scale`](@ref), and a hand-built term should do the same.
 
 `weight` is then in objective-units per physical-unit, so a weight tuned once
-stays correct across unit modes and under a future nondimensionalisation.
+stays correct across unit modes and under a future nondimensionalization.
 
 `units` is recorded rather than checked: it reaches the regularization
 declaration and [`opf_research_hashes`](@ref), so what was combined — and in
 what units — is auditable after the fact.
 
 `valid_sense` records whether the term's expression means what it says under
-either optimisation direction (`:any`) or only when pushed DOWN (`:min`). An
+either optimization direction (`:any`) or only when pushed DOWN (`:min`). An
 epigraph reduction such as `norm=:max` is `:min`: its variable is bounded from
 below by the targets and from above by nothing, so it equals the maximum only
-while it is being minimised with a non-negative weight. Maximising it, or giving
+while it is being minimized with a non-negative weight. Maximizing it, or giving
 it a negative weight, is unbounded rather than wrong-by-a-little.
 [`set_opf_objective!`](@ref) rejects those combinations instead of handing the
 solver an unbounded problem.
@@ -2451,7 +2528,7 @@ export opf_physical_scale
 
 Reduce complex quantities `pairs` (a vector of `(re, im)` expression pairs) to
 one scalar, by `:squared` (L2), `:magnitude` (group-lasso, via
-[`smooth_norm`](@ref)) or `:max` (L∞ through a convex-quadratic epigraph, minimisation only).
+[`smooth_norm`](@ref)) or `:max` (L∞ through a convex-quadratic epigraph, minimization only).
 
 The choice changes the answer, not just the arithmetic: `:squared` improves
 every target a little, `:magnitude` drives a few to zero, `:max` protects the
@@ -2521,7 +2598,7 @@ export opf_sequence_current
     opf_current_term(ctx, elements; quantity=:neutral, component=:zero,
                      norm=:squared, weight=1.0)
 
-An [`OpfObjectiveTerm`](@ref) penalising branch currents over `elements`, each
+An [`OpfObjectiveTerm`](@ref) penalizing branch currents over `elements`, each
 `(block, id)` or `(block, id, side)`. `quantity` is `:neutral` or `:sequence`.
 
 Converted to amps before reduction, so elements at different voltage levels are
@@ -2541,7 +2618,7 @@ Post-solve reporting for the objective building blocks: solved magnitudes in
 PHYSICAL units (volts, percent, amps) in either unit mode. Call after
 `JuMP.optimize!`.
 
-`opf_report_vuf` is the counterpart to [`opf_vuf_term`](@ref), which minimises
+`opf_report_vuf` is the counterpart to [`opf_vuf_term`](@ref), which minimizes
 the SQUARED ratio — this returns the unsquared, directly comparable percentage.
 Reading a squared-VUF objective value as if it were a VUF is the mistake these
 helpers exist to prevent.
@@ -2563,7 +2640,7 @@ export opf_report_current
     opf_control_effort_term(ctx, devices; reference=nothing, norm=:magnitude,
                             weight=1.0)
 
-An [`OpfObjectiveTerm`](@ref) penalising how far dispatchable devices move from
+An [`OpfObjectiveTerm`](@ref) penalizing how far dispatchable devices move from
 a reference operating point, as injected-current deviation in amps. `devices` is
 a collection of `(block, id)` with `block` `"ibr"` or `"generator"`.
 
@@ -2584,7 +2661,7 @@ export opf_control_effort_term
 """
     opf_vuf_term(ctx, buses; weight=1.0, percent=true)
 
-An [`OpfObjectiveTerm`](@ref) penalising the SQUARED voltage unbalance factor,
+An [`OpfObjectiveTerm`](@ref) penalizing the SQUARED voltage unbalance factor,
 `Σ (|V2|/|V1|)^2`, in percent-squared by default (EN 50160 §3.5 and
 IEC 61000-2-2 state their limit as 2%, i.e. 4.0 here).
 
@@ -2632,7 +2709,7 @@ a different quantity: it is linear in `|I|` and does need the norm, but that is
 a device model rather than a network loss.)
 
 !!! note "Losses are not generation cost"
-    Minimising loss is not minimising [`generation_cost`](@ref). With
+    Minimizing loss is not minimizing [`generation_cost`](@ref). With
     heterogeneous generation prices the two disagree: least-loss dispatch will
     source from an expensive nearby unit rather than transport cheap distant
     power. Combine them deliberately with explicit weights.
@@ -2694,7 +2771,7 @@ same in SI and per-unit. See `ctx.bases` for the conversion.
 `eps_rel`'s safe range depends on how the norm is used, and guidance correct in
 one regime is wrong in the other:
 
-  * The norm is being **minimised** (it is the objective, or a penalty term). The
+  * The norm is being **minimized** (it is the objective, or a penalty term). The
     solve's endgame happens inside the smoothed region, so `eps` controls
     conditioning: keep it large, around the `1e-3` default. Shrinking it to
     solver-tolerance scale is measurably unreliable.
@@ -2935,7 +3012,7 @@ results = [extract_result(c) for c in ctxs]
     `build_opf_model` deliberately does not stamp KCL, so that a `model_hook!`
     can still contribute to the nodal accumulators. Until `enforce_kcl!` runs,
     the network is electrically disconnected and bus voltages are free
-    variables, so any objective over them is minimised without physics — the
+    variables, so any objective over them is minimized without physics — the
     solve can return a successful-looking status and a physically meaningless
     answer. `solve_opf` handles this for you; [`optimize_opf!`](@ref) explicitly
     finalizes all supplied ready contexts before solving. The manual alternative
@@ -3008,7 +3085,7 @@ export optimize_opf!
     generation_cost(ctx) -> JuMP.QuadExpr
 
 The snapshot's total active-power generation-cost-rate expression (currency/hour) — the
-quantity [`solve_opf`](@ref) minimises — returned WITHOUT setting it on the
+quantity [`solve_opf`](@ref) minimizes — returned WITHOUT setting it on the
 model. For a multi-period monetary objective, multiply each expression by that
 period's duration in hours before summing it with any custom cost terms; a bare
 sum is only valid when all periods have the same duration and only the optimizer,
@@ -3064,12 +3141,12 @@ export from_dss, to_dss, powerio_source_behavior_contract
 export powerio_findings
 export DSSConversionError, dss_conversion_error_to_dict
 export project_solution, dispatch_as_loads
-export sideload_coordinates!
+export sideload_coordinates!, sideload_geolayer!
 export analyze, render
 export load_config                      # tunable thresholds (config/default.toml)
 export is_timeseries, get_snapshot      # useful for interactive use
 
-# NOT exported (call qualified; stable in behaviour, not committed by name):
+# NOT exported (call qualified; stable in behavior, not committed by name):
 #   migrate               — runs automatically inside parse_bmopf
 #   render_markdown/render_terminal — backends of the `render` verb
 #   voltage_zone_summary  — internal aggregation behind profile_solution
@@ -3094,6 +3171,8 @@ export redundancy_check
 export integrity_check
 export spec_conformance_check
 export benchmark_readiness_check
+export spatial_review_decision, apply_spatial_review, spatial_review_geojson
+export render_spatial_review, export_spatial_review
 export render_ascii_tree
 export augment_case, AugmentationRecipe, default_recipe
 export fix_case, FixRecipe
@@ -3138,15 +3217,26 @@ end
 
 
 """
-    resolve_opf!(ctx, other_contexts...; kwargs...) -> JuMP.Model
+    resolve_opf!(ctx, other_contexts...; warm_start=true, kwargs...) -> JuMP.Model
 
 Reload a cached optimizer after supported parameter-value updates, then solve
 its shared model once. All supplied contexts must belong to that model and
 already have KCL enforced. Existing optimize hooks are honored. Direct models
-are unsupported: rebuild those explicitly. JuMP handles, attributes and explicit
-start values survive; solver factorizations and automatic warm-start transfer
-do not. Topology, dimensions and voltage-domain changes require rebuilding.
-Check physical residuals independently after solving (PSK-000013).
+are unsupported: rebuild those explicitly. JuMP handles and attributes survive;
+solver factorizations do not. Topology, dimensions and voltage-domain changes
+require rebuilding. Check physical residuals independently after solving.
+
+With `warm_start=true` (the default), the most recent feasible primal point
+from `optimize_opf!` or `resolve_opf!` (or a still-valid solution from a plain
+`JuMP.optimize!`) replaces the variable start values, and its duals become dual
+starts wherever the optimizer supports them. It is captured right after each
+solve, so changing parameter values before calling `resolve_opf!` keeps it. For Ipopt,
+`warm_start_init_point="yes"`, `mu_init=1e-6`, `warm_start_bound_push=1e-6` and
+`warm_start_mult_bound_push=1e-6` are set unless the caller already set those
+options. A warm start steers the solver toward the previous operating point; it
+does not certify which local solution is found. `warm_start=false` restores the
+build's original start values and the options this function set, giving a
+cold re-solve. Remaining keywords are passed to `JuMP.optimize!`.
 """
 function resolve_opf! end
 export resolve_opf!

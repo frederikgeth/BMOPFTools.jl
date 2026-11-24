@@ -16,7 +16,7 @@ Usage:
     --bus-map SOURCE_BUS=TARGET_BUS --bus-map SOURCE_BUS=TARGET_BUS \\
     [--atol VALUE] [--rtol VALUE] [--pretty]
 
-  bmopf analyze-case --input CASE.json [--time-index INTEGER] [--pretty]
+  bmopf analyze-case --input CASE.json [--time-index INTEGER] [--no-spatial] [--pretty]
 
   bmopf parse-case --input CASE.json [--pretty]
 
@@ -31,7 +31,7 @@ operation, 2 for an invalid request, and 1 for an input or execution failure. A
 completed contract may itself report passed, failed, inapplicable, or
 indeterminate status. A completed analysis or verification may contain ERROR
 Findings without turning the operation status into an error. Finding
-explanation is a deterministic offline catalogue lookup, not diagnosis. A
+explanation is a deterministic offline catalog lookup, not diagnosis. A
 completed parse means only that supported ingest and normalization ran; it is
 not schema validation or analysis.
 """
@@ -132,10 +132,17 @@ end
 function _cli_parse_analysis(args::Vector{String})
     input = nothing
     t_index = 1
+    spatial_enabled = true
     pretty = false
     index = 2
     while index <= length(args)
         flag = args[index]
+        if flag == "--no-spatial"
+            spatial_enabled || throw(ArgumentError("--no-spatial may be supplied only once"))
+            spatial_enabled = false
+            index += 1
+            continue
+        end
         if flag == "--pretty"
             pretty = true
             index += 1
@@ -157,7 +164,7 @@ function _cli_parse_analysis(args::Vector{String})
         index += 2
     end
     input === nothing && throw(ArgumentError("--input is required"))
-    (operation="analyze_case", input=String(input), t_index=t_index, pretty=pretty)
+    (operation="analyze_case", input=String(input), t_index=t_index, spatial_enabled=spatial_enabled, pretty=pretty)
 end
 
 function _cli_parse_case(args::Vector{String})
@@ -352,6 +359,7 @@ function main(args::Vector{String}=ARGS; out::IO=stdout, err::IO=stderr)::Int
             execute_analysis(
                 parse_bmopf(parsed.input);
                 t_index=parsed.t_index,
+                spatial_enabled=parsed.spatial_enabled,
                 inputs=inputs,
             )
         elseif parsed.operation == "verify_solution"

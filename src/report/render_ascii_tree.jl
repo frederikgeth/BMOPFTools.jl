@@ -81,6 +81,8 @@ function render_ascii_tree(net::Dict{String,Any}, io::IO;
             for k in 2:length(ws)
                 label=_derive_vector_group(net,subtype,tx;phase_order,to_winding=k)
                 reverse_label=_derive_vector_group(net,subtype,tx;phase_order,from_winding=k,to_winding=1)
+                note=_phase_source_note(transformer_phase_relation(net,subtype,tx;phase_order,to_winding=k))
+                label*=note; reverse_label*=note
                 f=ws[1]["bus"]; t=ws[k]["bus"]
                 vf=ws[1]["v_nom"]; vt=ws[k]["v_nom"]
                 valid_nominals=all(v -> v isa Real && isfinite(v),(vf,vt))

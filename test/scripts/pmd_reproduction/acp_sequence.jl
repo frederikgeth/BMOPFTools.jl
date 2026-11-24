@@ -6,7 +6,7 @@
 # (constraint_mc_bus_voltage_balance) is additionally stale in v0.16 (it
 # asserts a :conductors ref that no longer exists). The reference is therefore
 # ACPUPowerModel on the Kron-reduced model with the constraint FUNCTIONS wired
-# in directly by a custom builder. Definitions align with BMOPF: /3-normalised
+# in directly by a custom builder. Definitions align with BMOPF: /3-normalized
 # Fortescue components, bounds on squared magnitudes, upper-only.
 # vm_seq_*_max fields are injected into the MATH buses in per-unit (they are
 # not part of PMD's eng2math passthrough). phase_project stays off so
@@ -33,7 +33,7 @@ function build_mc_opf_seq(pm)
     end
 end
 
-"Fortescue components of a 3-phasor vector: (V0, V+, V−), /3-normalised."
+"Fortescue components of a 3-phasor vector: (V0, V+, V−), /3-normalized."
 function seq_components(vs)
     a = cis(2π / 3)
     ((vs[1] + vs[2] + vs[3]) / 3,

@@ -1,9 +1,12 @@
 # Analysis & reports
 
+For the physical rationale behind these checks, read
+[How network diagnostics work](methodology.md).
+
 [`analyze`](@ref) runs fifteen passes over a network dict and returns a
 [`SummaryReport`](@ref) holding per-pass result dicts (`report.results`)
 and the combined finding log (`report.findings`). For time-series networks
-the snapshot at `t_index` is materialised first.
+the snapshot at `t_index` is materialized first.
 
 ## The passes
 
@@ -11,13 +14,13 @@ the snapshot at `t_index` is materialised first.
 |---|---|---|
 | `:inventory` | [`inventory_analysis`](@ref) | component counts, totals (load P/Q, generation capacity), per-type breakdowns |
 | `:voltage_levels` | [`voltage_level_analysis`](@ref) | BFS voltage propagation from sources through transformer ratios; level clustering; transformer transitions; level-crossing violations |
-| `:connectivity` | [`connectivity_analysis`](@ref) | connected components, radial/meshed (physical branch count, parallel-aware), degree statistics, tree depth, dangling buses, galvanic-zone phase topology (split-phase / SWER tagging), voltage-tier and zone cycle-rank decomposition, parallel-line declarations, switch-state bus and mapped-conductor scenarios |
+| `:connectivity` | [`connectivity_analysis`](@ref) | connected components, radial/meshed over phase-carrying branches (physical branch count, parallel-aware; neutral-only bond cycles counted separately), degree statistics, tree depth, dangling buses, galvanic-zone phase topology (split-phase / SWER tagging), voltage-tier and zone cycle-rank decomposition, parallel-line declarations, switch-state bus and mapped-conductor scenarios |
 | `:diversity` | [`diversity_analysis`](@ref) | parameter spread per category (CV, duplicate tuples), phase imbalance, symmetry score |
-| `:operational` | [`operational_analysis`](@ref) | total load/generation, transformer utilisation at nominal load (downstream BFS), line thermal-limit coverage |
+| `:operational` | [`operational_analysis`](@ref) | total load/generation, transformer utilization at nominal load (downstream BFS), line thermal-limit coverage |
 | `:load_models` | [`load_model_analysis`](@ref) | load model breakdown by type, voltage-dependent load count, exponential loads that are ZIP-equivalent (integer exponents), nonlinear loads on buses without a lower voltage bound |
 | `:provenance` | [`provenance_analysis`](@ref) | impedance classification (balance tiers, passivity, sign structure), wires per level / Kron likelihood, neutral grounding structure, earthing-system tags, OpenDSS default fingerprints, regulator patterns, the **convention statement** |
 | `:preflight` | [`infeasibility_preflight`](@ref) | generation adequacy, voltage-bound coverage, bound-pair conflicts (v/vpn/vpp/vpos, p, q), topological risk |
-| `:schema` | [`schema_check`](@ref) | fields present but not in the data model (catalogued, not rejected) |
+| `:schema` | [`schema_check`](@ref) | fields present but not in the data model (cataloged, not rejected) |
 | `:completeness` | [`completeness_check`](@ref) | required fields per component type, incl. transformer subtypes; optional-field coverage |
 | `:domain_rules` | [`domain_rules_check`](@ref) | numerical plausibility: bounds signs, power factors, costs, impedance diagonals, transformer step ratios, zero limits/lengths, angle units, load model coefficient validity |
 | `:redundancy` | [`redundancy_check`](@ref) | zero loads/shunts, mergeable series lines (junction-aware), unused/duplicate linecodes |
@@ -25,7 +28,7 @@ the snapshot at `t_index` is materialised first.
 | `:spec` | [`spec_conformance_check`](@ref) | TF-spec rules the JSON Schema cannot express: single source, configuration/arity, transformer map arities, terminal types, matrix storage |
 | `:benchmark` | [`benchmark_readiness_check`](@ref) | objective well-posedness, slack-only detection, bound/limit coverage, **augmentation suggestions** |
 
-Note on transformer utilisation: the downstream-load estimate excludes the
+Note on transformer utilization: the downstream-load estimate excludes the
 transformer under analysis. If its from side remains reachable from its to
 side, the figure is labeled `upper_bound` and does not raise
 `W.OPS.XFMR_OVERLOADED`; parallel siblings and other alternate paths defeat
@@ -136,54 +139,15 @@ describe only the declared snapshot; switch scenarios introduce no Findings.
 
 ### Conditional geographic evidence
 
-`results[:connectivity]["spatial"]` appears only when at least one bus has
-`longitude`, `latitude`, `x`, or `y`. It reports coordinate and route coverage,
-line-length distributions by voltage tier, and bounded long-line witnesses.
-The long-line ranking compares each section with its own tier's 99th-percentile
-declared length; a high rank is an inspection cue, not an error threshold.
-Metre-based line chord, route endpoint, and transformer separation measurements
-are computed only when network metadata declares WGS84 (`crs`,
-`coordinate_system`, or `coordinate_reference_system`) or a matching
-`WGS84_geodesic_polyline` route provides coordinate-frame evidence. The latter
-is explicitly labeled as route evidence, not a network-wide CRS declaration.
-Out-of-range and incomplete coordinate pairs are counted but excluded from
-geodesic calculations.
-
-The coordinate loader copies OpenDSS `x,y` into fields named
-`longitude,latitude` without transforming or verifying them. Plausible numeric
-values therefore do not establish a geographic CRS. When the frame remains
-unspecified or is declared as another CRS, spatial distances are marked
-inapplicable; line-length statistics remain available. The result makes no
-automatic asset-error claim when the CRS is unspecified. With a network-level
-WGS84 declaration, out-of-range bus coordinates and sufficiently large line
-chord or route-endpoint contradictions raise `W.GEO.*` Findings. A line's
-equivalent electrical length can differ from its physical route, so these
-warnings call for source-data review rather than automatic repair.
-Route `length_m` and declared line `length` may come from the same upstream
-geometry calculation, so their agreement is an internal-consistency check,
-not independent confirmation of the physical route.
-
-The spatial result groups fields as follows:
-
-| Key | Contents |
-|---|---|
-| `coordinate_reference` | `status`, declared CRS if any, caution text, matching WGS84 route count, and whether geodesic distances apply. Status is `declared_wgs84`, `wgs84_route_evidence`, `declared_other`, or `unspecified`. |
-| `coordinate_coverage` | Counts of complete longitude/latitude pairs, x/y fields, partial and invalid pairs, and pairs outside WGS84 numeric ranges. |
-| `routes` | Route and basis coverage, numbers of endpoint and length comparisons, mismatch counts, and bounded endpoint-gap witnesses. |
-| `lines` | Length quantiles by voltage tier, chord comparison count, shorter-than-chord count, and bounded absolute and tier-relative length witnesses. |
-| `transformers` | Bus separation quantiles and bounded farthest-pair witnesses. |
-
-Endpoint gaps are counted with a 5 m descriptive threshold; the route-endpoint
-Finding threshold is `max(20 m, 10% of endpoint chord)`. Route/declaration length
-differences use `max(5 m, 10% of declared length)`; the line/chord lower-bound
-check uses `max(5 m, 10% of chord)`. A mismatch count is JSON `null` when no
-eligible comparison was made, rather than zero. Geographic Findings require
-an explicit WGS84 declaration; matching route evidence alone supports
-measurements but does not assert the CRS of every bus.
+Spatial analysis runs automatically when bus coordinate fields are present.
+It describes coordinate quality, shared infrastructure, geometry/topology
+candidates and an evidence-bound cleanup queue. Coincidence alone is not an error.
+See [Spatial diagnostics and cleanup review](spatial_diagnostics.md) for coordinate
+semantics, suppression, candidate codes, illustrated examples and exports.
 
 ## The report
 
-[`render`](@ref) writes nine sections (terminal with ANSI colour, or
+[`render`](@ref) writes nine sections (terminal with ANSI color, or
 Markdown via a `.md` path / [`BMOPFTools.render_markdown`](@ref)):
 
 1. **Component inventory**
@@ -218,7 +182,7 @@ section, component type/id, a human message and an optional machine-readable
 - `INFO` — provenance/context worth knowing; not necessarily actionable.
 
 Filter with [`errors`](@ref) / [`warnings`](@ref) / [`infos`](@ref), and
-match on `f.code` — message text is not stable. The complete catalogue with
+match on `f.code` — message text is not stable. The complete catalog with
 triggers and rationale is in the [finding-code reference](findings.md).
 
 ## Transformer phase evidence
@@ -284,5 +248,183 @@ above 90%; its threshold and meaning are unchanged.
 Positive headroom **does not prove feasibility** and negative headroom **does
 not prove infeasibility**. The result records both limitations, its assumptions
 and `solver_run = false`. It neither retries a solve nor edits the network.
-This screening evidence is linked to **PSK-000013** to distinguish it from a
-solved-network feasibility witness; it does not extend that scientific claim.
+This is a nominal-demand screen. Assessing a solved network also requires
+checking its equations, operating limits and recovered quantities.
+
+### Geometry and topology review candidates
+
+See the [spatial candidate catalog](spatial_diagnostics.md#Geometry-and-topology-review-candidates).
+Candidate codes are advisory categories, distinct from registered Findings.
+
+### Cleanup review workflow
+
+See the [cleanup review workflow](spatial_diagnostics.md#Cleanup-review-workflow)
+for evidence categories, review decisions, coverage and Markdown/JSON/GeoJSON exports.
+
+## Evidence qualified profiler results
+
+Many INFO and WARNING Findings flag data that *might* mislead a study. They are
+hints, not verdicts: each one tells you what the data most likely means, why that
+would matter, what else could explain it and what to check. Read them as a
+colleague's margin notes on a case you are building or modifying, whether you
+work alone or with an AI assistant.
+
+### Reading a hint
+
+Hints that carry review guidance store it in `detail["interpretation"]`. The
+markdown report shows it under each Finding ("How to read this"); the terminal
+report adds the main alternative and the first check; JSON and
+`explain_finding(finding)` return all of it:
+
+- `observations`: what was measured, e.g. matrix statistics compared with
+  the reference patterns (`pattern_comparison`).
+- `possible_explanations`: the usual reading first.
+- `implications`: what goes wrong in a study if that reading is true.
+- `alternatives`: other plausible readings of the same data.
+- `suggested_checks`: the cheapest useful check first.
+- `supporting_context`: case facts that strengthen or weaken the hint, e.g.
+  which lines actually use a linecode and at what voltage.
+- `learn_more`: documentation pages (`page`, `section`, `url`) that explain the
+  underlying physics or modeling choice.
+- `automation_guidance`: always `review`, with additional evidence required
+  before changing the model. An AI assistant should investigate, not edit.
+
+Each guidance list is ordered and holds `{"id", "text"}` records: match the
+stable `id` in code, show the `text` to people.
+
+```julia
+report = analyze(net)
+hint = first(filter(f -> f.code == "I.PROV.IMPEDANCE_TRANSFORM_KR", report.findings))
+guide = explain_finding(hint)["interpretation"]
+[h["text"] for h in guide["implications"]]
+guide["observations"]["by_linecode"]          # includes pattern_comparison
+```
+
+### Impedance provenance hints
+
+Linecode matrices provide clues to construction choices. Their engineering
+implications depend on which conductors and couplings the model retains:
+
+| Pattern | Possible origin | Engineering implications |
+|---|---|---|
+| equal self, equal mutual (`I.PROV.SEQ_DERIVED`) | sequence values or a symmetry/transposition assumption | phase-pair asymmetry is absent from the inspected block; retained neutral coupling and other equipment can still create unbalance |
+| negligible phase-block coupling (`I.PROV.DECOUPLED_PHASES`) | per-phase simplification | uniform self terms give approximately Z₀ = Z₁; unequal self terms can still couple sequence networks. Diagonal structure does not exclude prior reduction |
+| three-wire, no PN pattern (`I.PROV.IMPEDANCE_TRANSFORM_KR`) | prior neutral elimination (weak hint) | a zero-neutral-voltage model cannot predict neutral rise when inappropriate; total dissipation can remain represented, while separate neutral attribution needs recovery data |
+| uniform R, mutual ≈ ½ self (`…_PN`) | phase-to-neutral equivalent | exact under the single-grounded/no-earth-current assumptions; similar conductor resistances explain the pattern, while accuracy depends on earth-current assumptions |
+| uniform R and X (`…_MPN`) | modified phase-to-neutral equivalent | review PN earth-current assumptions and the additional reactance-symmetrization approximation |
+
+`observations.by_linecode` records `n_conductors`, `phase_block_only` and the
+relative coupling to conductors outside the inspected block. An extra conductor
+can coexist with a sequence-built phase block: OpenDSS can materialize a coupled
+four-conductor matrix from sequence values, or a modeller can supply neutral
+parameters separately. Shape alone does not select transposition over sequence
+parameterization. A balanced phase block can still have an explicit neutral
+that introduces phase-to-neutral unbalance.
+An extra conductor with negligible coupling to the phases is flagged as a
+possible placeholder or simplified neutral, with its coupling evidence retained.
+
+The per-phase simplification hint also covers unequal diagonal terms, with
+`phase_self_uniform` distinguishing the two cases. Unequal diagonal phase
+impedances may couple the sequence networks. A Schur reduction subtracts its
+correction from the original mutuals and can cancel them. Diagonal data therefore
+retain an unresolved origin, with possible prior reduction listed as an
+alternative; the hint does not declare Kron history impossible.
+
+For the PN transformation, the exact reference domain has no conductor-to-earth shunts,
+no device current injection into earth, and one grounding point per
+continuous neutral section. Neutral current and voltage can be recovered using
+source information in that domain. Multiple earth-return paths can invalidate
+its assumptions; grounding impedance alone does not determine the error. The
+R mutual/self ratio near one half is a fingerprint for similar phase/neutral
+resistances, while the transformation itself also applies to unequal conductors.
+
+The Kron hint is matrix-only, so its context distinguishes known LV use without
+a represented neutral, known MV/HV-only use, unused templates, and unassessed or
+mixed use. Missing nominal-voltage or terminal-map evidence does not establish
+MV/HV use. Context counts retain `n_mv_hv_lines`, `n_lv_with_neutral_lines` and
+`n_unassessed_lines`, with bounded line-ID examples; their sum is the legacy
+`n_other_or_unassessed_lines`. Only positively identified MV/HV-only uses receive
+`known_mv_hv_context`; unused templates receive `unused_linecode_context`.
+Unassessed uses keep conditional neutral implications and an
+`unassessed_use_context` disclosure. Exactly balanced candidates cross-reference
+`I.PROV.SEQ_DERIVED`. `I.PROV.KRON_LIKELY` remains the network-level counterpart
+for an LV level without a neutral carried by any branch.
+
+Converter-generated source equivalents (linecodes whose `source` names a
+Thevenin or source impedance, e.g. from `from_dss`) are classified but never
+flagged; the report counts them. Scientific checks for
+[reduction and positive-sequence applicability](scientific_contracts.md) keep
+their own documented domains; these hints do not widen them. Compatibility
+details are in [Provenance report compatibility](dev/versioning.md#Provenance-report-compatibility).
+
+### Transformer winding caps
+
+For two-winding subtypes the OPF turns `s_rating` into a per-coil cap. An
+`n_winding` transformer is different: only per-winding `i_max` (coil current)
+and `s_max` (coil apparent power, shared equally among phase legs) limit it.
+`operational.winding_limit_coverage` lists each winding's caps with field paths,
+and `W.OPS.XFMR_UNCONSTRAINED` flags windings with no finite supported cap.
+A cap can be absent or explicitly `Inf`; observations count both states, so an
+intentional unbounded declaration stays visible. Zero is a real restriction.
+Direct neutral-current caps are not assessed, and this is declared data, not a
+built or solved model. Other subtypes are reported as not applicable.
+
+### Feeder length and supply boundaries
+
+`operational.feeder_length` reports, per galvanic zone, how far (by declared
+line length) the farthest bus is from the nearest *supply boundary*: a voltage
+source, or a transformer port with a source beyond it. For a chain of four
+100 m lines fed from both ends this is 200 m (`boundary_reach_m`), while the
+legacy `reach_m` / `anchor_extent_m` measures 400 m from one end.
+`I.OPS.FEEDER_LONG` and `I.OPS.FEEDER_SHORT` compare it with per-band
+thresholds. Review genuine feeder size, unit conversions and the OpenDSS default
+`length=1`: copying 1 km as 1 m makes a line 1000 times too short; interpreting
+1000 m as 1000 km upstream makes it 1000 times too long.
+
+`observations.impedance_basis_counts` separates per-length `length_scaled`
+linecodes, inline `absolute_section` matrices and `unresolved` declarations.
+As in the model, inline matrices win when a line also names a linecode;
+`inline_overrides_linecode` counts those lines.
+Length errors scale linecode impedances, while inline matrices are absolute
+section totals and stay unchanged when length changes. The guide uses that
+context; for an all-inline zone it explains the distance error separately from
+electrical parameters. Per-km versus per-m impedance units deserve their own
+check even when declared lengths are correct.
+
+Each transformer port records a `port_role`: `source_beyond_port` (a possible
+supply into the zone), `no_source_beyond_port` (load side) or `unresolved`. Two
+or more ports with a source beyond them mean parallel supply, which the report
+lists for review. Supported boundaries are voltage sources and untapped two-port
+`n_winding`, `single_phase`, `wye_delta` and `delta_wye` transformers whose
+voltage bases agree (source magnitudes within 5%, cycle ratios within 10⁻⁹).
+Anything else leaves the distance unassessed with a stated reason rather than a
+guess. The metric is graph distance; it does not compute voltage drop, flow or
+energization. Missing or invalid lengths leave it indeterminate; regularized
+electrical lengths suppress the threshold comparison.
+
+Zones with several supply boundaries need their own threshold policy, since a
+short distance to one of many ports does not make the zone a service drop:
+
+```toml
+[operational.feeder_length.LV.multi_boundary]
+reach_short_m = 0.0
+reach_long_m = 1500.0
+```
+
+### Assessment coverage
+
+`results.assessment` lists which tracked checks were assessed, skipped, not
+applicable or indeterminate, with reasons. It is separate from severity and is
+not a validation score. Reports show a one-line summary plus the checks you can
+act on; legacy passes without a coverage ledger appear only in JSON.
+
+### Repetition and parallel declarations
+
+Parallel line records are grouped by bus pair and compared strictly, keeping
+terminal order and endpoint orientation; matching records are inspection
+candidates, not proven duplicate assets. Load repetition counts identical P/Q
+declarations: group sizes 4, 3 and 1 give 8 loads, 3 distinct tuples, 5 excess
+repetitions and 2 repeated groups with 7 members. Values are grouped before
+conversion to Float64, so rounding cannot create false matches. Reports keep
+radial nameplate estimates separate from ambiguous upper bounds, which never
+trigger overload warnings.

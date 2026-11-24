@@ -3,7 +3,7 @@
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
@@ -11,7 +11,7 @@
 
 Real network data arrives incomplete. A cable has an impedance but no current
 rating; a bus has a nominal voltage but no operating envelope; a feeder has loads
-but nothing dispatchable to optimise. Turning that into a model an OPF can
+but nothing dispatchable to optimize. Turning that into a model an OPF can
 respect means *writing numbers the source never gave you* — and the integrity of
 the study depends on being honest about where each one came from.
 
@@ -29,7 +29,7 @@ need no solver. See [Case augmentation](augmentation.md) for the reference.*
 
 We start from a small LV feeder and, to mimic datasheets that list conductor
 impedances but no ampacities, strip the current ratings. Nothing here is
-invalid — it is just *optimisation-meaningless*: with no voltage bounds nothing
+invalid — it is just *optimization-meaningless*: with no voltage bounds nothing
 can be infeasible, and with no ratings nothing can bind.
 
 ```julia
@@ -103,7 +103,7 @@ Reading those tiers back as engineering judgment:
   (`:high` vs `:medium`) mirrors how trustworthy the *impedance provenance* is
   (a geometry-`distinct` linecode vs a `near_balanced` one), so a `:medium` tag
   is a flag to check against your real conductor schedule before publishing.
-- **Numerical default** (`:heuristic`) — loose regularisation floors added for
+- **Numerical default** (`:heuristic`) — loose regularization floors added for
   solver conditioning, not physical claims.
 - **Synthetic** (`:synthetic`) — pure design choices. These appear the moment you
   place dispatchable generation, which is a *scenario*, not a fact:
@@ -130,7 +130,7 @@ confidence tag is the tell for what to revisit:
 
 ## 4. Provenance travels with the case
 
-The manifest serialises, so the augmented case and its provenance can ship as a
+The manifest serializes, so the augmented case and its provenance can ship as a
 pair — `(case.json, case_manifest.json)` — and every default stays auditable
 long after the study:
 

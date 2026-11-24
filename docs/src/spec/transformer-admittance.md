@@ -1,6 +1,7 @@
 # Transformer primitive admittance
 
-Every transformer and regulator model in this specification has an exact **nodal
+For supported transformer and regulator configurations with finite, invertible
+effective leakage above the configured cutoff, BMOPFTools builds a **nodal
 admittance block** (a *primitive admittance*, or `Yprim`): the complex matrix
 $\textcolor{brown}{\mathbf{Y}_x}$ over the element's terminal nodes such that
 
@@ -16,13 +17,15 @@ internally, so it is the natural artifact for **cross-tool validation**: an info
 reader can compare our block against their own implementation term-by-term, before any
 topology or Kirchhoff law enters.
 
-This page gives $\textcolor{brown}{\mathbf{Y}_x}$ in **symbolic** form for all six
+Start with [Nodal admittance builders](nodal-admittance.md) to choose between
+a finite stamp and a bordered representation. This page gives
+$\textcolor{brown}{\mathbf{Y}_x}$ in **symbolic** form for the supported
 transformer/regulator models — the [Transformers](transformer.md) subtypes
 (`single_phase`, `center_tap`, `wye_delta`, `delta_wye`, `n_winding`) and the
 [Regulators](regulator.md) (`single_phase_autotransformer`, `open_delta_regulator`).
 The [OPF constraints](transformer.md#4.-Equality-constraints) stamp the *same*
-relations as nodal current injections, so the two paths cannot drift apart (a test
-pins each solved setpoint against $\textcolor{brown}{\mathbf{Y}_x}\textcolor{blue}{\mathbf{U}_x}$).
+relations as nodal current injections; regression tests compare the two paths
+on their declared fixtures and domains.
 Symbols are defined in [Notation](notation.md) and the loss elements
 ($\textcolor{brown}{Z^{\text{fr}}_x}$, $\textcolor{brown}{Z^{\text{to}}_x}$,
 $\textcolor{brown}{Y_0}$, $\textcolor{brown}{y_n}$) in
@@ -61,12 +64,17 @@ so is the result:
     $\textcolor{brown}{\mathbf{Y}_x}\neq\textcolor{brown}{\mathbf{Y}_x}^{\text{H}}$).
     Every block below satisfies $\lVert\textcolor{brown}{\mathbf{Y}_x}-\textcolor{brown}{\mathbf{Y}_x}^{\text{T}}\rVert_\infty<\epsilon$; any asymmetry is a sign/convention bug.
 
-!!! warning "Finiteness — nonzero leakage required"
-    $\textcolor{brown}{\mathbf{Y}_x}$ is finite only for **nonzero leakage**. An ideal
-    ($\textcolor{brown}{Z}\to 0$) winding has infinite primitive admittance and a
-    singular block; OpenDSS always carries a small leakage, and so must any exported
-    case. A zero-leakage unit that still has core loss exports its (singular)
-    shunt-only block rather than zeros.
+!!! warning "Finite stamps and ideal-device boundaries"
+    A complete voltage-only stamp requires the relevant effective leakage
+    inverse. Nonzero entries alone do not establish that a multi-winding
+    leakage matrix is invertible. The public primitive API rejects leakage
+    at or below its configured cutoff; the exact tests and supported domains
+    are given in the [transformer leakage policy](nodal-admittance.md#Transformer-leakage-policy).
+    Use `ybus_augmented` for supported small/zero or singular leakage cases.
+    Its border retains finite leakage rather than replacing it by zero.
+    `shunt_only=true` inspects the finite no-load contribution and is not a
+    complete transformer model.
+
 
 ## 2. `single_phase` (wye–wye, Γ-model)
 
@@ -101,7 +109,7 @@ $\textcolor{brown}{y_n}$ to that neutral node's diagonal.
 
 ## 3. `center_tap` (split-phase, 3-winding)
 
-Five nodes $[\,p,\,m,\,a,\,g,\,c\,]$: HV-phase, HV-neutral, LV-leg-1, LV-centre-tap,
+Five nodes $[\,p,\,m,\,a,\,g,\,c\,]$: HV-phase, HV-neutral, LV-leg-1, LV-center-tap,
 LV-leg-2. This is a genuine **3-winding** unit (1 HV + 2 series-aiding LV legs sharing
 $g$). Refer all arms to the LV base:
 
@@ -131,7 +139,7 @@ The connection matrix maps node voltages $[p,m,a,g,c]$ to the three winding volt
 the HV winding sees $(\textcolor{blue}{U_p}-\textcolor{blue}{U_m})/\textcolor{red}{N}$,
 leg 1 sees $\textcolor{blue}{U_a}-\textcolor{blue}{U_g}$, and leg 2 sees
 $\textcolor{blue}{U_g}-\textcolor{blue}{U_c}$ (both legs the *same* polarity about the
-centre tap — series-aiding):
+center tap — series-aiding):
 
 ```math
 \textcolor{brown}{\mathbf{C}}=
@@ -145,7 +153,7 @@ centre tap — series-aiding):
 With the no-load shunt across winding 2 = LV leg 1 (the $a$–$g$ coil,
 $\textcolor{brown}{\mathbf{c}}_{ag}=\mathbf{e}_a-\mathbf{e}_g$) and the two optional
 neutral-grounding branches — $\textcolor{brown}{y_n^{\text{fr}}}$ at the HV neutral $m$
-(node 2) and $\textcolor{brown}{y_n^{\text{to}}}$ at the centre tap $g$ (node 4):
+(node 2) and $\textcolor{brown}{y_n^{\text{to}}}$ at the center tap $g$ (node 4):
 
 ```math
 \textcolor{brown}{\mathbf{Y}_x}=
@@ -254,7 +262,7 @@ orientation). Summing over phases and adding the winding-2 shunt,
 ```
 
 This is the exact multi-winding leakage star; the 2-winding subtypes above are its
-closed-form specialisations.
+closed-form specializations.
 
 ## 6. Regulators
 
@@ -321,8 +329,7 @@ to the physics:
 
 A fifth gate ties this export to the [OPF constraints](transformer.md#6.-Implementation-in-BMOPFTools):
 at a solved power-flow setpoint, the nodal currents $\textcolor{brown}{\mathbf{Y}_x}\textcolor{blue}{\mathbf{U}_x}$ match the OPF's own winding-current variables node-by-node,
-including off-nominal fixed taps — so the admittance export and the optimisation model
-cannot diverge.
+including off-nominal fixed taps, within the tested domains.
 
 !!! note "Current-variable convention (informational)"
     The Yd/Dy OPF winding-current *variables* are not the physical terminal currents used

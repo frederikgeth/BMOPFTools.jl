@@ -19,7 +19,7 @@ The historical file identifies itself with the already-supported
 The archive identifies itself with the already-supported dsopt-schema 0.1.0 URL.
 The [archive manifest](https://github.com/eigenergy/powerio/blob/5234df55cd13ad31455697cffbdc16ca50662667/powerio-dist/schemas/bmopf/manifest.json)
 records its source as dsopt-schema commit
-`b75d0d6669c670dca37ae3ec778b3ac405c361ba` and licence as CC BY 4.0.
+`b75d0d6669c670dca37ae3ec778b3ac405c361ba` and license as CC BY 4.0.
 The file retrieved from that source commit has the same SHA-256 as the archive.
 No schema bytes are copied into this repository by this change.
 

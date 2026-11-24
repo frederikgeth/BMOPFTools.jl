@@ -1,0 +1,18 @@
+{
+  "meta": {"coordinate_reference_system": "EPSG:4326"},
+  "bus": {
+    "a": {"longitude": 153.0, "latitude": -27.0},
+    "junction": {"longitude": 153.0004, "latitude": -27.0},
+    "b": {"longitude": 153.001, "latitude": -27.0}
+  },
+  "line": {
+    "section_1": {
+      "bus_from": "a", "bus_to": "junction", "length": 40.0,
+      "meta": {"physical_length_m": 100.0, "electrical_length_regularized": false, "raw_key": "synthetic_parent"}
+    },
+    "section_2": {
+      "bus_from": "junction", "bus_to": "b", "length": 60.0,
+      "meta": {"physical_length_m": 100.0, "electrical_length_regularized": false, "raw_key": "synthetic_parent"}
+    }
+  }
+}

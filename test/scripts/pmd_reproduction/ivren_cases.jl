@@ -46,7 +46,7 @@ let
 end
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Case G2 — vpn_min binds (four-wire, two DERs, cost-minimised support).
+# Case G2 — vpn_min binds (four-wire, two DERs, cost-minimized support).
 # Flat start; the der_e ×9 perturbation must flip the dispatch order.
 # ─────────────────────────────────────────────────────────────────────────────
 let
@@ -110,7 +110,7 @@ end
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Case H2 — vpp_min binds (three-wire grounded, non-uniform per-pair floors
-# [395, 375, 375] V travelling to PMD as explicit vm_pair_lb tuples).
+# [395, 375, 375] V traveling to PMD as explicit vm_pair_lb tuples).
 # Flat start; the der_e ×9 perturbation must flip the dispatch order.
 # ─────────────────────────────────────────────────────────────────────────────
 let

@@ -1,0 +1,20 @@
+{
+  "meta": {"crs": "EPSG:4326"},
+  "bus": {
+    "a": {"longitude": 153.0, "latitude": -27.0, "terminal_names": ["1"]},
+    "b": {"longitude": 153.0001, "latitude": -27.0, "terminal_names": ["1"]},
+    "c": {"longitude": 153.0002, "latitude": -27.0, "terminal_names": ["1"]},
+    "offset": {"longitude": 153.0003, "latitude": -27.0, "terminal_names": ["2"]}
+  },
+  "line": {
+    "direct": {
+      "bus_from": "a", "bus_to": "c", "terminal_map_from": ["1"], "terminal_map_to": ["1"],
+      "meta": {"source_interval": "synthetic-interval", "route_geometry": {"basis": "WGS84_geodesic_polyline", "coordinates": [[153.0, -27.0], [153.0001, -27.0], [153.0002, -27.0]]}}
+    },
+    "ab": {"bus_from": "a", "bus_to": "b", "terminal_map_from": ["1"], "terminal_map_to": ["1"],
+      "meta": {"route_geometry": {"basis": "WGS84_geodesic_polyline", "coordinates": [[153.0001, -27.0], [153.0, -27.0]]}}},
+    "bc": {"bus_from": "b", "bus_to": "c", "terminal_map_from": ["1"], "terminal_map_to": ["1"]},
+    "wrong_end": {"bus_from": "a", "bus_to": "offset", "terminal_map_from": ["1"], "terminal_map_to": ["2"],
+      "meta": {"source_interval": "synthetic-interval", "route_geometry": {"basis": "WGS84_geodesic_polyline", "coordinates": [[153.0, -27.0], [153.0002, -27.0]]}}}
+  }
+}

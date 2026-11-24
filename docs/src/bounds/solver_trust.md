@@ -25,14 +25,14 @@ what Ipopt just told me?**
     After the physics traps are excluded:
 
     - **`INFEASIBLE` means this solver trajectory did not reach feasibility.**
-      Ipopt entered restoration, minimised constraint violation locally, and
+      Ipopt entered restoration, minimized constraint violation locally, and
       could not drive it to zero. Repeated starts and a consistent slack-current
       pattern strengthen the diagnosis but do not prove the feasible set is empty.
     - **`LOCALLY_SOLVED` means Ipopt satisfied its approximate first-order
       termination tests.** Interpreting that point as a regular KKT point requires
       constraint-qualification evidence; interpreting it as a local minimizer
       requires additional second-order evidence. A high-voltage start and a
-      non-decreasing generation-cost objective often favour an operational
+      non-decreasing generation-cost objective often favor an operational
       branch, but this does not establish either claim, much less global
       optimality. Only a valid global bound — for example from an exact
       relaxation or global solver — can establish the last one.
@@ -64,25 +64,25 @@ what Ipopt just told me?**
     theorem that the point is a local minimizer. In either case they do not
     establish a global optimum.
     `LOCALLY_INFEASIBLE` ("Converged to a locally infeasible point") reports that
-    Ipopt's **restoration phase** reached a local minimiser of constraint violation
+    Ipopt's **restoration phase** reached a local minimizer of constraint violation
     with violation still above tolerance. Independently inspect primal residuals
     before treating either status as evidence about the represented system.
 
 Ipopt solves a sequence of barrier subproblems with a filter line search
 ([Wächter & Biegler, 2006](https://doi.org/10.1007/s10107-004-0559-y)). When a step
 cannot make progress toward both feasibility and optimality, it switches to a
-**feasibility restoration phase** that ignores the objective and minimises the constraint
+**feasibility restoration phase** that ignores the objective and minimizes the constraint
 violation. The two terminal messages map onto this machinery directly:
 
 - **`LOCALLY_SOLVED`** — Ipopt's reported first-order residual and constraint
   violation are both below tolerance at its terminal point.
-- **`LOCALLY_INFEASIBLE`** — restoration converged to a local minimiser of infeasibility
+- **`LOCALLY_INFEASIBLE`** — restoration converged to a local minimizer of infeasibility
   whose residual is still positive: Ipopt got as close to feasible as it locally could,
   and that was not close enough.
 
 !!! details "Derivation: why 'locally infeasible' is a one-sided signal on a nonconvex set"
     On a convex program, a point of minimal-but-positive constraint violation proves the
-    feasible set is empty: the violation is a convex function and a local minimiser is
+    feasible set is empty: the violation is a convex function and a local minimizer is
     global. On a **nonconvex** program that implication breaks. A locally infeasible
     point only certifies that *from this trajectory* Ipopt could not reach feasibility; a
     different start might. The honest reading is the one in the interior-point literature:
@@ -107,7 +107,7 @@ violation. The two terminal messages map onto this machinery directly:
 
 The main note's [§4](index.md) makes the physical case sharp: with constant-power loads,
 the edge of the AC feasible region *is* the loadability boundary, and beyond the nose the
-equations have **no real solution** — genuine infeasibility, not a modelling slip. So an
+equations have **no real solution** — genuine infeasibility, not a modeling slip. So an
 `INFEASIBLE` on a heavily loaded sub-network is frequently the model telling you the truth.
 
 The hedge is nonconvexity: restoration is start-dependent. Two cheap cross-checks promote
@@ -119,8 +119,8 @@ the signal toward certainty:
   independently verified feasible point disproves infeasibility — see [Symptom
   5](diagnostics.md).
 - **The slack-current measure.** [`solve_feasibility_opf`](../validation.md) adds an
-  elastic slack current at every non-source terminal and minimises its norm. For
-  a converged relaxed solve, a non-zero `total_slack_magnitude_A` localises where
+  elastic slack current at every non-source terminal and minimizes its norm. For
+  a converged relaxed solve, a non-zero `total_slack_magnitude_A` localizes where
   that local solution uses residual current. Unlike an IIS for a convex/linear
   problem, it does not certify that no zero-slack solution exists elsewhere.
 
@@ -129,7 +129,7 @@ the signal toward certainty:
 !!! tip "Takeaway"
     Some radial single-phase results establish useful uniqueness or attraction
     properties for the high-voltage power-flow solution under stated conditions.
-    Those results motivate a high-voltage start and a loss/cost-minimising
+    Those results motivate a high-voltage start and a loss/cost-minimizing
     objective here. They do not establish uniqueness or global optimality for the
     meshed, multiphase, unbalanced OPFs this engine also targets.
 
@@ -137,9 +137,9 @@ This is the optimistic mirror of [§2](index.md) and [§5](index.md). On a radia
 the high-voltage solution is the last one to vanish as the system loads toward its limit,
 and the standard computational routes return exactly it when one exists
 ([Dvijotham, Mallada & Simpson-Porco, 2017](https://arxiv.org/abs/1706.05290), a radial,
-single-phase result). A loss-minimising objective can favour that branch
+single-phase result). A loss-minimizing objective can favor that branch
 ([§5](index.md)). For a four-wire unbalanced feeder this is a useful
-initialisation heuristic and modelling analogy, not a probability statement or
+initialization heuristic and modeling analogy, not a probability statement or
 a theorem that carries over ([Bernstein et al.,
 2018](https://doi.org/10.1109/TPWRS.2018.2823277)). Globality remains an open
 claim until a valid lower bound closes the optimality gap.
@@ -210,7 +210,7 @@ claim until a valid lower bound closes the optimality gap.
 !!! note "If you do need a certificate: global OPF in practice"
     When the deliverable is a *proof* of the global optimum — certifying a benchmark
     reference value rather than trusting it — the tools live outside BMOPFTools (which
-    ships only the local nonconvex engine) and form a small, well-characterised toolbox.
+    ships only the local nonconvex engine) and form a small, well-characterized toolbox.
     All of them **bracket** the optimum between a feasible upper bound (any AC-feasible
     point, e.g. your Ipopt solution) and a relaxation lower bound, then close the gap:
 
@@ -286,7 +286,7 @@ which fails LICQ only on a measure-zero parameter set, a structural redundancy b
     The same trap recurs in miniature whenever an equality duplicates information already
     present — pinning a reference bus's voltage magnitude on top of its rectangular
     fixes, or grounding a neutral the source already fixes to zero. **Fix:** delete the
-    redundant equation; do not regularise around it.
+    redundant equation; do not regularize around it.
 
 !!! info "Concept: LICQ, MFCQ, and what they do not prove"
     The **linear independence constraint qualification (LICQ)** asks that the gradients of
@@ -296,7 +296,7 @@ which fails LICQ only on a measure-zero parameter set, a structural redundancy b
     supplies a nonempty bounded multiplier set, but not necessarily a unique
     vector. Interior-point convergence analysis leans on regularity of this kind:
     when even MFCQ fails, the dual iterates can diverge and the solve crawls
-    ([on multiplier behaviour in infeasible IPMs](https://arxiv.org/abs/1707.07327)).
+    ([on multiplier behavior in infeasible IPMs](https://arxiv.org/abs/1707.07327)).
 
     These are statements about constraint geometry and multipliers. LICQ does
     **not** imply that a stationary point is a local minimizer, that a local
@@ -357,10 +357,10 @@ different starts ([Symptom 5](diagnostics.md)).
       solution set bifurcates and LICQ ([§4](@ref "4. Residual trap A — degeneracy of the added models"))
       fails. The function is smooth; its Jacobian is rank-deficient.
     - **(b) Genuine non-smoothness.** ZIP and exponential load models *are* non-smooth at
-      zero. The exponential form realises $P \propto (W / V_{\text{nom}}^2)^{\gamma/2}$
+      zero. The exponential form realizes $P \propto (W / V_{\text{nom}}^2)^{\gamma/2}$
       with $W = v_r^2 + v_i^2$, and the constant-current term needs $s = \sqrt{W}$. For
       $\gamma < 2$ the derivative of $x^{\gamma/2}$ blows up as $x \to 0$; $\sqrt{x}$ has
-      an infinite slope at the origin. These are real singularities, not rank artefacts.
+      an infinite slope at the origin. These are real singularities, not rank artifacts.
 
 !!! details "Derivation: the Hessian blow-up of a fractional power"
     For $f(x) = x^{\gamma/2}$ with $0 < \gamma < 2$, $f''(x) = \tfrac{\gamma}{2}
@@ -401,7 +401,7 @@ become ill-conditioned ([Molzahn, Lesieutre & DeMarco,
     lives well above zero; the all-zero solution of this section is a different, spurious
     object. BMOPFTools' feasibility OPF keeps this distinction concretely: it retains the
     case's own (strictly positive) voltage bounds unchanged and relaxes only nodal current
-    balance, so infeasibility surfaces as localised slack currents rather than as a
+    balance, so infeasibility surfaces as localized slack currents rather than as a
     collapsed voltage solution (see the
     [infeasibility diagnosis tutorial](../tutorial_infeasibility.md)).
 
@@ -418,7 +418,7 @@ Work top to bottom; each step removes one alternative explanation for the solver
     3. **Bounds sane and collapse excluded?** Full operational box, a strictly positive
        voltage floor ([§6](@ref "6. Residual trap C — zero voltage in power–voltage formulations")),
        and you are not deliberately on the loadability boundary ([§4](index.md)).
-    4. **Objective off the loss-max list?** Loss/cost-minimising, non-decreasing in
+    4. **Objective off the loss-max list?** Loss/cost-minimizing, non-decreasing in
        generation ([loss-maximization list](loss_maximization.md)).
     5. **Load models away from their singular point?** Voltage floor in place so fractional
        ZIP exponents stay smooth ([§5](@ref "5. Residual trap B — smoothness loss and the zero-voltage bifurcation")).
@@ -431,7 +431,7 @@ Work top to bottom; each step removes one alternative explanation for the solver
 
 !!! note "Then read the verdict this way"
     - **`INFEASIBLE`** after steps 1–7 ⇒ report a strengthened but still local
-      infeasibility diagnosis; show the multi-start outcomes and localise the
+      infeasibility diagnosis; show the multi-start outcomes and localize the
       residual with `solve_feasibility_opf`.
     - **`LOCALLY_SOLVED`** after steps 1–7 ⇒ treat it as a candidate operating
       point after independently checking primal feasibility. For a *local
@@ -440,7 +440,7 @@ Work top to bottom; each step removes one alternative explanation for the solver
       claim, require a matching valid lower bound
       ([Symptom 3](diagnostics.md)).
     - **Slow / churning / suspicious duals** ⇒ you are in Section 4, 5, or a collapse
-      regime; localise with [Symptom 5](diagnostics.md) before trusting *any* number.
+      regime; localize with [Symptom 5](diagnostics.md) before trusting *any* number.
 
 ---
 

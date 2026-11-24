@@ -28,7 +28,7 @@ the book owns scientific claims, while this package-owned example demonstrates
 ordinary analysis behavior and structured Findings.
 
 The bundled `input.json` is a hand-authored synthetic three-bus network,
-licensed under this repository's BSD-3-Clause licence. It contains no CSIRO
+licensed under this repository's BSD-3-Clause license. It contains no CSIRO
 MV/LV dataset data.
 
 The recipe also checks the minimized 100 kVA / 40 kW single-coil witness through
@@ -36,3 +36,22 @@ The recipe also checks the minimized 100 kVA / 40 kW single-coil witness through
 and the screening Finding without interpreting that estimate as an infeasibility
 certificate. Only the fixture's network is used; its supplied solution is not
 input to this screen. The emitted example remains the original triage response.
+
+### Suppressing geospatial analysis
+
+Spatial analysis runs by default when bus coordinate fields are present. Use
+`execute_analysis(net; spatial_enabled=false)`, CLI `analyze-case --no-spatial`,
+or the MCP `bmopf_analyze` argument `"spatial_enabled": false` to skip it.
+The Boolean defaults to `true` and is recorded in response request parameters.
+Suppression leaves other analyses active and returns an explicit spatial
+`inapplicable` / `disabled` record, with `analysis_performed=false`.
+The analysis recipe exercises this opt-out on a synthetic case with coordinates.
+
+### Provenance hints and interpretation
+
+The recipe also exercises a minimal three-wire LV case through `execute_analysis`.
+Its Kron hint retains the possible native three-wire interpretation, records actual
+LV use without a represented neutral, and provides review guidance in JSON Finding
+detail. This demonstrates how an automated consumer can receive useful hypotheses
+without treating them as a verified cause or a model-changing action. The emitted
+example remains the original triage response.

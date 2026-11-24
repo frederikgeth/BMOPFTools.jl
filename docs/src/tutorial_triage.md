@@ -3,7 +3,7 @@
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
@@ -13,7 +13,7 @@ and to leave a paper trail for each.*
 
 Real network data is never clean. An OpenDSS feeder that has passed through
 utility GIS exports, student edits, and format conversions arrives carrying
-structural cruft, suspicious parameters, and modelling conventions that only
+structural cruft, suspicious parameters, and modeling conventions that only
 made sense in the source tool. The reflex responses — ignore all warnings, or
 "fix" everything until the report is silent — are both wrong: the first ships
 defects, the second destroys provenance and can change the physics. This
@@ -143,16 +143,16 @@ end
   and not an error.
 - **`W.CONN.DANGLING` → fix.** Hundreds of degree-1 buses with nothing
   attached are conversion cruft (service points whose customers were
-  modelled elsewhere). They bloat the model and can hide genuine islands;
+  modeled elsewhere). They bloat the model and can hide genuine islands;
   a mechanical repair exists (§5).
 - **`W.DOM.XFMR_STEP_UP` / `W.DOM.XFMR_REVERSED` → decide.** A transformer
   oriented *away* from the source usually means swapped
   `v_nom_from`/`v_nom_to` in the source data — but it can be a genuine boost
-  unit or, in a meshed network, an artefact of hop-counting through the
+  unit or, in a meshed network, an artifact of hop-counting through the
   ties. Check these four against the source data; do not auto-"fix" what
   might be real.
 - **`W.OPS.XFMR_OVERLOADED` → decide, urgently.** A transformer at thousands
-  of percent utilisation at nominal load is not an operating condition — it
+  of percent utilization at nominal load is not an operating condition — it
   is a **units or rating smell** (a kVA nameplate parsed where MVA was
   meant, or a lumped load on a service transformer). This warning is doing
   its most valuable work here: pointing at data whose *solve* would
@@ -226,7 +226,7 @@ silence those.
 
 ## 6. From triaged to solvable: bounds, costs, and the gates
 
-A triaged case still is not an optimisation case — this import carries no
+A triaged case still is not an optimization case — this import carries no
 voltage bounds, no thermal limits, no costs (`I.PRE.NO_VOLT_BOUNDS` in the
 report). [`augment_case`](@ref) synthesizes the missing operating envelope,
 and its honesty mechanism is the point: *every* synthesized value is stamped
@@ -263,7 +263,7 @@ question — well-posed objective, meaningful constraints, no degeneracy traps
 — and its suggestions are your remaining to-do list. Here it lands the
 verdict this whole case has been building toward: with only the priced slack,
 the *dispatch* problem is trivial — a triaged, bounded, solvable case is
-still not a benchmark until it carries decisions worth optimising (the
+still not a benchmark until it carries decisions worth optimizing (the
 [DER placement tutorial](tutorial_ders.md) is that step).
 
 ## 7. What a defensible case ships with
@@ -285,7 +285,7 @@ fidelity allows, and the [end-to-end tutorial](tutorial_end_to_end.md)'s
 solve-and-profile loop applies unchanged.
 
 !!! tip "Where to go next"
-    The [finding-code reference](findings.md) is the complete catalogue
+    The [finding-code reference](findings.md) is the complete catalog
     behind §3–4; [analysis & reports](analysis.md) documents the report
     object; [case augmentation](augmentation.md) details every pass §6
     invoked; and the [nameplate tutorial](tutorial_nameplate.md) is the

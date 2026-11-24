@@ -1,7 +1,7 @@
 ! Center-tap (split-phase) transformer with a single PHASE-TO-NEUTRAL (120 V)
 ! load on leg 1 only, fed through a line.
 !
-! Only one half-winding is loaded, so the centre tap carries the full leg
+! Only one half-winding is loaded, so the center tap carries the full leg
 ! current (heavy neutral/unbalance current) and the two legs are asymmetric.
 ! Cross-checks the unbalanced split against OpenDSS.
 !

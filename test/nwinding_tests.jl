@@ -148,7 +148,7 @@ end
                 "configuration"=>"WYE","p_nom"=>[2e6,2e6,2e6],"q_nom"=>[5e5,5e5,5e5])),
         "transformer" => Dict{String,Any}("n_winding"=>Dict{String,Any}("t1"=>xf)))
 
-    # operational: the n_winding gets a utilisation entry that counts the load
+    # operational: the n_winding gets a utilization entry that counts the load
     # on its downstream (winding 2 & 3) buses — previously skipped entirely.
     rep = analyze(net)
     util = rep.results[:operational]["transformer_utilisation"]
@@ -179,7 +179,7 @@ end
     @test haskey(isl2["transformer"]["n_winding"], "t1")         # sourced one kept
 end
 
-@testset "n_winding — reactance sign / realisability (physics)" begin
+@testset "n_winding — reactance sign / realizability (physics)" begin
     _net(d) = Dict{String,Any}("transformer" =>
         Dict{String,Any}("n_winding" => Dict{String,Any}("t1" => d)))
     codes(net) = (f = Finding[]; B.domain_rules_check(net, f);
@@ -206,8 +206,8 @@ end
     @test !("W.DOM.XFMR_X_NOT_PSD" in c2)
 
     # (3) All pairwise reactances positive but MUTUALLY INCONSISTENT: X23 = 10 ≫
-    # X12 = X13 = 1 violates the realisability triangle X12·X13 ≥ ¼(X12+X13−X23)².
-    # imag(ZB)=[[1,−4],[−4,1]] → eigenvalue −3 < 0 → not realisable → PSD flag.
+    # X12 = X13 = 1 violates the realizability triangle X12·X13 ≥ ¼(X12+X13−X23)².
+    # imag(ZB)=[[1,−4],[−4,1]] → eigenvalue −3 < 0 → not realizable → PSD flag.
     not_psd = _nw_xfmr([("b1",115.0,0.0),("b2",24.9,0.0),("b3",4.16,0.0)],
                        Dict("1_2"=>1.0,"1_3"=>1.0,"2_3"=>10.0))
     @test all(v -> v > 0, values(not_psd["x_sc"]))         # every pairwise > 0
@@ -247,7 +247,7 @@ end
     # A uniform voltage offset draws no current (no shunt-to-ground branch).
     @test maximum(abs.(sum(Y, dims = 2))) < 1e-8
 
-    # The magnetising shunt sits on WINDING 2 (b2), not winding 1 — OpenDSS
+    # The magnetizing shunt sits on WINDING 2 (b2), not winding 1 — OpenDSS
     # places the exciting branch on winding 2 (verified against its Yprim).
     # Difference against a shunt-free copy isolates the branch: it must land
     # entirely on the winding-2 (b2) coil, phase-to-neutral.
@@ -346,7 +346,7 @@ if _HAS_JUMP_IPOPT
         @test rt["termination_status"] ∉ ("LOCALLY_SOLVED", "OPTIMAL") ||
               rt["transformer"]["t1"]["w2"]["1"]["cm"] <= 0.5 * i2 * (1 + 1e-3)
 
-        # Regression (issue #271): the no-load (magnetising) shunt branch
+        # Regression (issue #271): the no-load (magnetizing) shunt branch
         # guarded on an undefined variable `nW` (the local is `n`), so any
         # n_winding transformer with nonzero g_no_load/b_no_load threw
         # UndefVarError at model build. No fixture exercised it. Build the
@@ -362,7 +362,7 @@ if _HAS_JUMP_IPOPT
         @test haskey(rc["transformer"]["t1"], "w1")
         # Core conductance g>0 dissipates real power → transformer real loss
         # strictly exceeds the g=b=0 baseline (the device-loss identity sums
-        # the magnetising-branch injection).
+        # the magnetizing-branch injection).
         p_base = res["transformer"]["t1"]["loss"]["p_loss"]
         p_core = rc["transformer"]["t1"]["loss"]["p_loss"]
         @test p_core > p_base + 1.0

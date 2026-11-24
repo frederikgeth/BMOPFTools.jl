@@ -14,7 +14,7 @@ case-specific evidence. Its existing foundations include validators, stable
 tests, and machine-readable reports. Executable scientific contracts,
 minimized negative fixtures, small recipes, and the executable-knowledge export
 extend those foundations here. BMOPFTools does not own the scientific claims
-ledger, misconception catalogue, literature evidence, retrieval ranking,
+ledger, misconception catalog, literature evidence, retrieval ranking,
 audience answer contract, or federated context service.
 
 The following local constraints are architectural:

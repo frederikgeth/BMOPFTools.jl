@@ -139,7 +139,7 @@ end
 
 # ── D8: composition with augment_case (data-level) ───────────────────────────
 # add_generators writes p_max/cost only; augment_case's generation pass then
-# fills q_min/q_max on the new DER — the intended division of labour.
+# fills q_min/q_max on the new DER — the intended division of labor.
 
 @testset "D8: composition fills reactive bounds" begin
     net = _der_lv_net()

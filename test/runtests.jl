@@ -37,7 +37,7 @@ _HAS_JUMP && @assert !isnothing(Base.get_extension(BMOPFTools, :BMOPFOpfExt))
 # physics / power-flow comparison against limit-free OpenDSS is not distorted by
 # the always-enforced nameplate cap. `s_rating` is not used by the solve for the
 # leakage impedance (that is in ohms, scaled by the system base) nor by
-# `transformer_yprim`, so dropping it leaves the modelled physics unchanged — it
+# `transformer_yprim`, so dropping it leaves the modeled physics unchanged — it
 # only removes the operational loading cap, matching what OpenDSS's PF does. This
 # is the intended way to solve without a power limit: strip it from the dict.
 function _strip_xfmr_ratings!(net)
@@ -116,7 +116,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @test m["case_study_generator"]["tool"] == "BMOPFTools.jl"
         @test !isempty(m["case_study_generator"]["version"])
 
-        # _meta (tool-private) is not serialised
+        # _meta (tool-private) is not serialized
         @test !occursin("\"_meta\"", json_auto)
 
         # caller meta is merged; auto-fields fill in the rest
@@ -635,7 +635,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @test any(f -> f.code == "E.COMP.MISSING_REQUIRED" &&
                        f.component_id == "primary_trunk", report2.findings)
 
-        # Unknown field must be catalogued by schema_check as INFO
+        # Unknown field must be cataloged by schema_check as INFO
         net3 = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         net3["load"]["trunk_load"]["my_custom_field"] = 42
         report3 = analyze(net3)
@@ -962,7 +962,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
                             fi.component_id == "workshop_generator", f_neg)
         end
 
-        # i_max / s_max are catalogued as known optional fields (no unknown-field
+        # i_max / s_max are cataloged as known optional fields (no unknown-field
         # INFO) — guards the schema.jl _KNOWN_FIELDS and completeness wiring.
         @testset "known optional fields" begin
             net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
@@ -1827,8 +1827,8 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     end
 
     @testset "Earthing zones" begin
-        # LV feeder: star earthed via 0.3 Ω at source bus, one 10 Ω
-        # downstream neutral earth → TN-C-S / multi-earthed
+        # Local earths and a ground-referenced source never establish the
+        # protective-earthing system (TT/TN/IT), which the model cannot represent.
         lvnet = Dict{String,Any}(
             "bus" => Dict{String,Any}(
                 "a" => Dict{String,Any}("terminal_names" => ["1","2","3","n"]),
@@ -1854,27 +1854,44 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         f = Finding[]
         zones = provenance_analysis(lvnet, f)["earthing_zones"]
         @test length(zones) == 1
-        @test occursin("TN-C-S", zones[1]["tag"])
+        @test zones[1]["protective_system_status"] == "indeterminate"
         @test zones[1]["n_downstream_earths"] == 1
 
-        # source-earthed only → explicit TN-S/TT ambiguity
+        # Removing a downstream earth still does not identify the protective system.
         net2 = deepcopy(lvnet)
         delete!(net2["shunt"], "g_b")
         z2 = provenance_analysis(net2, Finding[])["earthing_zones"]
-        @test occursin("TN-S or TT", z2[1]["tag"])
+        @test z2[1]["protective_system_status"] == "indeterminate"
 
-        # no neutral earthing anywhere → IT
+        # Without neutral earths the phase-only source is still referenced to
+        # ground, but nothing earths the feeder neutral; no IT claim is made.
         net3 = deepcopy(net2)
         delete!(net3, "shunt")
         z3 = provenance_analysis(net3, Finding[])["earthing_zones"]
-        @test startswith(z3[1]["tag"], "IT")
+        @test z3[1]["star_earthing"] == "perfect"
+        @test isempty(z3[1]["neutral_earths"])
+        @test z3[1]["protective_system_status"] == "indeterminate"
 
-        # MV island uses MV vocabulary: fixture supply (3.3 kV LN,
-        # perfectly grounded) → "solidly earthed"
+        # A phase-only voltage source pins phase-to-reference voltages, so it
+        # is a ground-referenced ideal infeed by construction (zero impedance).
         base = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         zb = provenance_analysis(base, Finding[])["earthing_zones"]
         src_zone = first(z for z in zb if "supply" in z["buses"])
-        @test src_zone["tag"] == "solidly earthed"
+        @test src_zone["star_earthing"] == "perfect"
+        @test src_zone["star_R_ohm"] == 0.0
+        @test only(src_zone["star_points"])["basis"] == "voltage_source_pins_phase_to_reference"
+        @test src_zone["protective_system_status"] == "indeterminate"
+        # Boundary: a source that maps its neutral is judged by that terminal
+        # (here pinned to 0 V), not by the phase-only rule.
+        ungrounded = deepcopy(base)
+        ungrounded["voltage_source"]["source"]["terminal_map"] = ["1","2","3","n"]
+        ungrounded["voltage_source"]["source"]["v_magnitude"] = [3300.0,3300.0,3300.0,0.0]
+        ungrounded["voltage_source"]["source"]["v_angle"] = [0.0,-2pi/3,2pi/3,0.0]
+        delete!(ungrounded["bus"]["supply"], "perfectly_grounded_terminals")
+        zu = first(z for z in provenance_analysis(ungrounded, Finding[])["earthing_zones"]
+                   if "supply" in z["buses"])
+        @test zu["star_earthing"] == "perfect" # v=0 on n is an exact reference
+        @test all(p -> p["terminal"] == "n", zu["star_points"]) # not the phase-only rule
     end
 
     @testset "Regulator / autotransformer patterns" begin
@@ -2003,15 +2020,30 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         wbus = [w["bus"] for w in net["transformer"]["n_winding"]["t1"]["windings"]]
         @test wbus == ["hv", "lv"]
 
-        # The OpenDSS earth terminal "5" is routed to the neutral in terminal_names
-        # and DROPPED from perfectly_grounded_terminals (no dangling reference to a
-        # terminal "5"→"n" removed).
+        # A materialized node-0 terminal named by the source IR remains a
+        # distinct perfect reference.
         net2 = Dict{String,Any}("bus"=>Dict{String,Any}("b"=>Dict{String,Any}(
             "terminal_names"=>["1","2","3","5"], "perfectly_grounded_terminals"=>["5"])))
-        BMOPFTools._remap_opendss_terminals!(net2)
+        BMOPFTools._remap_opendss_terminals!(net2; grounded_references=Dict("b"=>["5"]))
         b = net2["bus"]["b"]
-        @test !("5" in b["terminal_names"]) && ("n" in b["terminal_names"])
-        @test isempty(get(b, "perfectly_grounded_terminals", String[]))
+        @test b["terminal_names"] == ["a","b","c","n_ref"]
+        @test b["perfectly_grounded_terminals"] == ["n_ref"]
+        # Without source evidence nothing is guessed: "5" leaves the bus
+        # unmapped, and a grounded "4" stays the conductor neutral.
+        net3 = deepcopy(net2); net3["bus"]["b"]["terminal_names"] = ["1","2","3","5"]
+        net3["bus"]["b"]["perfectly_grounded_terminals"] = ["5"]
+        BMOPFTools._remap_opendss_terminals!(net3)
+        @test net3["bus"]["b"]["terminal_names"] == ["1","2","3","5"]
+        net4 = Dict{String,Any}(
+            "bus"=>Dict{String,Any}("b"=>Dict{String,Any}(
+                "terminal_names"=>["1","2","3","4"], "perfectly_grounded_terminals"=>["4"])),
+            "line"=>Dict{String,Any}("l"=>Dict{String,Any}("bus_from"=>"b","bus_to"=>"b",
+                "terminal_map_from"=>["1","2","3","4"],"terminal_map_to"=>["1","2","3","4"])))
+        BMOPFTools._remap_opendss_terminals!(net4)
+        @test net4["bus"]["b"]["terminal_names"] == ["a","b","c","n"]
+        @test net4["bus"]["b"]["perfectly_grounded_terminals"] == ["n"]
+        @test net4["bus"]["b"]["neutral_terminal"] == "n"
+        @test net4["line"]["l"]["terminal_map_from"] == ["a","b","c","n"]
     end
 
     @testset "Terminal-name conventions" begin
@@ -2116,7 +2148,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         findings = Finding[]
         res = provenance_analysis(kron_net, findings)
         @test any(f -> f.code == "I.PROV.KRON_LIKELY", findings)
-        @test occursin("Kron", res["convention"])
+        @test !occursin("Kron", res["convention"])
 
         # 4-wire with neutral conductor but no grounding → floating ERROR
         float_net = deepcopy(kron_net)
@@ -2143,11 +2175,11 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @test res3["grounding"]["n_floating"] == 0
 
         # Synthetic diagnostic fixture: neutral terminals exist but no branch carries
-        # them — implicit (Kron-style) grounding convention, made explicit
+        # them — the intended grounding/reduction convention is indeterminate
         net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         findings4 = Finding[]
         res4 = provenance_analysis(net, findings4)
-        @test res4["grounding"]["convention"] == "implicit"
+        @test res4["grounding"]["convention"] == "no_neutral_branches"
         @test any(f -> f.code == "W.PROV.IMPLICIT_GROUNDING", findings4)
         @test !any(f -> f.severity == ERROR && f.section == :provenance, findings4)
 
@@ -2291,10 +2323,10 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             "r_series_to":0.0,"x_series_to":0.0$(extra)}}}}
         """; from_string=true)
 
-        # Regression: cmag is the magnetising susceptance ONLY. With B = 0
+        # Regression: cmag is the magnetizing susceptance ONLY. With B = 0
         # (every DSS round trip, since from_dss sets b_no_load = 0) the old
         # sqrt(G²+B²) made cmag == noloadloss, double-counting core loss as
-        # magnetising current.
+        # magnetizing current.
         net = mk_xfmr(""","g_no_load":2e-4,"b_no_load":0.0""")
         t = to_pmd(net)["transformer"]["t1"]
         @test t["noloadloss"] > 0
@@ -2344,7 +2376,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
 
     @testset "Migration — lumped transformer series fields → per-winding" begin
         # A nested delta_wye transformer carrying the lumped r_series/x_series
-        # form (as emitted by from_dss/PowerIO) must be normalised on parse to
+        # form (as emitted by from_dss/PowerIO) must be normalized on parse to
         # the per-winding fields the OPF/Ybus builders read — otherwise they
         # default to zero and the leakage impedance silently vanishes.
         #
@@ -2504,14 +2536,14 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
                               "v_magnitude":[230.0],"v_angle":[0.0]}}}"""
         @test parse_bmopf(json_nometa; from_string=true) isa Dict
 
-        # An unrecognised URI — most likely a file written against a NEWER
+        # An unrecognized URI — most likely a file written against a NEWER
         # spec than this build understands — must refuse loudly, not parse
         # silently under the wrong data model.
         @test_throws ArgumentError parse_bmopf(
             mk("https://example.org/bmopf/v99/schema.json"); from_string=true)
     end
 
-    @testset "from_dss — identifier case-folding (canonicalisation)" begin
+    @testset "from_dss — identifier case-folding (canonicalization)" begin
         # OpenDSS identifiers are unique up to case; from_dss folds every id and
         # reference to lower case so case-inconsistent references resolve under
         # BMOPF's exact-match keys.
@@ -2954,7 +2986,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
               dcodes(mk("[201.0,201.0,201.0]",
                         "[200.0,200.0,200.0]", "[260.0,260.0,260.0]"))
 
-        # source bus comfortable, but neighbour bus (b1, [200,260]) tight against
+        # source bus comfortable, but neighbor bus (b1, [200,260]) tight against
         # 258 → still flagged via same-base line adjacency
         net = mk("[258.0,258.0,258.0]", "[100.0,100.0,100.0]", "[400.0,400.0,400.0]")
         f = Finding[]; domain_rules_check(net, f)
@@ -3373,7 +3405,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         gen = net["generator"]["g1"]
         @test gen["bus"] == "sourcebus"
         @test gen["configuration"] == "SINGLE_PHASE"
-        @test gen["terminal_map"] == ["a", "n"]
+        @test gen["terminal_map"] == ["a", "n_ref"]
         @test gen["p_min"] ≈ [10000.0]
         @test gen["p_max"] ≈ [10000.0]
         @test gen["q_min"] ≈ [2000.0]
@@ -3383,14 +3415,14 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # --------------------------------------------------------------------------
     # from_dss captures the OpenDSS base frequency into meta.frequency so the
     # converted case is self-contained; a keyword overrides it. The first two
-    # asserts LOCK IN PowerIO's base_frequency behaviour (per the maintainer's
+    # asserts LOCK IN PowerIO's base_frequency behavior (per the maintainer's
     # request) — if PowerIO changes how it reports DefaultBaseFreq, these fail
-    # here rather than silently mislabelling every ingested network.
+    # here rather than silently mislabeling every ingested network.
     # --------------------------------------------------------------------------
     @testset "from_dss — frequency capture and override" begin
         f50 = joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss")  # Set DefaultBaseFreq=50
 
-        # PowerIO behaviour lock + capture into meta.frequency
+        # PowerIO behavior lock + capture into meta.frequency
         net = from_dss(f50)
         @test net["meta"]["frequency"] == 50.0
         @test net["_meta"]["frequency_source"] == "powerio"
@@ -3433,43 +3465,38 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         net = from_dss(source_path)
         source_meta = net["_meta"]["powerio_source_metadata"]
         @test source_meta["source_format"] == "dss"
-        @test source_meta["field_count"] == 9
+        # This ledger describes exposed extras, not every authored DSS field.
+        # 0.11.7 lowers sources and load laws into typed electrical objects.
+        @test source_meta["field_count"] == 10
         @test Set(source_meta["fields"]) == Set([
-            "angle", "basekv", "conn", "kv", "model", "phases", "units", "vmaxpu", "vminpu",
+            "basemva", "conn", "dss_flattened_properties", "dss_source_length",
+            "dss_source_units", "dss_switch", "kv", "nominal_phase_kv", "normamps", "phases",
         ])
-        @test haskey(source_meta["by_scope"], "load:d12")
-        @test "vminpu" in source_meta["by_scope"]["load:d12"]
-
+        @test source_meta["by_scope"]["load:d12"] == ["conn", "kv", "phases"]
+        @test source_meta["by_scope"]["source:source"] == ["basemva", "nominal_phase_kv"]
         mapping = net["_meta"]["powerio_source_mapping"]
-        @test net["_meta"]["powerio_source_mapped_fields"] ==
-              ["angle", "basekv", "kv", "model", "phases", "vmaxpu", "vminpu"]
-        @test mapping["fields"] ==
-              ["angle", "basekv", "kv", "model", "phases", "vmaxpu", "vminpu"]
+        @test net["_meta"]["powerio_source_mapped_fields"] == ["kv", "phases"]
+        @test mapping["fields"] == ["kv", "phases"]
         @test mapping["by_field"]["kv"]["target"] == "load.v_nom"
         @test mapping["by_field"]["kv"]["transform"] == "kV_to_volts"
         @test mapping["by_field"]["phases"]["target"] == "load.terminal_map/configuration"
-        @test mapping["by_field"]["basekv"]["status"] == "mapped_with_transform"
-        @test mapping["by_field"]["angle"]["target"] == "voltage_source.v_angle"
-        @test mapping["unmapped_fields"] == ["units"]
-        @test isempty(mapping["blocking_unmapped_fields"])
-        @test mapping["by_field"]["model"]["status"] == "mapped_with_contract"
-        @test mapping["by_field"]["model"]["target"] == "voltage_source.v_magnitude/v_angle"
-        @test mapping["by_field"]["model"]["scopes"] == ["source:source"]
-        @test mapping["by_field"]["vminpu"]["status"] == "mapped_with_contract"
-        @test mapping["by_field"]["vmaxpu"]["status"] == "mapped_with_contract"
-        @test mapping["by_field"]["vminpu"]["impact"] == "physical_or_operating_point"
-        @test mapping["by_field"]["vminpu"]["reason"] ==
-              "preserved_as_load_behavior_contract_not_bus_voltage_bound"
-        @test mapping["by_field"]["vminpu"]["active_in_original_model"] == false
-        @test mapping["by_field"]["vminpu"]["target"] ==
-              "_meta.powerio_source_semantics.load_voltage_thresholds"
-        @test mapping["by_field"]["units"]["physical_readiness_blocking"] == false
+        unclassified_fields = ["basemva", "dss_flattened_properties", "dss_source_length",
+            "dss_source_units", "dss_switch", "nominal_phase_kv", "normamps"]
+        @test mapping["unmapped_fields"] == unclassified_fields
+        @test mapping["blocking_unmapped_fields"] == unclassified_fields
+        @test all(mapping["by_field"][f]["physical_readiness_blocking"] for f in unclassified_fields)
         semantics = net["_meta"]["powerio_source_semantics"]
-        @test semantics["load_voltage_thresholds"][1]["status"] == "observed_ordered"
-        @test semantics["load_voltage_thresholds"][1]["vminpu"] == 0.0
-        @test semantics["load_voltage_thresholds"][1]["vmaxpu"] == 2.0
-        @test semantics["voltage_source_models"][1]["status"] ==
-              "represented_as_fixed_voltage_boundary"
+        @test length(semantics["load_voltage_thresholds"]) == 3
+        for threshold in semantics["load_voltage_thresholds"]
+            @test threshold["status"] == "observed_ordered"
+            @test threshold["vminpu"] == 0.0
+            @test threshold["vmaxpu"] == 2.0
+            @test threshold["origin"] == "powerio_typed_voltage_model"
+        end
+        # Do not invent an authored `model=ideal` claim from the lowered EMF.
+        @test isempty(semantics["voltage_source_models"])
+        @test count(d -> d["code"] == "EMIT.BMOPF.VALUE_SUBSTITUTED",
+            net["_meta"]["powerio_diagnostic_details"]) == 3
 
         behavior = powerio_source_behavior_contract(net)
         @test behavior["contract_version"] == "powerio_source_behavior/v1"
@@ -3497,7 +3524,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         write_bmopf(net, roundtrip_path)
         roundtrip = parse_bmopf(roundtrip_path)
         @test roundtrip["_meta"]["powerio_source_mapping"]["fields"] == mapping["fields"]
-        @test roundtrip["_meta"]["powerio_source_metadata"]["field_count"] == 9
+        @test roundtrip["_meta"]["powerio_source_metadata"]["field_count"] == 10
     end
 
     @testset "from_dss — source ledger is case-folded and honest" begin
@@ -3517,11 +3544,12 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             mixed["powerio_diagnostic_details"])
         @test mixed["powerio_source_mapping"]["by_field"] ==
               lower["powerio_source_mapping"]["by_field"]
-        @test mixed["powerio_source_mapping"]["blocking_unmapped_fields"] == String[]
+        @test mixed["powerio_source_mapping"]["blocking_unmapped_fields"] ==
+              lower["powerio_source_mapping"]["blocking_unmapped_fields"]
         @test mixed["powerio_source_metadata"]["by_scope"] ==
               lower["powerio_source_metadata"]["by_scope"]
         @test haskey(mixed["powerio_source_metadata"]["by_scope"], "load:d12")
-        for field in ("kv", "phases", "vminpu", "vmaxpu")
+        for field in ("kv", "phases")
             @test mixed["powerio_source_mapping"]["by_field"][field]["unmapped_scopes"] ==
                   String[]
         end
@@ -3548,10 +3576,10 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         end
 
         mapping = mixed["powerio_source_mapping"]
-        @test mapping["warning_status"] == "parsed"
+        @test mapping["warning_status"] == "partially_classified"
         @test mapping["warnings_truncated_upstream"] == false
-        @test mapping["unclassified_warnings"] == String[]
-        @test mapping["warnings_classified"] == mapping["warnings_seen"]
+        @test any(startswith("EMIT.BMOPF.VALUE_SUBSTITUTED"), mapping["unclassified_warnings"])
+        @test mapping["warnings_classified"] + length(mapping["unclassified_warnings"]) == mapping["warnings_seen"]
         @test mixed["powerio_source_metadata"]["extras_status"] == "available"
         @test mixed["powerio_source_metadata"]["objects_with_extras"] > 0
     end
@@ -3578,9 +3606,9 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @test mapping["by_field"]["zipv"]["target"] ==
               "load.model/alpha_z/alpha_i/alpha_p/beta_z/beta_i/beta_p"
         @test mapping["by_field"]["zipv"]["status"] == "mapped"
-        @test mapping["by_field"]["model"]["status"] == "mapped_with_contract"
+        @test mapping["by_field"]["model"]["status"] == "mapped"
         @test mapping["by_field"]["model"]["mapped_scopes"] ==
-              ["load:ld1", "load:ld2", "load:ld3", "source:source"]
+              ["load:ld1", "load:ld2", "load:ld3"]
         @test mapping["by_field"]["model"]["unmapped_scopes"] == String[]
         @test "zipv" ∉ mapping["blocking_unmapped_fields"]
         @test "model" ∉ mapping["blocking_unmapped_fields"]
@@ -3595,7 +3623,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     @testset "to_dss — BMOPF → OpenDSS" begin
         @testset "two-arg returns (text, warnings)" begin
             net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
-            dss_text, warns = to_dss(net)
+            dss_text, warns = to_dss(net; allow_unverified_ratings=true)
             @test dss_text isa String
             @test !isempty(dss_text)
             @test occursin("New Circuit.", dss_text)
@@ -3606,7 +3634,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @testset "name override does not mutate input" begin
             net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
             orig_name = net["name"]
-            dss_text, _ = to_dss(net; name="renamed_circuit")
+            dss_text, _ = to_dss(net; name="renamed_circuit", allow_unverified_ratings=true)
             @test occursin("New Circuit.renamed_circuit", dss_text)
             @test net["name"] == orig_name          # input dict untouched
         end
@@ -3614,7 +3642,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @testset "file-writing overload" begin
             net = from_dss(joinpath(@__DIR__, "data", "pf_comparison", "pf_3ph_line.dss"))
             out = joinpath(mktempdir(), "sub", "Master.dss")   # nested dir must be created
-            warns = to_dss(net, out)
+            warns = to_dss(net, out; allow_unverified_ratings=true)
             @test isfile(out)
             @test warns isa Vector{String}
             @test occursin("New Circuit.", read(out, String))
@@ -3626,7 +3654,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             @test !isempty(cases)
             for case in sort(cases)
                 net = from_dss(joinpath(dir, case))
-                dss_text, _ = to_dss(net)
+                dss_text, _ = to_dss(net; allow_unverified_ratings=true)
                 @test !isempty(dss_text)
                 # Prove the generated DSS is valid by re-parsing it via PowerIO.
                 tmp = joinpath(mktempdir(), "regen.dss")
@@ -3642,7 +3670,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # Queensland isolated-SWER feeder — OpenDSS integration via from_dss.
     # Canonical small isolated-SWER network (22 kV 3-ph → phase-to-phase isolating
     # xfmr → 12.7 kV single-wire earth-return backbone → single-ended N-0 and
-    # split-phase centre-tapped N-0-N distribution transformers). Validates the
+    # split-phase center-tapped N-0-N distribution transformers). Validates the
     # SWER/split-phase zone classification and the center_tap parse end-to-end.
     # --------------------------------------------------------------------------
     @testset "SWER feeder — OpenDSS integration" begin
@@ -3655,15 +3683,19 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             @test Set(keys(xfmr["single_phase"])) == Set(["iso", "dx1"])
             @test Set(keys(xfmr["center_tap"]))   == Set(["dx2"])
 
-            # center_tap normalised to BMOPF convention: centre tap in the middle,
+            # center_tap normalized to BMOPF convention: center tap in the middle,
             # per-leg v_nom_to (240 V for the 240-0-240 secondary).
             dx2 = xfmr["center_tap"]["dx2"]
             @test dx2["terminal_map_to"][2] == "n"
             @test isapprox(dx2["v_nom_to"], 240.0; rtol=1e-6)
 
-            # Single-wire backbone: 1-conductor linecode, 2 line segments.
-            @test length(net["line"]) == 2
-            @test all(length(l["terminal_map_from"]) == 1 for (_, l) in net["line"])
+            # Two authored SWER spans plus the three-phase source impedance.
+            @test length(net["line"]) == 3
+            @test all(length(net["line"][id]["terminal_map_from"]) == 1 for id in ("l1", "l2"))
+            source_bus = net["voltage_source"]["source"]["bus"]
+            source_line = only(l for l in values(net["line"]) if l["bus_from"] == source_bus)
+            @test source_line["bus_to"] == "mv"
+            @test length(source_line["terminal_map_from"]) == 3
 
             # All loads single-phase; pole/MEN earths parsed as grounding shunts.
             @test all(l["configuration"] == "SINGLE_PHASE" for (_, l) in net["load"])
@@ -3676,7 +3708,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
 
             conn = report.results[:connectivity]
             # Two single-wire earth-return zones (the isolated MV backbone and the
-            # single-ended LV section) plus one split-phase (centre-tap) zone.
+            # single-ended LV section) plus one split-phase (center-tap) zone.
             @test conn["n_swer_zones"] == 2
             @test conn["n_split_phase_zones"] == 1
 
@@ -3705,6 +3737,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     include("schema_alias_tests.jl")
     include("powerio_v09_tests.jl")
     include("powerio_regression_tests.jl")
+    include("opendss_semantics_tests.jl")
     include("transformer_interoperability_tests.jl")
 
     # -----------------------------------------------------------------------
@@ -3724,6 +3757,7 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     # -----------------------------------------------------------------------
     include("terminal_conventions_tests.jl")
     include("terminal_usage_tests.jl")
+    include("supply_phase_terminal_roles_tests.jl")
     include("device_indexing_tests.jl")
     include("connection_map_tests.jl")
     include("transformer_phase_tests.jl")
@@ -3777,24 +3811,32 @@ include("mcp_execution_tests.jl")
     # Coordinate side-loading & ASCII tree rendering — no solver required
     # -----------------------------------------------------------------------
     include("sideload_coordinates_tests.jl")
+    include("sideload_geolayer_tests.jl")
     include("render_ascii_tree_tests.jl")
     include("render_json_tests.jl")
     include("topology_structure_tests.jl")
+    include("neutral_only_bus_graph_tests.jl")
     include("switch_scenario_tests.jl")
     include("spatial_analysis_tests.jl")
     include("transformer_impedance_basis_tests.jl")
     include("operational_mesh_applicability_tests.jl")
+    include("profiler_evidence_tests.jl")
+    include("profiler_review_tests.jl")
+    include("profiler_interpretation_tests.jl")
+    include("profiler_physics_guidance_tests.jl")
 
     # -----------------------------------------------------------------------
     # Infeasibility diagnosis — deterministic dict paths plus a gated solve
     # -----------------------------------------------------------------------
     include("infeasibility_tests.jl")
+    include("voltage_bound_coverage_tests.jl")
 
     # -----------------------------------------------------------------------
     # Phase relabeling — static TMAP detection (no solver) + gated OPF invariance
     # -----------------------------------------------------------------------
     include("phase_relabel_tests.jl")
     include("neutral_only_terminal_map_tests.jl")
+    include("neutral_only_voltage_level_tests.jl")
 
     # -----------------------------------------------------------------------
     # OPF extension — requires JuMP and Ipopt
@@ -3805,6 +3847,7 @@ include("mcp_execution_tests.jl")
         else
             include("scaling_policy_tests.jl")
             include("transformer_current_rating_tests.jl")
+            include("profiler_limit_builder_tests.jl")
             include("device_indexing_opf_tests.jl")
             include("transformer_phase_opf_tests.jl")
             include("semantic_block_tests.jl")
@@ -3821,6 +3864,7 @@ include("mcp_execution_tests.jl")
             include("pf_ibr_droop_tests.jl")
             include("transformer_loading_opf_tests.jl")
             include("parameter_resolve_tests.jl")
+            include("opf_warm_start_tests.jl")
             include("pmd_opf_port_tests.jl")
             include("pmd_opf_bounds_tests.jl")
             include("volt_var_watt_tests.jl")
@@ -3963,7 +4007,7 @@ include("mcp_execution_tests.jl")
         # the vpn_min bus above must NOT trigger it
         @test !("W.LOAD.NL_NO_VMIN" in [x.code for x in afindings(net_ze)])
 
-        # schema_check layer-2: new load model fields are not catalogued as unknown
+        # schema_check layer-2: new load model fields are not cataloged as unknown
         fz = Finding[]
         rz = schema_check(net_ze, fz)
         @test !haskey(get(rz, "unknown_fields_by_type", Dict()), "load")
@@ -3984,6 +4028,7 @@ include("mcp_execution_tests.jl")
     # always runs; the OpenDSS PF cross-check self-gates on _HAS_ODS.
     # -----------------------------------------------------------------------
     include("roundtrip_fidelity_tests.jl")
+    include("dss_export_guard_tests.jl")
 
     # -----------------------------------------------------------------------
     # OPF-solution → OpenDSS snapshot projection + 3-way feasibility oracle.
@@ -4006,6 +4051,7 @@ include("mcp_execution_tests.jl")
     # checks always run; the OpenDSS power-flow-residual cross-check self-gates.
     # -----------------------------------------------------------------------
     include("ybus_linearized_tests.jl")
+    include("delta_load_geometry_tests.jl")
 
     # -----------------------------------------------------------------------
     # Augmented nodal admittance (ybus_augmented): ideal switch/transformer
@@ -4013,6 +4059,11 @@ include("mcp_execution_tests.jl")
     # always runs.
     # -----------------------------------------------------------------------
     include("ybus_augmented_tests.jl")
+    include("ideal_transformer_shunt_tests.jl")
+    include("transformer_leakage_policy_tests.jl")
+    include("ideal_regulator_tests.jl")
+    include("ideal_center_tap_tests.jl")
+    include("ideal_nwinding_tests.jl")
 
     # -----------------------------------------------------------------------
     # General n-winding (3+) transformers — accessors, validation, Yprim, and
@@ -4076,12 +4127,15 @@ include("mcp_execution_tests.jl")
         @test cfg["domain_rules"]["pf_min"] == 0.70
         @test cfg["domain_rules"]["cost_max_per_kwh"] == 10.0
         @test cfg["thermal"]["tolerance"] == 0.15
-        @test cfg["provenance"]["grounding"]["earth_solid_ohm"] == 1.0
+        @test cfg["provenance"]["grounding"]["earth_solid_ohm"] == 1.0 # compatibility only
         @test cfg["provenance"]["dss_defaults"]["normamps"] == 400.0
 
         # The module consts are sourced from the config.
         @test BMOPFTools._THERMAL_TOLERANCE == cfg["thermal"]["tolerance"]
-        @test BMOPFTools._EARTH_SOLID_OHM == cfg["provenance"]["grounding"]["earth_solid_ohm"]
+        @test !isdefined(BMOPFTools,:_EARTH_SOLID_OHM)
+        legacy_cfg = tempname() * ".toml"
+        write(legacy_cfg, "[provenance.grounding]\nearth_solid_ohm = 2.0\n")
+        @test_logs (:warn, r"no longer affect earthing reports") load_config(legacy_cfg)
         @test BMOPFTools._DSS_NORMAMPS == cfg["provenance"]["dss_defaults"]["normamps"]
         @test BMOPFTools._DEFAULT_THRESHOLDS["pf_min"] == cfg["domain_rules"]["pf_min"]
 
@@ -4096,7 +4150,7 @@ include("mcp_execution_tests.jl")
         # A nonexistent path errors rather than silently using defaults.
         @test_throws ArgumentError load_config(joinpath(tempdir(), "no_such_bmopf_cfg.toml"))
 
-        # domain_rules_check honours an overridden threshold: a load whose PF is
+        # domain_rules_check honors an overridden threshold: a load whose PF is
         # below the raised pf_min is flagged, but not under the default.
         net = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
         net["load"]["trunk_load"]["p_nom"] = [800.0, 800.0, 800.0]

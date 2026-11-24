@@ -1,5 +1,8 @@
 # Developing a small family of OPF cases
 
+For studies that reuse a parameterized JuMP model, see
+[Repeated solves and parameter updates](repeated_solves.md).
+
 Start with a question: **how does this feeder behave when demand, PV availability,
 or the location of installed PV changes?** This tutorial builds a few comparable
 operating points, checks the returned solutions, and optionally saves an author log.
@@ -58,7 +61,7 @@ factor. Supply `reactive_scale` separately only when your scenario justifies it.
 Load model and nominal voltage are unchanged. Every call starts from `base`, so
 scenarios do not accumulate one another's changes.
 
-Only IBRs explicitly labelled `prime_mover="PV"` are selected automatically.
+Only IBRs explicitly labeled `prime_mover="PV"` are selected automatically.
 `pv_ids=["pv_far"]` restricts the selection. Other generators, batteries and
 STATCOMs remain unchanged. Missing availability or unknown selected IDs are errors,
 not invitations to invent data. Availability increases do not automatically widen
@@ -126,7 +129,7 @@ Both `GeneratorRecipe` and `IBRRecipe` accept:
 
 | Setting | Meaning |
 |---|---|
-| `bus_ids` | Explicit load buses. Existing voltage/source/device filters still apply; an explicit request that cannot be honoured raises an error. |
+| `bus_ids` | Explicit load buses. Existing voltage/source/device filters still apply; an explicit request that cannot be honored raises an error. |
 | `phase_by_bus` | A declared phase at each selected bus, making that new device single-phase with an explicit neutral. Unsupported connections are rejected. |
 | `capacity_budget` | Total **new** capacity after filtering: W for generators, VA for IBRs. Existing sizing rules supply relative weights. Existing devices are not counted toward this budget. |
 
@@ -167,7 +170,7 @@ dynamics or a claim that any droop settings meet a grid code.
 reduction. The source and target keep the same two PV device identities and terminal
 maps. The script explicitly maps those IDs, pins the reduced solution's dispatch on
 the full feeder, and runs PF there. It then checks the replay against the **original**
-operating bounds. PF termination by itself does not check those bounds (PSK-000013).
+operating bounds. PF termination by itself does not check those bounds.
 
 For a different reduction, supply and review the appropriate mapping and recovery
 procedure. This small example does not establish arbitrary reduction fidelity or

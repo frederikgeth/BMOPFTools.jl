@@ -7,6 +7,10 @@ benchmark data releases; this repository provides the tooling around them and a
 home for *draft* benchmarks. Contributions of all kinds are welcome — draft
 cases, tooling, documentation, and feedback on the data model itself.
 
+Use **American English** for repository-authored text and new identifiers;
+the [spelling policy](style_guide.md#Spelling) lists examples and the exceptions
+for existing interfaces, citations, and upstream material.
+
 This page is the entry point for contributors. The rest of the Developer guide
 goes deeper on the conventions and guard-rails:
 
@@ -26,8 +30,8 @@ goes deeper on the conventions and guard-rails:
 | Kind | Where it goes | What review looks at |
 |---|---|---|
 | **Bug reports & questions** | Issue tracker | A minimal reproducer; for conversion bugs, the source `.dss` snippet. |
-| **New network cases (draft)** | PR (see below) | CC BY 4.0 licence; conversion sanity. Perfection not required. |
-| **Tooling / analysis** | PR | Tests, docstrings, finding-code catalogue, coverage. |
+| **New network cases (draft)** | PR (see below) | CC BY 4.0 license; conversion sanity. Perfection not required. |
+| **Tooling / analysis** | PR | Tests, docstrings, finding-code catalog, coverage. |
 | **Documentation & tutorials** | PR | Accuracy, and **non-overlap** with existing tutorials. |
 | **Data-model feedback** | `docs/taskforce_feedback.md` → Task Force | Goes through the TF process, not merged unilaterally — see [Versioning](versioning.md). |
 
@@ -62,7 +66,7 @@ So: contribute drafts freely; don't assume a draft becomes official.
 4. **Prepare** the case if it is destined to be an OPF benchmark — see
    [case augmentation](../augmentation.md) (`fix_case` → `add_generators` →
    `augment_case`), which records every change in a `TransformationManifest`.
-5. **Open a PR**, and confirm the licence in the case header.
+5. **Open a PR**, and confirm the license in the case header.
 
 !!! note "Official benchmark data is the Task Force's, and will live elsewhere"
     The Task Force owns the official benchmark releases. The accepted cases under
@@ -136,12 +140,12 @@ One-off data-migration scripts live in `scripts/oneoff/`.
 
 ## Licensing of contributions
 
-Code is BSD-3-Clause. Network fixtures retain their upstream licences; see the
-README's dataset table and the licence files accompanying each dataset.
+Code is BSD-3-Clause. Network fixtures retain their upstream licenses; see the
+README's dataset table and the license files accompanying each dataset.
 Task Force feedback is CC BY 4.0. Restricted CSIRO MV/LV datasets and their
 LV1 derivatives are stored externally in `BMOPFDraftData/test/data` under
 CC BY-NC-SA 4.0. Set `BMOPF_RESTRICTED_DATA` explicitly to run those integration
 tests or dataset tutorials. Do not add restricted data back into this package.
 
-By contributing code, you agree to the BSD-3-Clause licence. For data, preserve
+By contributing code, you agree to the BSD-3-Clause license. For data, preserve
 upstream attribution and terms and only contribute material you may redistribute.

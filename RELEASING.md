@@ -14,7 +14,7 @@ Julia versions. This is not an exhaustive test of every allowed transitive
 version. Keep dependency bounds honest as new features are introduced.
 
 The standard CI suite requires JuMP, Ipopt, MadNLP, and OpenDSSDirect to load.
-An import failure must fail the job. Gurobi remains optional and licence-gated.
+An import failure must fail the job. Gurobi remains optional and license-gated.
 The installation matrix separately tests core-only operation, both JuMP load
 orders without Ipopt, and a small Ipopt power-flow solve. It creates temporary
 environments instead of using developer manifests. Linux is the CI target;
@@ -43,7 +43,7 @@ are useful for development but are not evidence of a fresh installation.
 
 External dataset checks remain opt-in through `BMOPF_RESTRICTED_DATA`; see
 `test/RESTRICTED_DATA.md`. Restricted CSIRO MV/LV and ENWL data live in
-BMOPFDraftData, with all original licence notices preserved. Do not restore them
+BMOPFDraftData, with all original license notices preserved. Do not restore them
 under the package tree or silently download them during package installation.
 
 ## Schema and public API baseline

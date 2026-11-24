@@ -149,6 +149,19 @@ function _rhs_expr(model, t, W, s, Vnom::Float64)
     e
 end
 
+# Seed a power-injecting current pair from a target complex power and the
+# already-seeded voltage start, I = conj(S/V). Without this the current starts at
+# 0 and every power row starts violated by its full target. An existing start
+# (for example one set by a caller or a previous solve) is kept, as is any
+# target that is not a plain number (a parameter or expression coefficient).
+function _seed_power_current!(cr, ci, dvr, dvi, p, q)
+    (cr isa JuMP.VariableRef && ci isa JuMP.VariableRef) || return
+    (p isa Real && q isa Real && isfinite(p) && isfinite(q)) || return
+    (JuMP.start_value(cr) === nothing && JuMP.start_value(ci) === nothing) || return
+    _warmstart_ibr_current!(cr, ci, dvr, dvi, Float64(p), Float64(q))
+    return
+end
+
 # Pin one sub-load's realized power (P_tot, Q_tot) to its model.
 function _add_subload_power!(model, load, lid, k, P_tot, Q_tot, p0, q0, dvr, dvi;
                              cr, ci, voltage_lower=nothing,
@@ -157,6 +170,10 @@ function _add_subload_power!(model, load, lid, k, P_tot, Q_tot, p0, q0, dvr, dvi
     register(family, cref) = register_constraint === nothing ? cref :
         register_constraint(family, (string(lid), k), cref)
     if get(load, "model", "constant_power") == "constant_power"
+        # Only constant-power loads are seeded: their power at the start point
+        # is exactly (p0, q0). A voltage-dependent law seeded from nominal power
+        # gave poor starts far from nominal voltage.
+        _seed_power_current!(cr, ci, dvr, dvi, p0, q0)
         register(:load_power_real, @constraint(model, P_tot == p0))
         register(:load_power_imag, @constraint(model, Q_tot == q0))
         return
@@ -254,18 +271,20 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
         BMOPFTools.register_opf_object!(constraint_context,
             BMOPFTools.OpfModelKey(:variable, family, index), variable)
 
+    delta_roles = _delta_load_roles(net)
     for (lid, load) in get(net, "load", Dict())
         bus = get(load, "bus", "")
         tm  = Vector{String}(get(load, "terminal_map", String[]))
         cfg = get(load, "configuration", "WYE")
+        delta_coils = cfg == "DELTA" ? BMOPFTools._delta_load_coils(load, net; id=lid, roles=delta_roles) : nothing
         p_nom = Float64.(get(load, "p_nom", Float64[]))
         q_nom = Float64.(get(load, "q_nom", Float64[]))
 
         load_model = get(load, "model", "constant_power")
         load_model in ("constant_power", "constant_impedance", "constant_current", "zip", "exponential") ||
             throw(ArgumentError("Load '$lid': unsupported model '$load_model'."))
-        ncoils = cfg in ("SINGLE_PHASE", "DELTA") && length(tm) == 2 ? 1 :
-                 cfg == "DELTA" ? length(tm) : length(_phase_positions(tm, nlabels))
+        ncoils = cfg == "DELTA" ? length(delta_coils) :
+                 cfg == "SINGLE_PHASE" && length(tm) == 2 ? 1 : length(_phase_positions(tm, nlabels))
         length(p_nom) == length(q_nom) == ncoils && ncoils > 0 ||
             throw(ArgumentError("Load '$lid': p_nom and q_nom must cover all $ncoils coils."))
         all(isfinite, p_nom) && all(isfinite, q_nom) ||
@@ -338,11 +357,7 @@ function _add_load_constraints!(model, net, vars, kcl_r, kcl_i;
             end
 
         elseif cfg == "DELTA"
-            n_c = length(tm)
-            for k in 1:n_c
-                length(p_nom) >= k || continue
-                t_pos = tm[k]
-                t_neg = tm[(k % n_c) + 1]
+            for (k, (t_pos, t_neg)) in enumerate(delta_coils)
                 dvr = @expression(model, vr[(bus, t_pos)] - vr[(bus, t_neg)])
                 dvi = @expression(model, vi[(bus, t_pos)] - vi[(bus, t_neg)])
 

@@ -35,7 +35,7 @@ equations [ref. 4](methodology.md#refs), with the neutral as an explicit row and
 column), so the voltage drop on one conductor depends on the currents in *all*
 of them. The off-diagonal (mutual) terms are generally *unequal* — phase
 spacings differ — so the matrix cannot be collapsed to a transposed average
-without error: on the IEEE 13-node feeder, modelling one real line as transposed
+without error: on the IEEE 13-node feeder, modeling one real line as transposed
 mis-estimates the downstream voltage unbalance by ~31% (1.50% vs 2.17%)
 [ref. 17](methodology.md#refs). See the [Lines](opf.md#Lines) KVL constraints for
 the exact form.

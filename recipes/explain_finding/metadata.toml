@@ -26,7 +26,7 @@ command = "julia --startup-file=no --project=. recipes/explain_finding/recipe.jl
 expected_status = "completed"
 expected_finding_codes = ["E.SOL.VOLT_VIOLATION"]
 does_not_establish = [
-  "The catalogue meaning diagnoses the cause of a particular Finding instance.",
+  "The catalog meaning diagnoses the cause of a particular Finding instance.",
   "A Finding code alone identifies a safe automatic repair.",
   "An unlinked package Finding inherits a scientific PSK identity merely because a related tutorial or claim exists.",
 ]

@@ -220,6 +220,70 @@ end
 
 end
 
+@testset "Zone-local power bases are shared across a neutral-only bond" begin
+    # sec2's load returns through `n`, which reaches earth only through a
+    # neutral-only bond to sec1 (t2's secondary earths through `g`). The bond
+    # carries load current, so sec1 and sec2 must share one power base even
+    # though the bond does not join their phase-conductor zones.
+    net = parse_bmopf(raw"""
+    {"bus":{
+      "hv":{"terminal_names":["a","n"],"perfectly_grounded_terminals":["n"]},
+      "sec1":{"terminal_names":["x","n"],"perfectly_grounded_terminals":["n"]},
+      "sec2":{"terminal_names":["x","n","g"],"perfectly_grounded_terminals":["g"]}},
+     "terminal_conventions":{"phase":["a","x"],"neutral":["n","g"]},
+     "voltage_source":{"source":{"bus":"hv","terminal_map":["a"],
+       "v_magnitude":[2400.0],"v_angle":[0.0],"cost":[0.2]}},
+     "transformer":{"single_phase":{
+       "t1":{"bus_from":"hv","bus_to":"sec1","terminal_map_from":["a","n"],
+         "terminal_map_to":["x","n"],"v_nom_from":2400.0,"v_nom_to":240.0,
+         "s_rating":50000.0,"r_series_from":1.0,"x_series_from":2.0,
+         "r_series_to":0.01,"x_series_to":0.02},
+       "t2":{"bus_from":"hv","bus_to":"sec2","terminal_map_from":["a","n"],
+         "terminal_map_to":["x","g"],"v_nom_from":2400.0,"v_nom_to":240.0,
+         "s_rating":50000.0,"r_series_from":1.0,"x_series_from":2.0,
+         "r_series_to":0.01,"x_series_to":0.02}}},
+     "linecode":{"bond":{"R_series_1_1":0.05,"X_series_1_1":0.01}},
+     "line":{"bond":{"bus_from":"sec1","bus_to":"sec2",
+       "terminal_map_from":["n"],"terminal_map_to":["n"],
+       "linecode":"bond","length":1.0}},
+     "load":{
+       "l1":{"bus":"sec1","terminal_map":["x","n"],"configuration":"WYE",
+             "p_nom":[8000.0],"q_nom":[2000.0]},
+       "l2":{"bus":"sec2","terminal_map":["x","n"],"configuration":"WYE",
+             "p_nom":[10000.0],"q_nom":[3000.0]}}}
+    """; from_string=true)
+    zones(; kw...) = Set(Set(z) for z in BMOPFTools._galvanic_zones(net; kw...))
+    @test zones() == Set([Set(["hv"]), Set(["sec1"]), Set(["sec2"])])
+    @test zones(include_neutral_only=true) ==
+          Set([Set(["hv"]), Set(["sec1", "sec2"])])
+
+    vbases = Dict("hv" => 2400.0, "sec1" => 240.0, "sec2" => 240.0)
+    split = OpfScaling(voltage_bases=vbases,
+        power_bases=Dict("hv" => 1.0e6, "sec1" => 25.0e3, "sec2" => 50.0e3))
+    shared = OpfScaling(voltage_bases=vbases,
+        power_bases=Dict("hv" => 1.0e6, "sec1" => 25.0e3, "sec2" => 25.0e3))
+    ext = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
+    @test_throws ArgumentError ext._compute_bases(net, split)
+    @test_throws ArgumentError solve_pf(net; scaling_policy=split)
+
+    ctx = initialize_opf_model(net; scaling_policy=shared)
+    proposal = BMOPFTools.opf_transformer_scaling_contract_data(ctx;
+        power_bases=split.power_bases)
+    @test !proposal["proposal_admissible"]
+    @test !isempty(proposal["inconsistent_galvanic_zones"])
+
+    si = solve_pf(net; scaling_policy=OpfScaling(:si))
+    local_result = solve_pf(net; scaling_policy=shared)
+    @test local_result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+    @test si["line"]["bond"]["n"]["cm_fr"] > 1.0   # the bond carries load current
+    @test local_result["line"]["bond"]["n"]["cm_fr"] ≈
+          si["line"]["bond"]["n"]["cm_fr"] rtol=2e-6
+    for terminal in ("x", "n")
+        @test local_result["bus"]["sec2"][terminal]["vm"] ≈
+              si["bus"]["sec2"][terminal]["vm"] rtol=2e-6 atol=2e-6
+    end
+end
+
 @testset "Zone-local Yd/Dy connection-matrix covariance" begin
     function yd_dy_fixture(subtype)
         if subtype == "wye_delta"

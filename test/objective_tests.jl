@@ -265,7 +265,7 @@ end
 end
 
 @testset "opf_total_loss — agrees with the reported post-solve loss" begin
-    # The strongest available check: the expression the solver would minimise
+    # The strongest available check: the expression the solver would minimize
     # and the number the result reports must be the SAME quantity. This also
     # validates the per-bus power weighting and the grounded-terminal handling,
     # which are the two places a model-side reimplementation would drift.
@@ -323,9 +323,9 @@ end
     @test_throws ArgumentError BMOPFTools.opf_total_loss(ctx; blocks=("line", "nope"))
 end
 
-@testset "opf_total_loss — minimising it actually reduces losses" begin
+@testset "opf_total_loss — minimizing it actually reduces losses" begin
     # A loss objective must move the answer, or it is decorative. Compare the
-    # loss at a zero-objective feasible point against the loss-minimising one.
+    # loss at a zero-objective feasible point against the loss-minimizing one.
     function loss_under(objective)
         ctx = BMOPFTools.build_opf_model(_obj_net(20_000.0); per_unit=true,
                                          add_objective=false)
@@ -439,7 +439,7 @@ end
     @test BMOPFTools.opf_physical_scale(si, :V; bus="b1") == 1.0
 end
 
-@testset "norm modes — :max equalises, :squared and :magnitude do not" begin
+@testset "norm modes — :max equalizes, :squared and :magnitude do not" begin
     # The original version of this testset was named for a property it never
     # asserted: it checked only that every solve returned a value, and would
     # have passed with all three norms producing identical dispatch.
@@ -469,7 +469,7 @@ end
 
     spread(v) = maximum(v) - minimum(v)
 
-    # :max is indifferent to everything but the worst target, so it EQUALISES:
+    # :max is indifferent to everything but the worst target, so it EQUALIZES:
     # it lets the better bus drift up rather than spending effort there. That is
     # the minimax signature and it is strictly measurable here.
     @test spread(got[:max]) < spread(got[:squared])
@@ -478,7 +478,7 @@ end
     # Honest negative result: :magnitude and :squared coincide on this fixture.
     # The two laterals are near-symmetric, so there is no reason to prefer
     # zeroing one over the other and a sparsity-inducing norm has nothing to
-    # choose. Group-lasso behaviour needs ASYMMETRIC targets -- see the control
+    # choose. Group-lasso behavior needs ASYMMETRIC targets -- see the control
     # effort testset below, which constructs exactly that.
     @test got[:magnitude] ≈ got[:squared] rtol=1e-4
 end
@@ -568,7 +568,7 @@ end
                                                               side=:sideways)
 end
 
-@testset "opf_current_term — minimising neutral current actually reduces it" begin
+@testset "opf_current_term — minimizing neutral current actually reduces it" begin
     # With a per-phase STATCOM the compensator can shift current between phases,
     # so a neutral-current objective must move the answer.
     net = _obj_net_4w()
@@ -578,12 +578,12 @@ end
         "s_max" => [20000.0,20000.0,20000.0],
         "p_max" => [0.0,0.0,0.0], "p_min" => [0.0,0.0,0.0],
         "cost" => [0.0,0.0,0.0]))
-    function neutral_under(minimise)
+    function neutral_under(minimize)
         ctx = BMOPFTools.build_opf_model(deepcopy(net); per_unit=true,
                                          add_objective=false)
         m = BMOPFTools.opf_model(ctx)
         (nr, ni) = BMOPFTools.opf_neutral_current(ctx, "line", "l1"; side=:to)
-        if minimise
+        if minimize
             t = BMOPFTools.opf_current_term(ctx, [("line","l1",:to)];
                                             quantity=:neutral, norm=:squared)
             BMOPFTools.set_opf_objective!(ctx, [t])
@@ -774,13 +774,13 @@ end
     @test a.vuf ≈ b.vuf rtol=1e-4
 end
 
-@testset "opf_vuf_term — minimising VUF reduces it" begin
+@testset "opf_vuf_term — minimizing VUF reduces it" begin
     net = _obj_net(20_000.0); net["bus"]["b1"]["vpos_min"] = 180.0
-    function vuf_under(minimise)
+    function vuf_under(minimize)
         ctx = BMOPFTools.build_opf_model(deepcopy(net); per_unit=true,
                                          add_objective=false)
         m = BMOPFTools.opf_model(ctx)
-        if minimise
+        if minimize
             BMOPFTools.set_opf_objective!(ctx, [BMOPFTools.opf_vuf_term(ctx, "b1")])
         else
             JuMP.@objective(m, Min, 0.0)
@@ -867,7 +867,7 @@ end
     # is symmetric (equal diagonals, no mutuals), so it is an equivalent circuit
     # and must reproduce the identity map's negative-sequence magnitude. The
     # tolerance is solver convergence between two separately-solved models, not
-    # a modelling difference. A transposition is a genuinely DIFFERENT circuit
+    # a modeling difference. A transposition is a genuinely DIFFERENT circuit
     # and is not expected to agree.
     @test i2[3] ≈ i2[1] rtol=1e-5
     @test !isapprox(i2[2], i2[1]; rtol=1e-3)
@@ -880,7 +880,7 @@ end
     @test tmax.valid_sense == :min
 
     # `t` is bounded from BELOW by its targets and from above by nothing, so
-    # maximising it -- or minimising it with a negative weight -- is unbounded,
+    # maximizing it -- or minimizing it with a negative weight -- is unbounded,
     # not merely inaccurate. Refuse instead of handing Ipopt an unbounded model.
     @test_throws ArgumentError BMOPFTools.set_opf_objective!(ctx, [tmax]; sense=:max)
     tneg = BMOPFTools.opf_sequence_term(ctx, "b1"; norm=:max, weight=-1.0,

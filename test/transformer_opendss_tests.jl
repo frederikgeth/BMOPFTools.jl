@@ -175,15 +175,9 @@ end
             @test OpenDSSDirect.Solution.Converged()
             reference=Dict(lowercase.(OpenDSSDirect.Circuit.AllNodeNames()) .=> OpenDSSDirect.Circuit.AllBusVolts())
             net=from_dss(p)
-            # BMOPF sources prescribe terminal phasors; DSS Vsource has finite
-            # impedance. Supply its observed source phasors so both solves have
-            # the same boundary condition, without loosening the comparison.
-            for vs in values(net["voltage_source"])
-                grounded=get(net["bus"][vs["bus"]],"perfectly_grounded_terminals",String[])
-                V=[t in grounded ? 0.0im : reference["$(vs["bus"]).$(get(aliases,t,t))"] for t in vs["terminal_map"]]
-                vs["v_magnitude"]=abs.(V)
-                vs["v_angle"]=angle.(V)
-            end
+            # PowerIO now retains the source impedance and internal EMF.
+            # Use that imported boundary unchanged; compare original physical
+            # buses against OpenDSS rather than overwriting the source voltage.
             # Retain ratings: these deliberately light loads do not bind them.
             result=solve_opf(net;optimizer=Ipopt.Optimizer,per_unit=true,
                 solver_options=("print_level"=>0,"tol"=>1e-10,"bound_relax_factor"=>0.))

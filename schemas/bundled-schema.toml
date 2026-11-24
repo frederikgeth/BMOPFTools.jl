@@ -1,6 +1,7 @@
 # Package-owned snapshot; the upstream draft URL is not immutable.
+# Issue #464 changes description spelling only; validation rules are unchanged.
 path = "src/validation/schemas/draft_bmopf_schema.json"
-sha256 = "9dcf693edd7403455185b2e9eb7dd37f49351867821b4fa65d2fd6434fe8cacc"
+sha256 = "0a40bf888b47510537a8573907ddb385c461c0be7cea11fa13f78aa833e8ab22"
 schema_version = "0.1.0"
 package_source_commit = "6406bf0bb47c3b94ead24c8093e6b43bf7808d8c"
 upstream_url = "https://github.com/frederikgeth/bmopf-report/blob/main/draft_schema_and_networks/draft_bmopf_schema.json"

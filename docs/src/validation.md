@@ -6,10 +6,10 @@ own validation, so this page documents **how that engine is tested** — both so
 can judge the results and so you can **reuse the setup for your own tool**. 
 
 The goal of our implementation is to be consistent with generally accepted
-circuit-modelling practice in the presence of nonlinear elements, including
+circuit-modeling practice in the presence of nonlinear elements, including
 constant-power loads. OpenDSS is used as an external reference implementation,
 not assumed to be ground truth; agreement can reveal implementation consistency
-but cannot decide which modelling assumptions are appropriate. For the latter,
+but cannot decide which modeling assumptions are appropriate. For the latter,
 see "A perspective on transformer modeling for distribution system analysis",
 with full bibliographic details below.
 
@@ -21,7 +21,7 @@ yet complete:
    voltages and currents actually satisfy Kirchhoff's laws and the component
    models? We check this against **OpenDSS**. The same check is available for
    **your own** solved cases by [projecting the OPF onto a determined power
-   flow](@ref opf-projection).
+   flow](solution_projection.md).
 2. **Does it reproduce a known or external dispatch target?** — *optimality
    evidence*: given the objective and operating bounds, does the optimizer reach
    the analytic target on cases with a derivable optimum, and does it reproduce
@@ -83,7 +83,7 @@ fixture.
 
 There is no separate power-flow solver to validate — instead each case is solved
 with [`solve_feasibility_opf`](opf.md#Feasibility-relaxation), which adds an
-**elastic slack current** at every non-source terminal and minimises its squared
+**elastic slack current** at every non-source terminal and minimizes its squared
 norm. When a converged solution has slack ≈ 0 and the independently recomputed
 residuals are within tolerance, it is an explicit feasible point of the
 implemented power-flow equations:
@@ -175,17 +175,17 @@ measurements pin this down:
 - **In the 4-wire cases the error concentrates on the neutral terminal.** The
   phase voltages agree to ≈ 0.003–0.01 V, while the neutral sits **7–15× higher**
   (≈ 0.03–0.09 V) — the neutral voltage is a small residual set by load unbalance,
-  so modelling differences in the grounding / earth-return path show up there
+  so modeling differences in the grounding / earth-return path show up there
   rather than on the stiff, near-nominal phases.
 
 Two further checks back up the voltage match: the feasibility slack
 (`< 1e-3 A`), and total transformer losses against OpenDSS (`rtol = 0.05`). The
-tolerances are deliberately tight enough to catch a single modelling error, not
+tolerances are deliberately tight enough to catch a single modeling error, not
 merely "close".
 
 ### What the cases isolate
 
-Each `.dss` file is a minimal 2-bus-style fixture that isolates one modelling
+Each `.dss` file is a minimal 2-bus-style fixture that isolates one modeling
 concern, so a failure points straight at the responsible component:
 
 | Case file | Isolates |
@@ -240,7 +240,7 @@ split-phase `center_tap` (the leg-polarity model). It is solved twice:
 Because a single-source, generator-free network has the source as its only angle
 anchor, the offset must **rigidly rotate the whole solution** — every transformer
 phase shift is relative and survives the rotation. The feasibility solve
-converging from the offset also exercises the angle-aware voltage initialisation.
+converging from the offset also exercises the angle-aware voltage initialization.
 A companion analysis test asserts the corollary: **vector-group tagging**
 (terminal-map topology) and **voltage-level tagging** (`v_magnitude` / `v_nom`
 ratios) read no angle, so both are byte-identical with and without the offset.
@@ -260,36 +260,36 @@ and a family of fixtures pins it down rather than a single light-load case:
   decoupled model failed.
 - **Phase-to-phase, single-leg, and extreme one-leg loads**
   (`pf_center_tap_240` / `_singleleg_pn` / `_oneleg_extreme`): the 240 V load
-  exercises the series-aiding winding polarity with zero centre-tap current;
+  exercises the series-aiding winding polarity with zero center-tap current;
   the unbalanced loads drive the legs apart and check the split against OpenDSS.
   Node voltages hold the default tight band (**atol 0.3 V / rtol 3e-3**) and
   total losses match within **3 %** — the looser legacy tolerance is retired.
 - **OPF ↔ Ybus agreement** (`center_tap OPF and Ybus models agree`): the OPF
   builder and the Ybus exporter implement the device independently, so a test
-  asserts the centre-tap KCL closes on the `_yprim_center_tap` admittance — a
+  asserts the center-tap KCL closes on the `_yprim_center_tap` admittance — a
   guard against the two paths drifting apart again.
-- **Continuous tap optimisation under drop + unbalance** (*optimised tap vs
+- **Continuous tap optimization under drop + unbalance** (*optimized tap vs
   OpenDSS (center_tap)*): a free HV tap on `pf_center_tap_loaded` (5 km feeder,
-  heavy unequal legs) is optimised, then OpenDSS is solved with that tap set on
+  heavy unequal legs) is optimized, then OpenDSS is solved with that tap set on
   winding 1. Node voltages match to **≈ 0.25 V** and **total losses to ≈ 5 %**
   (`rtol = 0.08` — the core loss now matches OpenDSS exactly on the boosted LV;
   the residual is a documented center_tap leakage deviation at this extreme
   boost point, see [transformer models](transformer_models.md)), and a wide-band
   internal-exactness check confirms the free degree-2 T-model reproduces the
   fixed-`Yprim` re-solve at ``t^\star`` to **0.0 V** — so promoting the ratio to
-  a variable adds no modelling error.
-- **Exact tap² referral for Yd/Dy** (*optimised tap vs OpenDSS (delta_wye Dy)*,
+  a variable adds no modeling error.
+- **Exact tap² referral for Yd/Dy** (*optimized tap vs OpenDSS (delta_wye Dy)*,
   and *Yd/Dy fixed tap across the schema band*): the coupled delta-arm leakage
   carries the exact ``tap²`` referral (matching OpenDSS's winding-1
   self-impedance scaling — verified directly against OpenDSS's short-circuit
   `Yprim`), applied identically in the OPF and the `Yprim` export. Validated at
   the ±10 % schema band edges at 4 fixed taps for both Yd and Dy against
-  OpenDSS's turns-scaled `Yprim`, plus the Dy optimised free tap — agreement is
+  OpenDSS's turns-scaled `Yprim`, plus the Dy optimized free tap — agreement is
   at the ~0.3 V node-voltage floor at *every* tap, not just nominal.
 
 ### Parse-path and primitive-admittance gates
 
-Two further testsets validate the transformer modelling beyond the hand-built
+Two further testsets validate the transformer modeling beyond the hand-built
 fixtures above:
 
 - **`from_dss` transformer fidelity** (`single_phase`/`wye_delta`/`delta_wye`):
@@ -297,7 +297,7 @@ fixtures above:
   runs the *parse* path (`from_dss` of the same `.dss`) through `solve_pf` and
   compares to OpenDSS, matching voltages and total losses. It guards the
   no-load shunt normalization — placed on **winding 2** (the OpenDSS
-  convention), including the magnetising susceptance (`%imag` → negative
+  convention), including the magnetizing susceptance (`%imag` → negative
   `b_no_load`) — and the `delta_wye` leakage carried by PowerIO v0.9's BMOPF
   export, plus the `phases=1` requirement on grounding reactors without which
   the Dy neutral floats and the solve diverges.
@@ -379,101 +379,11 @@ needed to reuse the baseline.
 
 ## [Validating a solution end-to-end — projecting the OPF onto a power flow](@id opf-projection)
 
-The feasibility harness above validates the **engine** on a fixed set of `.dss`
-fixtures. But you will also want to validate a **particular solution you just
-computed** on your own network: is the dispatch `solve_opf` returned actually a
-feasible power flow? [`project_solution`](@ref) generalises the feasibility
-cross-check to any solved case, so you can run the same OpenDSS oracle test on
-your own OPF results rather than only on the shipped fixtures.
-
-### The idea: pin the solution, re-solve as a determined power flow
-
-An OPF has *degrees of freedom* — generator/IBR dispatch, free transformer taps,
-smart-inverter setpoints — that a power flow does not. If you **pin every one of
-those to the value it takes in the OPF solution**, the only quantities still free
-are the nodal voltages: the network is now a fully *determined* power flow, and
-that power flow can be re-solved by an independent solver to check that the OPF's
-predicted voltages and currents really do satisfy Kirchhoff's laws and the
-component models.
-
-[`project_solution(net, result)`](@ref) does exactly this pinning and returns a
-deep copy of `net` (the input is never mutated):
-
-- **Generators and IBRs** — per-phase active/reactive dispatch is frozen to the
-  solved values (`p_min == p_max == pg`, `q_min == q_max == qg`). An IBR running a
-  Volt-var / power-factor `control_profile` has the profile dropped and explicit
-  fixed bounds written, freezing the smart-inverter control at its solved operating
-  point (the profile couples `Q` to `P` internally, so pinning both fixes it).
-- **Free transformer taps** — a tap that was an OPF decision variable (reported as
-  `tap` / `tap_ratio` in the result) is written back onto the winding. Fixed-tap
-  transformers are left untouched.
-
-The result is a legal input to [`solve_pf`](@ref) and, via [`to_dss`](@ref), an
-OpenDSS deck whose only free quantities are the voltages.
-`result["_meta"]["projection"]` on the returned net records exactly what was
-pinned (`generators`, `ibrs`, `control_profiles_frozen`, `free_taps`) so a later
-oracle mismatch can be attributed.
-
-### The three-way triangulation
-
-With a determined snapshot in hand there are three computational routes to the
-same voltages. Only route C uses an external engine; comparing all three still
-helps localise disagreements:
-
-| | Source | What it is |
-|---|---|---|
-| **A** | `result["bus"]` | the OPF's own predicted voltages |
-| **B** | `solve_pf(project_solution(net, result))` | BMOPF re-solving the pinned snapshot as a power flow (self-consistency check, not an independent oracle) |
-| **C** | OpenDSS solving `to_dss(...)` of the snapshot | an external engine (independent implementation comparator, not ground truth) |
-
-Reading the pattern:
-
-- **A ≈ B** confirms the projection is exact and the OPF's rectangular solution is
-  a self-consistent power flow — in practice these agree to ``\sim\!10^{-7}`` V, so
-  a divergence here points at the OPF or the projection, not the network.
-- **A ≈ B ≉ C** isolates a *conversion* problem — the model BMOPF solved and the
-  model OpenDSS solved differ (an export gap), not the OPF itself. This is how the
-  [PowerIO export gaps](conversion.md#to-dss-export) were found.
-
-The A ≈ B leg needs no external dependency; the C leg needs an OpenDSS solve, and
-is subject to the [`to_dss` fidelity limits](conversion.md#Known-limitations) —
-notably that PowerIO cannot yet emit a BMOPF `ibr`/`generator`, and currently
-writes `kvs = NaN` for transformers, so the OpenDSS oracle is exercised on
-transformer-free cases while that gap is upstream.
-
-### Exporting the dispatch to OpenDSS — `dispatch_as_loads`
-
-Because [`to_dss`](@ref) cannot yet serialise a BMOPF `ibr`/`generator`,
-[`dispatch_as_loads`](@ref) bridges the gap: it rewrites every **pinned**
-generator/IBR as an equivalent constant-power **negative load**
-(`p_nom = -p_min`, `q_nom = -q_min`) — which PowerIO exports faithfully — carrying
-the device's terminal map and connection. A fixed PQ injection *is* a negative
-constant-power load, so under the determined power flow the two forms are
-equivalent (`solve_pf` agrees to ``\sim\!10^{-6}`` V). Generation sitting on a
-`voltage_source` bus is **dropped, not converted** — the slack source is the
-reference injector in a power flow and its dispatch must not be re-imposed as a
-load. This bridge can be retired once PowerIO maps `ibr`/`generator` directly.
-
-### Putting it together
-
-```julia
-net    = from_dss("my_feeder.dss")
-result = solve_opf(net)                    # your OPF solution
-
-snap   = project_solution(net, result)     # pin every setpoint → determined snapshot
-res_B  = solve_pf(snap)                     # B: BMOPF self-check  (expect A ≈ B)
-
-deck   = dispatch_as_loads(snap)            # generators/IBRs → negative loads
-to_dss(deck, "snap.dss")                    # C: hand to OpenDSS   (expect A ≈ B ≈ C)
-```
-
-The comparators used in the test suite (`test/roundtrip_helpers.jl`) apply the
-same node-name bridge and skip tolerance (`|V| < 1e-4` earth/neutral nodes) as the
-feasibility harness above, so the projection cross-check reuses the OpenDSS
-comparison method verbatim — the only new machinery is the pinning.
-[`test/projection_tests.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/test/projection_tests.jl)
-runs this on DER-augmented feeders and free-tap fixtures (the raw `pf_comparison`
-cases have no decision variables, so projection is a no-op there).
+The practical workflow now lives in
+[Solution projection and power-flow comparison](solution_projection.md), under
+**Verify & diagnose results**. It covers pinning a dispatch, BMOPF
+self-consistency checks, external-engine comparisons and export qualifications.
+The sections here describe the engine's fixtures and validation evidence.
 
 ## Dispatch evidence — analytic targets and cross-tool regressions
 
@@ -687,8 +597,8 @@ row is one unit test to develop, and the *status* column tracks coverage.
 | You want to … | Use | Evidence obtained |
 |---|---|---|
 | test power-flow / component implementations | the `.dss` cases + a live OpenDSS solve, compared as above | agreement with OpenDSS for the aligned fixture models |
-| test optimization behaviour | Tier-1 analytic targets, plus Tier-2 PMD values as cross-tool regressions | analytic correctness on Tier 1; regression agreement on Tier 2, not general globality |
-| validate smart-IBR control | the Tier-3 droop setpoints | control laws are enforced as modelled |
+| test optimization behavior | Tier-1 analytic targets, plus Tier-2 PMD values as cross-tool regressions | analytic correctness on Tier 1; regression agreement on Tier 2, not general globality |
+| validate smart-IBR control | the Tier-3 droop setpoints | control laws are enforced as modeled |
 | validate your network-limit encodings | the bind-and-recompute method + the limit inventory | agreement with the intended quantity on the tested binding fixtures |
 
 The two reuse paths are complementary: the analytic and PMD numbers are
@@ -741,4 +651,4 @@ width, and softplus/Swish encoding. Native solves export those coefficients.
 The report includes both caps and excesses, the signed approximation error,
 and `epsilon_V`. Missing or unsupported curve evidence is indeterminate. A
 modeled-cap pass concerns that declared curve only; it does not authenticate
-solver stamping or establish complete network feasibility (PSK-000013).
+solver stamping or establish complete network feasibility.

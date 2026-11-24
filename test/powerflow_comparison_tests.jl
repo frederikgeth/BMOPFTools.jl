@@ -33,6 +33,8 @@
 using OpenDSSDirect
 using BMOPFTools
 using Ipopt
+using JSON3
+import JuMP
 
 const _PF_CMP_DIR = joinpath(@__DIR__, "data", "pf_comparison")
 
@@ -205,7 +207,7 @@ function _bmopf_losses_W(res::Dict, net::Dict)::Float64
             end
 
             # Core-loss (no-load) shunt at the from-side phase terminals. The
-            # winding-current sum above is the copper loss only; the magnetising
+            # winding-current sum above is the copper loss only; the magnetizing
             # conductance draws G·|V|² per phase that does not appear in cr_xf.
             G_total = Float64(get(xfmr, "g_no_load", 0.0))
             if G_total != 0.0
@@ -248,8 +250,8 @@ Like `_bmopf_volts` but via `solve_opf` rather than `solve_feasibility_opf`,
 because the IBR constraints are only built by `solve_opf`. Buses carry no
 voltage bounds, so this is a pure power flow with the voltage source as slack.
 """
-function _bmopf_volts_opf(net::Dict{String,Any})
-    res = solve_opf(net; optimizer=Ipopt.Optimizer)
+function _bmopf_volts_opf(net::Dict{String,Any}; per_unit=true)
+    res = solve_opf(net; optimizer=Ipopt.Optimizer, per_unit)
     volts = Dict{String,ComplexF64}()
     for (bid, t_dict) in res["bus"]
         for (t, tv) in t_dict
@@ -441,7 +443,7 @@ function _net_1ph_xfmr()
     #   x_series_to   = 0.0
     #
     # No-load branch. This hand-built fixture keeps the no-load admittance tiny
-    # (its purpose is to validate the leakage/voltage behaviour; the no-load
+    # (its purpose is to validate the leakage/voltage behavior; the no-load
     # branch on the correct winding-2 base is validated end-to-end by the
     # `from_dss`-based fidelity test, whose fixture carries the real core loss).
     s   = 50_000.0
@@ -766,7 +768,7 @@ function _net_yd_xfmr()
     nl  = 0.003
     cm  = 0.015
     # No-load branch kept tiny here (this hand-built fixture validates the
-    # leakage/voltage behaviour and the near-solid delta-common-mode anchor; the
+    # leakage/voltage behavior and the near-solid delta-common-mode anchor; the
     # no-load branch on the correct winding-2 base is validated end-to-end by the
     # `from_dss` fidelity test). Referred to V_LN = vf/√3 as a small placeholder.
     yb_nl = s / (vf / sqrt(3))^2   # = 3·s/vf²
@@ -867,7 +869,7 @@ function _net_dy_xfmr()
     nl  = 0.003
     cm  = 0.015
     # No-load branch kept tiny here (this hand-built fixture validates the
-    # leakage/voltage behaviour; the no-load branch on the correct winding-2 base
+    # leakage/voltage behavior; the no-load branch on the correct winding-2 base
     # is validated end-to-end by the `from_dss` fidelity test). Small placeholder.
     yb_nl = s / (vf / sqrt(3))^2   # = 3·s/vf²
     G_nl = nl * yb_nl
@@ -1089,7 +1091,7 @@ end
 
 function _net_1ph_impedanceneutral()
     # pf_1ph_impedanceneutral.dss: same load, lb.4 grounded through Z = 0.2 Ω,
-    # modelled as a shunt G = 1/0.2 = 5 S on the lb neutral terminal. ODS uses a
+    # modeled as a shunt G = 1/0.2 = 5 S on the lb neutral terminal. ODS uses a
     # 0.2 Ω grounding reactor lb.4 → lb.0.
     net = _net_1ph_freeneutral()
     net["shunt"]["lbgrnd"] = Dict{String,Any}(
@@ -1754,19 +1756,48 @@ end
     @test P ≈ 10_000.0 atol=50.0    # Pmpp 30 kW / 3 phases — clean operating point
     @test Q > 0                     # pf=0.95 in OpenDSS injects vars
 
-    # (a) pinned to the read-back P and Q
-    Vp, rp = _bmopf_volts_opf(_net_pv_4leg(P, Q, nothing))
-    @test rp["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-    _cmp_volts(V_ods, Vp; label="pv-4leg-pin: ")
-    @test rp["ibr"]["pv"]["1"]["pg"] ≈ P  atol=1.0
-    @test rp["ibr"]["pv"]["1"]["qg"] ≈ Q  atol=1.0
+    # Pinned P/Q and the equivalent PF profile, in both coordinate systems.
+    # OpenDSS pf=+0.95 injects vars, so the BMOPF profile is pf=-0.95.
+    for pu in (false, true), pf in (nothing, -0.95)
+        net = _net_pv_4leg(P, pf === nothing ? Q : nothing, pf)
+        # The regression also exercises serialized input and result records.
+        restored = JSON3.read(JSON3.write(net), Dict{String,Any})
+        volts, raw = _bmopf_volts_opf(restored; per_unit=pu)
+        result = JSON3.read(JSON3.write(raw), Dict{String,Any})
+        @test result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        _cmp_volts(V_ods, volts; label="pv-4leg pf=$pf pu=$pu: ")
+        for phase in ("1", "2", "3")
+            @test result["ibr"]["pv"][phase]["pg"] ≈ P atol=1.0
+            @test result["ibr"]["pv"][phase]["qg"] ≈ Q atol=1.0
+        end
+    end
+end
 
-    # (b) P-pinned, Q from a power_factor profile. OpenDSS pf=+0.95 injects vars,
-    # so the equivalent BMOPF profile is pf = -0.95.
-    Vf, rf = _bmopf_volts_opf(_net_pv_4leg(P, nothing, -0.95))
-    @test rf["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-    _cmp_volts(V_ods, Vf; label="pv-4leg-pf: ")
-    @test rf["ibr"]["pv"]["1"]["qg"] ≈ Q  atol=1.0   # PF path reproduces OpenDSS Q
+# The pinned/PF-profile cases above once landed intermittently (Julia 1.10 CI)
+# on a root with phase 2 near 0.48 pu: pinned P/Q was a zero-width inequality
+# pair, which made the per-unit interior-point path ill-conditioned. Small start
+# perturbations stand in for platform rounding; every solve must still reach the
+# OpenDSS operating point.
+@testset "PF comparison — PVSystem IBR, FOUR_LEG robust to start perturbations" begin
+    V_ods, pw = _ods_pv(joinpath(_PF_CMP_DIR, "pf_pv_4leg.dss"))
+    P = -real(pw[1]) * 1e3
+    Q = -imag(pw[1]) * 1e3
+    for pu in (false, true), pf in (nothing, -0.95), trial in 1:25
+        net = _net_pv_4leg(P, pf === nothing ? Q : nothing, pf)
+        ctx = build_opf_model(net; per_unit=pu,
+            optimizer=JuMP.optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0))
+        for (j, v) in enumerate(JuMP.all_variables(ctx.model))
+            s = JuMP.start_value(v)
+            s === nothing || JuMP.set_start_value(v, s * (1 + 1e-9 * sin(trial * j)))
+        end
+        optimize_opf!(ctx)
+        result = extract_result(ctx)
+        @test result["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
+        volts = Dict{String,ComplexF64}(
+            bid * "." * (t == "n" ? "4" : t) => tv["vr"] + im * tv["vi"]
+            for (bid, td) in result["bus"] for (t, tv) in td)
+        _cmp_volts(V_ods, volts; label="pv-4leg perturbed pf=$pf pu=$pu trial=$trial: ")
+    end
 end
 
 @testset "PF comparison — PVSystem IBR, SINGLE_PHASE (pinned & PF profile)" begin
@@ -1942,7 +1973,7 @@ end
     @test all(p -> p < 9_000.0, Pbm)           # curtailed below Pmpp on the mean
 end
 
-@testset "feasibility OPF honours IBRs (regression)" begin
+@testset "feasibility OPF honors IBRs (regression)" begin
     # Before the fix, solve_feasibility_opf never called _add_ibr_constraints!,
     # so the IBR was ignored and its ~30 kW was absorbed by the elastic KCL
     # slack. With the fix the IBR balances KCL and the slack is ~0.
@@ -2303,7 +2334,7 @@ end
 # export is the one place that IS singular at Z=0, by construction.)
 
 # Zero every series-impedance field on every transformer in `net` (two-bus
-# subtypes and n_winding), leaving the ideal ratio behaviour only.
+# subtypes and n_winding), leaving the ideal ratio behavior only.
 function _zero_all_xfmr_impedance!(net)
     for (_, sub) in get(net, "transformer", Dict())
         sub isa Dict || continue
@@ -2472,9 +2503,9 @@ end
     # End-to-end isolated-SWER feeder loaded through PowerIO (from_dss): a 22 kV
     # three-phase source, a phase-to-phase isolating transformer to a 12.7 kV
     # single-wire earth-return backbone, a single-ended N-0 distribution
-    # transformer (dx1) and a split-phase centre-tapped N-0-N transformer (dx2).
+    # transformer (dx1) and a split-phase center-tapped N-0-N transformer (dx2).
     # Exercises the full parse→power-flow path and validates the center_tap
-    # normalisation in from_dss against OpenDSS's own solve.
+    # normalization in from_dss against OpenDSS's own solve.
     path = joinpath(@__DIR__, "data", "SWER", "Master.dss")
     net  = from_dss(path)
 
@@ -2483,7 +2514,7 @@ end
     @test Set(keys(net["transformer"]["single_phase"])) == Set(["iso", "dx1"])
     @test haskey(net["transformer"]["center_tap"], "dx2")
 
-    # from_dss center_tap normalisation: centre tap "n" sits in the MIDDLE of
+    # from_dss center_tap normalization: center tap "n" sits in the MIDDLE of
     # terminal_map_to and v_nom_to is the per-leg (half-winding) voltage. Without
     # this the OPF connection matrix wires the wrong nodes and the turns ratio is
     # 2× off (leg voltages 2–4× too high).
@@ -2497,7 +2528,7 @@ end
     V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
                  for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
 
-    # The coupled-coil centre-tap model (primitive admittance reconstructed from
+    # The coupled-coil center-tap model (primitive admittance reconstructed from
     # the full XHL/XLT/XHT short-circuit set carried by the BMOPF import path)
     # matches OpenDSS across the whole feeder, including the split-phase legs.
     _cmp_volts(V_ods, V_bm; label="swer: ", atol=0.3, rtol=3e-3)
@@ -2530,7 +2561,7 @@ end
 
 # Shared driver for the split-phase center_tap cases below: solve via from_dss +
 # OpenDSS, compare all node voltages and the network loss, and return the BMOPF
-# leg/centre voltages for case-specific symmetry assertions.
+# leg/center voltages for case-specific symmetry assertions.
 function _run_center_tap_case(fname; atol=0.3, rtol=3e-3, ploss_rtol=0.03, label="")
     path  = joinpath(_PF_CMP_DIR, fname)
     net   = from_dss(path)
@@ -2561,14 +2592,14 @@ end
 
 @testset "PF comparison — center_tap 240 V phase-to-phase load" begin
     # Pure 240 V load across both legs (no leg-to-neutral load): equal through
-    # current in both half-windings, zero centre-tap current → symmetric legs.
+    # current in both half-windings, zero center-tap current → symmetric legs.
     # Exercises the series-aiding winding polarity and the L-L load path.
     L = _run_center_tap_case("pf_center_tap_240.dss"; label="ct-240: ")
     @test isapprox(abs(L.leg1 - L.ctr), abs(L.ctr - L.leg2); rtol=1e-3)
 end
 
 @testset "PF comparison — center_tap single-leg phase-to-neutral load" begin
-    # One 120 V leg-to-neutral load only → heavy centre-tap (unbalance) current
+    # One 120 V leg-to-neutral load only → heavy center-tap (unbalance) current
     # and asymmetric legs. Cross-checks the unbalanced split against OpenDSS.
     _run_center_tap_case("pf_center_tap_singleleg_pn.dss"; label="ct-pn: ")
 end
@@ -2593,7 +2624,7 @@ end
                    for (b, t) in nodes]
     I = Yp * V                         # element currents into each of the 5 nodes
     # LV side carries no shunt, so its three winding currents close exactly:
-    # I_leg1 + I_ctr + I_leg2 ≈ 0 (centre-tap KCL).
+    # I_leg1 + I_ctr + I_leg2 ≈ 0 (center-tap KCL).
     @test isapprox(I[3] + I[4] + I[5], 0.0 + 0.0im; atol=1e-3)
     # HV phase + neutral leave only the no-load shunt current (≈ 0 here).
     @test abs(I[1] + I[2]) < 1e-2
@@ -2604,7 +2635,7 @@ end
 # (src/io/to_ybus.jl) implement each subtype independently. At a solved PF
 # setpoint the element current implied by the exported Yprim (I = Yp·V) must
 # equal, node by node, the injection reconstructed from the solved OPF
-# winding-current variables (series/winding current + the magnetising-shunt
+# winding-current variables (series/winding current + the magnetizing-shunt
 # share the OPF folds into the from-side terminal current). The center_tap
 # variant of this gate is above; these helpers cover the other two-bus
 # subtypes, including off-nominal fixed taps (which is where the export
@@ -2612,7 +2643,7 @@ end
 # primitive).
 
 # single_phase: per winding pair k, the from terminal current is pure series;
-# the TO terminal current is series + Y0/n_c·(V_p_to−V_q_to) — the magnetising
+# the TO terminal current is series + Y0/n_c·(V_p_to−V_q_to) — the magnetizing
 # branch sits on winding 2. Injected +I at p and −I at q on each side.
 function _sp_node_injections(xf, nodes, V, res_t)
     b_fr = xf["bus_from"]; b_to = xf["bus_to"]
@@ -2642,7 +2673,7 @@ function _sp_node_injections(xf, nodes, V, res_t)
 end
 
 # wye_delta / delta_wye: wye node k carries the wye winding current, the delta
-# node k the delta LINE current. The magnetising branch is on WINDING 2 (the to
+# node k the delta LINE current. The magnetizing branch is on WINDING 2 (the to
 # side): a delta of Y0/n_ph branches across the LV delta coils (Yd), or Y0/n_ph
 # phase-to-neutral on the LV wye (Dy). Plus the rneut branch at the wye neutral.
 function _yd_node_injections(xf, sub, nodes, V, res_t)
@@ -2674,7 +2705,7 @@ function _yd_node_injections(xf, sub, nodes, V, res_t)
         Id = res_t[side_del][string(k)]["cr"] + im*res_t[side_del][string(k)]["ci"]
         inj[idx[(b_del, tm_del[k])]] += Id
     end
-    # Magnetising shunt on winding 2 (the to side).
+    # Magnetizing shunt on winding 2 (the to side).
     if !iszero(Y0p)
         if wye_is_from   # to = delta: branch across each delta coil (k, k_next)
             for k in 1:n_ph
@@ -2864,7 +2895,7 @@ end
     # Yd/Dy fixtures declare the wye neutral as an explicit bus terminal with
     # EXTERNAL grounding reactors, so the OpenDSS element node set matches the
     # BMOPF one directly; the padded delta ground conductor (node 0) is dropped
-    # by the merge below. Residual differences (the dropped %imag magnetising
+    # by the merge below. Residual differences (the dropped %imag magnetizing
     # susceptance and the phase-to-ground vs across-coil core-loss stamp) are
     # ≲1e-4 relative — well inside the 1e-2 gate.
     odsnode = Dict(0=>"0", 1=>"a", 2=>"b", 3=>"c", 4=>"n", 5=>"n")
@@ -2892,7 +2923,7 @@ end
         xf   = first(values(net["transformer"][sub]))
         nb, Yb = BMOPFTools.transformer_yprim(xf, sub)
         Yo, ido = ods_yprim(path)
-        # Merge ODS rows sharing a (bus, terminal) identity (e.g. the centre tap's
+        # Merge ODS rows sharing a (bus, terminal) identity (e.g. the center tap's
         # two `.4` nodes) and drop the ground node, then align to the BMOPF order.
         uids = [u for u in unique(ido) if u[2] != "0"]
         pos  = Dict(u => i for (i, u) in enumerate(uids))
@@ -3022,11 +3053,11 @@ end
     @test vl0["n_levels"] >= 2                   # MV + LV levels resolved
 end
 
-# ── Continuous tap optimisation: OPF-chosen tap validated against OpenDSS ───────
+# ── Continuous tap optimization: OPF-chosen tap validated against OpenDSS ───────
 #
 # Strategy (mirrors the fixed-tap comparisons): make a transformer's tap a FREE
 # continuous OPF variable, give the source a cost and the LV bus a voltage window
-# so the optimiser drives the tap to an interior value t*, then set the SAME tap on
+# so the optimizer drives the tap to an interior value t*, then set the SAME tap on
 # the OpenDSS winding and confirm the OpenDSS power flow reproduces the OPF voltages.
 # Because the variable-tap model is exactly the fixed-tap model with the ratio
 # promoted to a variable, agreement at t* is the OpenDSS validation of the feature.
@@ -3035,7 +3066,7 @@ end
     _ods_volts_tap(dss_path, xfname, wdg, tapval) -> Dict{String, ComplexF64}
 
 Like `_ods_volts` but sets transformer `xfname` winding `wdg` tap to `tapval`
-before solving — the OpenDSS oracle at the OPF-optimised tap.
+before solving — the OpenDSS oracle at the OPF-optimized tap.
 """
 function _ods_volts_tap(dss_path::String, xfname::String, wdg::Int, tapval::Real)
     OpenDSSDirect.dss("Clear")
@@ -3051,7 +3082,7 @@ end
     _ods_losses_tap(dss_path, xfname, wdg, tapval) -> Float64
 
 Like `_ods_losses_W` but sets transformer `xfname` winding `wdg` tap to `tapval`
-before solving — the OpenDSS loss oracle at the OPF-optimised tap.
+before solving — the OpenDSS loss oracle at the OPF-optimized tap.
 """
 function _ods_losses_tap(dss_path::String, xfname::String, wdg::Int, tapval::Real)::Float64
     OpenDSSDirect.dss("Clear")
@@ -3061,7 +3092,7 @@ function _ods_losses_tap(dss_path::String, xfname::String, wdg::Int, tapval::Rea
     return real(Circuit.Losses())
 end
 
-@testset "PF comparison — optimised tap vs OpenDSS (single_phase)" begin
+@testset "PF comparison — optimized tap vs OpenDSS (single_phase)" begin
     path = joinpath(_PF_CMP_DIR, "pf_1ph_xfmr.dss")
     net  = _net_1ph_xfmr()
     # Free tap + objective lever (source cost) + an LV voltage window so t* is interior.
@@ -3080,11 +3111,11 @@ end
                  for (bid, td) in res["bus"] for (t, tv) in td)
     V_ods = _ods_volts_tap(path, "t1", 1, tstar)  # winding 1 = HV (from)
     # The YY tap uses the exact tap²-scaled (to-referred) leakage, so it matches the
-    # OpenDSS turns-scaled Yprim at the optimised tap to the usual ~0.3 V floor.
+    # OpenDSS turns-scaled Yprim at the optimized tap to the usual ~0.3 V floor.
     _cmp_volts(V_ods, V_bm; label="1ph-tap-opt: ")
 end
 
-@testset "PF comparison — optimised tap vs OpenDSS (delta_wye Dy)" begin
+@testset "PF comparison — optimized tap vs OpenDSS (delta_wye Dy)" begin
     path = joinpath(_PF_CMP_DIR, "pf_dy_xfmr.dss")
     net  = _net_dy_xfmr()
     net["voltage_source"]["source"]["cost"] = [1.0, 1.0, 1.0]
@@ -3103,7 +3134,7 @@ end
     V_ods = _ods_volts_tap(path, "t1", 1, tstar)  # winding 1 = delta HV (from)
     # The Dy delta-arm referral uses the EXACT tap² scaling (OpenDSS's winding-1
     # self-impedance scaling), so it agrees with the OpenDSS turns-scaled Yprim
-    # at the optimised tap to the tight node-voltage floor at any tap in the band.
+    # at the optimized tap to the tight node-voltage floor at any tap in the band.
     _cmp_volts(V_ods, V_bm; label="Dy-tap-opt: ", atol=0.1)
 end
 
@@ -3116,7 +3147,7 @@ end
     # every tap AND keeps the two paths consistent (see the setpoint gate above).
     #
     # Validated at the ±10 % schema band EDGES directly against OpenDSS's
-    # turns-scaled Yprim (fixed tap → no optimiser variance). Agreement is at the
+    # turns-scaled Yprim (fixed tap → no optimizer variance). Agreement is at the
     # usual node-voltage floor (~0.3 V), the same as at nominal — the tap no
     # longer degrades it. (Before the exact referral this was ≈1.1 V/2.0 V off
     # for Yd at ±5 %/±10 %.)
@@ -3135,12 +3166,12 @@ end
     end
 end
 
-@testset "PF comparison — optimised tap vs OpenDSS (center_tap: drop + unbalance + losses)" begin
+@testset "PF comparison — optimized tap vs OpenDSS (center_tap: drop + unbalance + losses)" begin
     # Split-phase OLTC on the HV winding. The loaded fixture is a 5 km feeder with
     # heavy, UNEQUAL 120 V leg loads → strong voltage drop and leg unbalance, plus
     # copper (%r), leakage (XHL/XLT/XHT) and core (%noloadloss) losses. The free
     # tap is the coupled-coil Yprim model with the HV ratio promoted to a degree-2
-    # variable; agreement with the OpenDSS turns-scaled Yprim at the optimised tap,
+    # variable; agreement with the OpenDSS turns-scaled Yprim at the optimized tap,
     # in BOTH node voltages AND total losses, is the validation. A narrow LV-leg
     # window forces an interior boost so the tap genuinely moves.
     path = joinpath(_PF_CMP_DIR, "pf_center_tap_loaded.dss")
@@ -3158,13 +3189,13 @@ end
     @test 0.9 < tstar < 0.99                 # interior boost (lower ratio raises LV)
     @test haskey(res["transformer"]["t1"], "tap_binding")
 
-    # Node voltages vs the OpenDSS oracle at the optimised tap (winding 1 = HV).
+    # Node voltages vs the OpenDSS oracle at the optimized tap (winding 1 = HV).
     phmap = Dict("a"=>"1", "b"=>"2", "n"=>"4")
     V_bm  = Dict(bid * "." * phmap[t] => tv["vr"] + im*tv["vi"]
                  for (bid, td) in res["bus"] for (t, tv) in td if haskey(phmap, t))
     _cmp_volts(_ods_volts_tap(path, "t1", 1, tstar), V_bm; label="ct-tap-opt: ", atol=0.5)
 
-    # Losses must be passive and match OpenDSS at the optimised tap — the explicit
+    # Losses must be passive and match OpenDSS at the optimized tap — the explicit
     # acceptance bar: correct losses under high drop + unbalance. The core loss
     # now matches OpenDSS exactly (≈55 W, shunt across winding 2 = LV leg 1, on
     # the boosted LV — verified against OpenDSS's Yprim and its element loss); the
@@ -3211,7 +3242,7 @@ end
 
 @testset "PF comparison — free regulator taps (internal exactness)" begin
     # Regulators are already OpenDSS-validated at fixed taps; here we confirm the
-    # free tap solves and that fixing the tap to the optimiser's value reproduces
+    # free tap solves and that fixing the tap to the optimizer's value reproduces
     # the free solution exactly (the link to the OpenDSS-validated fixed model).
     vm(r, b, t) = sqrt(r["bus"][b][t]["vr"]^2 + r["bus"][b][t]["vi"]^2)
 
@@ -3247,7 +3278,7 @@ end
 # The load-free decks under test/data/ybus/ (authored for the ybus_passive vs
 # OpenDSS getYsparse cross-check) also make clean end-to-end solver cases: with
 # no PC elements the only flow is the shunt/capacitor and transformer
-# magnetising current, so the feasibility OPF (slack ≈ 0 ⇒ valid power flow) and
+# magnetizing current, so the feasibility OPF (slack ≈ 0 ⇒ valid power flow) and
 # solve_pf must both reproduce OpenDSS's node voltages. These exercise the same
 # line-Π / transformer / shunt models the Ybus assembly does, but through the
 # full nonlinear solver rather than the linear admittance stamp.
@@ -3255,6 +3286,7 @@ const _YBUS_DIR = joinpath(@__DIR__, "data", "ybus")
 
 # from_dss yields terminals a/b/c/n; OpenDSS AllNodeNames uses .1/.2/.3/.4.
 const _FD_NODE = Dict("a" => "1", "b" => "2", "c" => "3", "n" => "4",
+                      "n_ref" => "0",
                       "1" => "1", "2" => "2", "3" => "3", "4" => "4")
 
 """

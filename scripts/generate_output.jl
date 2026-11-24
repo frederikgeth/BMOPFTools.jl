@@ -118,9 +118,9 @@ function add_case!(dataset, stem, master, name; meta=nothing)
 end
 
 # Per-dataset provenance stamped into meta of every generated case. The
-# licence is inherited from the upstream dataset — see the License.md next to
+# license is inherited from the upstream dataset — see the License.md next to
 # each source directory. NOTE: the CSIRO MV/LV set is NonCommercial-ShareAlike;
-# derivatives must carry the same licence.
+# derivatives must carry the same license.
 const META_CSIRO_MVLV = Dict{String,Any}(
     "source"    => "Realistic Australian Medium Voltage Feeder with Associated LV Feeders (CSIRO)",
     "reference" => "Geth, Heidari, Clark, Lucas & Nimalsiri, 2025, DOI: 10.25919/ghnz-bk28",

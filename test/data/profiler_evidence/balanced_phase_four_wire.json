@@ -1,0 +1,25 @@
+{
+  "bus": {
+    "s": {"terminal_names": ["a", "b", "c", "n"], "perfectly_grounded_terminals": ["n"]},
+    "t": {"terminal_names": ["a", "b", "c", "n"]}
+  },
+  "voltage_source": {
+    "grid": {"bus": "s", "terminal_map": ["a", "b", "c", "n"], "v_magnitude": [230.0, 230.0, 230.0]}
+  },
+  "linecode": {
+    "four_wire": {
+      "R_series_1_1": 2.0, "R_series_2_2": 2.0, "R_series_3_3": 2.0, "R_series_4_4": 1.0,
+      "R_series_1_2": 0.1, "R_series_2_1": 0.1, "R_series_1_3": 0.1, "R_series_3_1": 0.1,
+      "R_series_2_3": 0.1, "R_series_3_2": 0.1, "R_series_1_4": 0.1, "R_series_4_1": 0.1,
+      "R_series_2_4": 0.1, "R_series_4_2": 0.1, "R_series_3_4": 0.1, "R_series_4_3": 0.1,
+      "X_series_1_1": 3.0, "X_series_2_2": 3.0, "X_series_3_3": 3.0, "X_series_4_4": 2.0,
+      "X_series_1_2": 0.5, "X_series_2_1": 0.5, "X_series_1_3": 0.5, "X_series_3_1": 0.5,
+      "X_series_2_3": 0.5, "X_series_3_2": 0.5, "X_series_1_4": 0.2, "X_series_4_1": 0.2,
+      "X_series_2_4": 0.4, "X_series_4_2": 0.4, "X_series_3_4": 0.8, "X_series_4_3": 0.8
+    }
+  },
+  "line": {
+    "feeder": {"bus_from": "s", "bus_to": "t", "terminal_map_from": ["a", "b", "c", "n"],
+      "terminal_map_to": ["a", "b", "c", "n"], "linecode": "four_wire", "length": 1.0}
+  }
+}

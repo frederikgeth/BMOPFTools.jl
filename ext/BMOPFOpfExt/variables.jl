@@ -101,6 +101,7 @@ function _add_load_variables!(model, net)
     cid = Dict{Tuple{String,Int}, JuMP.VariableRef}()
     nlabels = BMOPFTools._neutral_labels(net)
 
+    delta_roles = _delta_load_roles(net)
     for (lid, load) in get(net, "load", Dict())
         tm  = Vector{String}(get(load, "terminal_map", String[]))
         cfg = get(load, "configuration", "WYE")
@@ -112,7 +113,7 @@ function _add_load_variables!(model, net)
         n_ph = if cfg == "SINGLE_PHASE" && length(tm) == 2
             1
         elseif cfg == "DELTA"
-            length(tm)
+            length(BMOPFTools._delta_load_coils(load, net; id=lid, roles=delta_roles))
         else
             length(_phase_positions(tm, nlabels))
         end
@@ -259,7 +260,7 @@ end
 # Canonical 3-phase start angle (rad) for a terminal NAME under any of the
 # supported naming conventions ("1"/"2"/"3"/"4", "a"/"b"/"c"/"n", "L1"…"N"),
 # resolved through the same table `to_pmd` uses. Unknown names fall back to 0
-# (co-phasal) — the previous behaviour, but now only for genuinely unknown
+# (co-phasal) — the previous behavior, but now only for genuinely unknown
 # conventions rather than for everything that wasn't literally "1"/"2"/"3".
 const _CANONICAL_PHASE_ANGLE = Dict{Int,Float64}(
     1 => 0.0, 2 => -2.0944, 3 => 2.0944, 4 => 0.0)
@@ -282,9 +283,9 @@ _start_angle(t_angle::Dict{String,Float64}, t::AbstractString)::Float64 =
 For every split-phase galvanic zone (fed by a `center_tap` transformer, per
 `BMOPFTools._classify_zones`), return per-bus, per-terminal warm-start angles in
 which the two legs are **anti-phase**: leg-1 at θ and leg-2 at θ+π, where θ is the
-feeding MV phase angle (looked up in `base_angle` from the centre-tap's from-side
+feeding MV phase angle (looked up in `base_angle` from the center-tap's from-side
 phase terminal). The neutral is 0. Applied across every bus in the zone, since the
-LV section keeps the centre-tap leg terminal names. Buses not in a split-phase zone
+LV section keeps the center-tap leg terminal names. Buses not in a split-phase zone
 are absent (callers fall back to the canonical 3-phase angles).
 """
 function _split_phase_init_angles(net, base_angle::Dict{String,Float64})
@@ -333,7 +334,7 @@ For every non-grounded, non-fixed terminal the start value is set to
 `v_nom × exp(j × angle)` where `v_nom` and `angle` are read from the
 network's first voltage source.  Terminals that are not in the source's
 terminal_map use the canonical 3-phase angles (0°, −120°, +120°).
-The neutral terminal is initialised at 0.
+The neutral terminal is initialized at 0.
 
 Without this, Ipopt starts from vr=vi=0 and fails to navigate into the
 correct region of the feasible set for multi-phase (complex-voltage)
@@ -388,7 +389,7 @@ end
 
 Like `_set_voltage_start_values!` but uses per-bus nominal voltages derived
 from the BFS voltage propagation (`_assign_nominal_voltages`). This correctly
-initialises LV buses at ~250 V rather than at the source voltage (~6350 V),
+initializes LV buses at ~250 V rather than at the source voltage (~6350 V),
 reducing attraction to a degenerate high-voltage local minimum when the case
 supplies no useful voltage bounds.
 """
@@ -454,7 +455,7 @@ representative where topology and source data leave a gauge free.
 function _set_topology_aware_voltage_start_values!(
         vars, net, bus_terminals, grounded)
     vr = vars[:vr]; vi = vars[:vi]
-    keys_all = sort!(collect(keys(vr)); by=repr)
+    keys_all = sort!(collect(keys(vr)))
     isempty(keys_all) && return (
         applied=false, equation_count=0, coordinate_count=0,
         maximum_normalized_physics_residual=0.0,
@@ -570,7 +571,7 @@ function _set_topology_aware_voltage_start_values!(
     end
 
     # Split-phase: both LV half-windings are referred to the same HV coil, but
-    # winding 3 is dotted at the centre tap and therefore has reversed polarity.
+    # winding 3 is dotted at the center tap and therefore has reversed polarity.
     for (tid, transformer) in sort!(collect(get(transformers, "center_tap", Dict())); by=first)
         bus_from = String(get(transformer, "bus_from", ""))
         bus_to = String(get(transformer, "bus_to", ""))
@@ -779,12 +780,13 @@ function _set_topology_aware_voltage_start_values!(
     end
     maximum_residual = 0.0
     maximum_residual_by_kind = Dict{String,Float64}()
+    solution_scale = max(norm(solution, Inf), 1.0)
     for (terms, rhs, kind, _) in rows
         kind == :prior && continue
         lhs = sum(coefficient * solution[column]
                   for (column, coefficient) in terms; init=0.0 + 0.0im)
         denominator = max(abs(rhs),
-            sqrt(sum(abs2, values(terms))) * max(norm(solution, Inf), 1.0),
+            sqrt(sum(abs2, values(terms))) * solution_scale,
             eps(Float64))
         residual = abs(lhs - rhs) / denominator
         maximum_residual = max(maximum_residual, residual)

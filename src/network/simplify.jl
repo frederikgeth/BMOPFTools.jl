@@ -4,18 +4,18 @@
 #
 # All public functions return a deep-copied modified network. Outcomes are
 # recorded in `net["_simplification_log"]` as plain Dicts so callers can
-# inspect, filter, or serialise them without additional types.
+# inspect, filter, or serialize them without additional types.
 #
 # Log entry schema:
 #   "operation"    — which function produced this entry
-#   "code"         — machine-readable event type (see catalogue below)
+#   "code"         — machine-readable event type (see catalog below)
 #   "severity"     — "info" | "warning"
 #   "element_type" — "line" | "bus" | "switch"
 #   "element_id"   — the specific element id (or nothing)
 #   "message"      — human-readable description
 #   "detail"       — optional Dict with structured extras
 #
-# Event code catalogue:
+# Event code catalog:
 #   SERIES_MERGE_APPROXIMATE  warning merge_series_lines     inexact merge with structured risk evidence
 #   LINES_MERGED              info    merge_series_lines     two lines fused
 #   LINECODE_MISMATCH         info    merge_series_lines     adjacent linecodes differ — not merged
@@ -179,7 +179,7 @@ end
 
 # True if the line carries any non-zero π-shunt admittance to earth, either
 # inline (`G_from_*`/`B_from_*`/`G_to_*`/`B_to_*` on the line, in siemens) or via
-# its linecode (per-metre `G_*`/`B_*` that the model scales by `length`). A stub
+# its linecode (per-meter `G_*`/`B_*` that the model scales by `length`). A stub
 # with shunt is a shunt capacitor/conductance to earth: dropping it removes an
 # injection from the surviving bus's balance and can move the feasible set.
 function _line_has_shunt(net, line)::Bool
@@ -242,7 +242,7 @@ function _merge_series_lines!(net; series_merge_policy=:allow_approximate,
                 continue
             end
 
-            # Grounded pass-through buses are electrically meaningful: a modelled
+            # Grounded pass-through buses are electrically meaningful: a modeled
             # ground (e.g. a multi-grounded neutral point) fixes terminal voltages
             # and would be silently lost if the bus were deleted. Block the merge.
             bus_obj = get(get(net, "bus", Dict()), bus_id, nothing)
@@ -254,7 +254,7 @@ function _merge_series_lines!(net; series_merge_policy=:allow_approximate,
                 _simlog!(net, "merge_series_lines", "GROUNDED_BUS", "warning",
                     "bus", bus_id,
                     "Merge of lines $(lids[1]) and $(lids[2]) blocked: intermediate bus " *
-                    "$bus_id has grounded terminals $(grounded) — a modelled ground is " *
+                    "$bus_id has grounded terminals $(grounded) — a modeled ground is " *
                     "electrically meaningful and would be lost by the merge.",
                     detail=Dict("lines" => lids, "grounded_terminals" => grounded))
                 continue

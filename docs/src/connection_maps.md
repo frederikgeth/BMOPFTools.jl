@@ -10,8 +10,8 @@ objects, missing/non-string bus identifiers, and empty or malformed maps use
 
 `spec_conformance_check` resolves the declared roles using the same helpers as
 device parameter indexing. It does not repair, reorder, truncate or mutate maps.
-The evidence is linked to PSK-000002; this page defines package behavior, not a
-new scientific claim or grounding model.
+A valid map does not establish that grounding is adequate or that two models
+are electrically equivalent.
 
 ## Coverage and supported rules
 

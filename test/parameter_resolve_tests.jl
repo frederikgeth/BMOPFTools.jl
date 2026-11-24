@@ -16,16 +16,24 @@ using Test, BMOPFTools, JuMP, Ipopt
     @variable(m,p in Parameter(1.0));@variable(m,x,start=0.0);@variable(m,y,start=1.0)
     @constraint(m,y==1.0);@constraint(m,x==p*exp(y))
     counts=(num_variables(m),num_constraints(m;count_variable_in_set_constraints=true))
+    previous=nothing
     for v in (1.,0.,2.)
         set_parameter_value(p,v)
         @test resolve_opf!(a,b) === m
         @test termination_status(m) in (MOI.LOCALLY_SOLVED,MOI.OPTIMAL)
         @test value(x) ≈ v*exp(1.) atol=1e-8
         @test isempty(primal_feasibility_report(m;atol=1e-8))
-        @test start_value(x)==0.0
+        # The default warm start replaces x's start with the previous solution.
+        @test start_value(x) ≈ (previous === nothing ? 0.0 : previous) atol=1e-8
+        previous=value(x)
         @test counts==(num_variables(m),num_constraints(m;count_variable_in_set_constraints=true))
     end
-    @test calls[]==3
+    # A cold re-solve restores the explicit start value.
+    set_parameter_value(p,1.0)
+    @test resolve_opf!(a,b;warm_start=false) === m
+    @test value(x) ≈ exp(1.) atol=1e-8
+    @test start_value(x)==0.0
+    @test calls[]==4
     c=build_opf_model(net;per_unit=false);enforce_kcl!(c)
     @test_throws ArgumentError resolve_opf!(a,c)
     direct=direct_model(Ipopt.Optimizer())

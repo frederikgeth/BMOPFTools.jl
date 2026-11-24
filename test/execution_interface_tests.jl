@@ -76,7 +76,7 @@ using SHA
     @test analysis["operation"] == "analyze_case"
     @test analysis["status"] == "completed"
     @test analysis["request"]["contract_id"] === nothing
-    @test analysis["request"]["parameters"] == Dict("t_index" => 1)
+    @test analysis["request"]["parameters"] == Dict("t_index" => 1, "spatial_enabled" => true)
     @test analysis["result"]["summary"]["errors"] == 0
     @test Set(finding["code"] for finding in analysis["result"]["findings"]) >= Set([
         "W.CONN.DANGLING",
@@ -85,6 +85,18 @@ using SHA
     ])
     @test JSONSchema.validate(schema, JSON3.read(JSON3.write(analysis))) === nothing
     @test_throws ArgumentError execute_analysis(parse_bmopf(analysis_path); t_index=0)
+
+    spatial_path = joinpath(@__DIR__, "data", "spatial_shared_infrastructure.json")
+    spatial_net = parse_bmopf(spatial_path)
+    default_spatial = execute_analysis(spatial_net)
+    @test haskey(default_spatial["result"]["results"]["connectivity"]["spatial"], "cleanup_review")
+    suppressed = execute_analysis(spatial_net; spatial_enabled=false)
+    @test suppressed["request"]["parameters"]["spatial_enabled"] === false
+    @test suppressed["result"]["results"]["connectivity"]["spatial"]["reason"] == "disabled"
+    @test suppressed["result"]["results"]["connectivity"]["spatial"]["analysis_performed"] === false
+    @test JSONSchema.validate(schema, JSON3.read(JSON3.write(suppressed))) === nothing
+    @test_throws TypeError execute_analysis(spatial_net; spatial_enabled="false")
+    @test_throws TypeError execute_analysis(spatial_net; spatial_enabled=0)
 
     solution_fixture = joinpath(root, "test", "fixtures", "negative",
                                 "claimed-feasible-invalid-solution")
@@ -247,6 +259,20 @@ using SHA
     @test analysis_cli_response.inputs[1].role == "case"
     @test analysis_cli_response.inputs[1].sha256 == bytes2hex(sha256(read(analysis_path)))
     @test JSONSchema.validate(schema, analysis_cli_response) === nothing
+
+    @test analysis_cli_response.request.parameters.spatial_enabled === true
+    disabled_out = IOBuffer(); disabled_err = IOBuffer()
+    @test cli_module.main(["analyze-case", "--input", spatial_path, "--no-spatial"];
+        out=disabled_out, err=disabled_err) == 0
+    disabled_cli = JSON3.read(String(take!(disabled_out)))
+    @test disabled_cli.request.parameters.spatial_enabled === false
+    @test disabled_cli.result.results.connectivity.spatial.reason == "disabled"
+    @test JSONSchema.validate(schema, disabled_cli) === nothing
+    @test isempty(String(take!(disabled_err)))
+    @test_throws ArgumentError cli_module._cli_parse_analysis(
+        ["analyze-case", "--input", spatial_path, "--no-spatial", "--no-spatial"])
+    @test_throws ArgumentError cli_module._cli_parse_analysis(
+        ["analyze-case", "--input", spatial_path, "--no-spatial", "false"])
 
     parse_cli_out = IOBuffer()
     parse_cli_err = IOBuffer()

@@ -325,7 +325,7 @@ end
 
 # ── Optimization summary: derivation of is_opf / degenerate from opt_profile ──
 # Solver-free: profile_solution reads result["opt_profile"] (attached by the OPF
-# extension) and derives the flags via _optimization_summary. Here we synthesise
+# extension) and derives the flags via _optimization_summary. Here we synthesize
 # the profile directly.
 
 @testset "SOL — optimization summary: binding, non-degenerate" begin
@@ -658,7 +658,7 @@ end
     io = IOBuffer(); render_solution(report, io; verbose=true)
     md_v = String(take!(io))
     @test occursin("### Per-bus detail", md_v)
-    @test occursin("Zone `b1`", md_v)       # single galvanic zone, labelled by first bus
+    @test occursin("Zone `b1`", md_v)       # single galvanic zone, labeled by first bus
     @test occursin("`sourcebus`", md_v)      # both buses appear as rows
 
     # verbose=false → band only, no drill-down
@@ -724,9 +724,9 @@ end
     res2["bus"]["b1"]["a"]["vr"] = 180.0   # drag phase a down (vi stays 0)
     res2["bus"]["b1"]["a"]["vm"] = 180.0
     f2 = Finding[]; solution_check(net2, res2, f2)
-    flavours = Set(x.detail["flavour"] for x in f2 if x.code == "E.SOL.VOLT_VIOLATION")
-    @test "vneg" in flavours
-    @test "vzero" in flavours
+    flavors = Set(x.detail["flavour"] for x in f2 if x.code == "E.SOL.VOLT_VIOLATION")
+    @test "vneg" in flavors
+    @test "vzero" in flavors
 end
 
 # ── Intra-bus angle-difference bounds (va_diff_min / va_diff_max) ─────────────
@@ -842,7 +842,7 @@ end
 
 @testset "SOL — unknown load model is skipped, not a crash" begin
     # Regression: the skip guard mis-parsed as `a || (b && continue)`, so an
-    # unrecognised model string reached `abs(pd - nothing)` → MethodError.
+    # unrecognized model string reached `abs(pd - nothing)` → MethodError.
     net = _base_net()
     net["load"]["ld1"]["model"] = "constant_mystery"
     net["load"]["ld1"]["v_nom"] = [230.0, 230.0, 230.0]
@@ -867,12 +867,12 @@ end
               get(x.detail, "flavour", "") == "reactive" for x in f)
 end
 
-# ── Initialisation quality: large error & non-zero neutral ────────────────────
-@testset "SOL — initialisation quality findings" begin
+# ── Initialization quality: large error & non-zero neutral ────────────────────
+@testset "SOL — initialization quality findings" begin
     net = _base_net()
     result = _base_result()
     # b1.a solved at 230 V; init it at 300 V (30 % off, but < 10×) → large error.
-    # b1.n initialised non-zero → neutral-nonzero info.
+    # b1.n initialized non-zero → neutral-nonzero info.
     result["initialisation"] = Dict{String,Any}(
         "b1" => Dict{String,Any}(
             "a" => Dict{String,Any}("vm_init" => 300.0),

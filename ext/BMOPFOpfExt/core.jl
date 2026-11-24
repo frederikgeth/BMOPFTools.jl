@@ -7,7 +7,7 @@
 #
 #   1. snapshot / per-unit the network
 #   2. build the JuMP model + index structures + variables
-#   3. initialise the KCL accumulators
+#   3. initialize the KCL accumulators
 #   4. run the problem's `build!(ctx)` recipe        ← the only part that varies
 #   5. enforce KCL and optimize
 #   6. extract the standard result dict
@@ -15,7 +15,7 @@
 #   8. unwrap per-unit
 #
 # This mirrors the PowerModels/InfrastructureModels pattern where a generic
-# `solve_model(data, type, optimizer, build_method)` core is parameterised by a
+# `solve_model(data, type, optimizer, build_method)` core is parameterized by a
 # per-problem `build_*` function.
 
 """
@@ -245,7 +245,7 @@ function BMOPFTools.opf_transformer_scaling_contract_data(
     complete = isempty(missing_voltage) && isempty(invalid_voltage) &&
         isempty(missing_power) && isempty(invalid_power)
 
-    zones = BMOPFTools._galvanic_zones(ctx.net)
+    zones = BMOPFTools._galvanic_zones(ctx.net; include_neutral_only=true)
     sort!(zones; by=zone -> join(sort!(collect(zone)), "\0"))
     zone_records = Dict{String,Any}[]
     bus_zone = Dict{String,String}()
@@ -722,7 +722,7 @@ function BMOPFTools.opf_semantic_blocks(ctx::OpfContext; kind=nothing)
     ))
     # Native blocks are intentionally lazy: ordinary solves do not pay for
     # semantic metadata they never inspect.  A schema/provenance request after
-    # KCL finalisation is the first point at which all native rows exist.
+    # KCL finalization is the first point at which all native rows exist.
     ctx.lifecycle[] == :kcl_finalized &&
         _register_native_semantic_blocks!(ctx)
     registry = _opf_semantic_block_registry(ctx)
@@ -2615,9 +2615,19 @@ function _prepare_working_net(net::Dict{String,Any}, t_index::Int,
                                   BMOPFTools.AbstractOpfScalingPolicy,Nothing}=nothing)
     # Preserve private ownership of non-JSON payloads (e.g. matrices) as well
     # as converting nested typed dictionaries used by programmatic callers.
-    working = BMOPFTools._copy_for_normalization(net)
-    BMOPFTools.is_timeseries(working) &&
-        (working = BMOPFTools._get_snapshot!(working, t_index))
+    #
+    # A time-series net's root "time_series" collection is only read while the
+    # snapshot is resolved and is then dropped, so it is shared, not copied:
+    # copying all T steps for every snapshot made multi-period builds O(T²).
+    if BMOPFTools.is_timeseries(net)
+        series = net["time_series"]
+        working = BMOPFTools._copy_for_normalization(
+            Dict{String,Any}(k => v for (k, v) in net if k != "time_series"))
+        working["time_series"] = series
+        working = BMOPFTools._get_snapshot!(working, t_index)
+    else
+        working = BMOPFTools._copy_for_normalization(net)
+    end
     # Validate the selected snapshot's package policy before normalization can
     # consume malformed role declarations. Do not validate unsliced time arrays.
     _, pf_errors = BMOPFTools._minimum_pf_configuration(working)
@@ -2626,18 +2636,20 @@ function _prepare_working_net(net::Dict{String,Any}, t_index::Int,
     # Normalize before unit conversion and indexing, including combined leakage
     # and explicit winding-connected excitation. Mutates only our private copy.
     BMOPFTools._normalize_bmopf!(working)
+    # Validate before allocating variables or mutating a supplied JuMP model.
+    BMOPFTools._validate_delta_loads(working)
 
     policy = _resolve_scaling_policy(per_unit, s_base, scaling_policy)
     bases = nothing
     !(policy isa BMOPFTools.SIUnitsScaling) &&
-        ((working, bases) = _to_per_unit(working, policy))
+        ((working, bases) = _to_per_unit(working, policy; copy=false))
     return working, bases
 end
 
 """
     _new_context(model, working, bases, relu_eps; problem, s_base) -> OpfContext
 
-Index the working net, declare all JuMP variables into `model`, initialise the
+Index the working net, declare all JuMP variables into `model`, initialize the
 KCL accumulators and branch-injection ledger, and bundle them into an
 `OpfContext`. Adds no constraints and sets no objective.
 """
@@ -2750,8 +2762,8 @@ function _enforce_kcl!(ctx::OpfContext)
     _run_opf_stage!(ctx, :kcl, () -> begin
         # Device builders may tighten native auxiliary variables after their
         # initial declaration (for example, redundant current boxes implied by
-        # transformer and switch thermal limits). Synchronise those late bound
-        # constraints before finalising the registry so every native MOI row has
+        # transformer and switch thermal limits). Synchronize those late bound
+        # constraints before finalizing the registry so every native MOI row has
         # inspectable semantic ownership.
         _register_dynamic_auxiliary_variables!(ctx)
         _register_native_variable_bounds!(ctx)
@@ -2778,7 +2790,7 @@ end
 # nodal accumulators, which means a staged caller can reach `JuMP.optimize!` on a
 # model whose network is electrically disconnected. That failure is SILENT:
 # nodal balance is simply absent, so bus voltages are free variables and any
-# objective over them is minimised without physics. It bit us for real while
+# objective over them is minimized without physics. It bit us for real while
 # building `bench/sequence_objective_norms.jl`, where a negative-sequence
 # objective reached |V2| ~ 8e-16 with the compensator sitting idle.
 #
@@ -2865,7 +2877,7 @@ end
 const _KCL_SKIPPED_MESSAGE =
     "Without it the network is electrically disconnected: nodal balance is " *
     "absent, so bus voltages are free variables and any objective over them is " *
-    "minimised without physics. The solve can still report a successful-looking " *
+    "minimized without physics. The solve can still report a successful-looking " *
     "status and plausible values — LOCALLY_SOLVED in the case that motivated " *
     "this check, though the status depends on what equations, objective and " *
     "solver remain."
@@ -2892,7 +2904,7 @@ function _assert_kcl_enforced(model::JuMP.Model,
         "enforce_kcl! has not been called on $n staged OPF context(s) built " *
         "into this model. $_KCL_SKIPPED_MESSAGE Call `enforce_kcl!(ctx)` on " *
         "every snapshot after its last constraint is added and before " *
-        "optimising. Pass `kcl_guard=false` to `build_opf_model` / " *
+        "optimizing. Pass `kcl_guard=false` to `build_opf_model` / " *
         "`initialize_opf_model` to opt out of this check."))
 end
 
@@ -2913,14 +2925,14 @@ end
         verbose=false) -> ctx
 
 Build the IVR-EN OPF device model, bounds, and (optionally) the generation-cost
-objective for one snapshot, **without enforcing KCL or optimising**. The first
+objective for one snapshot, **without enforcing KCL or optimizing**. The first
 step of the staged API; see the module notes above.
 
 !!! warning "KCL is deferred — you must call `enforce_kcl!` before solving"
     KCL is not stamped here, so that a `model_hook!` can still contribute to the
     accumulators. Until [`enforce_kcl!`](@ref) is called the network is
     **electrically disconnected**: nodal balance is absent, so bus voltages are
-    free variables and any objective over them is minimised without physics —
+    free variables and any objective over them is minimized without physics —
     an unbalance objective, for instance, reaches exactly zero with every
     compensator idle. Call `enforce_kcl!(ctx)` on every snapshot after the last
     constraint is added and before `JuMP.optimize!`.
@@ -2935,7 +2947,7 @@ step of the staged API; see the module notes above.
 
 - `model` — build into this existing JuMP model instead of a fresh one. Pass the
   same model for every snapshot of a multi-period problem so they share one
-  optimisation. When `nothing`, a new `JuMP.Model(optimizer)` is created (and
+  optimization. When `nothing`, a new `JuMP.Model(optimizer)` is created (and
   silenced unless `verbose`).
 - `add_objective` — when `false`, the per-snapshot generation cost is NOT set on
   the model; recover it with [`generation_cost`](@ref) and set one combined
@@ -2947,7 +2959,7 @@ step of the staged API; see the module notes above.
 - `kcl_guard` — when `true` (the default), a JuMP optimize hook refuses to solve
   this model while any context built into it has not had `enforce_kcl!` called.
   A pre-existing hook is chained, not replaced. Pass `false` for an expert path
-  that deliberately optimises a partially built model; the [`extract_result`](@ref)
+  that deliberately optimizes a partially built model; the [`extract_result`](@ref)
   check still applies. Two limits: a hook installed *after* this call supersedes
   ours, and a `JuMP.copy_model` of a guarded model is refused outright — the copy
   carries the hook but not the guard's state, so the guard cannot tell whether
@@ -3025,7 +3037,7 @@ end
 
 Enforce Kirchhoff's current law for one snapshot's accumulators (AC nodal balance
 + DC network). Call after every device constraint and `model_hook!` injection for
-that snapshot has been added, and before optimising. In a multi-period build call
+that snapshot has been added, and before optimizing. In a multi-period build call
 it once per snapshot `ctx`.
 """
 BMOPFTools.enforce_kcl!(ctx::OpfContext) = _enforce_kcl!(ctx)
@@ -3071,6 +3083,7 @@ function BMOPFTools.optimize_opf!(ctx::OpfContext, others::OpfContext...;
     end
     _assert_kcl_enforced(model)
     JuMP.optimize!(model; kwargs...)
+    _capture_solution!(model)
     return model
 end
 
@@ -3078,7 +3091,7 @@ end
     BMOPFTools.generation_cost(ctx) -> JuMP.QuadExpr
 
 The snapshot's total active-power generation-cost expression (the quantity
-`solve_opf` minimises), returned WITHOUT setting it on the model. Sum these
+`solve_opf` minimizes), returned WITHOUT setting it on the model. Sum these
 across snapshots — adding any custom terms (e.g. storage throughput cost) — and
 call `JuMP.@objective(ctx.model, Min, total)` once for a multi-period solve.
 """
@@ -3106,7 +3119,7 @@ function BMOPFTools.extract_result(ctx::OpfContext;
                                    solution_hook!::Union{Function,Nothing}=nothing)
     BMOPFTools.opf_stage_completed(ctx, :kcl) || throw(ArgumentError(
         "enforce_kcl! was never called on this staged OPF context. " *
-        "$_KCL_SKIPPED_MESSAGE Call `enforce_kcl!(ctx)` before optimising, " *
+        "$_KCL_SKIPPED_MESSAGE Call `enforce_kcl!(ctx)` before optimizing, " *
         "then extract."))
     result = _extract_results(ctx.model, ctx.net, ctx.bus_terminals,
                               ctx.grounded, ctx.vars, ctx.branch_inj;
@@ -3129,14 +3142,160 @@ function _refresh_parameter_optimizer!(model::JuMP.Model)
     nothing
 end
 
-function BMOPFTools.resolve_opf!(ctx::OpfContext, others::OpfContext...; kwargs...)
+function BMOPFTools.resolve_opf!(ctx::OpfContext, others::OpfContext...;
+                                 warm_start::Bool=true, kwargs...)
     model = ctx.model
     all(c -> c.model === model, others) || throw(ArgumentError(
         "resolve_opf! contexts must share one JuMP model"))
     all(c -> :kcl in c.manifest.stages, (ctx, others...)) || throw(ArgumentError(
         "enforce_kcl! must run on every context before resolve_opf!"))
     _assert_kcl_enforced(model)
+    if warm_start
+        _transfer_warm_start!(ctx, model)
+    else
+        _restore_cold_start!(ctx, model)
+    end
     _refresh_parameter_optimizer!(model)
     JuMP.optimize!(model; kwargs...)
+    _capture_solution!(model)
     model
 end
+
+# ── Re-solve warm start ────────────────────────────────────────────────────
+# `resolve_opf!` must reload the cached optimizer (see
+# `_refresh_parameter_optimizer!`), which discards the solver's own iterate.
+# Copy the previous solution into JuMP's start attributes first so the reload
+# carries it over. Primal starts are portable MOI attributes; dual starts are
+# set only where the optimizer supports them. For Ipopt, the options that make
+# it use those starts are set unless the caller already chose a value.
+const _WARM_START_STATE_KEY = :BMOPFToolsWarmStart
+const _IPOPT_WARM_START_OPTIONS = (
+    "warm_start_init_point" => "yes",
+    "mu_init" => 1e-6,
+    "warm_start_bound_push" => 1e-6,
+    "warm_start_mult_bound_push" => 1e-6,
+)
+
+_has_usable_primal(model) = JuMP.has_values(model) &&
+    JuMP.primal_status(model) in (MOI.FEASIBLE_POINT, MOI.NEARLY_FEASIBLE_POINT)
+
+function _all_constraint_refs(model)
+    refs = JuMP.ConstraintRef[]
+    for (F, S) in JuMP.list_of_constraint_types(model)
+        append!(refs, JuMP.all_constraints(model, F, S))
+    end
+    return refs
+end
+
+# Raw optimizer attribute value, or `nothing` when it was never set.
+function _raw_attribute_or_nothing(model, name)
+    try
+        return JuMP.get_attribute(model, name)
+    catch err
+        err isa MOI.GetAttributeNotAllowed || err isa MOI.UnsupportedAttribute ||
+            err isa KeyError || rethrow()
+        return nothing
+    end
+end
+
+# Snapshot the solution of the solve that just finished into `model.ext`.
+# Changing a parameter value (the normal step before `resolve_opf!`) makes JuMP
+# discard the solver's result, so the warm start must be captured right after
+# each solve rather than read back at re-solve time: `optimize_opf!` and
+# `resolve_opf!` do so. A solve without a usable primal point keeps the older
+# snapshot, so one failed sweep point does not force cold starts afterwards.
+# Values are stored by MOI index.
+function _capture_solution!(model::JuMP.Model)
+    _has_usable_primal(model) || return nothing
+    backend = JuMP.backend(model)
+    variables = JuMP.all_variables(model)
+    primal = Dict{MOI.VariableIndex,Float64}(zip(JuMP.index.(variables),
+        MOI.get(backend, MOI.VariablePrimal(), JuMP.index.(variables))))
+    duals = Pair{JuMP.ConstraintRef,Any}[]
+    if JuMP.has_duals(model)
+        for (F, S) in JuMP.list_of_constraint_types(model)
+            cons = JuMP.all_constraints(model, F, S)
+            isempty(cons) && continue
+            values = try
+                MOI.get(backend, MOI.ConstraintDual(), JuMP.index.(cons))
+            catch
+                continue
+            end
+            append!(duals, Pair{JuMP.ConstraintRef,Any}.(cons, values))
+        end
+    end
+    model.ext[_WARM_START_STATE_KEY] = (primal=primal, duals=duals)
+    return nothing
+end
+
+function _transfer_warm_start!(ctx::OpfContext, model)
+    # A caller that solved with plain `JuMP.optimize!` and has not modified the
+    # model since still has a live solution to capture here.
+    _has_usable_primal(model) && _capture_solution!(model)
+    snapshot = get(model.ext, _WARM_START_STATE_KEY, nothing)
+    snapshot === nothing && return false
+    state = BMOPFTools.extension_state!(ctx, _WARM_START_STATE_KEY)
+    # Parameters are data, not iterates, and accept no start value.
+    variables = filter(!JuMP.is_parameter, JuMP.all_variables(model))
+    haskey(state, :original_primal) ||
+        (state[:original_primal] = Dict(v => JuMP.start_value(v) for v in variables))
+    for v in variables
+        x = get(snapshot.primal, JuMP.index(v), nothing)
+        x === nothing || JuMP.set_start_value(v, x)
+    end
+    backend = JuMP.backend(model)
+    for (c, d) in snapshot.duals
+        JuMP.is_valid(model, c) || continue
+        MOI.supports(backend, MOI.ConstraintDualStart(), typeof(JuMP.index(c))) ||
+            continue
+        JuMP.set_dual_start_value(c, d)
+    end
+    if JuMP.solver_name(model) == "Ipopt"
+        owned = get!(state, :owned_options, Set{String}())
+        for (name, value) in _IPOPT_WARM_START_OPTIONS
+            current = _raw_attribute_or_nothing(model, name)
+            (current === nothing || name in owned) || continue
+            JuMP.set_attribute(model, name, value)
+            push!(owned, name)
+        end
+    end
+    return true
+end
+
+# `warm_start=false`: undo what `_transfer_warm_start!` changed, so the solve
+# starts from the build's own initialization again. Caller-set options and
+# starts that were never replaced are left alone.
+function _restore_cold_start!(ctx::OpfContext, model)
+    state = get(ctx.extension_state, _WARM_START_STATE_KEY, nothing)
+    state === nothing && return false
+    variables = filter(!JuMP.is_parameter, JuMP.all_variables(model))
+    original = get(state, :original_primal, nothing)
+    if original !== nothing
+        for v in variables
+            JuMP.set_start_value(v, get(original, v, nothing))
+        end
+        delete!(state, :original_primal)
+    end
+    backend = JuMP.backend(model)
+    for c in _all_constraint_refs(model)
+        MOI.supports(backend, MOI.ConstraintDualStart(), typeof(JuMP.index(c))) ||
+            continue
+        JuMP.set_dual_start_value(c, nothing)
+    end
+    owned = get(state, :owned_options, Set{String}())
+    if "warm_start_init_point" in owned
+        JuMP.set_attribute(model, "warm_start_init_point", "no")
+    end
+    for name in owned
+        name == "warm_start_init_point" && continue
+        JuMP.set_attribute(model, name, _IPOPT_COLD_DEFAULTS[name])
+    end
+    empty!(owned)
+    return true
+end
+
+const _IPOPT_COLD_DEFAULTS = Dict{String,Any}(
+    "mu_init" => 0.1,
+    "warm_start_bound_push" => 1e-3,
+    "warm_start_mult_bound_push" => 1e-3,
+)

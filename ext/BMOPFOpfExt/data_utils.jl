@@ -139,7 +139,7 @@ end
 
 Return the total from- and to-side shunt admittance matrices (S) for a line.
 Inline lines carry absolute G/B fields [S] used as-is; linecode lines take
-the per-metre fields (S/m) scaled by `length`.
+the per-meter fields (S/m) scaled by `length`.
 Returns (nothing, nothing, nothing, nothing) when no shunt fields are present.
 """
 function _line_pi_shunt(line::Dict{String,Any}, linecodes::AbstractDict)
@@ -489,4 +489,33 @@ function _angle_window_constraints!(model, s, c, lo, hi)
     end
     return (lower=@constraint(model, sin(lo)*c - cos(lo)*s <= 0),
             upper=@constraint(model, cos(hi)*s - sin(hi)*c <= 0))
+end
+
+# Terminal roles for DELTA load geometry, computed once per pass over the loads
+# (`_index_roles` scans every bus terminal). `nothing` when there is no DELTA
+# load, in which case the value is never used.
+function _delta_load_roles(net)
+    any(l -> l isa AbstractDict &&
+            uppercase(string(get(l, "configuration", "WYE"))) == "DELTA",
+        values(get(net, "load", Dict()))) || return nothing
+    return BMOPFTools._index_roles(net)
+end
+
+"""
+    _box_constraints!(model, expr, lo, hi)
+
+Stamp `lo <= expr <= hi`; `nothing` omits a side. Equal finite static endpoints
+use one equality instead of a zero-width pair of inequalities. That pair has no
+strictly feasible interior and fixes only the difference of its two multipliers,
+so an interior-point solve takes ill-conditioned steps there and can leave the
+intended power-flow root. Static data only: a parameter or expression bound keeps
+both rows, because a re-solve may move the endpoints apart.
+"""
+function _box_constraints!(model, expr, lo, hi)
+    if lo isa Real && hi isa Real && isfinite(lo) && lo == hi
+        return (equality=@constraint(model, expr == lo),)
+    end
+    lower = lo === nothing ? (;) : (lower=@constraint(model, expr >= lo),)
+    upper = hi === nothing ? (;) : (upper=@constraint(model, expr <= hi),)
+    return merge(lower, upper)
 end

@@ -25,7 +25,7 @@ feeder and DER fleet that each make a **different constraint bind**:
                                        *instead*; the dearer generator is shed
                                        first and a different dispatch results.
 
-The thesis for an optimisation-modeling audience: the objective value is not the
+The thesis for an optimization-modeling audience: the objective value is not the
 story — the *binding constraint* is. B and C share a feeder, a DER fleet, an
 operating point, and a limit set; they differ by a single knob (the service-cable
 ampacity), yet the active constraint — and with it the optimal dispatch — flips
@@ -56,7 +56,7 @@ using Printf
 
 sep(t) = println("\n", "─"^74, "\n  ", t, "\n", "─"^74)
 
-# ── Modelling constants ───────────────────────────────────────────────────────
+# ── Modeling constants ───────────────────────────────────────────────────────
 const INPUT_JSON = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus.json")
 
 const LV_LN_V    = 230.0                 # LV phase-to-neutral nominal we report in
@@ -99,7 +99,7 @@ const GEN_RECIPE = GeneratorRecipe(
 # ── Base network: load, retap the head, set the drops, place the DERs ──────────
 # The two single-phase loads sit on phase 1 (bus b3230) and phase 2 (bus b2656);
 # `add_ibrs`/`add_generators` co-locate a PV cluster and a generator at each,
-# so the export is itself unbalanced — exactly where four-wire modelling (explicit
+# so the export is itself unbalanced — exactly where four-wire modeling (explicit
 # neutral, no Kron reduction) earns its keep.
 const DROP_LINES = ("l_3726", "l_2126")
 
@@ -169,7 +169,7 @@ function vpn_pu(res, b, t)
     return abs((ph[t]["vr"] - n["vr"]) + im * (ph[t]["vi"] - n["vi"])) / LV_LN_V
 end
 
-# Worst per-conductor thermal utilisation cm_fr / i_max over all lines, with the
+# Worst per-conductor thermal utilization cm_fr / i_max over all lines, with the
 # location. cm_fr is the total per-end current; i_max lives on the linecode,
 # indexed by conductor position (the line's terminal_map_from order).
 function max_thermal(net, res)

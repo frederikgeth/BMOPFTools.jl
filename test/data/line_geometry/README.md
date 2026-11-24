@@ -2,7 +2,7 @@
 
 These three independently specified test cases replace the IEEE-13/Kersting
 601/606/607 fixtures. Their parameters are chosen for regression coverage,
-not copied from a feeder or conductor catalogue and not asserted to describe
+not copied from a feeder or conductor catalog and not asserted to describe
 commercial equipment. They are licensed under the parent `license.md` (CC BY 4.0).
 
 - `synthetic_overhead.dss`: asymmetric four-wire layout with distinct phase and
@@ -12,7 +12,10 @@ commercial equipment. They are licensed under the parent `license.md` (CC BY 4.0
 - `synthetic_ts.dss`: one tape-shield cable with 25% lap and a separate return
   conductor. Shield reduction leaves a 2×2 phase/return primitive.
 
-All decks use explicit SI length/resistance units and a 60 Hz Carson baseline.
+`unresolved_geometry.dss` is a separate minimized rejection witness: its line
+references a missing geometry, so no electrical model may be substituted.
+
+The three complete decks use explicit SI length/resistance units and a 60 Hz Carson baseline.
 Tests also exercise overhead FullCarson, Deri, and 50 Hz variants. The Julia
 input dictionaries are written separately from the DSS decks; neither engine
 supplies the other's geometry or impedance matrices.

@@ -1,0 +1,17 @@
+{
+  "name": "synthetic_spatial_capacitor_attachment",
+  "meta": {"crs": {"type": "cartesian", "name": "synthetic_site", "units": "m"}},
+  "bus": {
+    "a": {"x": 0.0, "y": 0.0, "terminal_names": ["1", "4"]},
+    "j": {"x": 10.0, "y": 0.0, "terminal_names": ["1", "4"]},
+    "b": {"x": 20.0, "y": 0.0, "terminal_names": ["1", "4"]}
+  },
+  "line": {
+    "direct": {"bus_from": "a", "bus_to": "b", "terminal_map_from": ["1", "4"], "terminal_map_to": ["1", "4"], "length": 20.0},
+    "aj": {"bus_from": "a", "bus_to": "j", "terminal_map_from": ["1", "4"], "terminal_map_to": ["1", "4"], "length": 10.0},
+    "jb": {"bus_from": "j", "bus_to": "b", "terminal_map_from": ["1", "4"], "terminal_map_to": ["1", "4"], "length": 10.0}
+  },
+  "capacitor": {
+    "cap_at_junction": {"bus": "j", "terminal_map": ["1", "4"], "configuration": "WYE", "q_rated": [1000.0], "v_nom": 230.0}
+  }
+}

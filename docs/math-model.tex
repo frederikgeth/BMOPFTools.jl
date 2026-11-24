@@ -68,7 +68,7 @@ Key design choices:
         equations are \emph{bilinear} in the voltage and current variables,
         making the problem a non-convex NLP.
 
-  \item \textbf{Shunt admittances are modelled.}  The $\pi$-model half-sections
+  \item \textbf{Shunt admittances are modeled.}  The $\pi$-model half-sections
         ($G_\text{fr/to}$, $B_\text{fr/to}$ on linecodes, scaled by line length)
         and standalone shunt objects ($G$/$B$ matrices, bus-connected to ground)
         contribute linear current terms to KCL.  Thermal current limits are
@@ -140,14 +140,14 @@ $N_x$ & -- & Transformer turns ratio $= V^\text{ref}_\text{fr} / V^\text{ref}_\t
 $R_1, X_1$ & $\Omega$ & From-side winding resistance/reactance (HV base) & \texttt{transformer.r\_series\_from/x\_series\_from} \\
 $R_2, X_2$ & $\Omega$ & To-side winding resistance/reactance (LV base) & \texttt{transformer.r\_series\_to/x\_series\_to} \\
 $G_0$ & S & No-load (core-loss) conductance, placed at HV terminals & \texttt{transformer.g\_no\_load} \\
-$B_0$ & S & No-load (magnetising) susceptance, placed at HV terminals & \texttt{transformer.b\_no\_load} \\
+$B_0$ & S & No-load (magnetizing) susceptance, placed at HV terminals & \texttt{transformer.b\_no\_load} \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 The series impedance matrices $\Rmat_\ell$, $\Xmat_\ell \in \R^{n_c \times n_c}$
 are constructed from the line's associated \texttt{linecode} (which stores
-impedance per metre) multiplied by \texttt{length} in metres.  The matrices are
+impedance per meter) multiplied by \texttt{length} in meters.  The matrices are
 symmetric by the Carson/primitive impedance construction.
 
 % ============================================================
@@ -181,7 +181,7 @@ is determined implicitly by KCL.
 % ============================================================
 \section{Objective Function}
 
-The objective minimises total active-power generation cost:
+The objective minimizes total active-power generation cost:
 %
 \begin{equation}
   \min \sum_{g\in\mc{G}} \sum_{k=1}^{|\mc{T}_g^\phi|}
@@ -489,7 +489,7 @@ the converter current variables (optional; omitted otherwise):
 %
 Since $|S_{n,k}| = |\Delta v_k|\,|I_{n,k}|$, this caps reactive capability
 $\approx$ linearly in voltage ($Q^{\max} \approx |\Delta v_k|\,I^{\max}_{n,k}$),
-the faithful voltage-source-converter behaviour, rather than holding it flat at
+the faithful voltage-source-converter behavior, rather than holding it flat at
 $S^{\max}$ as the apparent-power circle alone would.
 
 Reactive power is handled in one of two mutually exclusive ways.  By default
@@ -512,7 +512,7 @@ phase current is added at the neutral terminal.
 \subsection{Transformers}
 
 All transformer constraints are linear in the voltage and current variables.
-Apparent power and thermal limits on transformers are not currently modelled
+Apparent power and thermal limits on transformers are not currently modeled
 as explicit constraints.
 
 The turns ratio for all subtypes is
@@ -523,7 +523,7 @@ the full secondary span (240~V).
 
 \subsubsection*{Wye--wye per-phase (\texttt{single\_phase})}
 
-The \texttt{single\_phase} subtype is modelled with a
+The \texttt{single\_phase} subtype is modeled with a
 $\Gamma$-equivalent circuit: series impedance referred to the from (HV) side,
 and a shunt no-load admittance at the HV terminals.
 Let $R_x = R_1 + N_x^2 R_2$ and $X_x = X_1 + N_x^2 X_2$ be the combined
@@ -559,7 +559,7 @@ The ideal-core coupling (power conservation) gives:
 \end{equation}
 
 \paragraph{No-load shunt.}
-The magnetising branch $Y_0 = G_0 + \mathrm{j}B_0$
+The magnetizing branch $Y_0 = G_0 + \mathrm{j}B_0$
 (\texttt{g\_no\_load}, \texttt{b\_no\_load}, in~S) is placed at the HV
 (from-side) terminals.  The total terminal current entering the HV bus
 is the sum of the series current and the shunt:
@@ -725,7 +725,7 @@ branch and $R^\text{d}_x, X^\text{d}_x$
 both in~$\Omega$ on their own winding base.  A network supplying the legacy
 single \texttt{r\_series}/\texttt{x\_series} is read as
 $R^\text{w}_x = R_\text{series}$, $R^\text{d}_x = 0$ (likewise $X$),
-recovering the ideal-delta behaviour.
+recovering the ideal-delta behavior.
 
 \paragraph{Voltage constraints.}
 For $k = 1,\ldots,n_\phi$ with $k^+ = (k \bmod n_\phi)+1$, the delta line-to-line
@@ -788,7 +788,7 @@ $(\kappa^r_{b,t},\,\kappa^i_{b,t})$ using the sign convention
   \label{eq:kcl}
 \end{equation}
 
-Table~\ref{tab:kcl} summarises the contribution of each component type to the
+Table~\ref{tab:kcl} summarizes the contribution of each component type to the
 KCL accumulator at a given terminal.
 
 \begin{table}[h!]
@@ -870,7 +870,7 @@ $\texttt{diagnose\_infeasibility}$ to rank and classify the root cause
 \section{Warm-Start Strategy}
 
 The IVR formulation is an NLP with multiple local minima.  Without
-initialisation, Ipopt typically converges to the degenerate $v = 0$ solution.
+initialization, Ipopt typically converges to the degenerate $v = 0$ solution.
 The following start values are applied before solving:
 
 For the standard OPF:
@@ -884,7 +884,7 @@ $\{$a, b, c, n$\}$.
 
 For the feasibility OPF, a BFS voltage propagation through the transformer
 tree assigns per-bus nominal voltages $V^\text{nom}_b$, and the start value
-is $V^\text{nom}_b\cos\theta_t$ per bus.  This correctly initialises LV buses
+is $V^\text{nom}_b\cos\theta_t$ per bus.  This correctly initializes LV buses
 at $\approx 230$\,V rather than at the source voltage ($\approx 6350$\,V for
 an 11\,kV MV feeder), preventing convergence to the high-voltage local minimum
 that arises without voltage bounds.

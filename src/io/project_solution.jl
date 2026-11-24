@@ -110,7 +110,7 @@ net    = from_dss("test/data/pf_comparison/pf_pv_4leg.dss")
 result = solve_opf(net)
 snap   = project_solution(net, result)
 solve_pf(snap)          # re-solve as a determined power flow
-to_dss(snap, "snap.dss")  # export the pinned snapshot to OpenDSS
+to_dss(snap, "snap.dss"; allow_unverified_ratings=true)  # export the pinned snapshot to OpenDSS
 ```
 """
 function project_solution(net::Dict{String,Any}, result::Dict{String,Any};

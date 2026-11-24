@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 420" role="img" aria-labelledby="title desc"><title id="title">Review has three separate axes</title><desc id="desc">Automated evidence category, inspection priority and human disposition are distinct. Coverage limitations apply throughout.</desc>
+<style>text{font-family:system-ui,-apple-system,Arial,sans-serif;fill:#203348;font-size:16px}.title{font-size:24px;font-weight:650}.label{font-size:18px;font-weight:600}.small{font-size:14px}.muted{fill:#526477}</style>
+<rect width="1000" height="420" rx="14" fill="#f5f8fc"/>
+<text x="30" y="40" class="title">Review has three separate axes</text>
+<rect x="30" y="85" width="290" height="205" rx="8" fill="#fff" stroke="#d6e0ec"/>
+<text x="45" y="118" class="label">1  Automated evidence</text>
+<text x="45" y="155" class="small">context_only</text>
+<text x="45" y="189" class="small">needs_information</text>
+<text x="45" y="223" class="small">review_candidate</text>
+<text x="45" y="257" class="small">data_inconsistency</text>
+<rect x="355" y="85" width="290" height="205" rx="8" fill="#fff" stroke="#d6e0ec"/>
+<text x="370" y="118" class="label">2  Inspection order</text>
+<text x="370" y="155" class="small">P3 — inspect first</text>
+<text x="370" y="189" class="small">P2 — inspect next</text>
+<text x="370" y="223" class="small">P1 — contextual / lower priority</text>
+<text x="370" y="257" class="small">No calibrated error probability</text>
+<rect x="680" y="85" width="290" height="205" rx="8" fill="#fff" stroke="#d6e0ec"/>
+<text x="695" y="118" class="label">3  Human disposition</text>
+<text x="695" y="155" class="small">needs_information / deferred</text>
+<text x="695" y="189" class="small">accepted_modeling</text>
+<text x="695" y="223" class="small">confirmed_issue</text>
+<text x="695" y="257" class="small">resolved (reviewer assertion)</text>
+<rect x="30" y="315" width="940" height="73" rx="8" fill="#eaf1f8" stroke="#d6e0ec"/>
+<text x="48" y="342" class="small">Coverage applies to every axis: unsupported frame, incomplete scan or capture cap ≠ all-clear.</text>
+<text x="48" y="371" class="label">Decisions bind to case, settings and evidence fingerprints. No automatic model edits.</text>
+</svg>

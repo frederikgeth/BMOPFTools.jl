@@ -1,6 +1,10 @@
-# Methodology notes
+# [How network diagnostics work](@id Methodology-notes)
 
-The physics and linear algebra behind the provenance and integrity checks.
+Use this explanation alongside [Analysis & reports](analysis.md) and
+[Findings triage](tutorial_triage.md) when interpreting input-model evidence.
+It develops the physics and linear algebra behind the provenance and integrity
+checks. For solver coordinates and starting values, use
+[Scaling, initialization and diagnostics](numerical_workflows.md).
 Numbered citations refer to the [references](@ref refs) at the bottom.
 
 ## Impedance matrix invariants vs fingerprints
@@ -19,7 +23,7 @@ coordinates [1, 5]:
   Kron reduction: elimination of grounded conductors is a Schur complement,
   and Schur complements of accretive matrices remain accretive [10, 11] —
   hard (`E.PROV.NONPASSIVE`).
-- **Inductive realisability** (X ⪰ 0, positive diagonals): the inductance
+- **Inductive realizability** (X ⪰ 0, positive diagonals): the inductance
   matrix is PSD by the magnetic-energy argument; matrices with both R, X
   PSD are *sectorial*, and sectorial matrices are closed under Schur
   complementation — so X-PSD is also Kron-invariant
@@ -32,31 +36,33 @@ coordinates [1, 5]:
 
 ## Sequence-derived matrices and Z₁/Z₀ recovery
 
-A line parameterised from sequence values and transformed back to phase
+A line parameterized from sequence values and transformed back to phase
 coordinates (TF spec [1], Appendix A.2 / Eq. 148) is **perfectly balanced**:
 
 ```
 Z = Zₛ·I + Zₘ·(J − I),   Zₛ = (Z₀ + 2Z₁)/3,   Zₘ = (Z₀ − Z₁)/3
 ```
 
-Geometric (Carson) parameterisations of *generic asymmetric* untransposed
+Geometric (Carson) parameterizations of *generic asymmetric* untransposed
 geometries do not produce this, because their phase-pair spacings differ.
-(Symmetric untransposed arrangements — equilateral spacing, symmetric bundled
-construction — *can* be balanced; that is exactly the `near_balanced` case
-below.) The classifier inverts the
+(Symmetric untransposed arrangements can also be balanced.) The classifier inverts the
 construction — `Z₁ = Zₛ − Zₘ`, `Z₀ = Zₛ + 2Zₘ` — and reports the implied
 sequence parameters (`I.PROV.SEQ_DERIVED`). The verdict tiers:
 
 | tier | structure | reading |
 |---|---|---|
-| `decoupled` | diagonal | positive-sequence only; phases independent |
-| `exactly_balanced` | rtol ≤ 10⁻⁹ | sequence-derived or transposition assumed |
-| `near_balanced` | rtol ≤ 10⁻² | possibly physical (twisted/bundled symmetric construction) |
-| `distinct` | otherwise | consistent with first-principles geometry |
+| `decoupled` | near-diagonal phase series block | coupling/self spread below 10⁻⁶; other factors unassessed |
+| `exactly_balanced` | rtol ≤ 10⁻⁹ | suggests sequence parameterization or a symmetry assumption; physical symmetry is an alternative |
+| `near_balanced` | rtol ≤ 10⁻² | approximate balance signature; review conductor symmetry and modeling assumptions |
+| `distinct` | otherwise | nonuniform structure; consider geometry and any prior neutral elimination |
+| `unassessed` | missing/incompatible X block | full complex-matrix signature unassessed |
 
-The `near_balanced` tier exists precisely because bundled LV cables (e.g.
-the adapted ENWL library [6, 7, 8]) are *physically* near-symmetric — they
-must not be mistaken for sequence-derived data.
+These signatures support useful provenance hypotheses. Exact balance suggests
+sequence parameterization or a transposition/symmetry assumption, while symmetric
+physical constructions are another explanation. `I.PROV.SEQ_DERIVED` reports
+that interpretation and the implied sequence values. Check the source data and
+whether the intended network shares those symmetry assumptions; see
+[profiler interpretation](analysis.md#Evidence-qualified-profiler-results).
 
 ## The Maxwell sign pattern
 
@@ -93,10 +99,11 @@ with the wrong sign. Severity calibration:
 
 A 4-wire network whose every neutral is solidly grounded admits *exact*
 Kron reduction of the neutral; conversely, sparse neutral grounding makes
-the explicit 4-wire model essential [6, 7]. The checks formalise this:
+the explicit 4-wire model essential [6, 7]. The checks formalize this:
 
-- **wires per voltage level**: 3-wire LV is flagged as likely Kron-reduced
-  (LV is physically 4-wire); 3-wire MV is physical and silent.
+- **wires per voltage level**: absent represented LV neutrals are reported
+  descriptively. A possible reduction history needs authored source evidence;
+  wire count alone does not establish it.
 - **neutral continuity graph** (lines + closed switches carrying the
   neutral; transformer windings do not pass it): every section must reach a
   grounding — perfect grounding, a grounding shunt, or a source that pins
@@ -137,7 +144,7 @@ data except by value. The fingerprint table:
 | line `length` | 1.0 | un-set lengths |
 
 The length check distinguishes *scattered* exact-1.0 values (default leak)
-from *universal* ones (a deliberate length-normalised convention, reported
+from *universal* ones (a deliberate length-normalized convention, reported
 in the convention statement instead) — the adapted ENWL library [8] is the
 canonical universal case, and its single 1 m source jumper per feeder is
 the canonical scattered true-positive.
@@ -182,7 +189,7 @@ community closed the analogous gap with curated, well-posed benchmark
 libraries such as PGLib-OPF [13]; the readiness check exists to bring the
 same discipline to distribution cases. The readiness check
 encodes the augmentation recipe of the PSCC study [3] — explicit slack
-generation (loss-minimisation objective), dispatchable DERs with diverse
+generation (loss-minimization objective), dispatchable DERs with diverse
 costs (`I.INT.UNIFORM_GEN_COST` screens uniform costs without establishing degeneracy),
 voltage envelopes including the sequence/phase-to-neutral bounds whose
 presence measurably improves NLP robustness [3], and cross-section-derived
@@ -277,8 +284,8 @@ per-network screens describe features worth inspecting after augmentation:
     and Reusable data require shared vocabularies and recorded provenance, not
     raw dumps).
 22. H. Wickham, "Tidy Data," *Journal of Statistical Software* 59 (10) (2014)
-    1–23 (data is usually organised for ease of entry rather than analysis;
-    standardising the mapping of semantics to representation is what makes
+    1–23 (data is usually organized for ease of entry rather than analysis;
+    standardizing the mapping of semantics to representation is what makes
     reliable, composable tooling possible).
 23. IEC 61968-11:2013, *Application integration at electric utilities — System
     interfaces for distribution management — Part 11: Common Information Model
@@ -289,15 +296,15 @@ per-network screens describe features worth inspecting after augmentation:
 24. F. Wiese et al., "Open Power System Data — Frictionless data for electricity
     system modelling," *Applied Energy* 236 (2019) 401–409 (a validated,
     schema-checked, reproducible path from raw data to results for energy-system
-    modelling).
+    modeling).
 25. L. Moreau, P. Missier (eds.), *PROV-DM: The PROV Data Model*, W3C
     Recommendation, 2013 (provenance as the mechanism that makes a non-identity
-    transformation trustworthy; validity is itself defined via a normalisation
+    transformation trustworthy; validity is itself defined via a normalization
     process).
 26. D. K. Molzahn, B. C. Lesieutre, C. L. DeMarco, "Approximate Representation of
     ZIP Loads in a Semidefinite Relaxation of the OPF Problem," *IEEE Trans.
     Power Syst.* 29 (4) (2014) 1864–1865 (a constant-impedance load is a shunt
-    admittance `Sⱼ/|Vⱼ|²`; the load/shunt identity is a modelling choice, not a
+    admittance `Sⱼ/|Vⱼ|²`; the load/shunt identity is a modeling choice, not a
     physical one).
 27. H. J. Kim et al., "A Comprehensive Review of Practical Issues for
     Interoperability Using the Common Information Model in Smart Grids,"

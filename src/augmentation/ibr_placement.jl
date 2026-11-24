@@ -17,7 +17,7 @@
 # der_placement.jl (`_xfmr_downstream`, `_collect_load_aggregates`,
 # `_voltage_family`, `_source_buses`, `_total_load_w`, `_resolve_connectivity`,
 # `_resolve_voltage_levels`). The recipe-typed helpers (candidate buses, sizing
-# basis, cost) are specialised here because `GeneratorRecipe`/`IBRRecipe`
+# basis, cost) are specialized here because `GeneratorRecipe`/`IBRRecipe`
 # are standalone structs — see `_ibr_strategy_buses` / `_ibr_basis_total` /
 # `_cost_ibr`.
 #
@@ -186,12 +186,12 @@ end
 
 Add a STATCOM (a *D-STATCOM* in distribution-system parlance) to `net` at `bus`
 and return its id. A STATCOM is a shunt-connected voltage-source converter with
-no active-power source: it is modelled as an IBR whose `prime_mover` is
+no active-power source: it is modeled as an IBR whose `prime_mover` is
 `"STATCOM"`, so [`augment_case`](@ref) exposes the full per-phase converter
 rating as symmetric reactive capability (`q_max = s_max`, `q_min = -s_max`).
 Converter losses are neglected at this fidelity.
 
-`dc_link_coupled` selects the active-power behaviour:
+`dc_link_coupled` selects the active-power behavior:
 
   * `false` (default) — **reactive-only**: each phase's active power is clamped to
     zero (`p_min = p_max = 0`).
@@ -382,7 +382,7 @@ function _apply_ibr_placement!(net′::Dict{String,Any},
 end
 
 # ── Strategy candidate builder ────────────────────────────────────────────────
-# Mirrors _strategy_buses (der_placement.jl), specialised to IBRRecipe.
+# Mirrors _strategy_buses (der_placement.jl), specialized to IBRRecipe.
 function _ibr_strategy_buses(recipe::IBRRecipe, conn, loads)
     if recipe.strategy == :load_following || recipe.strategy == :hosting_capacity
         return collect(keys(loads))
@@ -465,7 +465,7 @@ end
 # ── Topology inference ────────────────────────────────────────────────────────
 # A load terminal_map of [phase…, neutral] (≥ 2 terminals with a neutral) maps to
 # FOUR_LEG; a two-terminal [phase, ref] map to SINGLE_PHASE. Forced values are
-# normalised to the schema's uppercase enum strings.
+# normalized to the schema's uppercase enum strings.
 function _resolve_topology(recipe::IBRRecipe, terminal_map::Vector{String})::String
     if recipe.inverter_topology !== :infer
         return uppercase(string(recipe.inverter_topology))

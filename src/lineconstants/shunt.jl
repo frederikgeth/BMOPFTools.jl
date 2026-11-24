@@ -61,7 +61,7 @@ function _overhead_shunt_c(cap_radius::AbstractVector{<:Real},
         end
     end
     # Roundoff in a dense inverse can differ by a few ulps across the diagonal.
-    # The Maxwell matrix is reciprocal by construction, so materialise that
+    # The Maxwell matrix is reciprocal by construction, so materialize that
     # invariant exactly rather than leaking numerical asymmetry downstream.
     C = inv(P)
     for i in 1:n, j in i+1:n

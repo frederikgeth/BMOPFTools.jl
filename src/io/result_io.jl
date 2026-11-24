@@ -1,6 +1,6 @@
 # io/result_io.jl
 #
-# Serialise / deserialise OPF result dicts (as returned by solve_opf). The
+# Serialize / deserialize OPF result dicts (as returned by solve_opf). The
 # result is a plain Dict{String,Any} in SI units whose structure mirrors the
 # network and is documented in docs/src/results.md, so these are thin JSON
 # wrappers — the analogue of write_bmopf/parse_bmopf for solver output.
@@ -8,7 +8,7 @@
 """
     write_result(result::Dict{String,Any}, dest; indent=2)
 
-Serialise an OPF result dict (as returned by [`solve_opf`](@ref)) to JSON.
+Serialize an OPF result dict (as returned by [`solve_opf`](@ref)) to JSON.
 
 - `dest::IO`             — writes to the IO stream
 - `dest::AbstractString` — writes to a file at that path

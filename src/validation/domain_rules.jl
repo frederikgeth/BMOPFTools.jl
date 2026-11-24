@@ -473,7 +473,7 @@ end
 
 Warn when a voltage source's fixed `v_magnitude` sits within
 `source_v_margin_frac` of the (v_max − v_min) band from either bound, on the
-source bus or on a same-voltage-base neighbour (reachable via lines/switches;
+source bus or on a same-voltage-base neighbor (reachable via lines/switches;
 transformers change the base and are not crossed). A fixed source voltage hard
 against a phase bound leaves the OPF no headroom and is a common cause of
 infeasibility.
@@ -507,7 +507,7 @@ function _check_source_voltage_margin(net, findings, thresh, n_checks)
         isempty(src_bus) && continue
         n_checks[] += 1
 
-        # Source bus plus its same-base neighbours (one hop is enough to cover
+        # Source bus plus its same-base neighbors (one hop is enough to cover
         # "the next bus"; lines/switches share the base so bounds are comparable).
         check_buses = String[src_bus]
         append!(check_buses, get(adj, src_bus, String[]))
@@ -533,7 +533,7 @@ function _check_source_voltage_margin(net, findings, thresh, n_checks)
                     side = near_lo ? "lower" : "upper"
                     bound = near_lo ? lo : hi
                     where = bid == src_bus ? "its bus '$bid'" :
-                            "neighbour bus '$bid'"
+                            "neighbor bus '$bid'"
                     push!(findings, Finding(WARNING, "W.DOM.SOURCE_V_NEAR_BOUND",
                         :domain_rules, :voltage_source, sid,
                         "Voltage source '$sid' magnitude $(round(v, digits=1)) V " *
@@ -986,7 +986,7 @@ function _check_ibr_capability(net, findings, n_checks)
 
         # p_min/p_max/q_min/q_max are per-phase arrays per the spec (a scalar is
         # tolerated as a 1-vector). The capability checks operate elementwise;
-        # comparing scalars only (the previous behaviour) made all four dead on
+        # comparing scalars only (the previous behavior) made all four dead on
         # spec-conformant vector data.
         pmin_v = _ibr_boundvec(get(inv, "p_min", nothing))
         pmax_v = _ibr_boundvec(get(inv, "p_max", nothing))
@@ -1307,7 +1307,7 @@ function _check_transformer_ideal(net, findings, thresh, n_checks)
     end
 end
 
-# Physics-based reactance-sign / realisability check for transformer leakage.
+# Physics-based reactance-sign / realizability check for transformer leakage.
 #
 # The subtlety (and the reason this is a SEPARATE rule from the magnitude-only
 # `_check_transformer_ideal`, which discards sign via `sum(abs, …)`): a negative
@@ -1320,7 +1320,7 @@ end
 #   • every *measurable* pairwise short-circuit reactance is inductive (≥ 0) —
 #     it is a real short-circuit test that stores non-negative magnetic energy;
 #   • the leakage reactance MATRIX is positive semidefinite (energy argument),
-#     the multi-winding generalisation of the above.
+#     the multi-winding generalization of the above.
 #
 # So we flag violations of those invariants, never a negative element per se:
 #   W.DOM.XFMR_X_NONINDUCTIVE — a measurable short-circuit reactance is negative
@@ -1445,7 +1445,7 @@ end
 
 # Compute the Frobenius norm of the absolute series impedance matrix of a
 # line: inline matrices are already section totals [Ω]; a linecode is per
-# metre and scales by length. Returns nothing if data is missing.
+# meter and scales by length. Returns nothing if data is missing.
 function _line_z_norm(line, linecodes)
     if _line_has_inline_z(line)
         R = _pattern_keys_to_matrix(line, "R_series_")
@@ -1475,7 +1475,7 @@ function _line_z_norm(line, linecodes)
 end
 
 # ---------------------------------------------------------------------------
-# Check 1: low-impedance lines that should be modelled as switches
+# Check 1: low-impedance lines that should be modeled as switches
 # ---------------------------------------------------------------------------
 
 function _check_low_impedance_lines(net, findings, thresh, n_checks)
@@ -1571,7 +1571,7 @@ function _check_adjacent_line_impedance_spread(net, findings, thresh, n_checks, 
     push!(findings, Finding(sev, code, :domain_rules, :line, nothing,
         "Adjacent lines '$(worst_pair[1])' and '$(worst_pair[2])' at bus '$worst_bus' " *
         "have ||Z||_F ratio $(round(worst_ratio, sigdigits=3))× — " *
-        "large impedance contrasts between neighbouring lines cause ill-conditioned " *
+        "large impedance contrasts between neighboring lines cause ill-conditioned " *
         "KKT Jacobians; consider per-unit scaling or network reformulation.",
         Dict{String,Any}("line_a" => worst_pair[1], "line_b" => worst_pair[2],
                          "bus"    => worst_bus,

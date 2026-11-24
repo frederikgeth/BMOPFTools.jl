@@ -22,7 +22,7 @@ name **`"g"` is reserved** for the common ground across all elements.
   pinned to the reference, $\textcolor{blue}{U_{i,p}}=0$. Current can still flow into
   earth there: a free earth-injection current balances the terminal's KCL (see
   [Buses](bus.md#Perfect-grounding)). This is a **bus property**.
-- **Grounding through an impedance** — modelled as a [shunt](shunt.md) (or capacitor)
+- **Grounding through an impedance** — modeled as a [shunt](shunt.md) (or capacitor)
   between the terminal and ground, e.g. a single-entry admittance
   $\textcolor{brown}{Y_{h,nn}}$ on the neutral grounds it through $1/\textcolor{brown}{Y_{h,nn}}$.
 

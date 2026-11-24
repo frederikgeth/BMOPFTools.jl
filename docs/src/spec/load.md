@@ -3,12 +3,12 @@
 A **load** draws a specified power at a bus. Its power may be constant, or vary with
 voltage (ZIP / exponential). Three connection configurations are supported:
 single-phase, wye (with neutral return), and delta. Parts 1–5 state the foundational
-model; [part 6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realises it.
+model; [part 6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realizes it.
 Symbols are defined in [Notation](notation.md). For *choosing* between the load
 models — and identifying one from measurements — see the
 [load-model tutorial](../tutorial_load_models.md).
 
-![Single-phase (left), wye (centre), and delta (right) load connections and their current variables.](assets/load_types.svg)
+![Single-phase (left), wye (center), and delta (right) load connections and their current variables.](assets/load_types.svg)
 
 ## 1. Data model
 
@@ -96,7 +96,7 @@ implementation adds purely for conditioning.)
 
 ## 6. Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
 - **Rectangular bilinear power.** With $\Delta v^r,\Delta v^i$ the drop and
   `crd`/`cid` the sub-load current, the code stamps
@@ -111,7 +111,7 @@ implementation adds purely for conditioning.)
   nonlinear term $\textcolor{red}{P^{\text{nom}}}(W/\textcolor{red}{V^{\text{nom}}}^2)^{\gamma/2}$.
 - **`SINGLE_PHASE` two-terminal handling.** A length-2 map is treated as one element
   between the two listed terminals — phase-to-neutral *or* phase-to-phase — not as a
-  phase-to-ground load, so 240 V split-phase loads are modelled correctly.
+  phase-to-ground load, so 240 V split-phase loads are modeled correctly.
 - **KCL** contributions are added at the host terminals (`_kcl_add!`); the neutral
   return is implicit as the sum of phase currents.
 

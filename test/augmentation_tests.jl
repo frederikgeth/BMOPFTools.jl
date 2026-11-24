@@ -139,7 +139,7 @@ end
     mv = net′["bus"]["mv_src"]
     lv = net′["bus"]["lv_bus"]
 
-    # v_min/v_max are solver regularisation — same pu band at all levels (per-phase arrays)
+    # v_min/v_max are solver regularization — same pu band at all levels (per-phase arrays)
     @test all(≈(6350.0 * 0.85; atol=1.0), mv["v_min"])
     @test all(≈(6350.0 * 1.15; atol=1.0), mv["v_max"])
 
@@ -254,6 +254,11 @@ end
 @testset "T2: Thermal — R₁₁ outside lookup range → skipped" begin
     net = _lv_net()
     net["linecode"]["lc"]["R_series_1_1"] = 0.00001  # 0.01 mΩ/m — below table minimum
+    # Reach the lookup gate with a complete complex-matrix signature. Missing
+    # X is now unassessed and conservatively skips thermal inference earlier.
+    for k in 1:4
+        net["linecode"]["lc"]["X_series_$(k)_$(k)"] = 0.0001
+    end
 
     net′, mf = augment_case(net; recipe=AugmentationRecipe(apply_thermal=true))
 
@@ -262,7 +267,20 @@ end
     @test contains(e.note, "outside lookup range")
 end
 
-@testset "i_max: single-phase length-1 standardised to per-conductor [phase, neutral]" begin
+@testset "T2: Thermal — incomplete matrix evidence remains unassessed" begin
+    net = _lv_net()
+    net["linecode"]["lc"]["R_series_1_1"] = 0.0003
+    observed = provenance_analysis(net, Finding[])["linecodes"]["by_linecode"]["lc"]
+    @test observed["verdict"] == "unassessed"
+    @test observed["balance_reason"] == "missing_or_incompatible_X_matrix"
+    target, manifest = augment_case(net; recipe=AugmentationRecipe(apply_thermal=true))
+    @test !haskey(target["linecode"]["lc"], "i_max")
+    entry = only(filter(e -> e.component_id == "lc" && e.field == "i_max", manifest.entries))
+    @test entry.new_value === nothing
+    @test entry.confidence == :low
+end
+
+@testset "i_max: single-phase length-1 standardized to per-conductor [phase, neutral]" begin
     net = parse_bmopf("""
     {"bus":{"b":{"terminal_names":["1","n"]}},
      "voltage_source":{"vs":{"bus":"b","terminal_map":["1"],"v_magnitude":[230.0],"v_angle":[0.0]}},
@@ -322,7 +340,7 @@ end
     @test haskey(net2′["linecode"]["lc_seq"], "i_max")
 
     # Regression: a per-call config override of [thermal].tolerance must be
-    # honoured (the tolerance used to be baked into a module-load constant).
+    # honored (the tolerance used to be baked into a module-load constant).
     # R₁₁ = 0.45 mΩ/m sits ~14 % from the nearest table row (0.396): it
     # matches under the default 15 % tolerance but not under a 1 % override.
     net_off = deepcopy(net)

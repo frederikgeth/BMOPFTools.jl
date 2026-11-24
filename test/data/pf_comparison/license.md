@@ -1,7 +1,7 @@
 # Power-flow comparison fixtures
 
 Small synthetic OpenDSS cases authored for BMOPFTools, each exercising one
-modelling feature (winding configurations, split-phase, regulators, grounding
+modeling feature (winding configurations, split-phase, regulators, grounding
 variants) in the BMOPF ↔ OpenDSS power-flow cross-check suite. Not derived
 from utility data.
 

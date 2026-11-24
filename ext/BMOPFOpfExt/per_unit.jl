@@ -53,7 +53,7 @@ function _compute_classic_bases(net::Dict{String,Any}, s_base::Float64)
     src_bus != "" && (v_base[src_bus] = src_vbase)
 
     # BFS through transformers to propagate V_base.
-    # Build adjacency: bus -> [(neighbour_bus, v_nom_from, v_nom_to, from_is_from)]
+    # Build adjacency: bus -> [(neighbor_bus, v_nom_from, v_nom_to, from_is_from)]
     xfmr_adj = Dict{String,Vector{Tuple{String,Float64,Float64}}}()
     xfmr_dict = get(net, "transformer", Dict())
     for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
@@ -308,7 +308,7 @@ function _validate_zone_power_bases!(net, power_bases)
     isempty(extra_buses) || throw(ArgumentError(
         "ZonePerUnitScaling contains unknown AC buses: " * join(repr.(extra_buses), ", ")))
 
-    for zone in BMOPFTools._galvanic_zones(net)
+    for zone in BMOPFTools._galvanic_zones(net; include_neutral_only=true)
         buses = sort!(String.(collect(zone)))
         zone_values = unique(power_bases[bus] for bus in buses)
         length(zone_values) == 1 || throw(ArgumentError(
@@ -384,14 +384,16 @@ _compute_bases(net::Dict{String,Any}, s_base::Float64) =
 
 Return a deep copy of `net` with all numerical fields scaled to per unit,
 plus the `bases` NamedTuple produced by `_compute_bases`. The original `net`
-is never mutated.
+is never mutated, unless `copy=false`: then `net` is scaled in place and
+returned, for callers that already own a private copy.
 """
 function _to_per_unit(
-        net::Dict{String,Any}, policy::BMOPFTools.AbstractOpfScalingPolicy)
+        net::Dict{String,Any}, policy::BMOPFTools.AbstractOpfScalingPolicy;
+        copy::Bool=true)
     policy isa BMOPFTools.SIUnitsScaling && throw(ArgumentError(
         "SIUnitsScaling does not define a per-unit transformation"))
     bases  = _compute_bases(net, policy)
-    net_pu = deepcopy(net)
+    net_pu = copy ? deepcopy(net) : net
     _pu_scale_buses!(net_pu, bases)
     _pu_scale_sources!(net_pu, bases)
     _pu_scale_linecodes!(net_pu, bases)
@@ -544,7 +546,7 @@ function _pu_scale_linecodes!(net, bases)
     # Inline ABSOLUTE matrices on lines (Ω, S — never length-scaled) use the
     # same z_base as the line's buses; line-level i_max (rating override /
     # inline-line rating) scales by the current base. Same scaling laws as
-    # linecodes — absolute vs per-metre makes no difference to per-unit.
+    # linecodes — absolute vs per-meter makes no difference to per-unit.
     for (_, line) in get(net, "line", Dict())
         bus = get(line, "bus_from", "")
         zb  = get(bases.z_base, bus, 1.0)
@@ -698,7 +700,7 @@ function _pu_scale_transformers!(net, bases)
             haskey(xfmr, "r_neutral_to")   && (xfmr["r_neutral_to"]   = Float64(xfmr["r_neutral_to"])   / zb_to)
             haskey(xfmr, "x_neutral_to")   && (xfmr["x_neutral_to"]   = Float64(xfmr["x_neutral_to"])   / zb_to)
 
-            # No-load (magnetising) shunt admittance is stamped across the
+            # No-load (magnetizing) shunt admittance is stamped across the
             # winding-2 (to-side) coil, so it scales by the TO-bus base. An
             # admittance goes to p.u. by ×z_base (= ÷y_base), the reciprocal of
             # an impedance — without this the core loss silently vanishes in
@@ -893,7 +895,7 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         end
     end
 
-    # Initialisation start values: same V_base scaling as solved bus voltages
+    # Initialization start values: same V_base scaling as solved bus voltages
     for (bid, t_dict) in get(result, "initialisation", Dict())
         vb = get(bases.v_base, bid, 1.0)
         for (_, tvals) in t_dict

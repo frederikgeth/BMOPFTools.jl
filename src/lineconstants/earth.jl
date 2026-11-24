@@ -77,7 +77,7 @@ end
 
 Mutual impedance between conductors i and j separated by distance `d`
 (passed explicitly so cable-internal core↔shield pairs can override the
-centre-to-centre distance).
+center-to-center distance).
 """
 function _z_mutual(model::AbstractString, d::Real,
                    xi::Real, yi::Real, xj::Real, yj::Real,

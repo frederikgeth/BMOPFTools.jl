@@ -1,9 +1,9 @@
 # Installation & first steps
 
 This page takes you from a bare machine to a Julia session where the
-[end-to-end tutorial](tutorial_end_to_end.md) runs. If you already use Julia
-day-to-day, the [Installing BMOPFTools](@ref installing-bmopftools) section is
-all you need.
+[bundled first-case walkthrough](first_case.md) runs without external data.
+If you already use Julia day-to-day, the
+[Installing BMOPFTools](@ref installing-bmopftools) section is all you need.
 
 ## Prerequisites: installing Julia
 
@@ -66,7 +66,7 @@ scripts, but `pkg> add ...` and `Pkg.add("...")` are interchangeable.
 
 ## [Installing BMOPFTools](@id installing-bmopftools)
 
-BMOPFTools is not yet in Julia's **General registry** (the default catalogue
+BMOPFTools is not yet in Julia's **General registry** (the default catalog
 `Pkg.add("SomePackage")` searches), so install it from its Git URL. At the
 `julia>` prompt:
 
@@ -90,7 +90,7 @@ Parsing, validation, analysis, reporting, and OpenDSS ingestion
 `solve_opf`, `solve_pf` and `solve_feasibility_opf` live in a **package
 extension**: optional functionality that activates automatically once its
 extra dependencies are installed. The tutorials that solve an OPF need
-**JuMP** (the optimisation modelling layer) and one of the supported solvers
+**JuMP** (the optimization modeling layer) and one of the supported solvers
 such as **Ipopt**, **MadNLP**, or **Gurobi**. The optional **ExaModels** path
 uses its JuMP optimizer with an NLPModels-compatible solver such as
 **NLPModelsIpopt**:
@@ -124,7 +124,7 @@ julia --project=docs
 
 `--project=docs` starts Julia with the `docs/` folder's **environment** — the
 `Project.toml` file there pins the package set (BMOPFTools, JuMP, Ipopt, …).
-The first time, materialise that environment from inside the REPL:
+The first time, materialize that environment from inside the REPL:
 
 ```julia
 using Pkg
@@ -132,12 +132,16 @@ Pkg.develop(path = ".")   # use the cloned BMOPFTools source
 Pkg.instantiate()         # download and install the pinned dependencies
 ```
 
-After that, `julia --project=docs` from the repository folder drops you
-straight into a session where every tutorial runs.
+After that, `julia --project=docs` from the repository folder provides the
+environment for the bundled examples. Tutorials marked **External dataset**
+still require the separate data setup described on their pages.
 
 ## Where to next
 
-- The [end-to-end tutorial](tutorial_end_to_end.md) walks the primary
-  pipeline — OpenDSS in, solved OPF benchmark out — on a real feeder.
+- Start with [First case: inspect, solve and verify](first_case.md), using the
+  bundled synthetic feeder.
+- The [utility-data end-to-end tutorial](tutorial_end_to_end.md) adds OpenDSS
+  conversion and preparation on a real feeder. It requires the external dataset
+  described on that page; it is not required for the first walkthrough.
 - [Choose your tutorial](choose_tutorial.md) maps the rest of the tutorial
   library to what you want to do.

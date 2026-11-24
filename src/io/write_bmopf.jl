@@ -1,7 +1,7 @@
 """
     write_bmopf(net::Dict{String,Any}, dest; meta=nothing, indent=2, include_coordinates=true)
 
-Serialise a BMOPF network dict to JSON.
+Serialize a BMOPF network dict to JSON.
 
 - `dest::IO`             — writes to the IO stream
 - `dest::AbstractString` — writes to a file at that path
@@ -11,7 +11,7 @@ A `meta` block is always written. Fields are assembled in this priority order
 defaults (`\$schema`, `case_study_generator`, `created`). Caller-supplied values
 are never overwritten by auto-generation.
 
-The input `net` is never mutated. Tool-private state is not serialised verbatim:
+The input `net` is never mutated. Tool-private state is not serialized verbatim:
 the `"_meta"` key is persisted under `meta.provenance`, and the derived bus
 `neutral_terminal` is stripped (it is recomputed on read). Bus `longitude` and
 `latitude` fields are preserved by default for viewers such as Tellegen.

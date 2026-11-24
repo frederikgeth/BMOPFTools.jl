@@ -180,7 +180,7 @@ function _sol_md_voltage(r::SolutionReport, io::IO)
                            r.findings)
     isempty(volt_findings) && return
     println(io, "## 2. Voltage Bounds\n")
-    println(io, "| Sev | Bus | Terminal/Seq | Flavour | Value | Bound |")
+    println(io, "| Sev | Bus | Terminal/Seq | Flavor | Value | Bound |")
     println(io, "|-----|-----|-------------|---------|-------|-------|")
     for f in volt_findings
         sev  = f.severity == ERROR ? "**E**" : "W"

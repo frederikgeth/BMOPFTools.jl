@@ -136,6 +136,10 @@ function spec_conformance_check(net::Dict{String,Any},
             ctx.evidence["reason"] === nothing || continue
             bid = get(c, "bus", nothing)
             nn  = bid isa AbstractString ? bus_neutral(bid) : nothing
+            # A device may select the distinct grounded node-0 return even
+            # when the bus also carries a conductor neutral. Use its map.
+            mapped_neutral=_neutral_terminal(tm,case_roles.neutral)
+            mapped_neutral===nothing || (nn=mapped_neutral)
 
             # --- semantic checks per configuration ---
             if cfg == "SINGLE_PHASE" && nn !== nothing
@@ -548,7 +552,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
     # --- objective well-posedness ---
     # The voltage source is the network's priced current slack; a generator with
     # a cost is dispatchable generation. The objective is well-posed if either
-    # carries a cost. (Legacy `_slack` generators are still recognised.)
+    # carries a cost. (Legacy `_slack` generators are still recognized.)
     gens = get(net, "generator", Dict())
     with_cost = [id for (id, g) in gens if g isa Dict && haskey(g, "cost")]
     non_slack = [id for id in with_cost if !get(gens[id], "_slack", false)]
@@ -571,7 +575,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
     result["objective_wellposed"] = !isempty(with_cost) || !isempty(src_with_cost)
     # "Only slack generation" = the objective is well-posed but the only priced
     # element is the slack source and there is no dispatchable DER fleet —
-    # dispatch is trivial (loss minimisation).
+    # dispatch is trivial (loss minimization).
     result["only_slack_generation"] =
         result["objective_wellposed"] && isempty(non_slack) &&
         isempty(ibr_dispatch) && has_slack_cost
@@ -583,7 +587,7 @@ function benchmark_readiness_check(net::Dict{String,Any},
             "(augment_case does this by default) or dispatchable DERs")
     elseif isempty(non_slack) && isempty(ibr_dispatch)
         push!(suggestions,
-            "only slack generation — dispatch is trivial (loss minimisation); " *
+            "only slack generation — dispatch is trivial (loss minimization); " *
             "add dispatchable DERs with diverse costs and p/q bounds")
     end
 
@@ -595,12 +599,17 @@ function benchmark_readiness_check(net::Dict{String,Any},
     n_vpn  = count(b -> haskey(b, "vpn_min")  || haskey(b, "vpn_max"),  values(buses))
     n_vpp  = count(b -> haskey(b, "vpp_min")  || haskey(b, "vpp_max"),  values(buses))
     n_vpos = count(b -> haskey(b, "vpos_min") || haskey(b, "vpos_max"), values(buses))
+    n_any  = count(_has_voltage_magnitude_bound, values(buses))
     result["pct_v_bounds"]   = n_buses > 0 ? round(100.0 * n_vb / n_buses, digits=1) : 0.0
+    result["pct_voltage_magnitude_bounds"] =
+        n_buses > 0 ? round(100.0 * n_any / n_buses, digits=1) : 0.0
     result["n_vpn_bounds"]   = n_vpn
     result["n_vpp_bounds"]   = n_vpp
     result["n_vpos_bounds"]  = n_vpos
 
-    if n_buses > 0 && n_vb == 0
+    # Phase-to-neutral, phase-to-phase and positive-sequence bounds also
+    # constrain voltage magnitude; only a case with none of them is unconstrained.
+    if n_buses > 0 && n_any == 0
         push!(suggestions,
             "no voltage magnitude bounds on any bus — voltage is " *
             "unconstrained; add v_min/v_max (phase-to-ground)")

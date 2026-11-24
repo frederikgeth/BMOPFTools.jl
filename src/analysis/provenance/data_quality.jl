@@ -107,13 +107,17 @@ end
 # transformer that was elided into the per-unit line model (textbook "the
 # transformer disappears in per-unit"), or a data error. `bus_voltage_map` comes
 # from `voltage_level_analysis`; a level ratio beyond `tol` (default 5 %) flags.
+# A neutral-only line (for example, a primary-to-secondary neutral bond) carries
+# no phase conductor, so its endpoint levels do not make it an elided transformer.
 function _check_line_voltage_level_bridges(net::Dict{String,Any},
                                            findings::Vector{Finding},
                                            bus_voltage_map::AbstractDict;
                                            tol::Float64 = 0.05)::Dict{String,Any}
     affected = String[]
+    roles = _index_roles(net)
     for (id, l) in get(net, "line", Dict())
         l isa Dict || continue
+        _neutral_only_branch(l, roles) && continue
         bf = get(l, "bus_from", nothing); bt = get(l, "bus_to", nothing)
         (bf isa AbstractString && bt isa AbstractString) || continue
         vf = get(bus_voltage_map, string(bf), nothing)
@@ -433,15 +437,16 @@ function _check_voltage_source_sequence(net::Dict{String,Any},
                                         findings::Vector{Finding})::Dict{String,Any}
     affected = String[]
     arrangements = Dict{String,String}()
+    is_return = _return_label_predicate(net)
     for (sid, vs) in get(net, "voltage_source", Dict())
         vs isa Dict || continue
         tm  = Vector{String}(string.(get(vs, "terminal_map", String[])))
         va  = Float64.(get(vs, "v_angle", Float64[]))
         nt  = _neutral_terminal(tm)
-        # Phase angles in terminal_map order, neutral dropped, aligned to v_angle.
+        # Phase angles in terminal_map order, returns dropped, aligned to v_angle.
         angs = Float64[]
         for (k, t) in enumerate(tm)
-            (t == nt || lowercase(t) == "n") && continue
+            is_return(t, nt) && continue
             k <= length(va) && push!(angs, va[k])
         end
         length(angs) >= 2 || continue   # single-phase: no rotation to classify
@@ -455,14 +460,14 @@ function _check_voltage_source_sequence(net::Dict{String,Any},
              "Voltage source '$sid' has a zero-sequence angle profile " *
              "(v_angle ≈ $(deg)°): all phases share one angle — not a valid " *
              "positive-sequence supply. Fix the source angles and use positive-" *
-             "sequence initialisation + va_diff/sequence bounds, or expect " *
+             "sequence initialization + va_diff/sequence bounds, or expect " *
              "convergence failure (cf. PSCC-2026 Table VI).")
         elseif arr === :negative
             ("W.PROV.SOURCE_NEGATIVE_SEQUENCE",
              "Voltage source '$sid' has a negative-sequence angle profile " *
              "(v_angle ≈ $(deg)°): rotation is reversed vs the a→b→c phase " *
-             "labels — likely a phase-labelling error. Verify the source, and " *
-             "match voltage initialisation to the intended rotation.")
+             "labels — likely a phase-labeling error. Verify the source, and " *
+             "match voltage initialization to the intended rotation.")
         elseif arr === :incoherent
             ("W.PROV.SOURCE_INCOHERENT_ROTATION",
              "Voltage source '$sid' has an incoherent angle profile " *
@@ -751,7 +756,7 @@ const _SWITCH_LIKE_Z_TOTAL  = Float64(_switch_like_cfg()["z_total"])   # Ω
 Flag lines whose series impedance is so small they are functionally switches.
 Two independent conditions are checked for each line that references a linecode:
 
-1. **Per-unit-length** — every diagonal entry of R and X (per metre) is below
+1. **Per-unit-length** — every diagonal entry of R and X (per meter) is below
    `$_SWITCH_LIKE_Z_PER_M` Ω/m. Catches very low-impedance linecodes regardless
    of line length.
 2. **Effective total** — every diagonal entry of R·length and X·length is below
@@ -770,7 +775,7 @@ function _check_switch_like_lines(net::Dict{String,Any},
 
         if _line_has_inline_z(line)
             # inline ABSOLUTE matrices [Ω]: only the total-impedance condition
-            # applies (there is no per-metre representation to test)
+            # applies (there is no per-meter representation to test)
             R = _pattern_keys_to_matrix(line, "R_series_")
             X = _pattern_keys_to_matrix(line, "X_series_")
             (R isa AbstractMatrix) || continue
@@ -825,7 +830,7 @@ function _check_switch_like_lines(net::Dict{String,Any},
         lcid = get(get(lines, lid, Dict()), "linecode", nothing)
         push!(findings, Finding(INFO, "I.PROV.LINE_SWITCH_LIKE", :provenance,
             :line, lid,
-            "Line '$lid' has near-zero series impedance and may be modelled " *
+            "Line '$lid' has near-zero series impedance and may be modeled " *
             "more accurately as a switch: $(join(reasons, "; ")).",
             Dict{String,Any}("linecode" => lcid, "reasons" => reasons)))
     end

@@ -6,12 +6,12 @@ A **step-voltage regulator** is an **autotransformer**: a *series* winding and a
 adjusts the voltage by a tap ratio close to 1. Two objects are provided:
 `single_phase_autotransformer` and the monolithic three-phase `open_delta_regulator`.
 Parts 1–5 state the foundational model; [part 6](#6.-Implementation-in-BMOPFTools) records
-the realisation. Symbols are defined in [Notation](notation.md).
+the realization. Symbols are defined in [Notation](notation.md).
 
 ![Single-phase step-voltage regulator (autotransformer): series and common windings sharing a node.](assets/autotransformer.svg)
 
-!!! note "Two ways to conceptualise a regulator — series branch vs shunt terminal"
-    A regulator admits two modelling views. **(1) As a series branch** — a two-port
+!!! note "Two ways to conceptualize a regulator — series branch vs shunt terminal"
+    A regulator admits two modeling views. **(1) As a series branch** — a two-port
     element on the feeder with a *from* (source) and a *to* (regulated) bus, power flowing
     through it exactly like a transformer. This is the natural power-systems reading for
     anyone used to galvanic (isolated) transformers, and it is what this specification
@@ -155,7 +155,7 @@ Per-winding current-magnitude circles, per side and conductor:
 
 ## 6. Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
 Both regulator subtypes also have an exact nodal **primitive admittance**
 $\textcolor{brown}{\mathbf{Y}_x}$ (`Yprim`) — the autotransformer $2\times2$ core and the
@@ -187,7 +187,7 @@ two line-to-line open-delta cores — given in closed form on the
 
 !!! warning "Regulators are not in the Task Force PDF"
     Step-voltage regulators (`single_phase_autotransformer`, `open_delta_regulator`) —
-    galvanically-tied autotransformers with tap optimisation — are a BMOPFTools
-    extension with no counterpart in the current PDF, and are modelled as a distinct
+    galvanically-tied autotransformers with tap optimization — are a BMOPFTools
+    extension with no counterpart in the current PDF, and are modeled as a distinct
     element from the isolated [transformers](transformer.md). Add them to the superseding
     spec as their own component.

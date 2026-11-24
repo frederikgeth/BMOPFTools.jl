@@ -1,4 +1,4 @@
-# Objective: minimise total generation cost.
+# Objective: minimize total generation cost.
 #
 # `cost` is a per-phase vector of energy-price coefficients, one element per
 # phase term of the element ($/kWh). For a snapshot, the cost rate of phase k is
@@ -9,11 +9,11 @@
 # CONVENTION (uniform across generators, IBRs, AND the voltage source): P_k is the
 # active power *injected into the network* by the element — every element stamps
 # +I into KCL and reports power as +injection (see generator.jl / source.jl /
-# results.jl). A POSITIVE cost therefore minimises that element's injection, and a
-# NEGATIVE cost maximises it — identically for all element types. The source is NOT
+# results.jl). A POSITIVE cost therefore minimizes that element's injection, and a
+# NEGATIVE cost maximizes it — identically for all element types. The source is NOT
 # a special case: for the slack, +injection means importing from the grid, so a
 # positive cost reads as the grid import price (and export, a negative injection,
-# is credited at that same price). Maximising system exports = positive slack cost
+# is credited at that same price). Maximizing system exports = positive slack cost
 # with free DERs. Do not flip the sign for the source; the convention is enforced
 # by the "uniform cost convention (source ≡ generator)" OPF test.
 
@@ -32,7 +32,7 @@ end
 """
     _add_objective!(model, net, vars)
 
-Set the JuMP objective to minimise total active-power generation cost.
+Set the JuMP objective to minimize total active-power generation cost.
 
 The `"cost"` field on generators, the voltage source, and IBRs is a
 **per-phase vector of energy prices** `[c_1, …, c_nphase]` (currency/kWh). For a
@@ -49,7 +49,7 @@ end
     _generation_cost_expr(model, net, vars) -> JuMP.QuadExpr
 
 Build (but do NOT set) the total active-power generation-cost expression that
-`_add_objective!` minimises. Pure: it declares no constraints and does not touch
+`_add_objective!` minimizes. Pure: it declares no constraints and does not touch
 the model objective, so it can be summed across periods by a multi-period
 wrapper before a single `@objective` call. See `_add_objective!` for the cost
 convention.

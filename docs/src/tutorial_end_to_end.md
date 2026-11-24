@@ -3,9 +3,13 @@
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
+
+New to the package? Start with [First case: inspect, solve and verify](first_case.md)
+for a bundled example. Return here when you want to follow the OpenDSS conversion
+and preparation steps with the external utility dataset.
 
 This is the **primary use case** of BMOPFTools, start to finish, on one real
 feeder. We take a utility-style OpenDSS model and walk the whole pipeline:
@@ -14,9 +18,9 @@ feeder. We take a utility-style OpenDSS model and walk the whole pipeline:
 load → analyze → fix → place DERs → augment → re-validate → solve → export
 ```
 
-Every code block on this page is **executed when the documentation is built**,
-so the inventory counts, findings, manifests and solver output below are real —
-not hand-transcribed. The complete copy-paste scripts live in
+Run the code blocks in order in one Julia session with the external dataset
+available. These blocks are not executed by the documentation build; inventory
+counts and findings can change with the importer version. Companion scripts live in
 [`examples/lv1_14bus_walkthrough.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/lv1_14bus_walkthrough.jl)
 (analysis) and
 [`examples/augment_and_solve.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/augment_and_solve.jl)
@@ -77,11 +81,11 @@ provenance, schema, completeness, domain rules, redundancy, integrity, spec
 conformance, benchmark readiness, and more — and returns a
 [`SummaryReport`](@ref). Each diagnostic is a [`Finding`](@ref) with a stable
 dot-separated code; see [Analysis & reports](analysis.md) for what each pass
-computes and the [finding-code reference](findings.md) for the full catalogue.
+computes and the [finding-code reference](findings.md) for the full catalog.
 
 ```julia
 report = analyze(net)
-
+render(report, "LV1_14bus_case_report.md")      # save for review
 println("ERRORs   : ", length(errors(report)))
 println("WARNINGs : ", length(warnings(report)))
 println("INFOs    : ", length(infos(report)))
@@ -92,7 +96,7 @@ feeder imports with zero errors and two warnings: a handful of degree-1 buses
 with nothing attached (`W.CONN.DANGLING` — switch and stub endpoints), and
 `W.OPS.IMPORT_DEPENDENT` — the feeder has **no local generation at all**. That
 second warning is the analyzer telling you the import is a *passive load
-feeder*: there is nothing for an OPF to optimise yet, which is exactly what the
+feeder*: there is nothing for an OPF to optimize yet, which is exactly what the
 DER-placement step below is for. The missing operating bounds show up as INFO
 findings such as `I.PRE.NO_VOLT_BOUNDS`, which the augmentation step fills.
 
@@ -104,7 +108,7 @@ end
 
 The full report renders to a terminal or a Markdown file. The one-line
 **modeling-convention statement** (wires per voltage level, grounding style,
-normalisations) makes the case's hidden assumptions explicit:
+normalizations) makes the case's hidden assumptions explicit:
 
 ```julia
 render(report, stdout)
@@ -128,10 +132,15 @@ net_fixed, fix_mf = fix_case(net; recipe = FixRecipe())
 render_manifest(fix_mf)
 ```
 
+Structural repairs can leave unused records in the `linecode` catalog when
+lines are merged or converted to switches. Inspect the surviving lines and their
+references when checking limits; an unused linecode does not describe an active
+branch. The readback in Step 5 follows those references without deleting records.
+
 ## 4. Place DERs
 
 A faithful import is usually a passive load feeder — there is nothing for an OPF
-to optimise. [`add_ibrs`](@ref) (and its sibling [`add_generators`](@ref))
+to optimize. [`add_ibrs`](@ref) (and its sibling [`add_generators`](@ref))
 **declare** a DER fleet with a recipe and let the library choose buses from the
 network's own semantics, recording every field it writes. Here a
 `:load_following` recipe drops one PV IBR on each load bus.
@@ -154,13 +163,13 @@ render_manifest(der_mf)
 
 ## 5. Augment — standards-grounded gap-filling
 
-[`augment_case`](@ref) fills the bounds and costs an OPF needs, **without
-overwriting any value already present**. Each fill is tagged in the manifest as
-`:standard` (derived from a cited standard) or `:synthetic` (a design choice).
-The passes draw on EN 50160 (voltage bounds), a heuristic conductor-size →
-ampacity estimate (thermal limits, loosely IEC-60228/60364-calibrated), and
-EN 50549-1 / IEEE 1547 (reactive capability). See
-[Case augmentation](augmentation.md) for the full pass-by-pass rationale.
+[`augment_case`](@ref) fills missing bounds and costs, **without overwriting
+any value already present**. The manifest records each change's rule and
+confidence, including `:standard` for standard-derived fills and `:synthetic`
+for study choices. The voltage and reactive-capability passes draw on
+EN 50160 and EN 50549-1 / IEEE 1547, respectively. Synthetic thermal estimation
+is a separate opt-in pass: `AugmentationRecipe()` has `apply_thermal=false`.
+See [Case augmentation](augmentation.md) for the full pass-by-pass rationale.
 
 ```julia
 net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
@@ -168,26 +177,58 @@ net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
 render_manifest(aug_mf)
 ```
 
-**Where the thermal limits landed.** The thermal pass writes a heuristic
-per-conductor ampacity `i_max` (in A) onto each linecode that lacked one — this
-is the line/cable thermal limit the OPF enforces, and it is tagged `:synthetic`
-in the manifest above. Read it straight off the prepared linecodes:
+**Read the current limits actually present.** A line's own `i_max` takes
+precedence over its referenced linecode's `i_max`. Reading only the linecodes
+therefore misses line-level overrides. The following loop reports the selected
+current-limit array in amperes and its storage location for each surviving line;
+the location does not establish how the rating was obtained:
 
 ```julia
-for (lc_id, lc) in sort(collect(net_ready["linecode"]); by = first)
-    imax = get(lc, "i_max", nothing)
-    println(rpad(lc_id, 16),
-            imax === nothing ? "no i_max (skipped — see manifest)" :
-                               string("i_max = ", imax, " A"))
+linecodes = get(net_ready, "linecode", Dict())
+for (line_id, line) in sort(collect(net_ready["line"]); by = first)
+    imax = get(line, "i_max", nothing)
+    location = "line"
+    if imax === nothing
+        lc_id = get(line, "linecode", nothing)
+        lc = get(linecodes, lc_id, Dict())
+        imax = get(lc, "i_max", nothing)
+        location = "linecode $(lc_id)"
+    end
+    println(rpad(line_id, 36),
+            imax === nothing ? "no i_max on line or referenced linecode" :
+                               string("i_max = ", imax, " A (", location, ")"))
 end
+println("New i_max writes in this augmentation: ",
+        count(e -> e.field == "i_max" && e.new_value !== nothing, aug_mf.entries))
 ```
 
+This readback shows the stored limits, not which augmentation passes ran.
+An absent `i_max` does not rule out a separate `s_max` limit. Use the manifest
+to distinguish newly written values from limits that were already present
+before augmentation.
+
+!!! warning "Absent ratings stay absent"
+    The tutorial's source DSS files declare neither `normamps` nor `emergamps`,
+    so its lines carry no `i_max` after `from_dss`, and the default augmentation
+    above adds none, so the OPF has no line `i_max` to enforce. PowerIO.jl
+    0.11.9 and earlier materialized the OpenDSS 600 A default as `i_max`
+    instead ([PowerIO #762](https://github.com/eigenergy/powerio/issues/762),
+    repaired in 0.11.10). Networks imported and saved with those versions can
+    still hold such arrays; re-import from the source DSS to remove them. Do
+    not remove ratings merely because they equal 600 A: explicit ratings can
+    have that value too. Zero is a binding limit, not a marker for an absent one.
+
+If your study explicitly calls for synthetic ampacity estimates, select
+`AugmentationRecipe(apply_thermal=true)`. That pass fills only eligible linecodes
+that lack `i_max`, subject to impedance-classification and lookup checks, and
+labels successful estimates `:heuristic`. It does not replace existing line
+overrides; inspect the manifest for skipped linecodes and the assumptions behind
+each estimate. See [Case augmentation](augmentation.md) for the R₁₁ lookup,
+its applicability limits, and the equal phase/neutral rating assumption.
+
 A **transformer's** thermal limit is a different mechanism: its nameplate
-`s_rating` (kVA) already plays that role and the OPF enforces it directly, so
-`augment_case` never adds a separate transformer thermal limit. The full
-pass-by-pass rationale — the R₁₁ → ampacity lookup table, its confidence gating,
-and the neutral-conductor rating — is in
-[Case augmentation](augmentation.md).
+`s_rating` is stored in **VA**, and the OPF enforces its winding power limits.
+`augment_case` does not infer a transformer thermal rating.
 
 ## 6. Re-validate
 
@@ -301,8 +342,8 @@ preserved by default; coordinates are optional. See
 [Visualizing a case with Tellegen](visualization.md) for the steps and the
 `include_coordinates=false` option for strict BMOPF schema consumers.
 
-[`write_bmopf`](@ref) serialises the benchmark-ready case.
-[`manifest_to_dict`](@ref) turns each manifest into a JSON-serialisable `Dict`,
+[`write_bmopf`](@ref) serializes the benchmark-ready case.
+[`manifest_to_dict`](@ref) turns each manifest into a JSON-serializable `Dict`,
 giving every downstream consumer a complete, auditable record of what was
 repaired, placed, and filled.
 

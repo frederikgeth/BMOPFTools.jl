@@ -46,7 +46,7 @@ Returned top-level keys
 - `"voltage_source"` — `src_id => terminal => {cr, ci [A], ps [W], qs [var]}`
 - `"initialisation"` — `bus_id => terminal => {vr_init, vi_init, vm_init [V], va_init [rad]}`
   Ipopt start values set before `optimize!`. Always present; used by `profile_solution`
-  to flag wrong-voltage-level and large-error initialisation.
+  to flag wrong-voltage-level and large-error initialization.
 
 Line and switch conductors are keyed by terminal name (using `terminal_map_from`
 for lines, `terminal_map_from` for switches), not by position index.  When
@@ -116,7 +116,7 @@ end
 #
 # Two galvanic earth paths exist in the transformer models:
 #
-# 1. The no-load (magnetising) shunt G+jB — now placed ACROSS the winding-2
+# 1. The no-load (magnetizing) shunt G+jB — now placed ACROSS the winding-2
 #    (to-side) coil (OpenDSS convention, verified against its Yprim). It reaches
 #    earth only when that coil's reference is ground:
 #      wye_delta (to = delta) : line-to-line delta coils → never earth.
@@ -130,10 +130,15 @@ end
 #
 # Returns (cg_r, cg_i) in A; zero when neither path reaches earth.
 function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr;
-                              current_weights=Dict{String,Float64}())
+                              current_weights=nothing)
     cg_r = 0.0; cg_i = 0.0
     nlabels = BMOPFTools._neutral_labels(net)
-    weight(bus) = Float64(get(current_weights, String(bus), 1.0))
+    # `current_weights` maps a bus id to its weight (1.0 when absent): either
+    # a dictionary or a function returning `nothing` for an absent bus.
+    weight(bus) = current_weights === nothing ? 1.0 :
+        current_weights isa AbstractDict ?
+            Float64(get(current_weights, String(bus), 1.0)) :
+            Float64(something(current_weights(String(bus)), 1.0))
 
     # Internal neutral-grounding branches (rneut/xneut).
     for (side, bkey, tmkey) in (("from", "bus_from", "terminal_map_from"),
@@ -161,7 +166,7 @@ function _xfmr_ground_current(vr_v, vi_v, val, net, subtype, xfmr;
     b_to = string(get(xfmr, "bus_to", ""))
     tmto = Vector{String}(get(xfmr, "terminal_map_to", String[]))
 
-    # Delta winding 2 and center_tap keep the magnetising branch off earth.
+    # Delta winding 2 and center_tap keep the magnetizing branch off earth.
     (subtype in ("wye_delta", "center_tap")) && return cg_r, cg_i
 
     if subtype == "delta_wye"
@@ -198,7 +203,7 @@ end
 #
 # Returns (p_loss, q_loss, s_through) in W / var / VA. Positive p_loss = real
 # power dissipated; q_loss is net reactive absorption (positive) or generation
-# (negative, e.g. line charging or transformer magnetising). Grounded terminals
+# (negative, e.g. line charging or transformer magnetizing). Grounded terminals
 # (V = 0) contribute nothing, exactly as the physics requires. s_through is the
 # sum of per-terminal apparent powers Σ|V_t||I_t| — a throughput scale used to
 # size numerical tolerances downstream (p_loss is a difference of large near-
@@ -254,6 +259,31 @@ function _report_xfmr_tap!(rec, tapd, subtype, tid, xfmr, val)
     return
 end
 
+# Read every variable's primal value from the solver in one batched call and
+# return a function that evaluates variables and affine/quadratic expressions
+# from that cache. Calling `JuMP.value` per variable instead goes through the
+# caching layer's index mapping once per term, which dominated extraction time.
+struct _PrimalReader
+    values::Vector{Float64}
+end
+
+function _primal_reader(model)
+    variables = JuMP.all_variables(model)
+    indices = JuMP.index.(variables)
+    raw = MOI.get(JuMP.backend(model), MOI.VariablePrimal(), indices)
+    values = fill(NaN, isempty(indices) ? 0 : maximum(i -> i.value, indices))
+    for (i, x) in zip(indices, raw)
+        values[i.value] = x
+    end
+    return _PrimalReader(values)
+end
+
+(r::_PrimalReader)(v::JuMP.VariableRef) = r.values[JuMP.index(v).value]
+(r::_PrimalReader)(x::Real) = x
+(r::_PrimalReader)(e::Union{JuMP.GenericAffExpr,JuMP.GenericQuadExpr}) =
+    JuMP.value(v -> r(v), e)
+(r::_PrimalReader)(x) = JuMP.value(x)
+
 function _extract_results(model, net, bus_terminals, grounded, vars,
                           branch_inj=nothing; bases=nothing)
     status = string(JuMP.termination_status(model))
@@ -285,7 +315,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
               "residuals and binding constraints with care."
     end
 
-    val(v) = has_values ? JuMP.value(v) : NaN
+    val = has_values ? _primal_reader(model) : (_ -> NaN)
 
     # ── Bus voltages ─────────────────────────────────────────────────────────
     bus_res = Dict{String,Any}()
@@ -371,13 +401,15 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
 
     # ── Load currents and absorbed power ─────────────────────────────────────
     load_res = Dict{String,Any}()
+    delta_roles = _delta_load_roles(net)
     for (lid, load) in get(net, "load", Dict())
         bus = get(load, "bus", "")
         tm  = Vector{String}(get(load, "terminal_map", String[]))
         cfg = get(load, "configuration", "WYE")
         is_delta  = cfg == "DELTA"
         n_c       = length(tm)
-        ph_pos    = is_delta ? collect(eachindex(tm)) : _phase_positions(tm, nlabels)
+        delta_coils = is_delta ? BMOPFTools._delta_load_coils(load, net; id=lid, roles=delta_roles) : nothing
+        ph_pos    = is_delta ? collect(eachindex(delta_coils)) : _phase_positions(tm, nlabels)
         n_pos_idx = is_delta ? nothing : _neutral_pos(tm, nlabels)
         t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
@@ -396,13 +428,13 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
                 "crd" => cr, "cid" => ci, "pd" => pd, "qd" => qd)
         else
             for (idx, ph) in enumerate(ph_pos)
-                t_ph = tm[ph]
+                t_ph = is_delta ? delta_coils[idx][1] : tm[ph]
                 cr = val(crd_v[(lid, idx)]); ci = val(cid_v[(lid, idx)])
                 vr_t = has_values ? val(vr_v[(bus, t_ph)]) : NaN
                 vi_t = has_values ? val(vi_v[(bus, t_ph)]) : NaN
                 # Reference: line-to-line (next phase) for DELTA, neutral for WYE.
                 if is_delta
-                    t_ref = tm[(ph % n_c) + 1]
+                    t_ref = delta_coils[idx][2]
                     vr_n  = has_values ? val(vr_v[(bus, t_ref)]) : NaN
                     vi_n  = has_values ? val(vi_v[(bus, t_ref)]) : NaN
                 else
@@ -618,13 +650,15 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
             # opposite winding buses. Convert each path into the from-side
             # reporting coordinate before summation; `_from_per_unit` then
             # applies the from-side current base exactly once.
+            # Looked up lazily: only the few buses this transformer touches
+            # are needed, so no per-transformer dictionary over every bus.
             current_weights = if bases === nothing
-                Dict{String,Float64}()
+                nothing
             else
                 bf = String(get(xfmr, "bus_from", ""))
                 ib_ref = Float64(get(bases.i_base, bf, 1.0))
-                Dict(String(bus) => Float64(base) / ib_ref
-                     for (bus, base) in bases.i_base)
+                i_base = bases.i_base
+                bus -> haskey(i_base, bus) ? Float64(i_base[bus]) / ib_ref : nothing
             end
             cg_r, cg_i = _xfmr_ground_current(
                 vr_v, vi_v, val, net, subtype, xfmr; current_weights)
@@ -716,7 +750,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         src_res[sid] = ph_results
     end
 
-    # ── Initialisation start values ──────────────────────────────────────────
+    # ── Initialization start values ──────────────────────────────────────────
     # Capture the start values set by _set_voltage_start_values! /
     # _set_level_aware_start_values! before the solver overwrites them.
     # JuMP.start_value returns nothing for fixed (grounded) terminals — these

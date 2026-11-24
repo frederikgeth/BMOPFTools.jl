@@ -8,6 +8,7 @@ Write a human-readable text report to `io`.
 function render_terminal(report::SummaryReport, io::IO;
                           color::Bool=false, verbose::Bool=true)
     _render_header(report, io; color)
+    _render_assessment_coverage(report, io)
     _render_inventory(report, io; color)
     _render_voltage_levels(report, io; color)
     _render_connectivity(report, io; color)
@@ -84,6 +85,7 @@ function _render_voltage_levels(r::SummaryReport, io::IO; color::Bool=false)
 
     levels = get(d, "levels", Dict())
     println(io, "  Voltage levels identified: $(get(d, "n_levels", 0))\n")
+    println(io, "  ",get(d,"voltage_basis_note","Nominals use a phase-to-reference basis."),"\n")
     w = 14
     println(io, "  $(rpad("Level", w)) $(rpad("Nominal", 12)) $(rpad("Buses", 7)) $(rpad("Lines", 7)) $(rpad("Loads", 7)) Generators")
     println(io, "  " * "─"^60)
@@ -99,6 +101,7 @@ function _render_voltage_levels(r::SummaryReport, io::IO; color::Bool=false)
         for tr in transitions
             vg = get(tr, "vector_group", "")
             tag = isempty(vg) ? tr["subtype"] : "$(tr["subtype"]), effective $vg"
+            tag *= _phase_source_note(get(tr,"phase_relation",Dict()))
             println(io, "    $(tr["id"])  $(tr["level_from"]) → $(tr["level_to"])  [$tag]")
         end
     end
@@ -116,6 +119,9 @@ function _render_connectivity(r::SummaryReport, io::IO; color::Bool=false)
     radial    = get(d, "is_radial", "?")
     println(io, "  Connected components:    $n_comp  $(connected ? "(fully connected)" : "⚠ DISCONNECTED")")
     println(io, "  Network topology:        $(radial == true ? "Radial" : "Meshed ($(get(d,"n_extra_edges",0)) extra edges)")")
+    n_neutral = get(d, "n_neutral_only_branches", 0)
+    n_neutral isa Integer && n_neutral > 0 && println(io,
+        "  Neutral-only branches:   $n_neutral (closing $(get(d,"neutral_only_cycle_rank",0)) cycle(s); excluded from radiality)")
 
     println(io, "\n  Degree statistics:")
     _kv_row(io, "Mean degree",   round(Float64(get(d,"degree_mean",0)), digits=2); indent=4)
@@ -163,6 +169,7 @@ function _render_connectivity(r::SummaryReport, io::IO; color::Bool=false)
         end
     end
 
+    _render_parallel_evidence(r, io)
     _render_section_findings(r, io, :connectivity; color)
 end
 
@@ -199,6 +206,7 @@ function _render_diversity(r::SummaryReport, io::IO; color::Bool=false)
         end
     end
 
+    _render_repeat_evidence(r, io)
     _render_section_findings(r, io, :diversity; color)
 end
 
@@ -233,16 +241,7 @@ function _render_operational(r::SummaryReport, io::IO; color::Bool=false)
         end
     end
 
-    xutil = get(d, "transformer_utilisation", Any[])
-    if !isempty(xutil)
-        println(io, "\n  Transformer utilisation (nominal load estimate):")
-        for u in xutil
-            bar = get(u, "estimate_status", "radial_component") == "upper_bound" ?
-                " (upper bound)" : u["utilisation_pct"] > 90 ? " ⚠" : ""
-            println(io, "    $(rpad(u["id"], 16)) $(rpad(_fmt_mva(u["s_rating_va"]) * " rating", 18)) " *
-                        "$(_fmt_pct(u["utilisation_pct"]))$bar")
-        end
-    end
+    _render_nameplate_estimates(r, io)
 
     tc = get(d, "line_thermal_coverage", Dict())
     if !isempty(tc)
@@ -251,6 +250,7 @@ function _render_operational(r::SummaryReport, io::IO; color::Bool=false)
                     "($(tc["pct_constrained"])% constrained)")
     end
 
+    _render_operational_evidence(r, io)
     _render_section_findings(r, io, :operational; color)
     _render_section_findings(r, io, :load_models; color)
 end
@@ -297,6 +297,7 @@ function _render_provenance(r::SummaryReport, io::IO; color::Bool=false)
     _section_header(io, "7. PROVENANCE & MODEL CONVENTIONS"; color)
 
     _kv_row(io, "Inferred convention", get(d, "convention", "undetermined"))
+    _render_provenance_evidence(r, io)
 
     wl = get(d, "wires_by_level", Dict())
     if !isempty(wl)
@@ -323,7 +324,7 @@ function _render_provenance(r::SummaryReport, io::IO; color::Bool=false)
     if !isempty(vc)
         println(io, "\n  Linecode impedance classification:")
         for verdict in ("distinct", "near_balanced", "exactly_balanced",
-                        "decoupled", "not_applicable")
+                        "decoupled", "unassessed", "not_applicable")
             haskey(vc, verdict) || continue
             println(io, "    $(rpad(verdict, 18)) $(vc[verdict])")
         end
@@ -351,9 +352,7 @@ function _render_provenance(r::SummaryReport, io::IO; color::Bool=false)
         println(io, "\n  Earthing system per galvanic zone:")
         for z in zones
             vlab = isnan(z["nominal_v"]) ? "?" : _fmt_kv(z["nominal_v"])
-            star = z["star_earthing"] == "solid" ? "solid" :
-                   z["star_earthing"] == "impedance" ?
-                       "R≈$(round(z["star_R_ohm"], sigdigits=2)) Ω" : "none"
+            star = _star_earthing_label(z)
             println(io, "    $(rpad(vlab, 10)) $(rpad("$(z["n_buses"]) bus(es)", 12)) " *
                         "$(rpad(z["wires"], 8)) star: $(rpad(star, 12)) " *
                         "+$(z["n_downstream_earths"]) downstream → $(z["tag"])")
@@ -362,8 +361,7 @@ function _render_provenance(r::SummaryReport, io::IO; color::Bool=false)
 
     pc = get(d, "powerio_conversion", Dict())
     if get(pc, "n_classes", 0) > 0
-        println(io, "\n  PowerIO conversion: $(pc["n_diagnostics"]) fidelity " *
-                    "loss(es) in $(pc["n_classes"]) class(es) — see findings")
+        println(io, "\n  PowerIO conversion: $(pc["n_diagnostics"]) diagnostic record(s) in $(pc["n_classes"]) class(es) — see findings")
     end
 
     _render_section_findings(r, io, :provenance; color)
@@ -406,7 +404,9 @@ function _render_spec_benchmark(r::SummaryReport, io::IO; color::Bool=false)
                 get(bench, "objective_wellposed", "?"); indent=4)
         _kv_row(io, "Only slack generation",
                 get(bench, "only_slack_generation", "?"); indent=4)
-        _kv_row(io, "Buses with |V| bounds",
+        _kv_row(io, "Buses with any |V| bound",
+                "$(get(bench, "pct_voltage_magnitude_bounds", "?"))%"; indent=4)
+        _kv_row(io, "Buses with v_min/v_max",
                 "$(get(bench, "pct_v_bounds", "?"))%"; indent=4)
         _kv_row(io, "vpn/vpp/vpos bounds",
                 "$(get(bench,"n_vpn_bounds",0)) / $(get(bench,"n_vpp_bounds",0)) / $(get(bench,"n_vpos_bounds",0)) buses"; indent=4)
@@ -455,6 +455,6 @@ function _render_section_findings(r::SummaryReport, io::IO, section::Symbol;
     isempty(fs) && return
     println(io)
     for f in fs
-        _fmt_finding(f, io; color, prefix="  ")
+        _fmt_finding(f, io; color, prefix="  ", interpretation=true)
     end
 end

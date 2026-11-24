@@ -1,10 +1,10 @@
 # [Choosing an objective](@id objectives)
 
-`solve_opf` minimises generation cost. That is one choice among many, and for a
+`solve_opf` minimizes generation cost. That is one choice among many, and for a
 lot of distribution questions it is the wrong one: least-cost dispatch has no
 opinion about losses, and no opinion at all about unbalance.
 
-This page is the catalogue of the objective terms BMOPFTools ships, what each
+This page is the catalog of the objective terms BMOPFTools ships, what each
 one *does to the answer*, and — as importantly — when not to use it.
 
 ## The shape of a composed objective
@@ -32,7 +32,7 @@ result = extract_result(ctx)
     `build_opf_model` defers KCL so a `model_hook!` can still contribute to the
     nodal accumulators. Until [`enforce_kcl!`](@ref) runs, **the network is
     electrically disconnected**: bus voltages are free variables and your
-    objective is minimised without physics. An unbalance objective in particular
+    objective is minimized without physics. An unbalance objective in particular
     reaches exactly zero with every compensator idle, which reads as a great
     result.
 
@@ -40,7 +40,7 @@ result = extract_result(ctx)
     warning. It is now an error: `JuMP.optimize!` refuses a model holding any
     unstamped context, and [`extract_result`](@ref) refuses an unstamped
     context. Pass `kcl_guard=false` to `build_opf_model` if you deliberately
-    want the optimise-time check off.
+    want the optimize-time check off.
 
     [`optimize_opf!`](@ref) checks all supplied contexts, finalizes missing KCL,
     and solves their shared model once. Call it after custom injections,
@@ -51,7 +51,7 @@ result = extract_result(ctx)
     available. After supported parameter-value updates, use [`resolve_opf!`](@ref)
     to refresh the cached optimizer; structural changes require rebuilding.
 
-## The catalogue
+## [The catalog](@id The-catalogue)
 
 | Term | Physical unit | Smooth? | Convex? | What it does |
 |---|---|---|---|---|
@@ -59,10 +59,10 @@ result = extract_result(ctx)
 | [`opf_loss_term`](@ref) | W | exact | bilinear, non-convex | Least-loss dispatch. |
 | [`opf_sequence_term`](@ref) `norm=:squared` | V² | exact | quadratic | Reduces unbalance everywhere a little. |
 | [`opf_sequence_term`](@ref) `norm=:magnitude` | V | to ε | group-lasso | Drives a few buses to balanced. |
-| [`opf_sequence_term`](@ref) `norm=:max` | V² | exact | convex quadratic epigraph | Protects the worst bus. **Minimisation only.** |
+| [`opf_sequence_term`](@ref) `norm=:max` | V² | exact | convex quadratic epigraph | Protects the worst bus. **Minimization only.** |
 | [`opf_current_term`](@ref) `quantity=:neutral` | A² or A | exact / to ε | per `norm` | Reduces neutral conductor current. |
 | [`opf_current_term`](@ref) `quantity=:sequence` | A² or A | exact / to ε | per `norm` | Reduces zero-/negative-sequence current. |
-| [`opf_control_effort_term`](@ref) | A² or A | exact / to ε | per `norm` | Penalises moving devices off a reference. `:magnitude` gives device-level sparsity. |
+| [`opf_control_effort_term`](@ref) | A² or A | exact / to ε | per `norm` | Penalizes moving devices off a reference. `:magnitude` gives device-level sparsity. |
 | [`opf_vuf_term`](@ref) | %² | exact | ratio, non-convex | **Squared** VUF penalty. Needs `vpos_min`. Not a drop-in for VUF — see Pitfalls. |
 
 Anything not on this list you can build yourself from
@@ -100,8 +100,8 @@ current penalty are the same objective up to a factor of three — but the neutr
 form is in amps of real conductor current, which is easier to reason about
 against a conductor rating.
 
-A rough rule: if you are answering to a limit, penalise voltage; if you are
-answering to a thermal or loss question, penalise current.
+A rough rule: if you are answering to a limit, penalize voltage; if you are
+answering to a thermal or loss question, penalize current.
 
 ## Weights carry units — and that is deliberate
 
@@ -111,7 +111,7 @@ converted to physical units before weighting.
 
 The consequence worth relying on: **the same specification gives the same
 answer in `per_unit = true` and `per_unit = false`**, and keeps doing so under a
-future nondimensionalisation. This mirrors what the engine already does for
+future nondimensionalization. This mirrors what the engine already does for
 generation cost, where the per-unit working net pre-scales every cost
 coefficient by `s_base` so the factors cancel.
 
@@ -144,24 +144,24 @@ recorded is not a reproducible experiment.
 
 Every penalty on a complex quantity has to reduce a phasor to a scalar. The
 three reductions give **different answers**, and choosing between them is a
-modelling decision:
+modeling decision:
 
 - **`:squared`** — L2. Spreads the penalty. Improves every target a little.
   Cheapest and most reliable. Start here.
 - **`:magnitude`** — the group-lasso norm, `Σ‖(re, im)‖₂`. Drives *individual*
   targets to (near) zero rather than shrinking all of them. Use it when you want
   "fix these few completely" rather than "improve everything slightly".
-- **`:max`** — L∞. Minimises the worst target. A fairness objective. Exact
+- **`:max`** — L∞. Minimizes the worst target. A fairness objective. Exact
   through an epigraph over **squared** magnitudes, because `max` is monotone
   under squaring, so no square root is needed. The epigraph variable enters
   linearly but each constraint is a convex quadratic. It is exact **only while
-  being minimised with a non-negative weight** — the constraints bound it from
-  below only, so maximising it is unbounded. `set_opf_objective!` refuses that
+  being minimized with a non-negative weight** — the constraints bound it from
+  below only, so maximizing it is unbounded. `set_opf_objective!` refuses that
   combination rather than handing the solver an unbounded problem.
 
 !!! danger "Never reduce a phasor componentwise"
     `|re| + |im|` is **not rotation-invariant**: the answer would depend on your
-    phase reference. That is a bug, not a modelling choice. `:magnitude` sums
+    phase reference. That is a bug, not a modeling choice. `:magnitude` sums
     per-element 2-norms precisely to avoid it. If you build a custom term, use
     [`smooth_norm`](@ref) rather than summing absolute values of real and
     imaginary parts.
@@ -217,7 +217,7 @@ voltage penalty and a current penalty, in either unit mode.
 **The safe range for `eps_rel` depends on how the norm is used, and guidance
 that is right in one regime is wrong in the other.**
 
-**Regime 1 — the norm is being minimised** (every `:magnitude` term here). The
+**Regime 1 — the norm is being minimized** (every `:magnitude` term here). The
 solver's endgame happens *inside* the smoothed region, so ε controls
 conditioning directly. Measured over 40 configurations
 (`bench/sequence_objective_norms.jl`):
@@ -247,8 +247,8 @@ identical from ε_rel = 1e-2 down to 1e-18.
     fails a third of the time in regime 1.
 
 !!! warning "ε shifts the trade-off in a weighted objective"
-    For a *pure* norm objective ε does not move the minimiser — `√(x²+ε²) − ε`
-    is still minimised at `x = 0` — it only flattens the gradient near zero, so
+    For a *pure* norm objective ε does not move the minimizer — `√(x²+ε²) − ε`
+    is still minimized at `x = 0` — it only flattens the gradient near zero, so
     the solver stops a little earlier and looser. In a **weighted** objective
     like `cost + λ·unbalance` that flattened gradient competes against the other
     term, so ε *does* move the answer. Treat it as part of the model there, and
@@ -256,7 +256,7 @@ identical from ε_rel = 1e-2 down to 1e-18.
 
 ## Why not an exact cone?
 
-The textbook exact form of a minimised magnitude is the epigraph
+The textbook exact form of a minimized magnitude is the epigraph
 `min t s.t. x² + y² ≤ t²`. It is not used here, and the reason is measured
 rather than argued: on the same 40 configurations it reported
 `LOCALLY_INFEASIBLE` on **3/40**, all high-compensator-authority cases, while
@@ -296,8 +296,8 @@ absolute value matters rather than just its ordering, use squared quantities.
 
 ### Squared VUF is not a drop-in replacement for VUF
 
-`x ↦ x²` is monotone, so minimising `VUF²` and minimising `VUF` agree **for one
-bus as the sole objective**. Neither generalisation preserves that, and both are
+`x ↦ x²` is monotone, so minimizing `VUF²` and minimizing `VUF` agree **for one
+bus as the sole objective**. Neither generalization preserves that, and both are
 implemented:
 
 - **Summed over buses**, `Σ VUFᵢ²` and `Σ VUFᵢ` rank differently. VUFs of
@@ -305,7 +305,7 @@ implemented:
   Unsquared prefers the first, squared the second — squaring is an implicit
   preference for evenness. If you mean the worst bus, use `norm=:max`, which
   *is* order-equivalent to worst-bus VUF.
-- **Combined with another term**, squaring changes the scalarisation, so the
+- **Combined with another term**, squaring changes the scalarization, so the
   trade-off point against cost or losses moves.
 
 Report the unsquared number with [`opf_report_vuf`](@ref) rather than reading
@@ -332,12 +332,12 @@ tolerance, so at the default setting the same bound is satisfied to roughly
 This is solver tolerance, not a scaling defect: tightening `constr_viol_tol`
 drives the per-unit overshoot monotonically to zero (measured `2.2×10⁻³` at the
 default, `2.0×10⁻⁵` at `1e-10`, `2.2×10⁻⁷` at `1e-12`). If you need a
-dimensionless bound honoured to tight relative precision in per-unit, tighten
+dimensionless bound honored to tight relative precision in per-unit, tighten
 `constr_viol_tol` rather than padding the bound.
 
 ### A feasibility solve cannot tell you whether a bound works
 
-Checking a constraint by minimising a constant (`@objective(m, Min, 0.0)`) looks
+Checking a constraint by minimizing a constant (`@objective(m, Min, 0.0)`) looks
 like the neutral way to ask "is this bound respected?". It is not, for two
 reasons.
 
@@ -352,18 +352,18 @@ Exercise a bound under a **real objective** that pushes against it. Then the
 constrained optimum is determinate, the bound is genuinely active, and both unit
 modes converge to the same point.
 
-### An epigraph term is only exact when minimised
+### [An epigraph term is only exact when minimized](@id An-epigraph-term-is-only-exact-when-minimised)
 
 `norm=:max` builds `t` with `re² + im² ≤ t`, which bounds `t` from **below**
 only. It equals the maximum while being pushed down, and is **unbounded** if
-maximised or given a negative weight. `set_opf_objective!` rejects those, but the
+maximized or given a negative weight. `set_opf_objective!` rejects those, but the
 underlying asymmetry is worth knowing before writing a custom epigraph term.
 
 ### Do not carry an ε policy between regimes
 
 Anchoring `ε` just under the solver tolerance is correct when the norm is a
 coefficient, and fails **13 times out of 40** when the norm is what you are
-minimising. See [Sizing ε](@ref) above. One `eps_rel` is not a global constant.
+minimizing. See [Sizing ε](@ref) above. One `eps_rel` is not a global constant.
 
 ### Do not size ε from a unit-conversion factor
 
@@ -377,9 +377,9 @@ and is deliberately *not* what sizes `ε`.
 
 ### An exact reformulation is not automatically the reliable one
 
-The textbook epigraph for a minimised magnitude is exact and looks obviously
+The textbook epigraph for a minimized magnitude is exact and looks obviously
 correct. Measured, it fails 3/40 where the smoothed form fails none. Reach for
-measurement before intuition on solver behaviour; `bench/sequence_objective_norms.jl`
+measurement before intuition on solver behavior; `bench/sequence_objective_norms.jl`
 is there to be re-run.
 
 ### Do not reduce a phasor componentwise
@@ -413,9 +413,9 @@ Two floating-point consequences worth knowing before you assert on them:
 - **Cost and losses.** With heterogeneous prices these actively disagree — see
   above, and the [tutorial](@ref tutorial-objectives) where least-loss dispatch
   costs 28% more and least-cost dispatch loses 3.6× more.
-- **Voltage unbalance and current unbalance.** Minimising neutral current can
+- **Voltage unbalance and current unbalance.** Minimizing neutral current can
   make `|V₂|` *worse than doing nothing about unbalance at all*. If someone says
-  "we minimise unbalance", ask which one.
+  "we minimize unbalance", ask which one.
 
 ### A weight is unit-mode invariant, not target-set invariant
 

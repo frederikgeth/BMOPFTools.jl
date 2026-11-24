@@ -3,7 +3,7 @@
 A **switch** is an ideal, lossless branch connecting two buses conductor-for-conductor.
 When *closed* it short-circuits its terminals; when *open* it carries no current. Parts
 1–5 state the foundational model; [part 6](#6.-Implementation-in-BMOPFTools) records how
-BMOPFTools realises it. Symbols are defined in [Notation](notation.md).
+BMOPFTools realizes it. Symbols are defined in [Notation](notation.md).
 
 ## 1. Data model
 
@@ -83,7 +83,7 @@ to bound the search. It is implied by the engineering limit below.
 
 ## 6. Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
 - **Rectangular variables.** The switch current is `cr_sw`/`ci_sw`
   ([`variables.jl:_add_switch_variables!`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/ext/BMOPFOpfExt/variables.jl)). For an **open** switch these are
@@ -92,7 +92,7 @@ to bound the search. It is implied by the engineering limit below.
   `vr[from]==vr[to]`, `vi[from]==vi[to]` per conductor
   ([`branch.jl:_add_switch_constraints!`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/ext/BMOPFOpfExt/branch.jl)).
 - **KCL contribution** is added as `-cr_sw` at `bus_from` and `+cr_sw` at `bus_to`
-  (same function) — realising $\textcolor{blue}{\mathbf{I}_{w ji}}=-\textcolor{blue}{\mathbf{I}_{w ij}}$
+  (same function) — realizing $\textcolor{blue}{\mathbf{I}_{w ji}}=-\textcolor{blue}{\mathbf{I}_{w ij}}$
   without a separate variable.
 - **Limits.** The thermal quadratic and the cartesian box (`_limit_current_box!`) are
   stamped from the from-side current in the same function.

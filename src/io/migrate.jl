@@ -42,7 +42,7 @@ const _CURRENT_SPEC = :draft
     _detect_spec_version(net::Dict{String,Any}) -> Symbol
 
 Infer the BMOPF spec version from `meta.\$schema`. Returns the corresponding
-version tag if the URI is recognised, or `:unknown` otherwise.
+version tag if the URI is recognized, or `:unknown` otherwise.
 """
 function _detect_spec_version(net::Dict{String,Any})::Symbol
     uri = get(get(net, "meta", Dict()), "\$schema", nothing)
@@ -58,7 +58,7 @@ Forward-migrate a BMOPF network dict to the current spec version.
 If the dict already targets the current spec — or carries no `meta.\$schema`
 at all (hand-written fixtures) — it is returned unchanged apart from the
 unconditional field-level migrations. A `meta.\$schema` URI that this build
-does **not** recognise raises an `ArgumentError`: the file was most likely
+does **not** recognize raises an `ArgumentError`: the file was most likely
 written against a newer BMOPF spec than this BMOPFTools build understands, and
 silently proceeding could corrupt results. Once older spec versions exist,
 each intermediate migration step is applied in sequence and recorded under
@@ -80,13 +80,13 @@ function migrate(net::Dict{String,Any})::Dict{String,Any}
     v = _detect_spec_version(net)
     v == _CURRENT_SPEC && return net
 
-    # A declared-but-unrecognised URI means a newer spec (or a typo) — refuse
+    # A declared-but-unrecognized URI means a newer spec (or a typo) — refuse
     # rather than silently interpreting the data under the wrong model.
     uri = get(get(net, "meta", Dict()), "\$schema", nothing)
     if v == :unknown && uri isa String
         supported = join(sort(collect(keys(_SPEC_VERSIONS))), "\n  ")
         throw(ArgumentError(
-            "meta.\$schema declares an unrecognised BMOPF spec URI:\n  $uri\n" *
+            "meta.\$schema declares an unrecognized BMOPF spec URI:\n  $uri\n" *
             "This build of BMOPFTools supports:\n  $supported\n" *
             "The file was likely written against a newer spec — upgrade " *
             "BMOPFTools, or correct the URI if it is a typo."))
@@ -105,7 +105,7 @@ end
     _migrate_transformer_series_fields!(net::Dict{String,Any}) -> nothing
 
 In-place migration applied at parse time (independent of spec version) to
-normalise `wye_delta`/`delta_wye` transformers that carry a lumped
+normalize `wye_delta`/`delta_wye` transformers that carry a lumped
 `r_series`/`x_series` field (e.g. as emitted by `from_dss`/PowerIO, or by
 hand-written JSON that pre-dates the per-winding field names). Migrates each
 combined component onto the wye winding (`from` for Yd, `to` for Dy), with zero
@@ -114,7 +114,7 @@ are rejected; resistance and reactance can be migrated independently.
 
 Transformers are stored nested by subtype (`net["transformer"][subtype][id]`),
 so the subtype is taken from the parent key.  This runs unconditionally so that
-lumped transformers from any source are normalised before downstream code sees
+lumped transformers from any source are normalized before downstream code sees
 them.
 """
 function _migrate_transformer_series_fields!(net::Dict{String,Any})
@@ -435,7 +435,7 @@ In-place, unconditional lowercasing of load `model` values. The upstream BMOPF
 schema moved the enum to uppercase (`CONSTANT_POWER`, `ZIP`, ...) and powerio
 v0.8.0 writes it that way, while every comparison in this package — and the
 bundled schema's enum — is lowercase. Without normalization an uppercase value
-matches no branch, so a ZIP or constant-impedance load is silently modelled as
+matches no branch, so a ZIP or constant-impedance load is silently modeled as
 constant power AND `schema_check` flags the value: wrong physics with a
 misleading finding.
 

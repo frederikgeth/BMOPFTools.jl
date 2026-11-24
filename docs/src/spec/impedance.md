@@ -45,7 +45,7 @@ each conductor maps to exactly one circuit terminal.
 
 ## Compilation to a linecode
 
-`compile_linecode` builds the **full primitive** per-metre matrices from the geometry:
+`compile_linecode` builds the **full primitive** per-meter matrices from the geometry:
 
 - **Series impedance** $\textcolor{brown}{\mathbf{Z}^{\text{s}}_c}$ (Ω/m) from the
   conductor self/mutual impedances (GMR, spacing) plus the earth-return correction of
@@ -75,7 +75,7 @@ provenance (method, earth resistivity, frequency, temperature) in the linecode's
   hand-authored linecode; the geometry objects themselves never enter the OPF.
 
 !!! note "Relationship to the Task Force PDF"
-    The PDF's data model documents `linecode` (per-metre matrices) as the impedance
+    The PDF's data model documents `linecode` (per-meter matrices) as the impedance
     source. The `wire_data`/`line_geometry` geometry layer and `compile_linecode` are a
     BMOPFTools construction convenience that *produces* those matrices; document the
     geometry inputs and the earth-return/Maxwell derivation in the superseding spec so

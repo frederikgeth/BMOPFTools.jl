@@ -488,27 +488,27 @@ end
 function _infer_and_write_i_max!(el, etype, eid, adj, entries)
     bf = get(el, "bus_from", nothing)
     bt = get(el, "bus_to",   nothing)
-    neighbours = vcat(
+    neighbors = vcat(
         get(adj, bf isa String ? bf : "", []),
         get(adj, bt isa String ? bt : "", []),
     )
     # Collect bounds from adjacent elements, excluding self
     bounds = Float64[]
     sources = String[]
-    for (ntype, nid, nimax) in neighbours
+    for (ntype, nid, nimax) in neighbors
         (ntype == etype && nid == eid) && continue   # skip self
         nimax === nothing && continue
         push!(bounds, nimax)
         push!(sources, "$(ntype)/$(nid)")
     end
 
-    # Nothing was written when no neighbour carries a bound — do not record a
+    # Nothing was written when no neighbor carries a bound — do not record a
     # change entry for a no-op (it would over-count changes in the manifest).
     isempty(bounds) && return
 
     derived = minimum(bounds)
     # i_max is per-conductor in the data model (and the solution checker only
-    # honours vectors) — apply the bound uniformly across the conductors.
+    # honors vectors) — apply the bound uniformly across the conductors.
     n_cond = length(get(el, "terminal_map_from", String[]))
     el["i_max"] = fill(derived, max(n_cond, 1))
     push!(entries, TransformEntry(

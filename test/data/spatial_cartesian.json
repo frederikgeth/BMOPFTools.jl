@@ -1,0 +1,15 @@
+{
+  "meta": {
+    "coordinate_reference_system": {"type": "cartesian", "name": "synthetic_site", "units": "ft", "axis_order": ["x", "y"]},
+    "coordinate_accuracy_m": 0.1,
+    "coordinate_provenance": "surveyed"
+  },
+  "bus": {
+    "a": {"x": 0.0, "y": 0.0},
+    "b": {"x": 3.0, "y": 4.0},
+    "foreign": {"x": 3.0, "y": 4.0, "meta": {"crs": "EPSG:4326"}},
+    "schematic": {"x": 3.0, "y": 4.0, "meta": {"coordinate_provenance": "schematic"}}
+  },
+  "line": {"ab": {"bus_from": "a", "bus_to": "b", "length": 1.524}},
+  "transformer": {"single_phase": {"ab": {"bus_from": "a", "bus_to": "b"}}}
+}

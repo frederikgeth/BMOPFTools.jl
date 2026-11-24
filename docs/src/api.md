@@ -3,13 +3,14 @@
 ## Which function do I need?
 
 A quick map from intent to entry point — each row links to the guide that
-explains it in context. The [end-to-end tutorial](tutorial_end_to_end.md) runs
-the whole sequence on one feeder.
+explains it in context. The [first-case walkthrough](first_case.md) covers inspection, solving, and
+verification on a bundled feeder. The [utility-data end-to-end tutorial](tutorial_end_to_end.md)
+adds conversion and preparation with an external dataset.
 
 | I want to… | Reach for | Guide |
 |---|---|---|
 | Ingest a case | [`from_dss`](@ref), [`parse_bmopf`](@ref) | [Conversion guide](conversion.md) |
-| Analyse & diagnose it | [`analyze`](@ref), [`render`](@ref), [`errors`](@ref)/[`warnings`](@ref)/[`infos`](@ref) | [Analysis & reports](analysis.md), [Findings](findings.md) |
+| Analyze & diagnose it | [`analyze`](@ref), [`render`](@ref), [`errors`](@ref)/[`warnings`](@ref)/[`infos`](@ref) | [Analysis & reports](analysis.md), [Findings](findings.md) |
 | Check a scientific preservation contract | [`check_parallel_member_limit_preservation`](@ref), [`check_neutral_ground_reference_preservation`](@ref), [`check_claimed_solution_validity`](@ref), [`check_load_voltage_base_consistency`](@ref), [`check_transformer_tap_domain_preservation`](@ref), [`check_transformer_winding_convention_preservation`](@ref), [`check_decision_preservation_manifest`](@ref), [`check_kron_boundary_recovery`](@ref), [`check_positive_sequence_collapse`](@ref), [`check_state_dependent_equivalent`](@ref), [`check_reference_singularity`](@ref), [`check_terminal_permutation_invariance`](@ref), [`check_solved_network_feasibility`](@ref), [`check_unit_base_serialization_invariance`](@ref) | [Scientific contracts](scientific_contracts.md) |
 | Produce a stable JSON contract response | [`execute_contract`](@ref) | [JSON execution interface and recipes](execution_interface.md) |
 | Produce a stable JSON parse/intake response | [`execute_case_parse`](@ref) | [JSON execution interface and recipes](execution_interface.md) |
@@ -105,6 +106,7 @@ BMOPFTools.migrate
 is_timeseries
 get_snapshot
 sideload_coordinates!
+sideload_geolayer!
 ```
 
 ## Admittance export
@@ -154,6 +156,19 @@ BMOPFTools.render_terminal
 BMOPFTools.render_markdown
 BMOPFTools.render_json
 render_ascii_tree
+```
+
+## Spatial cleanup review
+
+See the [illustrated spatial guide](spatial_diagnostics.md) for evidence interpretation,
+applicability, review-ledger semantics and export examples.
+
+```@docs
+spatial_review_decision
+apply_spatial_review
+spatial_review_geojson
+render_spatial_review
+export_spatial_review
 ```
 
 ## Solution profiling
@@ -288,11 +303,11 @@ BMOPFTools.opf_semantic_blocks
 ```
 
 Native semantic blocks are registered lazily on the first schema/provenance
-request after KCL finalisation, or when `register_opf_semantic_block!` is
-called after KCL finalisation. Ordinary solves therefore do not pay for
+request after KCL finalization, or when `register_opf_semantic_block!` is
+called after KCL finalization. Ordinary solves therefore do not pay for
 diagnostic metadata they never inspect, while post-KCL custom registration
-incurs the same materialisation cost and surfaces overlaps at that call.
-Before KCL finalisation the schema reports `semantic_blocks_available=false`; a
+incurs the same materialization cost and surfaces overlaps at that call.
+Before KCL finalization the schema reports `semantic_blocks_available=false`; a
 complete native registry is only claimed once the KCL rows and late auxiliary
 bounds exist.
 

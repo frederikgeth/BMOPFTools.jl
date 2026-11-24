@@ -6,7 +6,7 @@ soft open points (SOPs), and MVDC ties are formed. DC quantities have **no angle
 each DC terminal holds a single real, *signed* voltage to earth (positive pole $>0$,
 negative pole $<0$, metallic return $\approx 0$). This page groups the DC objects and
 the converter coupling; each follows the [foundational → implementation
-split](index.md#How-each-component-page-is-organised). Symbols are defined in
+split](index.md#How-each-component-page-is-organized). Symbols are defined in
 [Notation](notation.md).
 
 The DC subsystem is a BMOPFTools extension with no counterpart in the Task Force PDF
@@ -132,7 +132,7 @@ voltage is underdetermined.
 
 ## Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
 - **DC variables** — signed node voltages `v_dc` (grounded fixed to 0), branch
   currents `idc_br`, converter port currents `idc_conv`, load/source currents and

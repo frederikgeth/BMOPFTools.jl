@@ -3,7 +3,7 @@
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
@@ -32,13 +32,12 @@ Pandey & Geth [[2]](@ref refs-ders); see also [Positioning & ecosystem](position
 for where BMOPFTools sits relative to the wider distribution-OPF ecosystem.
 
 !!! note "Prerequisites"
-    Read the [end-to-end tutorial](tutorial_end_to_end.md) first — it introduces
-    the `load → analyze → fix → place → augment → solve` pipeline this page
-    builds on. You need **JuMP** and **Ipopt** alongside BMOPFTools
-    (`using Pkg; Pkg.add(["JuMP", "Ipopt"])`), or use the repository's docs
-    environment (`julia --project=docs`). Every code block on this page is
-    **executed when the documentation is built**, so the dispatches and binding
-    constraints below are computed, not transcribed.
+    The [utility-data end-to-end tutorial](tutorial_end_to_end.md) introduces the
+    conversion and preparation pipeline used here and requires the same external
+    dataset. You also need JuMP and Ipopt; see [Installation](installation.md).
+    These dataset examples are not executed during the docs build. For a
+    self-contained introduction, use [First case](first_case.md), followed by
+    [Developing OPF case families](tutorial_case_development.md).
 
 The complete, standalone script is
 [`examples/place_and_solve_ders.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/place_and_solve_ders.jl):
@@ -166,7 +165,7 @@ RECIPE_LIMITS   = AugmentationRecipe(          # scenarios B and C
 ```@setup ders
 # Metric and reporting helpers — identical to examples/place_and_solve_ders.jl
 # (see that script for the commented versions): vpn_pu reads the phase-to-neutral
-# magnitude, max_thermal the worst cm_fr/i_max utilisation, classify names the
+# magnitude, max_thermal the worst cm_fr/i_max utilization, classify names the
 # headline active constraint, and run_scenario/show_outcome wrap
 # augment_case → solve_opf → report.
 using JuMP, Ipopt, Printf
@@ -237,7 +236,7 @@ end
 ```
 
 The metric helpers (worst phase-to-neutral voltage, worst `cm_fr/i_max` thermal
-utilisation, a classifier that names the headline active constraint, and a
+utilization, a classifier that names the headline active constraint, and a
 `run_scenario` wrapper around `augment_case → solve_opf`) are defined in
 [`examples/place_and_solve_ders.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/place_and_solve_ders.jl)
 (functions `vpn_pu`, `max_thermal`, `classify`, `run_scenario`); the doc build
@@ -257,7 +256,7 @@ end
 ```
 
 Because the loads — and therefore the PV — sit on *different* phases, the export
-is itself unbalanced, which is where four-wire modelling (explicit neutral, no
+is itself unbalanced, which is where four-wire modeling (explicit neutral, no
 Kron reduction) earns its keep. Both DER tiers are priced below the slack, so
 the OPF sees a layered **merit order** — cheap PV → mid-priced generator →
 expensive slack import.
@@ -296,7 +295,7 @@ show_outcome(B)
 ```
 
 The voltage is held at **exactly 1.10 pu** and the dispatch changes completely.
-Two things happen, co-optimised in a single solve:
+Two things happen, co-optimized in a single solve:
 
 - **The IBRs absorb reactive power for voltage support — and both hit the same
   −21.79 kvar, but against *different* constraints.** `augment_case` sized the
@@ -360,7 +359,7 @@ B and C differ by a single knob — the service-cable ampacity — yet the **act
 constraint** flips from voltage to thermal, and with it which DER is curtailed and
 how much exports. Adding or tightening a binding constraint cannot lower the
 objective — it weakly raises cost (less export revenue); *which* constraint binds
-is the signature of an optimisation that respects the network physics and the
+is the signature of an optimization that respects the network physics and the
 operating envelope at once.
 
 ## Appendix: the hosting-capacity curve and the constraint crossover

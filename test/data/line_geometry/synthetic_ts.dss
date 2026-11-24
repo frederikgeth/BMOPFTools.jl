@@ -1,6 +1,6 @@
-! Original synthetic BMOPFTools regression geometry; no real feeder or catalogue model.
+! Original synthetic BMOPFTools regression geometry; no real feeder or catalog model.
 ! Copyright Frederik Geth. CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
-! Dimensions in metres, resistances in ohm/metre. reduce=no retains circuit conductors.
+! Dimensions in meters, resistances in ohm/meter. reduce=no retains circuit conductors.
 clear
 new circuit.synthetic basekv=11 phases=1 bus1=sourcebus
 set defaultbasefreq=60

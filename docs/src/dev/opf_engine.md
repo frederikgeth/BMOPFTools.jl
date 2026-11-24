@@ -80,7 +80,7 @@ preferences in particular:
   activate different subsets (see [Optimal power flow](../opf.md)). So you
   **cannot** assume that the presence of, say, a power bound lets you derive a
   current bound: the case may carry one, both, or neither, by design. Stamp a
-  constraint only from data that is actually present; never synthesise a missing
+  constraint only from data that is actually present; never synthesize a missing
   bound from an unrelated one.
 
 ### [Zero impedance: represent it as is, don't approximate it](@id zero-impedance)
@@ -385,7 +385,7 @@ reach (full detail under
   operational limits only where the net *declares* them, a bounds-free net yields
   a pure physics model with free voltages; with `add_objective=false` and a
   `model_hook!` objective this hosts **state estimation**, parameter estimation,
-  and other model-fitting problems that are not dispatch optimisation. See
+  and other model-fitting problems that are not dispatch optimization. See
   [Beyond OPF](../opf.md#beyond-opf).
 
 Internally the same seam is the `build!` *recipe* (`build_opf!`, `build_pf!`,

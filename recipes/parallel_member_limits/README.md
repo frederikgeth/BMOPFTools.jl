@@ -24,7 +24,7 @@ Expected result:
 
 - execution status `failed`;
 - Finding `W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS`;
-- checked terminal-behaviour and scalar member-current-limit dimensions;
+- checked terminal-behavior and scalar member-current-limit dimensions;
 - explicit unassessed dimensions and a numerical witness.
 
 This package result is case-specific evidence. It does not establish that all

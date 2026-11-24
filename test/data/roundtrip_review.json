@@ -1,0 +1,707 @@
+{
+  "pf_1ph_freeneutral": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ],
+      [
+        "_pio_ideal_1",
+        "_pio_vsource__pio_ideal_1_impedance",
+        "_pio_ideal_1"
+      ],
+      [
+        "_pio_ideal_2",
+        "_pio_vsource__pio_ideal_2_impedance",
+        "_pio_ideal_2"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_1ph_impedanceneutral": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ],
+      [
+        "_pio_ideal_1",
+        "_pio_vsource__pio_ideal_1_impedance",
+        "_pio_ideal_1"
+      ],
+      [
+        "_pio_ideal_2",
+        "_pio_vsource__pio_ideal_2_impedance",
+        "_pio_ideal_2"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_1ph_line": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": "_pio_vsource_source_impedance"
+  },
+  "pf_1ph_perfectneutral": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ],
+      [
+        "_pio_ideal_1",
+        "_pio_vsource__pio_ideal_1_impedance",
+        "_pio_ideal_1"
+      ],
+      [
+        "_pio_ideal_2",
+        "_pio_vsource__pio_ideal_2_impedance",
+        "_pio_ideal_2"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_1ph_xfmr": {
+    "terminal_map": {
+      "hv.n": "hv.b",
+      "lv.n": "lv.b"
+    },
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_single_phase_t1"
+      ],
+      "target_lines": [
+        "_pio_shunt_2_pair_0"
+      ],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_3ph_line": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ],
+      [
+        "_pio_ideal_1",
+        "_pio_vsource__pio_ideal_1_impedance",
+        "_pio_ideal_1"
+      ],
+      [
+        "_pio_ideal_2",
+        "_pio_vsource__pio_ideal_2_impedance",
+        "_pio_ideal_2"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_3wdg_dyn": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_n_winding_t1"
+      ],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_3wdg_dyn_unbalanced": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_n_winding_t1"
+      ],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_3wdg_dyn_zgnd": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_n_winding_t1"
+      ],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_3wdg_nwinding": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_n_winding_t1"
+      ],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_3wdg_nwinding_unbalanced": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_n_winding_t1"
+      ],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_3wdg_unequal_kva": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_n_winding_t1"
+      ],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ],
+      [
+        "_pio_ideal_1",
+        "_pio_vsource__pio_ideal_1_impedance",
+        "_pio_ideal_1"
+      ],
+      [
+        "_pio_ideal_2",
+        "_pio_vsource__pio_ideal_2_impedance",
+        "_pio_ideal_2"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_4wdg_dyyn": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_n_winding_t1"
+      ],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_4wdg_nwinding": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_n_winding_t1"
+      ],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_autotransformer": {
+    "terminal_map": {
+      "src.n": "src.b",
+      "reg.n": "reg.b"
+    },
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_cap_delta": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_cap_wye": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_center_tap_240": {
+    "terminal_map": {
+      "hv.n": "hv.b",
+      "lv.n": "lv.c",
+      "src.n": "src.b"
+    },
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_center_tap_t1"
+      ],
+      "target_lines": [
+        "_pio_shunt_3_pair_0"
+      ],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_center_tap_balanced_heavy": {
+    "terminal_map": {
+      "hv.n": "hv.b",
+      "lv.n": "lv.c",
+      "src.n": "src.b"
+    },
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_center_tap_t1"
+      ],
+      "target_lines": [
+        "_pio_shunt_3_pair_0"
+      ],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_center_tap_loaded": {
+    "terminal_map": {
+      "hv.n": "hv.b",
+      "lv.n": "lv.c",
+      "src.n": "src.b"
+    },
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_center_tap_t1"
+      ],
+      "target_lines": [
+        "_pio_shunt_3_pair_0"
+      ],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_center_tap_oneleg_extreme": {
+    "terminal_map": {
+      "hv.n": "hv.b",
+      "lv.n": "lv.c",
+      "src.n": "src.b"
+    },
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_center_tap_t1"
+      ],
+      "target_lines": [
+        "_pio_shunt_3_pair_0"
+      ],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_center_tap_singleleg_pn": {
+    "terminal_map": {
+      "hv.n": "hv.b",
+      "lv.n": "lv.c",
+      "src.n": "src.b"
+    },
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_center_tap_t1"
+      ],
+      "target_lines": [
+        "_pio_shunt_3_pair_0"
+      ],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_center_tap_xfmr": {
+    "terminal_map": {
+      "hv.n": "hv.b",
+      "lv.n": "lv.c"
+    },
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_center_tap_t1"
+      ],
+      "target_lines": [
+        "_pio_shunt_2_pair_0"
+      ],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_combined_3ph_split": {
+    "terminal_map": {
+      "lvsp.n": "lvsp.c"
+    },
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_delta_wye_t3",
+        "powerio_core_center_tap_tsp"
+      ],
+      "target_lines": [
+        "_pio_shunt_4_pair_2",
+        "_pio_shunt_4_pair_0",
+        "_pio_shunt_3_pair_0",
+        "_pio_shunt_4_pair_1"
+      ],
+      "target_shunts": [
+        "_pio_shunt_4_diagonal_3"
+      ]
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_delta_load": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ],
+      [
+        "_pio_ideal_1",
+        "_pio_vsource__pio_ideal_1_impedance",
+        "_pio_ideal_1"
+      ],
+      [
+        "_pio_ideal_2",
+        "_pio_vsource__pio_ideal_2_impedance",
+        "_pio_ideal_2"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_dy_xfmr": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_delta_wye_t1"
+      ],
+      "target_lines": [
+        "_pio_shunt_1_pair_2",
+        "_pio_shunt_1_pair_0",
+        "_pio_shunt_1_pair_1"
+      ],
+      "target_shunts": [
+        "_pio_shunt_1_diagonal_3"
+      ]
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_dy_xfmr_rneut": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_delta_wye_t1"
+      ],
+      "target_lines": [
+        "_pio_shunt_0_pair_2",
+        "_pio_shunt_0_pair_1",
+        "_pio_shunt_0_pair_0"
+      ],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_dy_xfmr_tap": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_delta_wye_t1"
+      ],
+      "target_lines": [
+        "_pio_shunt_1_pair_2",
+        "_pio_shunt_1_pair_0",
+        "_pio_shunt_1_pair_1"
+      ],
+      "target_shunts": [
+        "_pio_shunt_1_diagonal_3"
+      ]
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_exp_1ph": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": "_pio_vsource_source_impedance"
+  },
+  "pf_open_delta_reg": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ],
+      [
+        "_pio_ideal_1",
+        "_pio_vsource__pio_ideal_1_impedance",
+        "_pio_ideal_1"
+      ],
+      [
+        "_pio_ideal_2",
+        "_pio_vsource__pio_ideal_2_impedance",
+        "_pio_ideal_2"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_pv_1ph": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": "_pio_vsource_source_impedance"
+  },
+  "pf_pv_4leg": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ],
+      [
+        "_pio_ideal_1",
+        "_pio_vsource__pio_ideal_1_impedance",
+        "_pio_ideal_1"
+      ],
+      [
+        "_pio_ideal_2",
+        "_pio_vsource__pio_ideal_2_impedance",
+        "_pio_ideal_2"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_yd_xfmr": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [
+        "powerio_core_wye_delta_t1"
+      ],
+      "target_lines": [
+        "_pio_shunt_2_pair_2",
+        "_pio_shunt_2_pair_0",
+        "_pio_shunt_2_pair_1"
+      ],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_zip_1ph": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ]
+    ],
+    "tiny_impedance_equivalent": "_pio_vsource_source_impedance"
+  },
+  "pf_zip_3ph": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ],
+      [
+        "_pio_ideal_1",
+        "_pio_vsource__pio_ideal_1_impedance",
+        "_pio_ideal_1"
+      ],
+      [
+        "_pio_ideal_2",
+        "_pio_vsource__pio_ideal_2_impedance",
+        "_pio_ideal_2"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  },
+  "pf_zip_delta": {
+    "terminal_map": {},
+    "shunt_replacements": {
+      "source_ids": [],
+      "target_lines": [],
+      "target_shunts": []
+    },
+    "ideal_source_pairs": [
+      [
+        "source",
+        "_pio_vsource_source_impedance_1",
+        "_pio_ideal_0"
+      ],
+      [
+        "_pio_ideal_1",
+        "_pio_vsource__pio_ideal_1_impedance",
+        "_pio_ideal_1"
+      ],
+      [
+        "_pio_ideal_2",
+        "_pio_vsource__pio_ideal_2_impedance",
+        "_pio_ideal_2"
+      ]
+    ],
+    "tiny_impedance_equivalent": null
+  }
+}

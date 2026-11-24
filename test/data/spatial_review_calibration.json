@@ -1,0 +1,11 @@
+{
+  "basis": "synthetic structural expectations, not human-adjudicated field truth",
+  "fixture": "spatial_discrepancies.json",
+  "line_lengths_m": {"direct": 20.0, "ab": 10.0, "bc": 10.0, "wrong_end": 30.0},
+  "expectations": [
+    {"code": "S.ROUTE_ENDPOINT_DISAGREEMENT", "priority": 3, "ranking_reason": "route_and_bus_coordinates_disagree"},
+    {"code": "S.DIRECT_ALONGSIDE_SERIES_PATH", "priority": 2, "ranking_reason": "direct_and_series_declarations"},
+    {"code": "S.REPEATED_SOURCE_INTERVAL", "priority": 1, "ranking_reason": "shared_representation_in_series_chain"},
+    {"code": "S.SHARED_ROUTE_SEGMENT", "priority": 1, "ranking_reason": "shared_representation_in_series_chain"}
+  ]
+}

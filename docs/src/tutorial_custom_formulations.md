@@ -3,7 +3,7 @@
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
     `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream licence and is not
+    before running it. The dataset retains its upstream license and is not
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
@@ -14,7 +14,7 @@ through the staged API.*
 
 Research formulations rarely stop at least-cost dispatch: conservation voltage
 reduction (CVR), dynamic operating envelopes, unbalance mitigation, and
-multi-period coupling all *change the optimisation problem*. The engine's
+multi-period coupling all *change the optimization problem*. The engine's
 answer is a ladder of extension points, documented in the
 [OPF reference](opf.md) — the `model_hook!` seam and the
 [staged API](opf.md#staged-api). This tutorial climbs that ladder with worked
@@ -33,7 +33,7 @@ Before choosing a lift, smoothing term, or redundant bound, consult the
     earlier tutorials this one leans on hard:
     [units & economics](tutorial_units.md) (`opf_bases(ctx)`, the \$/h objective),
     [load models](tutorial_load_models.md) (why voltage-dependence matters),
-    and [tap optimisation](tutorial_tap.md) (the free-tap mechanics).
+    and [tap optimization](tutorial_tap.md) (the free-tap mechanics).
 
 ## 1. The extension ladder
 
@@ -70,7 +70,7 @@ voltage band so that voltage-dependent demand shrinks — sounds like a custom
 formulation. It is not. Its three ingredients are all data: a **voltage-dependent
 load model**, a **controllable voltage** (free the transformer tap with
 `tap_min < tap_max`), and the standard cost objective (import is priced, so
-minimising cost minimises demand). Run the 2×2 experiment — load model ×
+minimizing cost minimizes demand). Run the 2×2 experiment — load model ×
 tap freedom:
 
 ```julia
@@ -104,7 +104,7 @@ end
 ```
 
 Read the tap column: **the load model flips the sign of the optimal
-decision.** With constant-power loads the optimiser *raises* the feeder
+decision.** With constant-power loads the optimizer *raises* the feeder
 voltage (tap toward 0.91 — a higher secondary voltage means less current for
 the same power, so lower copper losses; worth a few tens of watts). With ZIP
 loads it slams the tap the other way (1.10) and rides the feeder down onto
@@ -175,8 +175,8 @@ println("joint DER output, capped   : ", round(pg1; digits = 1), " W  (cap ", ca
 ```
 
 The cap binds exactly, and *how* the 9 kW splits between the two systems —
-and across their phases — is decided by the network: the optimiser curtails
-where it relieves the feeder most. That co-optimised allocation is precisely
+and across their phases — is decided by the network: the optimizer curtails
+where it relieves the feeder most. That co-optimized allocation is precisely
 what per-device static limits cannot deliver, and scaling the same pattern
 over feeder scenarios is how operating-envelope studies are built.
 
@@ -185,7 +185,7 @@ over feeder scenarios is how operating-envelope studies are built.
 The standard objective answers "cheapest dispatch". A distribution engineer
 often asks a different question: *how balanced can the substation infeed be?*
 That is a minimax problem — new variables, new objective. The hook adds
-epigraph variables bracketing the three per-phase source powers and minimises
+epigraph variables bracketing the three per-phase source powers and minimizes
 the spread; `solution_hook!` reads the achieved value back into the result in
 SI:
 
@@ -253,7 +253,7 @@ r3 = solve_opf(net; optimizer = OPT, model_hook! = ctx -> begin
         @constraint(model, e >= t_lo)
     end
     sb = opf_bases(ctx).s_base
-    # spread is per-unit power → ×s_base/1000 puts it in kW, penalised at 1 $/kWh-equivalent,
+    # spread is per-unit power → ×s_base/1000 puts it in kW, penalized at 1 $/kWh-equivalent,
     # commensurate with generation_cost's $/h.
     @objective(model, Min,
         generation_cost(ctx) + 1.0 * (t_hi - t_lo) * sb / 1000)
@@ -277,7 +277,7 @@ no longer a pure cost rate.
 couple time steps. The [staged API](opf.md#staged-api) unbundles it. Here is
 the smallest genuinely multi-period study: two hours (normal load, then light
 load), one PV plant allowed at most **5 kWh across both** — a battery-like
-energy budget that forces the optimiser to *allocate* energy where it is
+energy budget that forces the optimizer to *allocate* energy where it is
 worth most:
 
 ```julia
@@ -308,7 +308,7 @@ println("energy used: ", round(used; digits = 1), " Wh of the 5000 Wh budget")
 @assert used <= 5_000.0 * (1 + 1e-4)
 ```
 
-The optimiser spends the entire budget in hour 1 — where demand (and thus
+The optimizer spends the entire budget in hour 1 — where demand (and thus
 displaced import) is high — and idles the plant in the light hour. Note the
 contract details that make this correct rather than merely runnable: every
 snapshot is built into the **same** `model` with `add_objective = false`; the
@@ -356,5 +356,5 @@ Hard-won rules, in checklist form:
     same seam. The [load-models tutorial](tutorial_load_models.md) explains
     why §2's CVR result hinges on the load model, and the
     [tap tutorial](tutorial_tap.md) covers the free-tap mechanics it used.
-    For inverter volt-var/volt-watt behaviour — control, not optimisation —
+    For inverter volt-var/volt-watt behavior — control, not optimization —
     see the [VVWO tutorial](tutorial_vvwo.md) before reaching for a hook.

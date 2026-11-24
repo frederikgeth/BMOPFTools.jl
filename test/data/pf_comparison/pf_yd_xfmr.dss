@@ -13,7 +13,7 @@
 !       on the LV side — well above the 0.1 V comparison tolerance.
 !
 !   (b) No-load shunt is exercised:
-!       %noloadloss=0.3 %imag=1.5 → core loss ≈ 1.5 kW, magnetising
+!       %noloadloss=0.3 %imag=1.5 → core loss ≈ 1.5 kW, magnetizing
 !       current ≈ 7.5 A (HV), both visible in the KCL balance.
 !
 !   (c) Load unbalance is large enough to expose per-phase constraint errors:
@@ -30,7 +30,7 @@
 
 Clear
 
-! Base frequency locked to 50 Hz (BMOPF's modelling frequency).  The OpenDSS
+! Base frequency locked to 50 Hz (BMOPF's modeling frequency).  The OpenDSS
 ! default (60 Hz, or whatever a Windows GUI session persisted) would otherwise
 ! rescale every reactance.  See docs/src/validation.md.
 Set DefaultBaseFreq=50

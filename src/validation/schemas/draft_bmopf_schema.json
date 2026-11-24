@@ -177,11 +177,11 @@
                 "properties": {
                     "length": {
                         "$ref": "#/$defs/nonnegative_number",
-                        "description": "Line length [m]. Required with `linecode` (impedance = per-metre matrices x length); optional and purely descriptive when the line carries inline absolute matrices"
+                        "description": "Line length [m]. Required with `linecode` (impedance = per-meter matrices x length); optional and purely descriptive when the line carries inline absolute matrices"
                     },
                     "linecode": {
                         "type": "string",
-                        "description": "Linecode of line (per-metre matrices). A line carries EXACTLY ONE impedance source: either this reference (+ length), or inline absolute R_series_/X_series_ matrices in Ohm"
+                        "description": "Linecode of line (per-meter matrices). A line carries EXACTLY ONE impedance source: either this reference (+ length), or inline absolute R_series_/X_series_ matrices in Ohm"
                     },
                     "terminal_map_to": {
                         "$ref": "#/$defs/terminal_map_type"
@@ -215,7 +215,7 @@
                 "patternProperties": {
                     "^R_series_\\d+_\\d+$": {
                         "type": "number",
-                        "description": "Element of the TOTAL series resistance matrix of this line section [Ohm]. Units by location: linecode matrices are per metre, line matrices are absolute - never scaled by length"
+                        "description": "Element of the TOTAL series resistance matrix of this line section [Ohm]. Units by location: linecode matrices are per meter, line matrices are absolute - never scaled by length"
                     },
                     "^X_series_\\d+_\\d+$": {
                         "type": "number",
@@ -484,7 +484,7 @@
                     },
                     "i_max": {
                         "type": "array",
-                        "description": "Optional per-conductor current-magnitude limit [A]. WYE: one entry per phase, plus a recommended final entry for the neutral return conductor (length = phases or phases+1; a phases-only vector leaves the neutral unrated and warns, since the neutral may carry more than the phases under unbalance). SINGLE_PHASE: length 1 or 2 (phase and return share a current; a length-1 vector is standardised to 2). Stamps crg^2 + cig^2 <= i_max^2 on each phase current, and (sum crg)^2 + (sum cig)^2 <= i_max_neutral^2 on the neutral return when the extra entry is present. DELTA generators are future work (see the math spec for the array rules).",
+                        "description": "Optional per-conductor current-magnitude limit [A]. WYE: one entry per phase, plus a recommended final entry for the neutral return conductor (length = phases or phases+1; a phases-only vector leaves the neutral unrated and warns, since the neutral may carry more than the phases under unbalance). SINGLE_PHASE: length 1 or 2 (phase and return share a current; a length-1 vector is standardized to 2). Stamps crg^2 + cig^2 <= i_max^2 on each phase current, and (sum crg)^2 + (sum cig)^2 <= i_max_neutral^2 on the neutral return when the extra entry is present. DELTA generators are future work (see the math spec for the array rules).",
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         }
@@ -546,7 +546,7 @@
                     },
                     "i_max": {
                         "type": "array",
-                        "description": "Optional per-conductor converter current-magnitude limit [A]. FOUR_LEG: one entry per phase plus a recommended final entry for the neutral conductor (length = phases or phases+1; a phases-only vector leaves the neutral unrated and warns, as it may carry more than the phases under unbalance compensation). SINGLE_PHASE: length 1 or 2 (phase and return are the same current - length-1 is standardised to 2). THREE_LEG: one entry per conductor (no neutral). When present, reactive capability rolls off ~linearly with voltage instead of staying flat at s_max; the neutral entry bounds the sum of phase currents",
+                        "description": "Optional per-conductor converter current-magnitude limit [A]. FOUR_LEG: one entry per phase plus a recommended final entry for the neutral conductor (length = phases or phases+1; a phases-only vector leaves the neutral unrated and warns, as it may carry more than the phases under unbalance compensation). SINGLE_PHASE: length 1 or 2 (phase and return are the same current - length-1 is standardized to 2). THREE_LEG: one entry per conductor (no neutral). When present, reactive capability rolls off ~linearly with voltage instead of staying flat at s_max; the neutral entry bounds the sum of phase currents",
                         "items": {
                             "$ref": "#/$defs/nonnegative_number"
                         }
@@ -969,11 +969,11 @@
                                 },
                                 "x": {
                                     "type": "number",
-                                    "description": "Horizontal coordinate of the conductor centre [m]"
+                                    "description": "Horizontal coordinate of the conductor center [m]"
                                 },
                                 "y": {
                                     "type": "number",
-                                    "description": "Vertical coordinate of the conductor centre [m]; positive above ground, negative = burial depth"
+                                    "description": "Vertical coordinate of the conductor center [m]; positive above ground, negative = burial depth"
                                 },
                                 "terminal": {
                                     "type": "string",
@@ -1068,7 +1068,7 @@
                 },
                 "single_phase_autotransformer": {
                     "$ref": "#/$defs/single_phase_autotransformer",
-                    "description": "Single-phase step voltage regulator modelled as an autotransformer (series + common winding sharing a node). The ratio is the fixed tap_ratio; regulator_type selects ANSI Type A or B."
+                    "description": "Single-phase step voltage regulator modeled as an autotransformer (series + common winding sharing a node). The ratio is the fixed tap_ratio; regulator_type selects ANSI Type A or B."
                 },
                 "open_delta_regulator": {
                     "$ref": "#/$defs/open_delta_regulator",
@@ -1263,7 +1263,7 @@
                 "earth": {
                     "type": "array",
                     "items": { "type": "string" },
-                    "description": "Terminal-name labels that denote a dedicated earth/PE *wire* conductor. The ground reference itself stays implicit (grounding is modelled via grounding impedances / perfectly_grounded_terminals); this list captures only genuine earth-wire terminals and is empty for standard OpenDSS-derived cases."
+                    "description": "Terminal-name labels that denote a dedicated earth/PE *wire* conductor. The ground reference itself stays implicit (grounding is modeled via grounding impedances / perfectly_grounded_terminals); this list captures only genuine earth-wire terminals and is empty for standard OpenDSS-derived cases."
                 }
             }
         }
@@ -1310,7 +1310,7 @@
         },
         "p_ref_type": {
             "type": "string",
-            "description": "Active-power normalisation base for Volt-Watt: P_AVAILABLE, P_MAX, or S_MAX",
+            "description": "Active-power normalization base for Volt-Watt: P_AVAILABLE, P_MAX, or S_MAX",
             "enum": ["P_AVAILABLE", "P_MAX", "S_MAX"]
         },
         "q_unit_type": {
@@ -1726,7 +1726,7 @@
                     },
                     "b_no_load": {
                         "type": "number",
-                        "description": "No-load (magnetising) susceptance at the 'from' terminals [S]"
+                        "description": "No-load (magnetizing) susceptance at the 'from' terminals [S]"
                     },
                     "bus_from": {
                         "type": "string",

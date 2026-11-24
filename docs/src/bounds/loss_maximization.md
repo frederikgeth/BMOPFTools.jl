@@ -3,7 +3,7 @@
 Several objectives that read as maximizing something *desirable* are, mechanically,
 maximizing line losses or branch current. On a convex relaxation that breaks exactness;
 on the nonconvex model it drags the solution toward the low-voltage branch. This page is
-the catalogue, with safe reformulations.
+the catalog, with safe reformulations.
 
 ## The one test
 
@@ -22,7 +22,7 @@ objective not on the safe list:
     anywhere — or does its optimum sit where an upper voltage bound binds?** If either
     is yes, audit relaxation exactness and voltage-sheet selection explicitly.
 
-## The catalogue
+## [The catalog](@id The-catalogue)
 
 | Objective as written | Why it rewards loss / current | Safer reformulation |
 |---|---|---|
@@ -40,7 +40,7 @@ objective not on the safe list:
     both sound like "less reliance on the grid." Direction of the optimization, not the
     English description, is what determines the monotonicity.
 
-!!! note "This is a tested behaviour, not just a caution"
+!!! note "This is a tested behavior, not just a caution"
     The negative-coefficient row is exercised directly in the OPF suite: test **T4**
     ([Validating the OPF](../validation.md)) gives a generator a *negative* cost
     coefficient and confirms the optimum drives each phase to `p_max` with
@@ -51,7 +51,7 @@ objective not on the safe list:
 ## Two that look risky but are mostly fine
 
 - **Maximize $\sum_i |V_i|$.** Counterintuitively this is usually loss-*reducing* and
-  often favours a high-voltage branch under the cited radial assumptions. It can
+  often favors a high-voltage branch under the cited radial assumptions. It can
   drive into binding **upper** voltage bounds, which is a separate exactness-failure
   mode — the non-binding-upper-voltage-bound hypothesis of the radial exactness theorem
   ([Gan et al., 2015](https://arxiv.org/abs/1311.7170)). Outside those assumptions,
@@ -61,7 +61,7 @@ objective not on the safe list:
   canonical safe family. Because slack power $=$ losses $+$ net load, minimizing it
   *is* loss minimization *when the other injections are fixed* — which is exactly why a
   feasibility problem is so often turned into min-slack to make it well posed and
-  branch-favourable ([§5](index.md)). With other dispatchable generators free, min-slack
+  branch-favorable ([§5](index.md)). With other dispatchable generators free, min-slack
   minimizes losses plus their output, which can drive local injection against upper
   voltage bounds; see the min-import caveat in the [decision matrix](decision_matrix.md).
 

@@ -4,7 +4,7 @@ A **voltage source** is an ideal voltage reference with a current slack: it fixe
 bus terminal voltages and injects whatever current the rest of the network requires.
 It is the power-flow reference (slack) bus. This model version permits exactly one.
 Parts 1–5 state the foundational model; [part 6](#6.-Implementation-in-BMOPFTools)
-records how BMOPFTools realises it. Symbols are defined in [Notation](notation.md).
+records how BMOPFTools realizes it. Symbols are defined in [Notation](notation.md).
 
 ![Voltage source: a fixed line-to-ground voltage reference with a free slack current.](assets/vsource.svg)
 
@@ -66,7 +66,7 @@ optional grid-connection power bounds; see part 6.)
 
 ## 6. Implementation in BMOPFTools
 
-### Realisation
+### [Realization](@id Realisation)
 
 - **Voltage fixing.** Each phase terminal is fixed to
   `v_mag·cos(v_ang)`, `v_mag·sin(v_ang)`; the source-bus neutral is fixed to 0 V so it

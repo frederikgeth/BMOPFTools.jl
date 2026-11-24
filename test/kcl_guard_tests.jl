@@ -29,7 +29,7 @@ _kg_net() = parse_bmopf("""
 
 _kg_model() = (m = JuMP.Model(Ipopt.Optimizer); JuMP.set_silent(m); m)
 
-@testset "KCL guard — refuses to optimise an unstamped model" begin
+@testset "KCL guard — refuses to optimize an unstamped model" begin
     ctx = BMOPFTools.build_opf_model(_kg_net())
     m = BMOPFTools.opf_model(ctx)
     err = try JuMP.optimize!(m); nothing catch e; e end
@@ -56,7 +56,7 @@ end
     @test JuMP.objective_value(m) ≈ JuMP.objective_value(mref) rtol=1e-12
 end
 
-@testset "KCL guard — survives repeated optimise on a caller-supplied model" begin
+@testset "KCL guard — survives repeated optimize on a caller-supplied model" begin
     # The DiffOpt pattern: one model owned by the caller, re-solved after each
     # parameter perturbation. The guard must stay quiet on every solve, not just
     # the first, and must not consume the stage record.
@@ -166,7 +166,7 @@ end
     @test JuMP.termination_status(m) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
 end
 
-@testset "KCL guard — kcl_guard=false opts out of the optimise-time check" begin
+@testset "KCL guard — kcl_guard=false opts out of the optimize-time check" begin
     ctx = BMOPFTools.build_opf_model(_kg_net(); kcl_guard=false)
     m = BMOPFTools.opf_model(ctx)
     JuMP.optimize!(m)                              # must not throw

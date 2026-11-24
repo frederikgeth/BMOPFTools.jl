@@ -1,0 +1,3 @@
+! Minimized witness: https://github.com/eigenergy/powerio/issues/762
+clear
+new circuit.test phases=1 bus1=feed.1 basekv=0.24 r1=0.1 x1=0.2

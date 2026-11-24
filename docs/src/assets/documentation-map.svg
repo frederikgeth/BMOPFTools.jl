@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 650" role="img" aria-labelledby="title desc">
+<title id="title">Routes through the BMOPFTools documentation</title>
+<desc id="desc">Start with a bundled case, understand network models, inspect and prepare cases, run studies, and verify results. Verification can return to case review. Advanced formulations and automation are optional branches. Reference and development support every stage.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#526477"/></marker></defs>
+<style>
+text{font-family:system-ui,-apple-system,Arial,sans-serif;fill:#203348;font-size:19px}
+.heading{font-size:24px;font-weight:650}.label{font-weight:650}.small{font-size:17px;fill:#526477}
+.flow{fill:none;stroke:#526477;stroke-width:2;marker-end:url(#arrow)}
+.branch{stroke-dasharray:6 5}
+</style>
+<rect width="960" height="650" rx="14" fill="#f5f8fc"/>
+<text x="40" y="38" class="heading">A learning route, with optional deeper paths</text>
+<g fill="#fff" stroke="#c6d5e5">
+<rect x="40" y="65" width="420" height="65" rx="8"/>
+<rect x="40" y="155" width="420" height="65" rx="8"/>
+<rect x="40" y="245" width="420" height="65" rx="8"/>
+<rect x="40" y="335" width="420" height="65" rx="8"/>
+<rect x="40" y="425" width="420" height="65" rx="8"/>
+</g>
+<text x="60" y="91" class="label">Getting started</text><text x="60" y="116" class="small">Install and follow one bundled case</text>
+<text x="60" y="181" class="label">Network models &amp; data</text><text x="60" y="206" class="small">Understand what the declarations mean</text>
+<text x="60" y="271" class="label">Inspect &amp; prepare cases</text><text x="60" y="296" class="small">Read evidence, select changes, recheck</text>
+<text x="60" y="361" class="label">Power flow &amp; OPF studies</text><text x="60" y="386" class="small">Ask a question and run the study</text>
+<text x="60" y="451" class="label">Verify &amp; diagnose results</text><text x="60" y="476" class="small">Check the result against its case</text>
+<path class="flow" d="M250 130V153"/>
+<path class="flow" d="M250 220V243"/>
+<path class="flow" d="M250 310V333"/>
+<path class="flow" d="M250 400V423"/>
+<path class="flow" d="M40 457H17V278H38"/>
+<text x="40" y="520" class="small">Return to case review when evidence calls for it.</text>
+<rect x="550" y="180" width="370" height="100" rx="8" fill="#e8f2fa" stroke="#adc9df"/>
+<text x="570" y="209" class="label">Advanced formulations</text><text x="570" y="235" class="label">&amp; numerics</text>
+<text x="570" y="261" class="small">Explain or extend the machinery</text>
+<path class="flow branch" d="M460 188H505V230H548"/>
+<path class="flow branch" d="M460 367H505V254H548"/>
+<rect x="550" y="355" width="370" height="85" rx="8" fill="#eaf4ef" stroke="#bad5c6"/>
+<text x="570" y="385" class="label">Automation &amp; integration</text>
+<text x="570" y="415" class="small">Automate an established workflow</text>
+<path class="flow branch" d="M460 458H520V399H548"/>
+<text x="550" y="485" class="small">Dashed arrows: optional branches</text>
+<rect x="40" y="555" width="880" height="65" rx="8" fill="#eaf1f8" stroke="#c6d5e5"/>
+<text x="60" y="581" class="label">Reference &amp; development — available at every stage</text>
+<text x="60" y="607" class="small">API, Finding codes, contract domains, engine evidence and contributor guidance</text>
+</svg>

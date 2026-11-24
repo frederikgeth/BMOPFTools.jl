@@ -217,7 +217,7 @@ _xf_kadd(kcl_r, kcl_i, branch_inj, tid) =
 Add per-phase wye-wye (YY) transformer constraints using a Γ-equivalent model.
 
 `cr_xf[(tid,"fr",k)]` / `ci_xf[(tid,"fr",k)]` are the **series** (ideal-core)
-currents.  The TO-side terminal current is series + magnetising shunt:
+currents.  The TO-side terminal current is series + magnetizing shunt:
 
   I_term_to = I_series_to + I_mag,   I_mag = (G + jB) · V_to_coil
 
@@ -276,7 +276,7 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     n_c        = min(length(pairs_fr), length(pairs_to))
     i_max_fr   = Float64.(get(xfmr, "i_max_from", Float64[]))
     i_max_to_v = Float64.(get(xfmr, "i_max_to",   Float64[]))
-    # Per-phase share of the nameplate (VA, per-unitised upstream). n_c windings
+    # Per-phase share of the nameplate (VA, per-unitized upstream). n_c windings
     # carry the total 3-phase rating, so each coil is rated s_rating / n_c. The
     # nameplate is a required transformer field and is always enforced.
     s_rating   = Float64(get(xfmr, "s_rating", 0.0))
@@ -301,7 +301,7 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     Rp = r_to + to_from_power_factor * r_fr * invN0sq
     Xp = x_to + to_from_power_factor * x_fr * invN0sq
 
-    # No-load (magnetising) admittance (S), split equally per winding. OpenDSS
+    # No-load (magnetizing) admittance (S), split equally per winding. OpenDSS
     # places the exciting branch across winding 2 (the TO coil), referred to
     # winding 2's coil voltage — verified against its Yprim. `g/b_no_load` are
     # therefore on the to-side base (`from_dss` derives them there).
@@ -383,7 +383,7 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         register(:transformer_current_coupling_imag, (tid, k),
             @constraint(model, current_from_factor * N * Isi + Iti == 0))
 
-        # From-side terminal current = series only (the magnetising branch is on
+        # From-side terminal current = series only (the magnetizing branch is on
         # the to side now). Inject −I at p and +I at q so the return closes at q.
         kadd(b_fr, t_p_fr, -Isr, -Isi)
         t_q_fr !== nothing && kadd(b_fr, t_q_fr, Isr, Isi)
@@ -406,7 +406,7 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
                                        (tid, "from", k), cref))
         end
 
-        # To-side terminal current = series + magnetising shunt across the TO
+        # To-side terminal current = series + magnetizing shunt across the TO
         # coil (V_p_to − V_q_to). Inject −I at p and +I at q (return at q).
         if has_shunt
             icr_mag = @expression(model,  G * vr_to - B * vi_to)
@@ -466,10 +466,10 @@ Physics (coupled-coil / primitive-admittance model):
   with the connection matrix C mapping node voltages to winding voltages:
     winding 1: (V_t_ph − V_t_n)/N
     winding 2:  V_t1 − V_tn          (dotted at leg 1)
-    winding 3:  V_tn − V_t2          (dotted at the centre tap)
+    winding 3:  V_tn − V_t2          (dotted at the center tap)
 
   The `x_series_*` data must hold the STAR arms (not XHL/2). From an OpenDSS
-  3-winding short-circuit set they are, for a symmetric centre tap (X2=X3):
+  3-winding short-circuit set they are, for a symmetric center tap (X2=X3):
     X1_star = (XHL + XHT − XLT)/2,  X2_star = (XHL + XLT − XHT)/2
   (`from_dss` reconstructs these from PowerIO's `pmd` export.) This Yp matches
   OpenDSS's transformer Yprim to machine precision (see `_yprim_center_tap`).
@@ -477,7 +477,7 @@ Physics (coupled-coil / primitive-admittance model):
   The element current into each of the 5 nodes is I = Yp·V; the per-winding
   current variables are pinned to those injections so `i_max` limits and the
   result/loss writer see physical currents. The implied relations are the
-  ampere-turn N·I_s + I_leg1_series − I_leg2 = 0 and the centre-tap KCL
+  ampere-turn N·I_s + I_leg1_series − I_leg2 = 0 and the center-tap KCL
   I_n + I_leg1 + I_leg2 = 0.
 
   With distinct zone power bases, the primitive is assembled in a common
@@ -486,8 +486,8 @@ Physics (coupled-coil / primitive-admittance model):
   even though the dimensional primitive remains reciprocal.
 
   For an ideal core (zero series impedance) Yp is singular, so both legs are
-  pinned directly to V_hv/N (winding 3 dotted at the centre tap) and the
-  ampere-turn / centre-tap KCL route the currents.
+  pinned directly to V_hv/N (winding 3 dotted at the center tap) and the
+  ampere-turn / center-tap KCL route the currents.
 
   Legacy no-load shunt (G+jB) across LV leg 1. Both formulations expose total
   winding-terminal currents including this shunt. Internal leakage/core equations
@@ -495,7 +495,7 @@ Physics (coupled-coil / primitive-admittance model):
   branches are not included in the winding-current ratings.
 
   Winding neutral grounding (OpenDSS rneut/xneut): `r/x_neutral_from` grounds the HV
-  neutral through y_n = 1/(R_n+jX_n); `r/x_neutral_to` grounds the LV centre-tap
+  neutral through y_n = 1/(R_n+jX_n); `r/x_neutral_to` grounds the LV center-tap
   neutral. Accepted for OpenDSS compatibility (a future data-cleanup pass should
   reify it as an explicit external shunt).
 """
@@ -572,7 +572,7 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # An internal grounding branch y_n = 1/(R_n + jX_n) from a shared neutral
     # terminal to earth (verified against OpenDSS's Yprim; matches the single_phase
     # and Yd/Dy builders). `r/x_neutral_from` grounds the HV neutral t_fr_n;
-    # `r/x_neutral_to` grounds the LV centre-tap neutral t_lv_n. Added before the
+    # `r/x_neutral_to` grounds the LV center-tap neutral t_lv_n. Added before the
     # winding-model branch below so it applies to BOTH the fixed Yprim and the
     # free-tap T-model paths (the current sums additively into the same KCL node).
     #
@@ -594,14 +594,14 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # ── Coupled-coil (primitive-admittance) formulation ───────────────────────
     # The split-phase transformer is a genuine 3-winding transformer: winding 1
     # is the HV coil (t_fr_ph→t_fr_n); windings 2 and 3 are the two LV
-    # half-windings, BOTH dotted at the centre tap (winding 2: t_lv_1→t_lv_n,
+    # half-windings, BOTH dotted at the center tap (winding 2: t_lv_1→t_lv_n,
     # winding 3: t_lv_n→t_lv_2). Reconstructing the OpenDSS-consistent 5×5
     # primitive admittance from the star leakage arms captures the mutual
     # coupling between the two half-windings — which a per-leg decoupled voltage
     # drop omits, causing the legs to spread apart under load. This Yprim matches
     # OpenDSS's transformer Yprim to machine precision (see `_yprim_center_tap`).
     #
-    # CRITICAL: winding 3 is dotted at the centre tap, so its voltage is
+    # CRITICAL: winding 3 is dotted at the center tap, so its voltage is
     # V(t_lv_n) − V(t_lv_2) (NOT V(t_lv_2) − V(t_lv_n)). The opposite sign makes
     # the two LV legs identical instead of series-aiding, the original bug.
     #
@@ -629,7 +629,7 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
         # Connection matrix C (3×5) over nodes
         #   [t_fr_ph, t_fr_n, t_lv_1, t_lv_n, t_lv_2]:
         #   winding 1: (V_frph − V_frn)/N ; winding 2: V_lv1 − V_lvn ;
-        #   winding 3: V_lvn − V_lv2  (dotted at the centre tap).
+        #   winding 3: V_lvn − V_lv2  (dotted at the center tap).
         C = zeros(ComplexF64, 3, 5)
         C[1, 1] =  1.0 / N; C[1, 2] = -1.0 / N
         C[2, 3] =  1.0;     C[2, 4] = -1.0
@@ -700,7 +700,7 @@ function _add_center_tap_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kc
     # Degree-2 voltage drop derived from the SAME coupled-coil Yprim as the fixed
     # path above: with the HV core EMF E = V_hv − Z1·Is and the star node V* = E/N,
     #   leg1:  V_hv − N·v1 = Z1·Is − N·Z2·Il1
-    #   leg2:  V_hv − N·v2 = Z1·Is + N·Z2·Il2   (winding 3 reversed at the centre tap)
+    #   leg2:  V_hv − N·v2 = Z1·Is + N·Z2·Il2   (winding 3 reversed at the center tap)
     # where v1 = V_t1 − V_tn, v2 = V_tn − V_t2, Z1 = (N/N0)²(R1+jX1) and
     # Z2 = R2+jX2 (each LV leg, LV Ω). The shared Z1·Is term carries the
     # half-winding mutual coupling that the 5×5 Yprim captured. At Z = 0 this
@@ -815,7 +815,7 @@ Neutral KCL at the transformer star point:
 Loss model (per-winding T behind the ideal transform — matches OpenDSS / PMD):
   - `r/x_series_from` → series impedance on the from-side winding branch
   - `r/x_series_to`   → series impedance on the to-side winding branch
-  - `g/b_no_load`     → magnetising shunt across the winding-2 (to-side) coils
+  - `g/b_no_load`     → magnetizing shunt across the winding-2 (to-side) coils
     (delta of branches for a delta winding 2, phase-to-neutral for a wye
     winding 2) — OpenDSS places the exciting branch on winding 2
   - `r/x_neutral_*` (wye side) → internal neutral-grounding branch
@@ -944,7 +944,7 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
     #   ΔV_del = n_eff·ΔV_wye − n_eff·(Rw+jXw)·I_wye,k − (Rd_coil+jXd_coil)·I_arm,k
     #
     # Both drops are driven by the WYE phase current I_wye,k.  The delta-arm
-    # current is the magnetising image of the wye winding current:
+    # current is the magnetizing image of the wye winding current:
     #   I_arm,k = (1/n_eff)·I_wye,k    (amp-turn balance; verified numerically to
     #   match the OpenDSS terminal-Y oracle to 3 d.p. on the unbalanced fixture).
     # NB: the delta CURRENT variable cr_xf[del,k] is the delta LINE current
@@ -1071,7 +1071,7 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
             sum(ci_xf[(tid, side_wye, ph)] for ph in ph_idx) == 0))
     end
 
-    # ── No-load (magnetising) shunt across the WINDING-2 (to-side) coils ───────
+    # ── No-load (magnetizing) shunt across the WINDING-2 (to-side) coils ───────
     # OpenDSS places the exciting branch on winding 2, referred to winding 2's
     # coil voltage (verified against its Yprim): a delta of branches across the
     # LV delta coils when the delta is winding 2 (Yd), phase-to-neutral across
@@ -1100,7 +1100,7 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
         kadd(b_del, tm_del[k], -cr_xf[(tid, side_del, k)], -ci_xf[(tid, side_del, k)])
     end
 
-    # ── Magnetising-shunt injections on the to-side coils ──────────────────────
+    # ── Magnetizing-shunt injections on the to-side coils ──────────────────────
     if has_shunt
         if wye_is_from
             # to = delta: a branch across each coil (del_k, del_{k_next}).
@@ -1326,7 +1326,7 @@ function _add_autotransformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kc
                 Symbol("transformer_", family), (tid, "from", 1), cref))
     end
 
-    # From-side phase terminal current = series + magnetising shunt (V_p − V_q).
+    # From-side phase terminal current = series + magnetizing shunt (V_p − V_q).
     if has_shunt
         vr_pn = t_fr_q !== nothing ?
             @expression(model, vr[(b_fr, t_fr_ph)] - vr[(b_fr, t_fr_q)]) : vr[(b_fr, t_fr_ph)]

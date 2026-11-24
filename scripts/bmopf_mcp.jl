@@ -53,6 +53,8 @@ function mcp_tool_definitions()
                 "properties" => Dict(
                     "path" => path_property,
                     "time_index" => Dict("type" => "integer", "minimum" => 1),
+                    "spatial_enabled" => Dict("type" => "boolean", "default" => true,
+                        "description" => "Set false to skip all geospatial analysis; other diagnostics still run."),
                 ),
             ),
         ),
@@ -256,11 +258,14 @@ function mcp_execute_tool(name::String, arguments::AbstractDict)
         path = _mcp_existing_file(_mcp_string(arguments, "path"), "case path")
         return execute_case_parse(parse_bmopf(path); inputs=[_mcp_input("case", path)])
     elseif name == "bmopf_analyze"
-        _mcp_require_keys(arguments, ("path",), ("time_index",))
+        _mcp_require_keys(arguments, ("path",), ("time_index", "spatial_enabled"))
+        spatial_enabled = get(arguments, "spatial_enabled", true)
+        spatial_enabled isa Bool || throw(ArgumentError("spatial_enabled must be a boolean"))
         path = _mcp_existing_file(_mcp_string(arguments, "path"), "case path")
         return execute_analysis(
             parse_bmopf(path);
             t_index=_mcp_time_index(arguments),
+            spatial_enabled=spatial_enabled,
             inputs=[_mcp_input("case", path)],
         )
     elseif name == "bmopf_verify_solution"

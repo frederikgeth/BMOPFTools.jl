@@ -101,7 +101,7 @@ function diagnose_infeasibility(fopf_result::Dict{String,Any},
 
     sorted_buses = sort(collect(bus_slack), by=last, rev=true)
 
-    # ── Analyse each top bus ──────────────────────────────────────────────────
+    # ── Analyze each top bus ──────────────────────────────────────────────────
     bus_net  = get(net, "bus",       Dict())
     load_net = get(net, "load",      Dict())
     gen_net  = get(net, "generator", Dict())

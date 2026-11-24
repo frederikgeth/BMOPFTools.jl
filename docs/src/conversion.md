@@ -11,13 +11,73 @@ This page documents both directions of format conversion:
 Each section records the deliberate decisions in those converters — the things
 you would otherwise have to discover by diffing data.
 
+## [PowerIO readers and distribution-tool data](@id powerio-readers)
+
+[PowerIO](https://powerio.dev/) is a
+[Rust project](https://github.com/eigenergy/powerio) for grid-data parsing and
+conversion. BMOPFTools uses its
+[Julia wrapper, PowerIO.jl](https://github.com/eigenergy/PowerIO.jl), which calls
+the native Rust library in-process, and requires **0.11.11 or later within the
+0.11 series**.
+PowerIO reads several distribution formats into a typed
+`PioModule{MulticonductorNetwork}`. BMOPFTools' tested import wrapper is
+[`from_dss`](@ref) for OpenDSS; [`parse_bmopf`](@ref) reads BMOPF JSON.
+Other PowerIO readers are available through PowerIO directly and do not gain
+BMOPFTools' DSS-specific normalization and provenance audit automatically.
+
+| Source data | PowerIO format token | Coverage and limits |
+|---|---|---|
+| OpenDSS circuit files | `dss` | Static circuit equipment and electrical data; load shapes, solve commands, and monitors remain source instructions with diagnostics. Use `from_dss` for the BMOPFTools intake path below. |
+| PowerModelsDistribution ENGINEERING JSON | `pmd` | A multiconductor reader in PowerIO. BMOPFTools' `to_pmd` is an export API; the former `from_pmd` import API has been removed. |
+| BMOPF JSON | `bmopf-json` | PowerIO supports explicit 0.1.0 and draft 0.2.0 output profiles. BMOPFTools selects 0.1.0 and restores supported extensions from `extras`; a PowerIO release does not ratify a schema proposal. |
+| Distribution CIM RDF/XML (GridAPPS-D / CIMHub profile) | `cim-dist` | Per-phase connectivity, impedances, loads, shunts, switches, transformers, and sources. Transformer tanks, DER, controls, geometry, and other unmapped classes produce diagnostics; unresolved line impedances block conversion. The writer has no independent CIMHub or profile-schema validation yet. |
+| PSS®SINCAL distribution projects | `sincal-multiconductor` | Selected native SQLite/`.sinx` profiles and acquired Access tables paired with the original MDB, with explicit variant/snapshot selection. Unsupported required components reject parsing. Source echo, IR restoration, and PF preparation are supported; native SINCAL execution remains unverified. |
+
+For the exact reader profiles and current limits, see PowerIO's
+[distribution guide](https://eigenergy.github.io/powerio/guide/distribution.html),
+[SINCAL guide](https://eigenergy.github.io/powerio/guide/sincal.html), and
+[0.11.11 Julia release notes](https://github.com/eigenergy/PowerIO.jl/releases/tag/v0.11.11).
+GridLAB-D, PowerFactory, CYME, and Synergi Electric are potential sources through
+an appropriate supported exchange format; this is not a claim of direct native
+readers for those tools.
+
+PowerIO also reads pandapower JSON and several transmission exchange formats
+into a **`BalancedNetwork`**. SINCAL has a separate `sincal-balanced` profile.
+Those readers do not supply a conductor-level BMOPFTools model or reconstruct
+missing phase and neutral data. The two network families remain distinct.
+
+For example, inspect a distribution CIM input and its BMOPF emission directly:
+
+```julia
+import PowerIO
+
+module_ = PowerIO.parse("feeder.xml"; format="cim-dist")
+module_.diagnostics                      # source-reader evidence
+emission = PowerIO.emit(module_, "bmopf-json@0.1.0")
+emission.diagnostics                     # target conversion losses
+```
+
+Review both diagnostic lists before using the emitted data. A successful
+PowerIO parse or emission does not establish BMOPFTools schema validity,
+equipment applicability, or numerical agreement. Feeding an intermediate
+OpenDSS export to `from_dss` also cannot recover information lost in that export.
+
+SINCAL Access intake additionally requires explicitly acquired companion tables;
+PowerIO does not run acquisition tools. It checks the original MDB's length and
+hash, without independently attesting the companion table cells. Active daily
+profiles require a snapshot. The distribution reader is strict by default;
+`assume_inactive_source_controls=true` opts into an experimental schema-11.5
+NULL-control assumption with diagnostics and provenance. Referenced voltage
+sources currently block ordinary DSS/PMD/BMOPF emission, so a parsed SINCAL
+network is not necessarily convertible to BMOPFTools.
+
 ## [Design philosophy: ingestion is a semantic projection](@id ingest-philosophy)
 
 !!! note "This is one instance of a model-wide principle"
     Reconstructing the named real-world asset rather than a solver-convenient
     encoding is a stance that governs the whole data model — validation findings
     and [fix recipes](augmentation.md#fix) as much as ingest. The general
-    statement, and the catalogue of representational collisions it resolves
+    statement, and the catalog of representational collisions it resolves
     (capacitor-vs-shunt, load-vs-generator, line-vs-transformer, …), live on the
     [Object identity & semantic projection](@ref object-identity) page. This
     section covers the OpenDSS-specific *lowering*.
@@ -29,7 +89,7 @@ voltage regulators, classifying grounding and galvanic zones — to lower a loos
 specified OpenDSS model onto a canonical, conductor-level data model. Just as a
 compiler is not expected to round-trip back to the original source whitespace but
 *is* expected to preserve program semantics and diagnose errors the source
-obscured, BMOPFTools optimises for a different goal than a faithful copy.
+obscured, BMOPFTools optimizes for a different goal than a faithful copy.
 
 The goal hierarchy is explicit:
 
@@ -46,7 +106,7 @@ reason about the network at all.
 
 Three pillars make a non-identity transformation safe to rely on:
 
-1. **Canonicalise representation.** Normalise terminals, neutral/earth, regulator
+1. **Canonicalize representation.** Normalize terminals, neutral/earth, regulator
    structure and grounding onto one explicit convention (the
    [ingest steps](@ref from-dss-ingest) below), so every downstream pass sees the
    same shape.
@@ -55,13 +115,13 @@ Three pillars make a non-identity transformation safe to rely on:
    a heuristic that guesses wrong is *diagnosable*, not hidden. This is the
    correctness burden a pure transcoder never takes on, paid down openly.
 3. **Record provenance.** The transformation manifest and `net["_meta"]` keep an
-   auditable trail of what was normalised, so the projection is reproducible
+   auditable trail of what was normalized, so the projection is reproducible
    (same inputs + pinned versions ⇒ same canonical output) and any drift is
    visible.
 
 The aim, then, is **reproducible compatibility with deliberate surgery** — not
 losslessness. What is preserved is the physics and the semantics; what is
-normalised away is redundant or ambiguous *encoding*, and even that is recorded.
+normalized away is redundant or ambiguous *encoding*, and even that is recorded.
 
 ### Background and precedents
 
@@ -87,21 +147,21 @@ This is a principled stance with a clear lineage, in power systems and beyond.
   conductor-level data a four-wire model — and a non-expert collecting it —
   actually needs ([ref. 10](methodology.md#refs), [ref. 17](methodology.md#refs));
   see the [buses & terminals primer](terminals_primer.md).
-- **Good data modelling is a discipline in its own right.** Outside power systems
-  the same lesson recurs: *tidy data* observes that data is usually organised for
-  ease of entry rather than analysis, and that standardising the mapping from
+- **Good data modeling is a discipline in its own right.** Outside power systems
+  the same lesson recurs: *tidy data* observes that data is usually organized for
+  ease of entry rather than analysis, and that standardizing the mapping from
   semantics to representation is what makes reliable, composable tooling possible
   ([ref. 22](methodology.md#refs)); the **FAIR** principles make *provenance and
   shared vocabularies* — not raw dumps — the basis of reusable data
   ([ref. 21](methodology.md#refs)); **Open Power System Data** brings the same
-  validated, reproducible raw-to-results discipline to energy-system modelling
-  ([ref. 24](methodology.md#refs)); and **W3C PROV** formalises provenance as the
+  validated, reproducible raw-to-results discipline to energy-system modeling
+  ([ref. 24](methodology.md#refs)); and **W3C PROV** formalizes provenance as the
   mechanism that makes a non-identity transformation trustworthy — notably
-  defining validity itself through a normalisation process
+  defining validity itself through a normalization process
   ([ref. 25](methodology.md#refs)).
 
 What is distinctive about BMOPFTools is not any one of these ideas but their
-**synthesis**: semantic canonicalisation, a stable and code-addressable
+**synthesis**: semantic canonicalization, a stable and code-addressable
 data-quality vocabulary ([findings](findings.md)), standards-grounded augmentation
 ([case augmentation](augmentation.md)), and a provenance manifest — assembled
 specifically to make distribution-OPF benchmarks reproducible.
@@ -112,8 +172,8 @@ specifically to make distribution-OPF benchmarks reproducible.
 [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl) and emits BMOPF JSON
 directly — there is no PowerModelsDistribution step in the loop, and the earlier
 PMD-based `from_pmd` parser has been removed. Values arrive in **SI units**
-already (line lengths in metres, impedances in Ω, powers in W/var/VA); PowerIO
-normalises the DSS unit declarations internally, so `from_dss` applies no further
+already (line lengths in meters, impedances in Ω, powers in W/var/VA); PowerIO
+normalizes the DSS unit declarations internally, so `from_dss` applies no further
 scaling.
 
 The pipeline is:
@@ -123,13 +183,13 @@ OpenDSS .dss ──PowerIO.jl──► raw BMOPF dict ──from_dss post-proces
 ```
 
 On top of what PowerIO emits, `from_dss` (and the `parse_bmopf`/`migrate` path it
-shares) applies a handful of deliberate normalisations so the result lands on the
+shares) applies a handful of deliberate normalizations so the result lands on the
 BMOPF conventions:
 
 - **Identifier case-folding** — all ids and references lower-cased (below).
 - **Terminal remap** — `1,2,3,4 → a,b,c,n`, with the OpenDSS earth node `.0`
   (surfaced by PowerIO as terminal `"5"`) routed to the bus neutral (below).
-- **Transformer impedance normalisation** — PowerIO's lumped single-impedance
+- **Transformer impedance normalization** — PowerIO's lumped single-impedance
   form is migrated onto the per-winding fields the OPF reads (below).
 - **Transformer fidelity** — PowerIO 0.11 retains BMOPF transformer neutral
   grounding, fixed taps, center-tap leakage, delta-wye leakage, and the validated
@@ -139,8 +199,13 @@ BMOPF conventions:
   transformers (`W.MIGRATE.XFMR_EXTRAS_FOLD`) and folds the whole-table classes
   the root schema dropped — `ibr`, `control_profile`, the DC tables,
   `time_series` — back to the top level (`W.MIGRATE.TOP_LEVEL_EXTRAS_FOLD`).
-  BMOPFTools still normalizes the no-load shunt sign and placement to its OPF
-  convention.
+  Conversion explicitly selects `bmopf-json@0.1.0`; this does not imply support
+  for every field in the draft 0.2.0 schema. An explicit
+  `no_load_shunt = {winding, g, b}` becomes an ordinary shunt on its declared
+  winding, with provenance in `_meta.explicit_transformer_core_shunts`, and
+  suppresses duplicate percentage-based core branches. Its losses stay assigned
+  to the owning transformer and enter the network balance once. See
+  [Transformer models](transformer_models.md) for the shunt conventions.
 - **System frequency capture** — the OpenDSS base frequency (`Set
   DefaultBaseFreq`, itself defaulting to 60 Hz; European decks set it to 50)
   is otherwise absent from BMOPF impedance data, so `from_dss` reads
@@ -161,8 +226,8 @@ BMOPF conventions:
 What is **faithful**: connectivity, phasing, linecode matrices, load models,
 transformer neutral grounding, native 3-winding transformer data, and SI
 impedances pass through unchanged. What is **lossy or not yet supported** —
-earth terminal grounding through the bus neutral and the OpenDSS
-regulator/auto-transformer families — is catalogued under
+earth terminal grounding through the bus neutral, dynamic regulator control,
+and unsupported auto-transformer representations — is cataloged under
 [Known limitations](#Known-limitations); most are tracked as upstream PowerIO.jl
 issues.
 
@@ -287,17 +352,96 @@ than silently dropping one.
 
 ### [The earth terminal (OpenDSS `.0`)](@id earth-terminal)
 
-BMOPF has no earth terminal — ground is implicit. OpenDSS, by contrast, uses
-node `.0` for earth, which surfaces in the BMOPF JSON as terminal **5**.
+`from_dss` preserves PowerIO's materialized node-0 terminal as a separate,
+perfectly grounded return named `n_ref`. The conductor neutral (OpenDSS node 4)
+remains `n`. PowerIO chooses the synthetic reference number from the bus's node
+inventory; it is not always terminal 5. Intake uses the source IR's grounded
+terminal list, not a fixed numeric substitution. Regression tests in
+`test/opendss_semantics_tests.jl` check that the two returns remain distinct.
 
-PowerIO renders the OpenDSS earth node as terminal `"5"` (e.g. a transformer
-wye winding whose star point is earthed arrives with
-`terminal_map_to = ["1","2","3","5"]`). On ingest, `from_dss` routes `"5"` to
-the bus neutral `"n"` as part of the `1,2,3,4 → a,b,c,n` remap, so every bus
-ends up on the `a/b/c/n` convention and its neutral is detected. The earthed
-star point is then grounded **through the bus neutral** rather than solidly —
-a slightly lossy choice (matching the earlier `from_pmd` behaviour) that is
-recorded under `net["_meta"]["earth_terminal_routing"]` so it stays inspectable.
+For example, a transformer with `bus=lv conn=wye` and a feeder carrying node 4
+imports with winding map `[a,b,c,n_ref]`, feeder map `[a,b,c,n]`, and
+`perfectly_grounded_terminals=[n_ref]`. A 0.3 Ω shunt on `n` remains finite and
+does not become the transformer star's connection to ground. The explicitly
+wired `bus=lv.1.2.3.4` instead imports with winding map `[a,b,c,n]`.
+
+The `neutral` role includes these device return terminals for existing winding
+consumers; the reserved name `n_ref` and
+`_meta.opendss_ground_references.by_bus` identify the mathematical reference.
+It is not evidence of a physical fourth wire. A bus carrying both `n` and the
+perfectly grounded `n_ref` retains `n` as its conductor-neutral metadata. The
+case-wide role declaration and source mapping survive `write_bmopf`/`parse_bmopf`.
+Other multiple-neutral declarations remain subject to the existing diagnostics.
+
+Older imports that merged the two terminals cannot be repaired from the saved
+target alone. Re-import the original DSS input; historical
+`_meta.earth_terminal_routing` records describe the old lossy behavior.
+
+### Source phase relation and report qualification
+
+PowerIO 0.11.6 retains authored `leadlag` in transformer source extras but drops it
+from its BMOPF transformer export, which always encodes the ANSI relation. BMOPFTools
+does not invent a phase mapping or change the target's winding equations to
+compensate. Instead it **checks** each authored value: the source clock follows
+from the source winding connections and `leadlag`, and the target clock from
+[`transformer_phase_relation`](@ref) on the converted model.
+
+| Source connections | `leadlag` | Source clock (winding 2 vs 1) | Ledger outcome |
+|---|---|---|---|
+| mixed wye/delta, 3-phase, 2 windings | `lag`, `ansi` (OpenDSS default) | 1 | `verified` if the target clock is 1 → mapped, not blocking |
+| mixed wye/delta, 3-phase, 2 windings | `lead`, `euro` | 11 | `known_mismatch` (target clock 1) → blocking |
+| equal connections (Yy, Dd) | any | 0 | `not_applicable` → mapped, not blocking |
+| any other shape, or an unrecognized value | — | — | `indeterminate` → blocking |
+
+The source clocks were measured against OpenDSS for both connection orders and
+are re-checked by the test suite whenever OpenDSSDirect is available. A
+`known_mismatch` is a definite 60° error in the converted model's
+phase relation. It does not change magnitudes on a radial feeder fed from one
+side, but it does matter for meshed or parallel transformers and for any
+result compared by angle across the transformer.
+
+`_meta.powerio_source_semantics.transformer_phase_relations` records the authored
+value, `source_clock`, `target_clock` and `status` per transformer. The
+structured phase relation describes the represented target and
+carries this record in `source_preservation`. Markdown, terminal and tree views
+append `source leadlag=… verified`, a `SOURCE MISMATCH` note, or `unverified`.
+The existing upstream Finding `EMIT.BMOPF.TRANSFORMER_EXTRA_DROPPED` is kept.
+
+### Earthing and nominal-voltage report semantics
+
+Earthing zones describe represented connections, not TT/TN/IT installation
+identity. `star_earthing` is `perfect` for an exact zero-voltage reference,
+`impedance` for a positive finite local path, `none` for a represented infeed
+return without a local path, and `indeterminate` when that return is absent.
+A voltage source whose terminal map holds only phase terminals pins
+phase-to-reference voltages, so it is an ideal source referenced to ground by
+construction. Its zone is `perfect`, and the `star_points` entry carries
+`basis = "voltage_source_pins_phase_to_reference"` with no terminal.
+`star_points` records terminal identities; `neutral_earths` separately records
+conductor-neutral paths. `star_R_ohm` retains its legacy key but reports impedance
+magnitude in ohms. Finite values remain finite on both sides of the old 1 Ω and
+200 Ω cutoffs. Those configuration keys remain readable for compatibility but
+no longer control this classification.
+
+`n_downstream_earths` counts buses with a represented local neutral earth away
+from infeed buses. It does not count electrodes within a bus, parallel paths,
+or prove a protective-earth arrangement. `protective_system_status` remains
+`indeterminate`. A `4-wire` tag requires a neutral carried by represented closed
+branches at every bus in the zone; source reference terminals alone do not
+qualify. Missing conductors do not establish Kron-reduction provenance.
+
+Voltage-level results expose `voltage_basis=phase_to_reference` and explain the
+basis in human-readable output. For the balanced three-phase domain, 6.35 kV and
+250 V correspond to approximately 11 kV and 433 V line-to-line. These are nominal
+propagated values, not solved voltages. Conversion summaries count diagnostic
+records and classes, not asserted distinct fidelity losses; mapped source fields,
+retained source-only properties and parsing diagnostics can all contribute.
+
+OpenDSS execution still depends on source and solution frequency. A default
+frequency set after circuit creation can leave a previously created source at a
+different frequency. This static importer does not execute `solve` or reproduce
+session initialization; specify frequency before circuit creation or explicitly
+on the source when reproducible native solves are required.
 
 ### Transformer impedance on ingest
 
@@ -363,7 +507,7 @@ total `kvar`, `q_rated` is the per-phase (WYE) or per-pair (DELTA) share
 line-to-line for DELTA. Validated against OpenDSS's own Capacitor solve for WYE
 and DELTA.
 
-**Modelling a *fixed* bank in OpenDSS (replicable, no accidental switching).**
+**Modeling a *fixed* bank in OpenDSS (replicable, no accidental switching).**
 The toolbox models a **fixed** capacitor only. To produce a matching, constant
 bank in OpenDSS (as the parity tests do):
 
@@ -386,7 +530,7 @@ reactive support. The `capacitor` is specifically the *fixed* physical device.
 
 Ingest status: like `n_winding`, this is a hand-authored / future-PowerIO
 target — **`from_dss` is unchanged** and PowerIO still emits OpenDSS Capacitors
-as plain `shunt`s (B = kvar/kv²), so existing behaviour is untouched.
+as plain `shunt`s (B = kvar/kv²), so existing behavior is untouched.
 
 ### [General n-winding transformers](@id n-winding)
 
@@ -479,7 +623,7 @@ generators at all) is a *price* on that imported power.
 `from_dss` imports the source **without** a price (`from_dss` does not add a
 `cost`). The [augmentation pass](augmentation.md) supplies one: it attaches a
 per-phase **`cost`** to the source itself (default 1.0 \$/kWh, kwarg
-`slack_cost`), so minimum-cost dispatch equals loss minimisation. No flow
+`slack_cost`), so minimum-cost dispatch equals loss minimization. No flow
 bounds are added, so the source stays an unbounded slack, and no auxiliary
 generator is created — the cost lives on the `voltage_source`.
 
@@ -497,10 +641,10 @@ PMD-based tooling.
 - Powers: PMD values × `power_scale_factor` → W/var/VA.
 - Terminals: PMD integers `1,2,3 → "1","2","3"`, `4 → "n"`.
 - PMD enum values (`WYE`, `DELTA`, …) → strings.
-- Unrecognised PMD fields are preserved per component under a `_pmd`
+- Unrecognized PMD fields are preserved per component under a `_pmd`
   sub-dict — nothing is silently dropped; `to_pmd` merges them back.
 - Line lengths and per-length linecode values arrive from PMD already in
-  metres / Ω-per-metre (PMD normalises DSS units internally).
+  meters / Ω-per-meter (PMD normalizes DSS units internally).
 
 ### Load configuration
 
@@ -562,7 +706,7 @@ secondary span (240 V).
 OpenDSS places the exciting (no-load) branch across **winding 2** — verified
 against its `Yprim` — so `%noloadloss`/`%imag` (`cmag`) convert to SI
 admittances on winding 2's coil voltage `V_stamp` (the per-leg LV voltage for
-`center_tap`; the to-winding voltage for `single_phase`). The magnetising
+`center_tap`; the to-winding voltage for `single_phase`). The magnetizing
 branch is inductive, so `b_no_load` is **negative**:
 
 ```
@@ -630,10 +774,10 @@ b_no_load = -(cmag)       · s_rating / V_stamp²   # cmag       = %imag       /
 ### `to_pmd` transformer specifics
 
 - **No-load branch**: `noloadloss = g_no_load / Y_base` and
-  `cmag = |b_no_load| / Y_base` — `cmag` carries the magnetising susceptance
+  `cmag = |b_no_load| / Y_base` — `cmag` carries the magnetizing susceptance
   only, mirroring the ingest convention above (where `b_no_load` is
   deliberately left at 0, `cmag` is 0 too; core loss is never double-counted
-  as magnetising current).
+  as magnetizing current).
 - **Fixed tap**: a `tap ≠ 1` exports as PMD `tm_set = [fill(tap, n_ph), fill(1, n_ph)]`
   with `tm_fix = true` — the same `N_eff = (v_nom_from/v_nom_to)·tap`
   convention, so a fixed off-nominal tap round-trips exactly. Free-tap bounds
@@ -651,7 +795,7 @@ b_no_load = -(cmag)       · s_rating / V_stamp²   # cmag       = %imag       /
 
 ## [OpenDSS export (`to_dss`)](@id to-dss-export)
 
-[`to_dss`](@ref) is the inverse of [`from_dss`](@ref): it serialises a BMOPF data
+[`to_dss`](@ref) is the inverse of [`from_dss`](@ref): it serializes a BMOPF data
 model to BMOPF JSON (via [`write_bmopf`](@ref)) and hands it to PowerIO's DSS
 writer, which emits OpenDSS text.
 
@@ -665,19 +809,54 @@ returns the warnings. A `name` keyword overrides the circuit name without
 mutating the input dict.
 
 BMOPF terminal labels (`"a"`, `"b"`, `"c"`, `"n"`) are accepted by the writer and
-re-normalised to OpenDSS numeric nodes (`.1`, `.2`, `.3`, `.0`); merged polyphase
+re-normalized to OpenDSS numeric nodes (`.1`, `.2`, `.3`, `.0`); merged polyphase
 sources are re-expanded by the writer as needed.
 
-!!! note "Valid, not (yet) validated"
-    The current target is **valid** OpenDSS — text that PowerIO (and OpenDSS)
-    can parse and solve — not a byte-faithful or power-flow-validated round trip.
-    A `from_dss → to_dss` cycle is not guaranteed to reproduce the original file
-    or to solve identically in OpenDSS; the warnings PowerIO returns list what its
-    writer had to assume or could not represent. Byte-fidelity and an OpenDSS
-    power-flow cross-check are future work, tracked alongside the known lossy
-    points below (earth-terminal collapse, identifier case-folding, transformer
-    fidelity). Every `test/data/pf_comparison` fixture is round-tripped
-    (DSS → BMOPF → DSS) and the output re-parsed to guard validity.
+### Rating-preservation guard (PowerIO 0.11.7)
+
+By default, export re-imports the generated DSS and compares declared bounds and
+ratings under **identity component and terminal correspondence**, resolving
+linecode current ratings to each line. Changed identities, added equivalent
+branches, missing bounds, changed ratings, dynamic controls/time series, DC
+networks, or an unsuccessful re-import produce an `indeterminate` admission
+Finding (`W.EXPORT.DSS_RATING_UNVERIFIED`) and an `ArgumentError`. The file-writing
+overload refuses before creating directories or overwriting the destination.
+This is a conservative declaration check; passing it certifies neither electrical
+equivalence nor OPF feasibility or objectives.
+
+For an independent **power-flow verification** deck, explicitly opt in:
+
+```julia
+findings = Finding[]
+text, warnings = to_dss(net; allow_unverified_ratings=true, findings)
+to_dss(net, "verification/Master.dss"; allow_unverified_ratings=true)
+write_bmopf(net, "authoritative.bmopf.json")  # OPF and Tellegen input
+```
+
+Opt-in retains the warning and structured evidence in `findings`: status,
+checked domain, source/target declaration changes, unassessed dimensions,
+PowerIO version, and the upstream issue link. The input dict is unchanged.
+
+[powerio#762](https://github.com/eigenergy/powerio/issues/762) records the concrete
+missing-rating → **600 A** defect on a source-equivalent branch in PowerIO 0.11.9
+and earlier. PowerIO 0.11.10 keeps an absent OpenDSS ampacity absent, so
+unrated source-equivalent branches now return unrated. The guard still refuses
+these exports by default: the synthesized ideal-source and shunt-equivalent lines
+change component correspondence, and an explicit zero-A limit returns unrated
+because OpenDSS reads `normamps=0` as no limit.
+Power-flow agreement cannot certify these constraints. Keep **BMOPF JSON as the
+authoritative model for OPF and Tellegen**, and do not strip every 600 A limit or
+substitute zero: both may be real active constraints.
+
+The 36 feature fixtures retain exact structural change inventories, explicit
+terminal correspondences, effective-line and shunt primitive checks, source
++R/−R and tiny-impedance equivalent checks, grounding checks, physical feeder
+rating checks, and an independent OpenDSS voltage comparison. Renamed neutral
+terminals may also lose their neutral-role metadata after re-import; electrical
+grounding agreement does not repair that role. The minimized rating witness and
+one neutral-role witness are narrowly expected failures. The round-trip suite
+as a whole is not marked as expected failure. The original open-delta fixture's
+independent solve does not converge and remains an explicitly recorded skip.
 
 ### Conversion failures with source evidence
 
@@ -692,7 +871,7 @@ using BMOPFTools, JSON3
 
 findings = Finding[]
 path = joinpath(pkgdir(BMOPFTools), "test", "data", "line_geometry",
-                "synthetic_overhead.dss")
+                "unresolved_geometry.dss")
 try
     from_dss(path; findings)
 catch err
@@ -728,25 +907,26 @@ conversion.
 
 ## Known limitations
 
-**Geometry-defined OpenDSS lines:** PowerIO 0.11 rejects canonical BMOPF
-conversion when conductor impedances or terminal maps remain unresolved,
-with `PowerIO.PowerIOError` code `BUILD.DIST.ELECTRICAL_INCOMPLETE`.
-`from_dss` wraps this failure in `DSSConversionError`, preserving it as
-`err.cause`; it does not return a network filled with
-OpenDSS default sequence impedances. The synthetic overhead geometry fixture
-is tested through `from_dss`, including equivalent metre/kilometre line lengths
-and PowerIO IR serialization. Explicit four-conductor linecodes still import.
+**Geometry-defined OpenDSS lines:** PowerIO 0.11.7 resolves supported geometry
+into line-specific effective impedance snapshots. The synthetic overhead fixture
+is checked against all entries of independent OpenDSS R/X/C matrices, including
+equivalent meter/kilometer lengths and both IR and BMOPF serialization. Follow
+`net["line"][id]["linecode"]` to find the effective matrix; an authored `LineCode`
+name need not survive as an active electrical record.
 
-This resolves the silent-substitution defect described in
-[issue #381](https://github.com/frederikgeth/BMOPFTools.jl/issues/381), but it does
-not implement faithful `WireData`/`LineGeometry` import. Retain the source DSS
-or PowerIO module, or supply explicitly calculated conductor impedances.
+A missing geometry or conductor still rejects canonical BMOPF conversion with
+`BUILD.DIST.ELECTRICAL_INCOMPLETE`; `from_dss` preserves that code in
+`DSSConversionError.cause`. It never fills unresolved lines with default sequence
+impedances. This protects the failure boundary in
+[issue #381](https://github.com/frederikgeth/BMOPFTools.jl/issues/381).
+
+An effective electrical snapshot is not an editable `WireData`/`LineGeometry`
+model. Retain the source DSS or PowerIO module for those definitions.
 BMOPFTools can compile its own `wire_data`/`line_geometry` representation;
-that capability does not imply that the OpenDSS importer populates it.
+that separate capability does not imply that intake populates it.
 
 
-- **Transformer fidelity (from `from_dss`).** BMOPFTools requires PowerIO
-  v0.7 for OpenDSS import. The BMOPF export carries fixed taps, center-tap
+- **Transformer fidelity (from `from_dss`).** The BMOPF export carries fixed taps, center-tap
   leakage, delta-wye leakage, neutral grounding, and the validated `n_winding`
   cases directly. BMOPFTools normalizes no-load shunts to its OPF convention.
 - **Grounding reactors need `phases=1` (gotcha).** PowerIO silently drops a
@@ -754,33 +934,47 @@ that capability does not imply that the OpenDSS importer populates it.
   `phases=1` (OpenDSS itself tolerates the omission). Without it the grounded
   neutral floats — a wye-load `delta_wye` then has no neutral reference and the
   power flow diverges. Always write grounding reactors with an explicit `phases=1`.
-- **Earth terminal `"5"` → bus neutral (from `from_dss`).** PowerIO keeps the
-  OpenDSS earth node as terminal `"5"`. BMOPFTools routes it to the bus neutral
-  on ingest (see [The earth terminal](@ref earth-terminal)), which
-  grounds an earthed star point through the bus neutral rather than solidly.
-  Native earth resolution upstream is tracked as a PowerIO.jl issue.
+- **Ground references remain distinct from neutral conductors.** `from_dss`
+  maps a materialized OpenDSS node-0 reference to `n_ref` using its grounded
+  declaration. It does not merge that reference with conductor neutral `n`.
+  See [The earth terminal](@ref earth-terminal).
 - **Wye-wye three-phase transformers** have no spec type. They are parked
   in `single_phase` with 3-phase terminal maps and flagged
   (`W.SPEC.XFMR_TMAP_ARITY`); the faithful decomposition into three
   single-phase units is future work.
-- **RegControl / tap controllers** do not convert; see the
-  regulator-pattern detection in the [methodology notes](methodology.md).
-- **Regulator subtypes** (`single_phase_autotransformer`, `open_delta_regulator`)
-  are OPF-native data-model objects but are **not produced by `from_dss`** —
-  it does not recognise OpenDSS `AutoTrans`/`RegControl` or open-delta banks as
-  these objects, and `to_pmd` does not emit them. They are authored directly in
-  BMOPF JSON. See [conventions](conventions.md) and the [OPF reference](opf.md).
+- **RegControl / tap controllers:** PowerIO retains the written static taps
+  and reports ignored voltage regulation; it does not reproduce the control loop.
+  Pairable single-phase regulator legs marked by `RegControl` can be emitted as
+  one `open_delta_regulator`. The writer regression checks that `from_dss`
+  restores its connection and both taps from the 0.1.0 `extras` representation.
+  This recognition does not establish general `AutoTrans`/`RegControl` support.
+  `to_pmd` does not emit the regulator subtypes. See [conventions](conventions.md)
+  and the [OPF reference](opf.md) for the numerical models and their domains.
 
-### DSS intake compatibility with PowerIO 0.11.1
+### DSS intake compatibility
 
-The minimum tested PowerIO version is 0.11.1. Two source-IR repairs remain
-necessary: static DSS model-4 CVR exponents (#333), and multi-winding `%R`
-conversion using winding 1's power base (#356). `from_dss` records these in
-`_meta.powerio_intake_repairs`; it does not alter ordinary BMOPF JSON intake.
-CVR uses explicit `CVRwatts`/`CVRvars`, defaulting to 1/2 as in OpenDSS.
-Time-varying `CVRcurve` is rejected rather than frozen silently. Source voltage
-thresholds remain separate behavior-domain metadata; importing an exponential
-law does not reproduce OpenDSS fallback behavior outside that domain.
+The minimum supported PowerIO version is 0.11.11. PowerIO carries static
+DSS model-4 CVR exponents in its typed voltage model and emits them directly.
+`from_dss` verifies aligned finite exponents instead of restoring defaults from
+missing legacy extras. Explicit zero and negative exponents are preserved;
+unsupported time-varying `CVRcurve` remains rejected.
+
+Multi-winding `%R` conversion using winding 1's power base (#356) remains an
+intake repair, recorded in `_meta.powerio_intake_repairs`. Ordinary BMOPF JSON
+intake is unchanged. Typed load voltage thresholds are retained separately in
+`_meta.powerio_source_semantics`, with their typed-model origin distinguished
+from legacy source extras. Each typed observation also retains the complete
+`typed_voltage_model`, including the low-voltage transition and exponents.
+They are behavior-domain observations, not bus
+operating bounds. PowerIO's `EMIT.BMOPF.VALUE_SUBSTITUTED` diagnostics remain
+visible: the nominal BMOPF load law does not reproduce bounded-law transitions,
+current limits or dropout outside its supported domain.
+
+DSS sources now include explicit series impedances and internal EMF buses.
+Keep those branches when solving an imported case. Extra buses and branches,
+linecode identities/provenance and canonical DSS source-equivalent circuits can
+change dictionary structure across a round trip; compare physical bus voltages
+with explicit correspondence and inspect conversion diagnostics.
 
 `to_dss` also emits explicit model-4/CVR parameters and first-winding-base
 multi-winding `%R` edits, preventing the repaired laws from disappearing again

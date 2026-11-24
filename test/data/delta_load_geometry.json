@@ -1,0 +1,5 @@
+{
+  "bus": {"b": {"terminal_names": ["a", "b", "c", "n"], "perfectly_grounded_terminals": ["n"]}},
+  "voltage_source": {"s": {"bus": "b", "terminal_map": ["a", "b", "c"], "v_magnitude": [230.0, 230.0, 230.0], "v_angle": [0.0, -2.0943951023931953, 2.0943951023931953]}},
+  "load": {"l": {"bus": "b", "configuration": "DELTA", "terminal_map": ["a", "b"], "p_nom": [1000.0, 1000.0], "q_nom": [200.0, 200.0]}}
+}

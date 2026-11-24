@@ -22,11 +22,31 @@ end
         @test maximum(abs.(Y .- transpose(Y))) < atol
     end
 
-    # Power balance: Re[conj(V)ᵀ I] should equal resistive loss = Σ |Iw|² R.
-    # For a passive element we test Re[conj(V)ᵀ Y V] ≥ 0.
+    # Terminal power uses exactly one conjugation: S = Σ V * conj(I).
+    # Julia's adjoint (') already conjugates; conj(V)' would instead give Vᵀ.
+    # This is a finite passivity witness, not a complete certificate (PSK-000013).
+    terminal_power(Y, V) = sum(V .* conj.(Y * V))
     function check_power_balance(Y, V; rtol=1e-6)
-        S = conj(V)' * (Y * V)
-        @test real(S) >= -rtol * abs(S)   # non-negative real part
+        S = terminal_power(Y, V)
+        @test real(S) >= -rtol * abs(S)
+        for angle in (pi/2, -2pi/3)
+            rotated = terminal_power(Y, cis(angle) .* V)
+            @test rotated ≈ S rtol=1e-10 atol=1e-12
+            @test real(rotated) >= -rtol * abs(rotated)
+        end
+    end
+
+    @testset "complex-power oracle is invariant to phase rotation" begin
+        # A two-terminal admittance y=2+3i and |ΔV|²=10 draws 20-30i VA.
+        # An active negative conductance must remain distinguishable.
+        Y = (2.0 + 3.0im) .* [1.0 -1.0; -1.0 1.0]
+        for angle in (0.0, pi/2, -2pi/3)
+            V = cis(angle) .* [2.0 + 1.0im, -1.0 + 2.0im]
+            @test terminal_power(Y, V) ≈ 20.0 - 30.0im atol=1e-12
+            @test real(terminal_power(-Y, V)) ≈ -20.0 atol=1e-12
+        end
+        @test terminal_power(Y, [0.0im, 0.0im]) == 0.0im
+        @test terminal_power(Y, [1.0 + 2.0im, 1.0 + 2.0im]) == 0.0im
     end
 
     # ─── single_phase ─────────────────────────────────────────────────────────
@@ -57,7 +77,7 @@ end
 
         # Closed-form oracle (§2 of derivation note):
         #   Z = (R1 + N²R2) + j(X1 + N²X2),  y = 1/Z,  Y0 = G0+jB0
-        # The magnetising shunt sits on WINDING 2 (the to coil) — here the to
+        # The magnetizing shunt sits on WINDING 2 (the to coil) — here the to
         # side is phase-to-ground, so Y0 lands on the to diagonal:
         #   Y = [y, -Ny; -Ny, N²y + Y0]
         N  = 11000.0 / 400.0
@@ -122,7 +142,8 @@ end
             "v_nom_to"          => 400.0,
         )
         N = 11000.0 / 400.0
-        nodes, Y = transformer_yprim(xfmr, "single_phase")
+        @test_throws ArgumentError transformer_yprim(xfmr, "single_phase")
+        nodes, Y = transformer_yprim(xfmr, "single_phase"; shunt_only=true)
         # With Z=0: series terms drop out; Y should be zero (shunt also zero).
         @test all(iszero, Y)
         check_symmetry(Y)
@@ -192,14 +213,14 @@ end
         V = [1.0+0im, 0.0, 1.0/N, 0.0, -1.0/N]
         check_power_balance(Y, V)
 
-        # HV rows: the magnetising shunt is on winding 2 (LV leg 1, nodes 3-4),
+        # HV rows: the magnetizing shunt is on winding 2 (LV leg 1, nodes 3-4),
         # so the HV phase/neutral rows are pure series-star and each sums to 0.
         @test abs(Y[2,1] + Y[2,3] + Y[2,4] + Y[2,5] + Y[2,2]) < 1e-10  # row sum ≈ 0
         @test abs(sum(Y[1,:])) < 1e-10
 
-        # Leg symmetry: a symmetric centre tap excited anti-phase about the
-        # grounded centre draws equal-and-opposite leg WINDING currents and zero
-        # centre-tap winding current. The magnetising shunt across leg 1 (Y0 on
+        # Leg symmetry: a symmetric center tap excited anti-phase about the
+        # grounded center draws equal-and-opposite leg WINDING currents and zero
+        # center-tap winding current. The magnetizing shunt across leg 1 (Y0 on
         # nodes 3-4) is subtracted out to recover the winding currents.
         Y0 = 1e-5 + im*5e-5
         V_bal = [1.0+0im, 0.0, 1.0/N, 0.0, -1.0/N]
@@ -207,7 +228,7 @@ end
         Imag  = Y0 * (V_bal[3] - V_bal[4])
         IL1 = I_bal[3] - Imag; Ictr = I_bal[4] + Imag; IL2 = I_bal[5]
         @test abs(IL1 + IL2) < 1e-10   # IL1 = −IL2
-        @test abs(Ictr)      < 1e-10   # I_centre = 0
+        @test abs(Ictr)      < 1e-10   # I_center = 0
     end
 
     # ─── wye_delta ────────────────────────────────────────────────────────────
@@ -264,7 +285,7 @@ end
         # two Yprims genuinely differ (they were equal only under the earlier
         # uniform-n_eff approximation). Verify the tap² scaling directly on the
         # positive-sequence wye short-circuit impedance (delta grounded = the
-        # wye 3×3 block; the magnetising shunt sits on the delta side, so this
+        # wye 3×3 block; the magnetizing shunt sits on the delta side, so this
         # block is pure leakage).
         tapm = 1.05
         xfmr_tap = merge(xfmr, Dict{String,Any}("tap" => tapm))
@@ -442,9 +463,9 @@ end
         V = [1.0+0im, 0.0, 1.0/N - 0.001, 0.0, -(1.0/N - 0.002)]
         I = Y * V
 
-        # Recover OPF variables. The magnetising shunt is across winding 2 =
+        # Recover OPF variables. The magnetizing shunt is across winding 2 =
         # LV leg 1 (nodes 3-4), so the HV terminal current is pure series and
-        # the leg-1/centre-tap winding currents are the terminal currents minus
+        # the leg-1/center-tap winding currents are the terminal currents minus
         # the shunt current Y0·(V3−V4).
         Y0_val = G0 + im*B0
         Imag   = Y0_val * (V[3] - V[4])
@@ -454,7 +475,7 @@ end
         In_ = I[4] + Imag
         IL2 = I[5]
 
-        # Ampere-turn (winding 3 dotted at the centre tap): N·Is + IL1 − IL2 = 0
+        # Ampere-turn (winding 3 dotted at the center tap): N·Is + IL1 − IL2 = 0
         @test abs(N*Is + IL1 - IL2) < 1e-8
 
         # Center-tap KCL: In + IL1 + IL2 = 0
@@ -470,7 +491,7 @@ end
         rhs1   = Z1*Is - N*Z2*IL1
         @test abs(lhs1 - rhs1) < 1e-8
 
-        # Voltage eq leg-2: winding 3 is dotted at the centre tap, so it spans
+        # Voltage eq leg-2: winding 3 is dotted at the center tap, so it spans
         # V_g→V_c (V[4]-V[5]). With IL2 = I[5] = −Iw3 the Yprim satisfies
         #   (V_p-V_m) - N*(V_g-V_c) = Z1*Is + N*Z2*IL2.
         V_leg2 = V[4] - V[5]         # V_g - V_c (winding-3 span)
@@ -533,7 +554,7 @@ end
             I = Y * Vfull
 
             # Recover the OPF winding-current variables from the node currents.
-            # The magnetising shunt is on WINDING 2 (the to side): a delta of
+            # The magnetizing shunt is on WINDING 2 (the to side): a delta of
             # y=Y0/3 branches across the LV delta coils (Yd) or phase-to-neutral
             # on the LV wye (Dy). Subtract its node injections to get the pure
             # winding/line currents.
@@ -611,7 +632,7 @@ end
         @test maximum(abs.(Ds)) < 1e-12
 
         # center_tap: `r_neutral_from` grounds the HV neutral (node 2),
-        # `r_neutral_to` the LV centre tap (node 4) — diagonal adds only.
+        # `r_neutral_to` the LV center tap (node 4) — diagonal adds only.
         ct = Dict{String,Any}(
             "bus_from" => "hv", "bus_to" => "lv",
             "terminal_map_from" => ["ph","n"], "terminal_map_to" => ["1","n","2"],
@@ -627,7 +648,7 @@ end
         _, Y1c = transformer_yprim(ctn, "center_tap")
         Dc = Y1c .- Y0c
         @test isapprox(Dc[2, 2], yn;      atol=1e-12)   # node 2 = HV neutral
-        @test isapprox(Dc[4, 4], 1.0/5.0; atol=1e-12)   # node 4 = LV centre tap
+        @test isapprox(Dc[4, 4], 1.0/5.0; atol=1e-12)   # node 4 = LV center tap
         Dc[2, 2] = 0.0; Dc[4, 4] = 0.0
         @test maximum(abs.(Dc)) < 1e-12
 
@@ -651,12 +672,12 @@ end
             "g_no_load"  => 1e-4, "b_no_load" => 5e-4,
         )
         Y0 = 1e-4 + im*5e-4
-        # wye_delta: magnetising delta across the three LV (to-side, winding-2)
+        # wye_delta: magnetizing delta across the three LV (to-side, winding-2)
         # delta coils (nodes 5-7). Each delta node sits in two coils → diag 2·y,
         # off-diag −y, with y = Y0/3.
         yd = merge(base, Dict{String,Any}(
             "terminal_map_from" => ["1","2","3","n"], "terminal_map_to" => ["1","2","3"]))
-        _, Y_yd = transformer_yprim(yd, "wye_delta")
+        _, Y_yd = transformer_yprim(yd, "wye_delta"; shunt_only=true)
         for k in 5:7
             @test Y_yd[k, k] ≈ 2 * Y0 / 3
             @test Y_yd[k, 5 + (k - 5 + 1) % 3] ≈ -Y0 / 3
@@ -665,7 +686,7 @@ end
         # center_tap: shunt across winding 2 = LV leg 1 (nodes 3-4).
         ct = merge(base, Dict{String,Any}(
             "terminal_map_from" => ["ph","n"], "terminal_map_to" => ["1","n","2"]))
-        _, Y_ct = transformer_yprim(ct, "center_tap")
+        _, Y_ct = transformer_yprim(ct, "center_tap"; shunt_only=true)
         @test Y_ct[3, 3] ≈ Y0 && Y_ct[4, 4] ≈ Y0
         @test Y_ct[3, 4] ≈ -Y0 && Y_ct[4, 3] ≈ -Y0
         @test all(iszero, Y_ct[1:2, 1:2])   # HV side carries no shunt
