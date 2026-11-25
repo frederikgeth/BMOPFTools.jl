@@ -600,6 +600,13 @@ end
             end
             @test_throws ArgumentError opti_kron_reduction(m, OptiKronWasserstein(U; p=2), 2e-3;
                 optimizer=HiGHS.Optimizer, initial=far)
+            # an optimizer that cannot decide membership skips default seeds
+            # instead of failing, while an explicit check still throws
+            W2 = OptiKronWasserstein(U; p=2)
+            noqp = () -> error("this optimizer cannot solve the membership QP")
+            @test BMOPFTools._ok_seed_member(W2, W2.samples[:, 1], HiGHS.Optimizer)
+            @test !BMOPFTools._ok_seed_member(W2, W2.samples[:, 1], noqp)
+            @test_throws ErrorException BMOPFTools._ok_contains(W2, W2.samples[:, 1]; optimizer=noqp)
         end
     end
 
@@ -695,5 +702,28 @@ end
         # a pass-through elimination on the radial feeder is still accepted
         sup2 = collect(1:length(m.buses)); sup2[m.busof["b1"]] = 1
         @test isempty(kron_reduce_buses(net, m, sup2)["_kron_reduction"]["mesh_fill_in_buses"])
+    end
+end
+
+# The Opti-KRON tutorial quotes the example script's output line by line. Run
+# the script and require every printed line to appear in the page, so the
+# tutorial cannot drift from the code.
+if _OK_HAS_HIGHS && _OK_HAS_IPOPT
+    @testset "tutorial_opti_kron.md matches its example script" begin
+        root = pkgdir(BMOPFTools)
+        script = joinpath(root, "examples", "opti_kron", "tutorial_feeder.jl")
+        page = joinpath(root, "docs", "src", "tutorial_opti_kron.md")
+        norm_ws(s) = replace(strip(s), r"\s+" => " ")
+        out = mktemp() do path, io
+            redirect_stdout(io) do
+                Base.include(Module(:OptiKronTutorial), script)
+            end
+            close(io); read(path, String)
+        end
+        doc = norm_ws(read(page, String))
+        lines = filter(!isempty, norm_ws.(split(out, '\n')))
+        @test length(lines) ≥ 12
+        missing_from_page = [l for l in lines if !occursin(l, doc)]
+        @test isempty(missing_from_page)        # on failure, lists only the drifted lines
     end
 end

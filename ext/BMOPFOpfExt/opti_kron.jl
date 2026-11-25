@@ -324,7 +324,7 @@ function BMOPFTools.opti_kron_reduction(m::OptiKronModel, S::OptiKronSet, Ebar::
         X = S.samples
         tot = vec(sum(X, dims=1))
         for s in unique([argmax(tot), argmin(tot)])
-            _ok_contains(S, X[:, s]; optimizer=optimizer) || continue
+            BMOPFTools._ok_seed_member(S, X[:, s], optimizer) || continue
             u = zeros(2nr); u[S.idx] .= X[:, s]; push!(U0, u)
         end
     else

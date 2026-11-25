@@ -764,6 +764,20 @@ function _ok_contains(S::Union{OptiKronHull,OptiKronWasserstein}, u; tol=1e-9, o
 end
 function _ok_contains_opt end
 
+# Default seeds are optional: a seed whose membership cannot be decided (for
+# example an MILP-only optimizer facing the Wasserstein ℓ2 QP) is skipped,
+# which keeps the master a relaxation. User-supplied `initial` columns use
+# `_ok_contains` directly and fail loudly instead.
+function _ok_seed_member(S::OptiKronSet, u, optimizer)
+    try
+        return _ok_contains(S, u; optimizer=optimizer)
+    catch err
+        err isa InterruptException && rethrow()
+        @debug "Opti-KRON: skipping a default seed; membership could not be decided" exception = err
+        return false
+    end
+end
+
 # ════════════════════════════════════════════════════════════════════════════
 # Errors for a fixed assignment, and the adversary of Algorithm 1
 # ════════════════════════════════════════════════════════════════════════════
