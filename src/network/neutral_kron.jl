@@ -2,7 +2,7 @@
 #
 # Explicit-neutral (conductor) Kron reduction: a four-wire network with
 # grounded neutrals becomes a three-wire one. Ported from PowerOptLab.jl
-# (src/io/kron_reduction.jl, commit d1f217f0; same author and BSD-3 licence).
+# (src/io/kron_reduction.jl, commit d1f217f0; same author and BSD-3 license).
 # Not to be confused with `kron_reduce_buses`, which eliminates *buses*
 # (network nodes) after an Opti-KRON assignment.
 #
@@ -573,10 +573,12 @@ never mutated) or JSON text (`as_json=true` returns strict-schema JSON;
 `include_coordinates` keeps bus coordinates as a non-strict extension).
 Neutrals are resolved from `terminal_conventions`, a bus's `neutral_terminal`,
 or the `n`/`N` convention, or from `neutral_terminals` (one label or a
-bus-to-label map). Active neutral-leg devices with neutral limits, ambiguous
-maps and structural time series are refused with an `ArgumentError`.
+bus-to-label map). `FOUR_LEG` IBRs whose neutral return would be removed
+(BMOPF has no reduced equivalent), active neutral-leg devices with neutral
+limits, ambiguous maps and structural time series are refused with an
+`ArgumentError`.
 
-Ported from PowerOptLab.jl (same author and licence) with its test suite.
+Ported from PowerOptLab.jl (same author and license) with its test suite.
 """
 function kron_reduce_neutrals(input; as_json::Bool=false, neutral_terminals=nothing,
                            include_coordinates::Bool=false)
@@ -655,6 +657,12 @@ function kron_reduce_neutrals(input; as_json::Bool=false, neutral_terminals=noth
             if family == "ibr" && uppercase(string(get(c,"topology",""))) in ("FOUR_LEG", "SINGLE_PHASE") &&
                any(get(neutrals,String(get(c,"bus","")),nothing) == t for t in string.(get(c,"terminal_map",String[])))
                 tm_ibr = string.(get(c, "terminal_map", String[]))
+                # A FOUR_LEG IBR requires one identified neutral return
+                # (E.TMAP.DEVICE_ROLES); BMOPF has no reduced three-leg
+                # equivalent of a grounded fourth leg, so refuse the case.
+                uppercase(string(get(c, "topology", ""))) == "FOUR_LEG" &&
+                    throw(ArgumentError("IBR '$id' is FOUR_LEG; eliminating its neutral return leaves " *
+                                        "no valid BMOPF representation (E.TMAP.DEVICE_ROLES)"))
                 imax = get(c, "i_max", nothing)
                 (imax isa AbstractVector && length(imax) == length(tm_ibr)) &&
                     throw(ArgumentError("IBR '$id' declares a neutral-conductor current limit that Kron reduction cannot preserve"))

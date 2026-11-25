@@ -169,17 +169,26 @@ end
 end
 
 @testset "BMOPF Kron reduction audits restricted IBR neutral elimination" begin
+    # FOUR_LEG needs one identified neutral return, which the reduction removes:
+    # refused, even when the neutral is perfectly grounded.
+    four = Dict{String,Any}("bus"=>Dict("b"=>Dict{String,Any}("terminal_names"=>["a","b","c","r"],
+                                "neutral_terminal"=>"r","perfectly_grounded_terminals"=>["r"])),
+        "ibr"=>Dict("i"=>Dict{String,Any}("bus"=>"b","terminal_map"=>["a","b","c","r"],"topology"=>"FOUR_LEG")))
+    @test_throws ArgumentError kron_reduce_neutrals(four)
+    # SINGLE_PHASE (phase to neutral) stays valid with its neutral at earth.
     n = Dict{String,Any}("bus"=>Dict("b"=>Dict{String,Any}("terminal_names"=>["a","r"],"neutral_terminal"=>"r")),
-        "ibr"=>Dict("i"=>Dict{String,Any}("bus"=>"b","terminal_map"=>["a","r"],"topology"=>"FOUR_LEG")))
+        "ibr"=>Dict("i"=>Dict{String,Any}("bus"=>"b","terminal_map"=>["a","r"],"topology"=>"SINGLE_PHASE")))
     out = kron_reduce_neutrals(n)
     @test out["ibr"]["i"]["terminal_map"] == ["a"]
+    fs = Finding[]; spec_conformance_check(out, fs)
+    @test !any(f -> f.code == "E.TMAP.DEVICE_ROLES", fs)
     # The reduction is recorded in this reducer's own provenance, not by
     # stamping a downstream formulation's private key onto the component.
     @test !any(startswith(String(k), "_l3f_") for k in keys(out["ibr"]["i"]))
     changes = out["_meta"]["kron_reduction"]["changes"]
     entry = only(c for c in changes
                  if c isa AbstractDict && get(c, "component", "") == "ibr/i")
-    @test entry["reduced_neutral_leg"] == "FOUR_LEG"
+    @test entry["reduced_neutral_leg"] == "SINGLE_PHASE"
     @test occursin("neutral-conductor limit", entry["reason"])
 
     limited = deepcopy(n)
