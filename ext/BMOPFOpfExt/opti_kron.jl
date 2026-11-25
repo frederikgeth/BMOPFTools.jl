@@ -8,9 +8,46 @@
 # enforced with a big-M switch on A_ij.
 
 using BMOPFTools: OptiKronModel, OptiKronSet, OptiKronScreen, OptiKronResult,
-                  OptiKronHull, opti_kron_screen, _ok_nrows, _ok_col, _ok_contains,
-                  _ok_radial_violations,
+                  OptiKronHull, OptiKronWasserstein, opti_kron_screen, _ok_nrows, _ok_col,
+                  _ok_contains, _ok_radial_violations,
                   _opti_kron_adversary
+
+# Exact membership for the hull and the Wasserstein set (see `_ok_contains`):
+# the distance, in the set's norm, from u to {Xλ : 0 ≤ λ ≤ cap, Σλ = 1} must
+# not exceed the radius. The hull is cap = 1, radius 0, ∞-norm. ℓ1 and ℓ∞ are
+# LPs; ℓ2 is a convex QP (squared distance).
+function BMOPFTools._ok_contains_opt(S::Union{OptiKronHull,OptiKronWasserstein}, u,
+                                     optimizer; tol=1e-9)
+    X = S.samples
+    n, N = size(X)
+    length(u) == n || throw(ArgumentError("point has $(length(u)) coordinates, set has $n"))
+    if S isa OptiKronHull
+        cap, rad, p = 1.0, 0.0, Inf
+    else
+        cap, rad, p = min(1.0, 1 / (N * S.epsilon)), S.radius, S.p
+    end
+    jm = JuMP.Model(optimizer); JuMP.set_silent(jm)
+    JuMP.@variable(jm, 0 ≤ λ[1:N] ≤ cap)
+    JuMP.@constraint(jm, sum(λ) == 1)
+    JuMP.@variable(jm, d[1:n])
+    JuMP.@constraint(jm, d .== u .- X * λ)
+    if p == 2
+        JuMP.@objective(jm, Min, sum(d .^ 2))
+    elseif p == 1
+        JuMP.@variable(jm, t[1:n] ≥ 0)
+        JuMP.@constraint(jm, t .≥ d); JuMP.@constraint(jm, t .≥ -d)
+        JuMP.@objective(jm, Min, sum(t))
+    else
+        JuMP.@variable(jm, t ≥ 0)
+        JuMP.@constraint(jm, t .≥ d); JuMP.@constraint(jm, t .≥ -d)
+        JuMP.@objective(jm, Min, t)
+    end
+    JuMP.optimize!(jm)
+    JuMP.termination_status(jm) in (JuMP.OPTIMAL, JuMP.LOCALLY_SOLVED, JuMP.ALMOST_OPTIMAL) ||
+        throw(ArgumentError("membership check failed: $(JuMP.termination_status(jm))"))
+    dist = p == 2 ? sqrt(max(JuMP.objective_value(jm), 0.0)) : JuMP.objective_value(jm)
+    dist ≤ rad * (1 + 1e-6) + 1e-7 * max(1.0, maximum(abs, u; init=0.0)) + tol
+end
 
 mutable struct _OKMaster
     model::JuMP.Model
@@ -287,7 +324,7 @@ function BMOPFTools.opti_kron_reduction(m::OptiKronModel, S::OptiKronSet, Ebar::
         X = S.samples
         tot = vec(sum(X, dims=1))
         for s in unique([argmax(tot), argmin(tot)])
-            _ok_contains(S, X[:, s]) || continue
+            _ok_contains(S, X[:, s]; optimizer=optimizer) || continue
             u = zeros(2nr); u[S.idx] .= X[:, s]; push!(U0, u)
         end
     else
@@ -296,7 +333,7 @@ function BMOPFTools.opti_kron_reduction(m::OptiKronModel, S::OptiKronSet, Ebar::
         for (s, c) in enumerate(eachcol(initial))
             all(iszero, view(c, inactive)) || throw(ArgumentError(
                 "initial column $s injects at coordinates outside the set's active ones"))
-            _ok_contains(S, c[S.idx]) || throw(ArgumentError(
+            _ok_contains(S, c[S.idx]; optimizer=optimizer) || throw(ArgumentError(
                 "initial column $s is not in the uncertainty set; the master would no " *
                 "longer be a relaxation"))
             push!(U0, Vector{Float64}(c))

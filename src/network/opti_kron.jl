@@ -127,8 +127,14 @@ Base.show(io::IO, m::OptiKronModel) = print(io,
 _ok_nrows(m::OptiKronModel) = length(m.rows)
 
 # Bus references of one component entry (nothing when it references no bus).
+# Winding-list transformers (`windings[].bus`) use the native parser shared
+# with `simplify_network`.
 function _ok_bus_refs(e::AbstractDict)
     haskey(e, "bus") && return [string(e["bus"])]
+    if haskey(e, "windings") && e["windings"] isa AbstractVector
+        refs = _xfmr_bus_refs(first(WINDING_LIST_SUBTYPES), e)
+        return isempty(refs) ? nothing : refs
+    end
     if haskey(e, "bus_from") && haskey(e, "bus_to")
         return [string(e["bus_from"]), string(e["bus_to"])]
     end
@@ -416,6 +422,26 @@ end
 # Injection samples
 # ════════════════════════════════════════════════════════════════════════════
 
+# Where each power entry of a device lands: a list of (phase terminal, weight)
+# per entry. Terminal roles come from the case's resolved conventions, exactly
+# as the OPF engine indexes devices (`_phase_positions`/`_neutral_pos`), so a
+# neutral need not be the last terminal. WYE entry k goes to the k-th phase
+# terminal. DELTA coil k (and a phase-to-phase two-terminal SINGLE_PHASE coil)
+# is split equally between its two terminals (approximation).
+function _ok_power_targets(net, e::AbstractDict)
+    tm = string.(e["terminal_map"])
+    nl = _neutral_labels(net)
+    conf = uppercase(string(get(e, "configuration", get(e, "connection", "WYE"))))
+    if conf in ("DELTA", "THREE_LEG")
+        return [[(tm[k], 0.5), (tm[mod1(k + 1, length(tm))], 0.5)] for k in eachindex(tm)]
+    end
+    ph = tm[_phase_positions(tm, nl)]
+    if conf == "SINGLE_PHASE" && length(tm) == 2 && length(ph) == 2
+        return [[(ph[1], 0.5), (ph[2], 0.5)]]
+    end
+    [[(t, 1.0)] for t in ph]
+end
+
 """
     opti_kron_load_injections(model, net, mult_p[, mult_q]) -> Matrix{Float64}
 
@@ -425,8 +451,9 @@ with each load's `p_nom`/`q_nom` scaled by `mult_p[load_id][s]` /
 `mult_q[load_id][s]` (negative multipliers model net export). `mult_*` may be
 a `Dict{String,<:AbstractVector}` or a function `(load_id, s) -> Float64`
 together with the sample count via the `n` keyword. Delta loads are split
-equally between their two phase terminals (approximation). Loads absent from
-a `mult_p` dictionary contribute no injection.
+equally between their two phase terminals (approximation). Terminal roles
+follow the case's conventions, so the neutral may sit anywhere in a
+`terminal_map`. Loads absent from a `mult_p` dictionary contribute no injection.
 """
 function opti_kron_load_injections(m::OptiKronModel, net::Dict{String,Any}, mult_p,
                                    mult_q=mult_p; n::Union{Nothing,Int}=nothing)
@@ -441,16 +468,9 @@ function opti_kron_load_injections(m::OptiKronModel, net::Dict{String,Any}, mult
         tm = string.(ld["terminal_map"])
         pn = ld["p_nom"] isa AbstractVector ? Float64.(ld["p_nom"]) : [Float64(ld["p_nom"])]
         qn = ld["q_nom"] isa AbstractVector ? Float64.(ld["q_nom"]) : [Float64(ld["q_nom"])]
-        conf = uppercase(string(get(ld, "configuration", "WYE")))
-        targets = Vector{Vector{Tuple{String,Float64}}}()
-        for k in eachindex(pn)
-            if conf == "DELTA"
-                a = tm[k]; b = tm[mod1(k + 1, length(tm))]
-                push!(targets, [(a, 0.5), (b, 0.5)])
-            else
-                push!(targets, [(tm[k], 1.0)])
-            end
-        end
+        targets = _ok_power_targets(net, ld)
+        length(targets) ≥ length(pn) || throw(ArgumentError(
+            "load '$id': $(length(pn)) power entries but only $(length(targets)) phase terminals"))
         for s in 1:N
             fp = getm(mult_p, id, s); fq = getm(mult_q, id, s)
             for k in eachindex(pn), (t, w) in targets[k]
@@ -722,18 +742,27 @@ function _ok_argmax(S::OptiKronWasserstein, c)
     u
 end
 
-# Is a training sample (active coords) inside S?
-_ok_contains(S::OptiKronSet, u; tol=1e-9) = true
-# A raw training sample lies in the Wasserstein set's worst-case region only
-# when the CVaR level puts all weight on one sample (1/(Nε) ≥ 1).
-_ok_contains(S::OptiKronWasserstein, u; tol=1e-9) =
-    min(1.0, 1 / (size(S.samples, 2) * S.epsilon)) ≥ 1.0
-function _ok_contains(S::OptiKronBox, u; tol=1e-9)
+# Is a point u (active coordinates) inside S? Adding a point outside S to the
+# master would over-constrain it, so its optimum would no longer be a lower
+# bound. The box and the ellipsoid have closed-form tests. The hull and the
+# Wasserstein set need a small optimization (`optimizer`; implemented in the
+# JuMP extension):
+#   hull         u ∈ conv{uᵏ}
+#   Wasserstein  u ∈ {Xλ : 0 ≤ λ ≤ cap, Σλ = 1} ⊕ ρ·B_p, cap = min(1, 1/(Nε)).
+# The second set is the one whose support function is the worst case
+# CVaR_cap(cᵀuᵏ) + ρ‖c‖_* of `_ok_wc`, so the test is exact.
+function _ok_contains(S::OptiKronBox, u; tol=1e-9, optimizer=nothing)
     all(abs.(u .- S.ubar) .≤ S.delta .+ tol .* max.(1.0, abs.(S.ubar)))
 end
-function _ok_contains(S::OptiKronEllipsoid, u; tol=1e-9)
+function _ok_contains(S::OptiKronEllipsoid, u; tol=1e-9, optimizer=nothing)
     norm(S.L \ (u .- S.mu)) ≤ S.Omega * (1 + tol)
 end
+function _ok_contains(S::Union{OptiKronHull,OptiKronWasserstein}, u; tol=1e-9, optimizer=nothing)
+    optimizer === nothing && throw(ArgumentError(
+        "membership in $(nameof(typeof(S))) needs an LP optimizer (load JuMP and pass `optimizer`)"))
+    _ok_contains_opt(S, u, optimizer; tol=tol)
+end
+function _ok_contains_opt end
 
 # ════════════════════════════════════════════════════════════════════════════
 # Errors for a fixed assignment, and the adversary of Algorithm 1
@@ -1083,6 +1112,9 @@ reduction is certified for every injection in `S` (Δ ≤ 0).
 - `optimizer` — a MILP-capable JuMP optimizer (e.g. `HiGHS.Optimizer`).
 - `initial` — `2nrows × n` matrix of starting injections; by default the
   training samples of largest and smallest total net injection (if in `S`).
+  Every column must lie in `S`, or the master would no longer be a relaxation;
+  membership in the hull and the Wasserstein set is checked exactly with a
+  small LP (QP for Wasserstein ℓ2) solved by `optimizer`.
 - `screen` — run [`opti_kron_screen`](@ref) first (or pass an
   `OptiKronScreen`).
 - `preserve_radial` (default `true`) — require the Kron-reduced network to

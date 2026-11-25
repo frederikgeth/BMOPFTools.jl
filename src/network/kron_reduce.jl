@@ -47,10 +47,16 @@ Build the reduced BMOPF case for an Opti-KRON reduction (prototype).
   is symmetrized when its relative asymmetry is ≤ `sym_tol`, refused above.
 - `Ebar` (p.u., as in the reduction) tightens super-node voltage limits so
   every eliminated bus stays inside its own limits within the certificate.
+- A kept terminal tied to earth by a zero-impedance path through eliminated
+  buses (e.g. a closed switch to a perfectly grounded neutral) stays perfectly
+  grounded in the reduced case.
 - Refuses (`ArgumentError`) instead of guessing when: a voltage source or
   transformer terminal is eliminated (keep [`opti_kron_required_buses`](@ref)),
   an unsupported component sits on an eliminated bus, eliminating a bus would
-  create mesh fill-in (unless `allow_mesh`), or a block cannot be expressed.
+  create mesh fill-in on the physical graph (unless `allow_mesh`), a block
+  cannot be expressed, an eliminated element or bus is time-varying (reduce a
+  [`get_snapshot`](@ref) instead), or, with `Ebar`, the fixed slack voltage
+  cannot certify the limits of a bus the slack represents.
 
 The log `reduced["_kron_reduction"]` records the assignment, equivalents,
 asymmetry, dropped current limits and voltage tightening.
@@ -73,10 +79,11 @@ function kron_reduce_buses(net::Dict{String,Any}, m::OptiKronModel,
             "bus $b (voltage source or transformer terminal) is eliminated; pass " *
             "keep = opti_kron_required_buses(net) to opti_kron_reduction"))
     end
-    fillin = _ok_radial_violations(m, sup)
+    _kr_preflight_time_series(net, elim, Ebar !== nothing)
+    fillin = _kr_fill_in(net, m, elim)
     if !isempty(fillin) && !allow_mesh
         throw(ArgumentError("eliminating $(length(fillin)) bus(es) creates mesh fill-in " *
-                            "(e.g. $(m.buses[fillin[1]])); reduce with preserve_radial=true " *
+                            "(e.g. $(fillin[1])); reduce with preserve_radial=true " *
                             "or pass allow_mesh=true"))
     end
 
@@ -163,8 +170,15 @@ function kron_reduce_buses(net::Dict{String,Any}, m::OptiKronModel,
         n = size(y.Y, 1)
         kept_alias = [Tuple{String,String}[] for _ in 1:n]
         for (bt, r) in y.index
-            r == 0 && continue
-            bt[1] in elim || push!(kept_alias[r], bt)
+            bt[1] in elim && continue
+            if r == 0
+                # a kept terminal tied to earth by a zero-impedance path through
+                # eliminated buses keeps that ideal ground in the reduced case
+                own = string.(get(net["bus"][bt[1]], "perfectly_grounded_terminals", String[]))
+                bt[2] in own || push!(added_ground, bt)
+                continue
+            end
+            push!(kept_alias[r], bt)
         end
         for r in 1:n
             length(unique(first.(kept_alias[r]))) ≤ 1 || throw(ArgumentError(
@@ -245,7 +259,32 @@ function kron_reduce_buses(net::Dict{String,Any}, m::OptiKronModel,
     # e_ij for every pair the reduction uses, including e_ii of each kept bus.
     tightened = 0; empty_bands = String[]
     if Ebar !== nothing
-        pairs_ = [(m.buses[j], m.buses[sup[j]]) for j in eachindex(sup) if sup[j] != 1]  # slack voltage is fixed
+        # The slack's voltage is fixed, so its band cannot be tightened. A bus
+        # it represents is certified only if that fixed magnitude lies inside
+        # the bus's tightened band; otherwise the assignment is refused.
+        slack_bad = String[]
+        for j in 2:length(sup)
+            sup[j] == 1 || continue
+            bj = net["bus"][m.buses[j]]
+            for (fmin, fmax) in _kr_row_limit_fields(net, bj)
+                (haskey(bj, fmin) || haskey(bj, fmax)) || continue
+                for (kj, t) in enumerate(_kr_limit_phases(net, bj))
+                    rj = get(m.rowof, (j, t), 0); ri = get(m.rowof, (1, t), 0)
+                    (rj == 0 || ri == 0) && continue
+                    ratio = m.u0[ri] / m.u0[rj]; vs = m.u0[ri]
+                    lo0 = _kr_limit(bj, fmin, kj); hi0 = _kr_limit(bj, fmax, kj)
+                    lo = lo0 === nothing ? -Inf : (lo0 + Ebar * m.u0[rj]) * ratio
+                    hi = hi0 === nothing ? Inf : (hi0 - Ebar * m.u0[rj]) * ratio
+                    tolv = 1e-9 * vs
+                    (lo - tolv ≤ vs ≤ hi + tolv) || push!(slack_bad, "$(m.buses[j]):$t")
+                end
+            end
+        end
+        isempty(slack_bad) || throw(ArgumentError(
+            "the fixed slack voltage cannot certify the voltage limits of " *
+            "$(join(unique(slack_bad), ", ")) within Ebar; keep those buses " *
+            "(opti_kron_reduction keep=...) or reduce without Ebar"))
+        pairs_ = [(m.buses[j], m.buses[sup[j]]) for j in eachindex(sup) if sup[j] != 1]
         for (jb, ib) in pairs_
             j = m.busof[jb]; i = m.busof[ib]
             bj = net["bus"][jb]; bi = red["bus"][ib]
@@ -294,9 +333,72 @@ function kron_reduce_buses(net::Dict{String,Any}, m::OptiKronModel,
         "Ebar_pu" => Ebar === nothing ? nothing : Float64(Ebar),
         "n_voltage_limits_tightened" => tightened,
         "empty_voltage_bands" => sort!(unique(empty_bands)),
-        "mesh_fill_in_buses" => [m.buses[v] for v in fillin],
+        "mesh_fill_in_buses" => fillin,
         "grounded_terminals_added" => sort!(["$b:$t" for (b, t) in added_ground]))
     red
+end
+
+# Eliminated buses whose elimination creates mesh fill-in, on the physical
+# graph (every closed branch, including edges outside the model's BFS tree).
+# Kron elimination of a connected group of eliminated buses couples every kept
+# bus adjacent to the group; with three or more such buses the equivalent forms
+# a new loop. On radial inputs this is the Steiner-degree rule of
+# `_ok_radial_violations`.
+function _kr_fill_in(net, m::OptiKronModel, elim)
+    adj = Dict{String,Set{String}}()
+    for (a, b, _) in _ok_edges(net)
+        a == b && continue
+        push!(get!(adj, a, Set{String}()), b); push!(get!(adj, b, Set{String}()), a)
+    end
+    seen = Set{String}(); bad = String[]
+    for s0 in sort!(collect(elim))
+        s0 in seen && continue
+        comp = String[]; border = Set{String}(); stack = [s0]; push!(seen, s0)
+        while !isempty(stack)
+            v = pop!(stack); push!(comp, v)
+            for w in get(adj, v, Set{String}())
+                if w in elim
+                    w in seen || (push!(seen, w); push!(stack, w))
+                else
+                    push!(border, w)
+                end
+            end
+        end
+        length(border) ≥ 3 && append!(bad, comp)
+    end
+    sort!(bad)
+end
+
+# The equivalents are computed from one static snapshot. Refuse instead of
+# freezing a time-varying impedance or limit; devices keep their own profiles.
+function _kr_preflight_time_series(net, elim, tighten::Bool)
+    has_ts(e) = e isa AbstractDict && get(e, "time_series", nothing) isa AbstractDict &&
+                !isempty(e["time_series"])
+    bad = String[]
+    for b in elim
+        has_ts(net["bus"][b]) && push!(bad, "bus/$b")
+    end
+    lcs = get(net, "linecode", Dict())
+    for k in _KR_PASSIVE, (id, e) in get(net, k, Dict())
+        e isa AbstractDict || continue
+        r = _ok_bus_refs(e)
+        (r !== nothing && any(in(elim), r)) || continue
+        has_ts(e) && push!(bad, "$k/$id")
+        lc = get(e, "linecode", nothing)
+        lc !== nothing && has_ts(get(lcs, string(lc), nothing)) && push!(bad, "linecode/$lc")
+    end
+    if tighten
+        for (b, d) in get(net, "bus", Dict())
+            b in elim && continue
+            ts = get(d, "time_series", nothing)
+            ts isa AbstractDict && any(f -> string(f) in ("v_min", "v_max", "vpn_min", "vpn_max"),
+                                       keys(ts)) && push!(bad, "bus/$b (voltage limits)")
+        end
+    end
+    isempty(bad) || throw(ArgumentError(
+        "time-varying data would be frozen by the reduction: $(join(sort!(unique(bad)), ", ")); " *
+        "reduce a materialized snapshot (get_snapshot(net, t)) instead"))
+    nothing
 end
 
 kron_reduce_buses(net::Dict{String,Any}, m::OptiKronModel, r::OptiKronResult; kw...) =
@@ -432,6 +534,7 @@ function lift_solution(net::Dict{String,Any}, reduced::Dict{String,Any},
     node(b, t) = get(y.index, (b, t), 0)
 
     # device injections at eliminated buses: (pos node, neg node, S_injected)
+    nlabels = _neutral_labels(net)
     inj = Tuple{Int,Int,ComplexF64}[]
     for (tbl, pk, qk, sgn) in (("load", "pd", "qd", -1.0), ("generator", "pg", "qg", 1.0),
                                ("ibr", "pg", "qg", 1.0))
@@ -443,13 +546,20 @@ function lift_solution(net::Dict{String,Any}, reduced::Dict{String,Any},
             tm = string.(e["terminal_map"])
             conf = uppercase(string(get(e, "configuration", get(e, "connection", "WYE"))))
             keyed = [t for t in tm if haskey(res, t)]
+            # return terminal by role, as the OPF engine indexes devices: the
+            # next terminal for delta coils, the other terminal of a
+            # two-terminal single-phase coil, else the resolved neutral (or
+            # earth when the device has none)
+            npos = _neutral_pos(tm, nlabels)
             for t in keyed
                 S = sgn * complex(Float64(res[t][pk]), Float64(res[t][qk]))
                 k = findfirst(==(t), tm)
                 neg = if conf in ("DELTA", "THREE_LEG")
                     tm[mod1(k + 1, length(tm))]
-                elseif length(tm) > length(keyed)
-                    tm[end]
+                elseif conf == "SINGLE_PHASE" && length(tm) == 2
+                    tm[3 - k]
+                elseif npos !== nothing && npos != k
+                    tm[npos]
                 else
                     ""
                 end
@@ -502,13 +612,13 @@ function _lift_injections(net, m::OptiKronModel, result)
             res = get(get(result, tbl, Dict()), id, nothing)
             res === nothing && throw(ArgumentError("result lacks $tbl/$id"))
             tm = string.(e["terminal_map"])
-            conf = uppercase(string(get(e, "configuration", get(e, "connection", "WYE"))))
             keyed = [t for t in tm if haskey(res, t)]
-            for t in keyed
+            # the same placement as the training samples (`_ok_power_targets`):
+            # the k-th reported entry lands where the k-th power entry does
+            tg = _ok_power_targets(net, e)
+            for (k, t) in enumerate(keyed)
                 P = sgn * Float64(res[t][pk]) / m.sbase; Q = sgn * Float64(res[t][qk]) / m.sbase
-                k = findfirst(==(t), tm)
-                targets = conf in ("DELTA", "THREE_LEG") ?
-                          [(t, 0.5), (tm[mod1(k + 1, length(tm))], 0.5)] : [(t, 1.0)]
+                targets = length(keyed) == length(tg) ? tg[k] : [(t, 1.0)]
                 for (tt, w) in targets
                     r = get(m.rowof, (bi, tt), 0)
                     r == 0 && continue

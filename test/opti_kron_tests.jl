@@ -446,13 +446,11 @@ end
         B = OptiKronBox(U)
         @test all(BMOPFTools._ok_contains(B, B.samples[:, s]) for s in 1:size(U, 2))
         @test !BMOPFTools._ok_contains(B, B.ubar .+ 2 .* B.delta .+ 1.0)
-        # Wasserstein: raw samples are in the worst-case region only when 1/(Nε) ≥ 1
-        @test BMOPFTools._ok_contains(OptiKronWasserstein(U; epsilon=0.01), U[:, 1])    # N = 12
+        # Wasserstein membership is exact (needs an optimizer): see the review regressions
         rng = Random.MersenneTwister(5)
         big = opti_kron_load_injections(m, net, Dict(id => [0.3 + rand(rng) for _ in 1:400]
                                                      for id in keys(net["load"])))
         Wb = OptiKronWasserstein(big; p=2, epsilon=0.01)
-        @test !BMOPFTools._ok_contains(Wb, Wb.samples[:, 1])
         @test_throws ArgumentError OptiKronWasserstein(U; p=3)
         if _OK_HAS_HIGHS
             r = opti_kron_reduction(m, Wb, 5e-3; optimizer=HiGHS.Optimizer)
@@ -498,5 +496,204 @@ end
         @test BMOPFTools._kr_row_limit_fields(conv, bus) == (("vpn_min", "vpn_max"), ("v_min", "v_max"))
         floating = Dict{String,Any}("terminal_names" => ["1", "n"])
         @test BMOPFTools._kr_row_limit_fields(conv, floating) == (("vpn_min", "vpn_max"),)
+    end
+end
+
+# ── regression cases from the PR review (one per finding) ──────────────────
+_okr_lc(n; r=4e-4, x=2.5e-4) = Dict{String,Any}(
+    (f * "_$(a)_$(b)" => (a == b ? v : 0.0) for (f, v) in (("R_series", r), ("X_series", x))
+     for a in 1:n for b in 1:n)...)
+_okr_line(a, b, tm; len=100.0, lc="lc", tmto=tm) = Dict{String,Any}(
+    "bus_from" => a, "bus_to" => b, "linecode" => lc, "length" => len,
+    "terminal_map_from" => tm, "terminal_map_to" => tmto)
+_okr_parse(d) = parse_bmopf(BMOPFTools.JSON3.write(d); from_string=true)
+
+# s — b1 — b2 with a two-phase WYE load whose neutral is listed first.
+function _okr_nonlast_neutral()
+    tn = ["a", "b", "n"]
+    bus = Dict(b => Dict{String,Any}("terminal_names" => tn) for b in ("s", "b1", "b2"))
+    bus["s"]["perfectly_grounded_terminals"] = ["n"]
+    _okr_parse(Dict("bus" => bus, "linecode" => Dict("lc" => _okr_lc(3)),
+        "line" => Dict("l1" => _okr_line("s", "b1", tn), "l2" => _okr_line("b1", "b2", tn)),
+        "load" => Dict("d2" => Dict("bus" => "b2", "configuration" => "WYE", "model" => "CONSTANT_POWER",
+                       "terminal_map" => ["n", "a", "b"], "p_nom" => [100.0, 300.0], "q_nom" => [0.0, 0.0])),
+        "voltage_source" => Dict("src" => Dict("bus" => "s", "terminal_map" => ["a", "b", "n"],
+                       "v_magnitude" => [100.0, 100.0, 0.0], "v_angle" => [0.0, -2π / 3, 0.0])),
+        "terminal_conventions" => Dict("phase" => ["a", "b"], "neutral" => ["n"])))
+end
+
+# Finite three-winding transformer w1/w2/w3 with a loaded line behind each secondary.
+function _okr_nwinding()
+    d = BMOPFTools.JSON3.read(read(joinpath(@__DIR__, "data", "ideal_nwinding.json"), String), Dict{String,Any})
+    first(values(d["transformer"]["n_winding"]))["x_sc"]["2_3"] = 0.02
+    for b in keys(d["bus"]); d["bus"][b]["perfectly_grounded_terminals"] = ["n"]; end
+    d["voltage_source"] = Dict("src" => Dict("bus" => "w1", "terminal_map" => ["a", "n"],
+                                "v_magnitude" => [460.0], "v_angle" => [0.0]))
+    d["linecode"] = Dict("lc" => _okr_lc(1)); d["line"] = Dict{String,Any}(); d["load"] = Dict{String,Any}()
+    for (w, x) in (("w2", "x2"), ("w3", "x3"))
+        d["bus"][x] = Dict("terminal_names" => ["a", "n"], "perfectly_grounded_terminals" => ["n"])
+        d["line"]["l$x"] = _okr_line(w, x, ["a"]; len=50.0)
+        d["load"]["d$x"] = Dict("bus" => x, "terminal_map" => ["a", "n"], "configuration" => "WYE",
+                                "model" => "CONSTANT_POWER", "p_nom" => [500.0], "q_nom" => [100.0])
+    end
+    d["terminal_conventions"] = Dict("phase" => ["a"], "neutral" => ["n"])
+    _okr_parse(d)
+end
+
+# s — k (kept, neutral not earthed) — e (eliminated): phase over a line, neutral
+# over a closed switch to e's perfectly grounded neutral.
+function _okr_inherited_ground()
+    bus = Dict("s" => Dict{String,Any}("terminal_names" => ["a", "n"], "perfectly_grounded_terminals" => ["n"]),
+               "k" => Dict{String,Any}("terminal_names" => ["a", "n"]),
+               "e" => Dict{String,Any}("terminal_names" => ["a", "n"], "perfectly_grounded_terminals" => ["n"]))
+    _okr_parse(Dict("bus" => bus, "linecode" => Dict("lc" => _okr_lc(2), "lc1" => _okr_lc(1)),
+        "line" => Dict("l1" => _okr_line("s", "k", ["a", "n"]; len=500.0),
+                       "l2" => _okr_line("k", "e", ["a"]; lc="lc1")),
+        "switch" => Dict("sw" => Dict{String,Any}("bus_from" => "k", "bus_to" => "e",
+                         "terminal_map_from" => ["n"], "terminal_map_to" => ["n"])),
+        "load" => Dict("dk" => Dict("bus" => "k", "configuration" => "WYE", "model" => "CONSTANT_POWER",
+                       "terminal_map" => ["a", "n"], "p_nom" => [2000.0], "q_nom" => [500.0])),
+        "voltage_source" => Dict("src" => Dict("bus" => "s", "terminal_map" => ["a", "n"],
+                       "v_magnitude" => [100.0], "v_angle" => [0.0])),
+        "terminal_conventions" => Dict("phase" => ["a"], "neutral" => ["n"])))
+end
+
+# Four-bus mesh: s–p, s–q, s–r (BFS tree) plus p–q, p–r. p is a BFS leaf with
+# three physical neighbors.
+function _okr_mesh()
+    bus = Dict(b => Dict{String,Any}("terminal_names" => ["a"]) for b in ("s", "p", "q", "r"))
+    edges = (("s", "p"), ("s", "q"), ("s", "r"), ("p", "q"), ("p", "r"))
+    _okr_parse(Dict("bus" => bus, "linecode" => Dict("lc" => _okr_lc(1)),
+        "line" => Dict("l$k" => _okr_line(a, b, ["a"]) for (k, (a, b)) in enumerate(edges)),
+        "load" => Dict("d$b" => Dict("bus" => b, "configuration" => "WYE", "model" => "CONSTANT_POWER",
+                       "terminal_map" => ["a"], "p_nom" => [500.0], "q_nom" => [0.0]) for b in ("p", "q", "r")),
+        "voltage_source" => Dict("src" => Dict("bus" => "s", "terminal_map" => ["a"],
+                       "v_magnitude" => [230.0], "v_angle" => [0.0])),
+        "terminal_conventions" => Dict("phase" => ["a"], "neutral" => String[])))
+end
+
+@testset "Opti-KRON review regressions" begin
+    net = _ok_test_feeder()
+    m = opti_kron_model(net; H=4)
+    U = _ok_test_samples(m, net)
+
+    if _OK_HAS_HIGHS
+        @testset "set membership of initial samples (hull, Wasserstein)" begin
+            H = OptiKronHull(U)
+            mid = zeros(size(U, 1), 1); mid[:, 1] .= 0.5 .* (U[:, 1] .+ U[:, 2])
+            far = 3 .* U[:, 1:1]                                     # outside the hull
+            @test BMOPFTools._ok_contains(H, mid[H.idx, 1]; optimizer=HiGHS.Optimizer)
+            @test !BMOPFTools._ok_contains(H, far[H.idx, 1]; optimizer=HiGHS.Optimizer)
+            @test_throws ArgumentError BMOPFTools._ok_contains(H, mid[H.idx, 1])   # needs an optimizer
+            @test_throws ArgumentError opti_kron_reduction(m, H, 2e-3; optimizer=HiGHS.Optimizer,
+                                                           initial=far, screen=false)
+            ref = opti_kron_reduction(m, H, 2e-3; optimizer=HiGHS.Optimizer, screen=false)
+            inh = opti_kron_reduction(m, H, 2e-3; optimizer=HiGHS.Optimizer, screen=false, initial=mid)
+            @test length(inh.super_nodes) == length(ref.super_nodes)
+            @test inh.lower_bound ≤ length(ref.super_nodes)
+            for p in (1, 2, Inf)
+                W = OptiKronWasserstein(U; p=p, epsilon=0.01)          # N = 12: cap = 1
+                @test all(BMOPFTools._ok_contains(W, W.samples[:, s]; optimizer=HiGHS.Optimizer)
+                          for s in 1:size(U, 2))
+                @test !BMOPFTools._ok_contains(W, 3 .* W.samples[:, 1] .+ 10W.radius;
+                                               optimizer=HiGHS.Optimizer)
+            end
+            @test_throws ArgumentError opti_kron_reduction(m, OptiKronWasserstein(U; p=2), 2e-3;
+                optimizer=HiGHS.Optimizer, initial=far)
+        end
+    end
+
+    @testset "non-last neutral: samples and region lift" begin
+        nn = _okr_nonlast_neutral()
+        mn = opti_kron_model(nn; H=2)
+        Un = opti_kron_load_injections(mn, nn, Dict("d2" => [1.0]); n=1)
+        @test Un[mn.rowof[(mn.busof["b2"], "a")], 1] ≈ -0.1
+        @test Un[mn.rowof[(mn.busof["b2"], "b")], 1] ≈ -0.3
+        @test count(!iszero, Un) == 2
+        if _OK_HAS_IPOPT
+            ipopt = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
+            sup = collect(1:length(mn.buses)); sup[mn.busof["b2"]] = mn.busof["b1"]
+            red = kron_reduce_buses(nn, mn, sup)
+            full = solve_pf(nn; optimizer=ipopt); pr = solve_pf(red; optimizer=ipopt)
+            lr = lift_solution(nn, red, pr; model=mn, method=:region)
+            vpn(r, t) = abs(complex(r["bus"]["b2"][t]["vr"], r["bus"]["b2"][t]["vi"]) -
+                            complex(r["bus"]["b2"]["n"]["vr"], r["bus"]["b2"]["n"]["vi"]))
+            for t in ("a", "b")
+                @test vpn(lr, t) ≈ vpn(full, t) atol = 0.01      # only b1's relocation effect remains
+            end
+        end
+    end
+
+    @testset "n_winding transformers in the topology walk" begin
+        nw = _okr_nwinding()
+        @test opti_kron_required_buses(nw) == ["w1", "w2", "w3"]
+        mw = opti_kron_model(nw; H=3)
+        @test mw.n_unreached == 0
+        @test sort(mw.buses) == ["w1", "w2", "w3", "x2", "x3"]
+        sub = extract_downstream_network(nw, "w1")
+        @test sort(collect(keys(sub["bus"]))) == ["w1", "w2", "w3", "x2", "x3"]
+    end
+
+    @testset "an inherited ideal ground survives elimination" begin
+        ng = _okr_inherited_ground()
+        mg = opti_kron_model(ng; H=2)
+        sup = collect(1:length(mg.buses)); sup[mg.busof["e"]] = mg.busof["k"]
+        red = kron_reduce_buses(ng, mg, sup)
+        @test "n" in red["bus"]["k"]["perfectly_grounded_terminals"]
+        @test "k:n" in red["_kron_reduction"]["grounded_terminals_added"]
+        if _OK_HAS_IPOPT
+            ipopt = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
+            vk(r) = abs(complex(r["bus"]["k"]["a"]["vr"], r["bus"]["k"]["a"]["vi"]) -
+                        complex(get(r["bus"]["k"], "n", Dict("vr" => 0.0))["vr"],
+                                get(r["bus"]["k"], "n", Dict("vi" => 0.0))["vi"]))
+            @test vk(solve_pf(red; optimizer=ipopt)) ≈ vk(solve_pf(ng; optimizer=ipopt)) rtol = 1e-6
+        end
+    end
+
+    @testset "buses represented by the slack: fixed-voltage certificate" begin
+        sup = collect(1:length(m.buses)); sup[m.busof["b1"]] = 1
+        tight = deepcopy(net); tight["bus"]["b1"]["v_min"] = [226.0, 226.0, 226.0]
+        @test_throws ArgumentError kron_reduce_buses(tight, opti_kron_model(tight; H=4), sup; Ebar=0.02)
+        loose = deepcopy(net); loose["bus"]["b1"]["v_min"] = [220.0, 220.0, 220.0]
+        @test kron_reduce_buses(loose, opti_kron_model(loose; H=4), sup; Ebar=0.02) isa Dict
+        @test kron_reduce_buses(tight, opti_kron_model(tight; H=4), sup) isa Dict   # no Ebar: no certificate
+    end
+
+    @testset "time-varying passive data is refused, a snapshot reduces" begin
+        sup = collect(1:length(m.buses)); sup[m.busof["b3"]] = m.busof["b2"]
+        ts = deepcopy(net)
+        ts["time_series"] = Dict{String,Any}("len" => Dict{String,Any}("values" => [1.0, 1.5]))
+        ts["line"]["l3"]["time_series"] = Dict{String,Any}("length" => "len")      # l3 = b2–b3
+        @test_throws ArgumentError kron_reduce_buses(ts, m, sup)
+        snap = get_snapshot(ts, 2)
+        red = kron_reduce_buses(snap, opti_kron_model(snap; H=4), sup)
+        @test !haskey(red["line"], "l3")
+        # profiles on untouched elements and on moved devices are fine
+        ok = deepcopy(net)
+        ok["time_series"] = Dict{String,Any}("shape" => Dict{String,Any}("values" => [0.5, 1.0]))
+        ok["load"]["db3"]["time_series"] = Dict{String,Any}("p_nom" => "shape")
+        ok["line"]["l1"]["time_series"] = Dict{String,Any}("length" => "shape")
+        red2 = kron_reduce_buses(ok, m, sup)
+        @test red2["load"]["db3"]["bus"] == "b2" && haskey(red2["load"]["db3"], "time_series")
+        lim = deepcopy(net)
+        lim["time_series"] = ok["time_series"]
+        lim["bus"]["b2"]["v_min"] = [200.0, 200.0, 200.0]
+        lim["bus"]["b2"]["time_series"] = Dict{String,Any}("v_min" => "shape")
+        @test_throws ArgumentError kron_reduce_buses(lim, m, sup; Ebar=1e-3)   # would freeze a limit profile
+        @test kron_reduce_buses(lim, m, sup) isa Dict
+    end
+
+    @testset "mesh fill-in through edges outside the BFS tree" begin
+        nm = _okr_mesh()
+        mm = opti_kron_model(nm; H=2)
+        sup = collect(1:length(mm.buses)); sup[mm.busof["p"]] = 1
+        @test isempty(BMOPFTools._ok_radial_violations(mm, sup))        # the tree rule misses it
+        @test_throws ArgumentError kron_reduce_buses(nm, mm, sup)
+        red = kron_reduce_buses(nm, mm, sup; allow_mesh=true)
+        @test red["_kron_reduction"]["mesh_fill_in_buses"] == ["p"]
+        @test haskey(red["line"], "kron_eq:q:r")                        # the new loop
+        # a pass-through elimination on the radial feeder is still accepted
+        sup2 = collect(1:length(m.buses)); sup2[m.busof["b1"]] = 1
+        @test isempty(kron_reduce_buses(net, m, sup2)["_kron_reduction"]["mesh_fill_in_buses"])
     end
 end
