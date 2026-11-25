@@ -94,7 +94,9 @@ with the wrong sign. Severity calibration:
     (usually the neutral) from a line's impedance matrix
     ([`kron_reduce_neutrals`](@ref)). Eliminating whole **buses**, as in
     error-bounded network reduction ([`kron_reduce_buses`](@ref)), is the
-    same Schur complement applied to the nodal admittance matrix. See
+    same Schur complement applied to the nodal admittance matrix, under a
+    different condition: zero current injection at the eliminated nodes,
+    rather than zero voltage drop along the neutral. See
     [Network reduction](@ref network-reduction).
 
 A 4-wire network whose every neutral is solidly grounded admits *exact*

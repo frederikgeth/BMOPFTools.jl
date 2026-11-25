@@ -99,7 +99,10 @@ only).
 enforces the error bound only at a finite set of loadings 𝒰ᵗ. A closed-form
 adversary finds, for the master's assignment, the worst loading in 𝒰 for each
 bus, and adds those of the K most-violated buses to 𝒰ᵗ. The loop ends when the
-adversary finds no violation (Δ ≤ 0). The result is then **certified** for
+adversary finds no violation (Δ ≤ 0). User-supplied `initial` loadings must
+lie in 𝒰, or the master would over-constrain the problem and its optimum
+would no longer be a lower bound; membership is checked exactly (an LP for
+the hull and the Wasserstein ball). The result is then **certified** for
 the whole set and, if every master was solved to optimality, minimal. The
 master's optimum is always a valid lower bound (`result.lower_bound`). A good
 MILP solver matters: on real feeders HiGHS often stalls, and Gurobi solves the
@@ -129,8 +132,17 @@ Two conditions apply. Transformer and source buses must be kept
 transformer is not a BMOPF line. And with `preserve_radial=true` (the
 default), the reduced network stays radial: eliminating a bus that joins three
 or more directions containing super-nodes would couple them all (mesh
-fill-in). Current limits of eliminated lines have no exact equivalent; they
-are dropped and listed in the log.
+fill-in). [`kron_reduce_buses`](@ref) checks fill-in on the physical graph,
+so it also catches fill-in through meshed edges that the MILP's tree-based
+constraint does not see. Current limits of eliminated lines have no exact
+equivalent; they are dropped and listed in the log.
+
+The builder also refuses a few cases rather than silently approximating:
+time-varying impedances or limits on eliminated elements (the equivalent is
+one snapshot; reduce [`get_snapshot`](@ref) instead), and, with `Ebar`, a bus
+represented by the slack whose tightened band excludes the slack's fixed
+voltage (keep that bus). A kept neutral that reaches earth only through an
+eliminated bus keeps its ideal ground.
 
 [`lift_solution`](@ref) maps a solution of the reduced case back to every
 original bus. The default linear lift uses the certificate itself:

@@ -11,14 +11,21 @@ listed at the end).
 
 ## Two meanings of "Kron reduction"
 
-Both operations below are called *Kron reduction* in the literature, and both
-are the same piece of linear algebra: a Schur complement that eliminates
-variables known to carry no current injection [Dörfler & Bullo 2013].
+Both operations below are called *Kron reduction* in the literature
+[Dörfler & Bullo 2013]. They share the algebra, a Schur complement, but
+apply it to different matrices under different conditions:
 
-| | Eliminates | Precondition for exactness | Function |
-|---|---|---|---|
-| **Conductor (neutral) Kron reduction** | the neutral *conductor* of each line: Z_abc = Z_pp − Z_pn Z_nn⁻¹ Z_np | the neutral is held at earth potential at both ends of every line | [`kron_reduce_neutrals`](@ref) |
-| **Bus (node) Kron reduction** | whole *buses*: Y_eq = Y_KK − Y_KR Y_RR⁻¹ Y_RK | the eliminated buses carry no injection | [`kron_reduce_buses`](@ref), after [`opti_kron_reduction`](@ref) |
+- **Conductor reduction** works on a line's *impedance* matrix and imposes a
+  zero voltage drop along the neutral. The neutral may still carry current; it
+  is the neutral's voltage that must be zero at both ends, which holds when it
+  is held at earth potential there.
+- **Bus reduction** works on the network's *admittance* matrix and imposes
+  zero current injection at the eliminated nodes.
+
+| | Eliminates | Imposes | Exact when | Function |
+|---|---|---|---|---|
+| **Conductor (neutral) Kron reduction** | the neutral *conductor* of each line: Z_abc = Z_pp − Z_pn Z_nn⁻¹ Z_np | zero neutral voltage drop along each line | the neutral is at earth potential at both ends of every line | [`kron_reduce_neutrals`](@ref) |
+| **Bus (node) Kron reduction** | whole *buses*: Y_eq = Y_KK − Y_KR Y_RR⁻¹ Y_RK | zero current injection at eliminated nodes | the eliminated buses carry no injection | [`kron_reduce_buses`](@ref), after [`opti_kron_reduction`](@ref) |
 
 The first turns a four-wire model into a three-wire one with the same buses.
 The second keeps the conductors but removes buses. Elsewhere in these docs,
