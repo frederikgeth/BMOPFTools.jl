@@ -4,7 +4,22 @@
 # A synthetic 11 kV / 415 V four-wire LV feeder (generated below, so the
 # tutorial needs no external data) taken through the three reductions:
 # neutral Kron reduction, topology simplification, and Opti-KRON.
-using BMOPFTools, JuMP, HiGHS, Ipopt, Random, Printf, Statistics
+using BMOPFTools, JuMP, HiGHS, Ipopt, Printf, Statistics
+
+# Portable pseudo-random normals (xorshift64* + Box–Muller). Julia's own
+# random streams may differ between versions, which would change every number
+# quoted in the tutorial; this generator gives the same stream everywhere.
+mutable struct PortableRNG
+    s::UInt64
+end
+function unif!(g::PortableRNG)
+    x = g.s
+    x ⊻= x >> 12; x ⊻= x << 25; x ⊻= x >> 27
+    g.s = x
+    ((x * 0x2545f4914f6cdd1d) >> 11) / 2.0^53
+end
+gauss!(g::PortableRNG) = sqrt(-2log(max(unif!(g), eps()))) * cos(2π * unif!(g))
+
 
 # ── 1. A feeder with the features that matter ───────────────────────────────
 # mv ──Dyn── lv0 ── p1 ── p2 ── … ── p12        trunk, 40 m spans
@@ -70,13 +85,13 @@ net = synthetic_lv_feeder()
         size(ybus_passive(net).Y, 1))
 
 # ── 2. Loadings: evening peak, midday PV export, night ─────────────────────
-rng = MersenneTwister(2026)
+rng = PortableRNG(7)                   # seed chosen so each set's behavior in section 4 shows
 ids = sort(collect(keys(net["load"])))
 pv = Set(ids[1:3:end])                                   # a third of customers have PV
 hours = 48
 level = [0.25 + 0.75 * max(0, sin(π * (mod(h, 24) - 6) / 18))^2 for h in 1:hours]   # evening peak
 sun = [max(0, sin(π * (mod(h, 24) - 6) / 12)) for h in 1:hours]                    # midday
-mult = Dict(id => [level[h] * exp(0.35randn(rng)) - (id in pv ? 1.6sun[h] : 0.0) for h in 1:hours]
+mult = Dict(id => [level[h] * exp(0.35gauss!(rng)) - (id in pv ? 1.6sun[h] : 0.0) for h in 1:hours]
             for id in ids)
 train = Dict(id => v[1:24] for (id, v) in mult)          # day 1: training
 test = Dict(id => v[25:48] for (id, v) in mult)          # day 2: test

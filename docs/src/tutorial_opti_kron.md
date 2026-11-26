@@ -48,7 +48,7 @@ a common daily level times independent noise per load.
 
 ```julia
 U = opti_kron_load_injections(m, net, mult)  # mult[load_id][hour]
-# 24 samples, 24 active coordinates, largest |v - 1| = 0.0272 p.u.
+# 24 samples, 24 active coordinates, largest |v - 1| = 0.0278 p.u.
 ```
 
 ## 3. The error of one merge, by hand
@@ -58,7 +58,7 @@ Merge b3 into b2: b3's load moves to b2, and b2's voltage stands in for b3's.
 ```julia
 sup = collect(1:6); sup[m.busof["b3"]] = m.busof["b2"]
 opti_kron_errors(m, sup, U)     # error of every bus-phase, every sample
-# b3 → b2: worst error over the samples 3.44e-03 p.u.
+# b3 → b2: worst error over the samples 4.00e-03 p.u.
 ```
 
 Moving b3's load to b2 leaves the current through s–b1–b2 unchanged, so the
@@ -77,11 +77,11 @@ the bound only on the two most extreme training samples.
 tot = vec(sum(U, dims=1))
 scen = U[:, [argmax(tot), argmin(tot)]]
 res = opti_kron_reduction(m, OptiKronHull(scen), 8e-3; optimizer=HiGHS.Optimizer)
-# scenario  super-nodes ["s", "b1", "b2"]       worst sample error 1.13 Ē
+# scenario  super-nodes ["s", "b1", "b2"]       worst sample error 1.26 Ē
 ```
 
 Three buses suffice for those two loadings, but on the other 22 samples the
-error reaches 1.13 Ē. The bound holds on the scenarios and fails on other,
+error reaches 1.26 Ē. The bound holds on the scenarios and fails on other,
 less extreme loadings: the worst case depends on *how* the load is
 distributed, not only on how much there is.
 
@@ -89,9 +89,9 @@ Robust Opti-KRON instead guarantees the bound on an **uncertainty set** built
 from all samples:
 
 ```julia
-# hull      super-nodes ["s", "b1", "b2", "b5"] worst sample error 0.77 Ē
-# box       super-nodes ["s", "b1", "b2", "b5"] worst sample error 0.77 Ē
-# ellipsoid super-nodes ["s", "b1", "b2", "b4"] worst sample error 0.43 Ē
+# hull      super-nodes ["s", "b1", "b2", "b5"] worst sample error 0.76 Ē
+# box       super-nodes ["s", "b1", "b2", "b5"] worst sample error 0.76 Ē
+# ellipsoid super-nodes ["s", "b1", "b2", "b4"] worst sample error 0.50 Ē
 ```
 
 One more super-node buys a certificate: the bound holds for every loading in

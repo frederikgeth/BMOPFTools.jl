@@ -41,7 +41,7 @@ For loadings we use two days of hourly data: an evening peak and per-customer
 noise, with a third of the customers exporting PV at midday. **Day 1 trains**
 the reductions; **day 2 tests** them, so every error below is measured on
 loadings the reduction has not seen. The ground truth is an AC power flow of
-the full model on day 2 (lowest phase-to-neutral voltage 222.0 V).
+the full model on day 2 (lowest phase-to-neutral voltage 220.8 V).
 
 ## 2. Neutral Kron reduction: is the neutral really at earth?
 
@@ -62,10 +62,10 @@ not 0 Ω, and the poles between them have no electrode at all. On the test day
 the cost is plain:
 
 ```julia
-# neutral Kron: Ybus 86 → 66 nodes, worst voltage error 5.94 V
+# neutral Kron: Ybus 86 → 66 nodes, worst voltage error 7.67 V
 ```
 
-A 25% smaller matrix bought a 6 V error, more than 2% of the voltage, and it
+A 25% smaller matrix bought an error of almost 8 V, over 3% of the voltage, and it
 cannot be undone, because the neutral voltages it threw away are exactly the
 information that was needed. The scientific contract
 [`check_kron_boundary_recovery`](@ref) refuses the same transformation for the
@@ -117,9 +117,9 @@ was reduced at two thresholds, then checked on the test day:
 
 | Set | Ē = 0.005 p.u. | test-day error | Ē = 0.010 p.u. | test-day error |
 |---|---|---|---|---|
-| scenarios (2 extreme hours) | 10 buses | **1.63 Ē** | 5 buses | **1.19 Ē** |
-| convex hull of day 1 | 13 buses | **1.11 Ē** | 8 buses | 0.78 Ē |
-| box of day 1 | 13 buses | 0.53 Ē | 11 buses | 0.82 Ē |
+| scenarios (2 extreme hours) | 8 buses | **1.77 Ē** | 5 buses | **1.38 Ē** |
+| convex hull of day 1 | 13 buses | **1.18 Ē** | 6 buses | 0.91 Ē |
+| box of day 1 | 13 buses | 0.50 Ē | 11 buses | 0.84 Ē |
 
 Read the table from top to bottom:
 
@@ -129,7 +129,7 @@ Read the table from top to bottom:
   only on how much there is. PV export at a few poles is exactly such a
   pattern.
 - **The convex hull** guarantees every mixture of the training hours. That
-  covers day 1 completely, but day 2 can still step outside it (1.11 Ē at the
+  covers day 1 completely, but day 2 can still step outside it (1.18 Ē at the
   tighter threshold). A certificate covers its set, and only its set.
 - **The box** lets every customer vary independently within its observed
   range. It is wider, keeps more buses, and held on the test day.
@@ -147,25 +147,27 @@ devices are removed by exact Kron reduction of the multiconductor network.
 
 ```julia
 red = kron_reduce_buses(net, m, res; Ebar=0.01)
-# reduced case: 11 buses, 9 lines (0 equivalents), 4 shunts (1 equivalent), Ybus 42 nodes
-# kept buses: lv0, mv, p1 … p9
+# reduced case: 11 buses, 9 lines (1 equivalent), 3 shunts (1 equivalent), Ybus 42 nodes
+# kept buses: lv0, mv, p1 … p8, r4
 ```
 
-Opti-KRON kept the trunk and folded both laterals and the trunk end into it.
-Their customers now sit on the trunk, and the MEN electrode at p12 reappears
-as an equivalent shunt at p9: earthing is not lost, it is re-expressed. Solve
+Opti-KRON kept the trunk up to p8 and the far end of lateral r. Lateral q
+folds into p4; the trunk end (p9 to p12) and the first three poles of lateral
+r fold into p8, which now reaches r4 through one equivalent line. Their
+customers sit on the kept poles, and the MEN electrodes at p9 and p12 reappear
+as one equivalent shunt at p8: earthing is not lost, it is re-expressed. Solve
 the reduced case for each test hour, and compare it with the full model:
 
 ```julia
 pf  = solve_pf(red_at_hour; optimizer=ipopt)
 est = lift_solution(net, red, pf; model=m)     # voltages at every original bus
-# Opti-KRON box Ē=0.01 (= 2.4 V): worst AC error on test day 2.13 V, after lift 0.21 V
+# Opti-KRON box Ē=0.01 (= 2.4 V): worst AC error on test day 2.14 V, after lift 0.25 V
 ```
 
 The super-node voltages are within the 2.4 V bound in full AC power flow,
 not only in the linear model. [`lift_solution`](@ref) then uses the solved
 loading to correct each estimate after the fact, bringing the error down to
-0.21 V. The reduced case has half the matrix size, and only 5 of the 15
+0.25 V. The reduced case has half the matrix size, and only 6 of the 15
 customer poles remain as buses.
 
 ## 6. What each step cost
@@ -173,9 +175,9 @@ customer poles remain as buses.
 | Step | Kept | Matrix | Error on test day | What was given up |
 |---|---|---|---|---|
 | original | 22 buses | 86 nodes | — | — |
-| neutral Kron | 22 buses | 66 nodes | 5.94 V | neutral voltages and currents; finite earthing |
+| neutral Kron | 22 buses | 66 nodes | 7.67 V | neutral voltages and currents; finite earthing |
 | simplify | 18 buses | 70 nodes | ≈ 0 | voltages at 4 pass-through poles |
-| Opti-KRON (box, Ē = 0.01) | 11 buses | 42 nodes | 2.13 V (0.21 V lifted) | exact device locations; currents of eliminated lines |
+| Opti-KRON (box, Ē = 0.01) | 11 buses | 42 nodes | 2.14 V (0.25 V lifted) | exact device locations; currents of eliminated lines |
 
 !!! tip "The workflow in four lines"
     1. Check earthing before eliminating neutrals.

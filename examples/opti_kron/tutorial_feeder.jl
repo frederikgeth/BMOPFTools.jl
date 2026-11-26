@@ -1,6 +1,21 @@
 # Worked example for docs/src/tutorial_opti_kron.md (outputs quoted there).
 #   julia --project=test --startup-file=no examples/opti_kron/tutorial_feeder.jl
-using BMOPFTools, JuMP, HiGHS, Ipopt, Random, Printf
+using BMOPFTools, JuMP, HiGHS, Ipopt, Printf
+
+# Portable pseudo-random normals (xorshift64* + Box–Muller). Julia's own
+# random streams may differ between versions, which would change every number
+# quoted in the tutorial; this generator gives the same stream everywhere.
+mutable struct PortableRNG
+    s::UInt64
+end
+function unif!(g::PortableRNG)
+    x = g.s
+    x ⊻= x >> 12; x ⊻= x << 25; x ⊻= x >> 27
+    g.s = x
+    ((x * 0x2545f4914f6cdd1d) >> 11) / 2.0^53
+end
+gauss!(g::PortableRNG) = sqrt(-2log(max(unif!(g), eps()))) * cos(2π * unif!(g))
+
 
 # A small 3-phase, 3-wire radial feeder: s ── b1 ── b2 ── b3
 #                                                    └── b4 ── b5
@@ -37,10 +52,10 @@ r_b2 = m.rowof[(m.busof["b2"], "1")]; r_b5 = m.rowof[(m.busof["b5"], "1")]
         m.K[r_b2, r_b5], 2 * 0.04 * 1e3 / 230^2)
 
 # 2. Training samples: 24 hours, a common level times per-load noise
-rng = MersenneTwister(7)
+rng = PortableRNG(57)                 # seed chosen so the scenario failure of section 4 shows
 ids = sort(collect(keys(net["load"])))
 level = [0.4 + 0.6 * (1 - cos(2π * h / 24)) / 2 for h in 0:23]
-mult = Dict(id => [level[h] * exp(0.25randn(rng)) for h in 1:24] for id in ids)
+mult = Dict(id => [level[h] * exp(0.25gauss!(rng)) for h in 1:24] for id in ids)
 U = opti_kron_load_injections(m, net, mult)
 @printf("%d samples, %d active coordinates, largest |v - 1| = %.4f p.u.\n",
         size(U, 2), length(OptiKronHull(U).idx), maximum(abs.(m.K * U)))
