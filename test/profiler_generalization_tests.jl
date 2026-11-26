@@ -457,6 +457,23 @@ end
         @test "E.VOLT.LEVEL_MISMATCH" in _pg_codes(rep.findings) ||
               "W.VOLT.XFMR_RATIO" in _pg_codes(rep.findings)
 
+        # Secondary maps alone do not make a delta: with both primaries on the
+        # same conductors the secondaries are in phase and add in line. Not a
+        # high leg, and the unit's level conflicts like any other.
+        net = _pg_sys("na_high_leg_open_delta")
+        net["transformer"]["single_phase"]["power"]["terminal_map_from"] = ["a", "n"]
+        @test isempty(BMOPFTools._high_leg_power_units(net))
+        rep = _pg_analyze(net)
+        @test isempty(rep.results[:voltage_levels]["mixed_phase_to_neutral_buses"])
+        @test "E.VOLT.LEVEL_MISMATCH" in _pg_codes(rep.findings)
+        split = only(f for f in rep.findings if f.code == "I.PROV.SPLIT_PHASE_ZONE")
+        @test isempty(split.detail["high_leg"]) && split.detail["other_phases"] == ["c"]
+        # The Japanese bank has phase-to-phase primaries on different pairs.
+        jpn = _pg_sys("jp_three_wire_v_connection")
+        @test BMOPFTools._high_leg_power_units(jpn) == Set([("single_phase", "pole_shop_power")])
+        jpn["transformer"]["single_phase"]["pole_shop_power"]["terminal_map_from"] = ["b", "a"]
+        @test isempty(BMOPFTools._high_leg_power_units(jpn))    # the same pair as the lighting unit
+
         # The power unit's own ratio is still checked, against the bank's
         # line-to-line voltage (twice the leg level).
         ratio(v) = begin
@@ -534,6 +551,22 @@ end
         end
         for i in 1:4, j in 1:4; lc["B_from_$(i)_$(j)"] = (i == 4 && j == 4) ? 1e-7 : 0.0; end
         @test !leak(net) && !refd(net)
+        # Sparse declarations: an omitted entry is zero. One diagonal entry is
+        # a path to earth, and explicit zeros beside it change nothing.
+        net = bare(); net["linecode"]["cable"]["B_from_1_1"] = 1e-7
+        @test leak(net) && refd(net)
+        padded = bare(); lc = padded["linecode"]["cable"]
+        lc["B_from_1_1"] = 1e-7; lc["B_from_2_2"] = 0.0; lc["B_from_3_3"] = 0.0
+        @test refd(padded)
+        @test line_yprim(net["line"]["run"], net["linecode"])[2] ==
+              line_yprim(padded["line"]["run"], padded["linecode"])[2]
+        # G and B declared with different extents are padded, not rejected.
+        net = bare(); lc = net["linecode"]["cable"]
+        lc["G_to_2_2"] = 1e-9; lc["B_to_1_1"] = 0.0
+        @test leak(net) && refd(net)
+        # A sparse entry beyond the mapped conductors is still outside the block.
+        net = bare(); net["linecode"]["cable"]["B_from_4_4"] = 1e-7
+        @test !refd(net)
         # Malformed shunt data is not a reference and does not abort the helper.
         net = _pg_sys("it_delta_island_capacitive")
         net["linecode"]["cable"]["B_from_1_1"] = "high"
@@ -764,8 +797,25 @@ end
         @test m.detail["extra_edges"] == 1 && whole["cycle_rank"] == 1 && whole["n_dc_links"] == 1
         @test m.detail["simple_cycle_rank"] + m.detail["parallel_excess"] == 1
         @test length(m.detail["cycle_closing_branches"]) == 1
-        # A DC link between otherwise separate AC sections is no isolating transformer.
         @test all(z -> z["n_incident_isolating_transformers"] <= 1, r["structure"]["galvanic_zones"])
+        @test m.detail["dc_mediated_cycle_rank"] == 1 && m.detail["transformer_mediated_cycle_rank"] == 0
+        @test startswith(only(m.detail["cycle_closing_branches"])["component_id"], "d1:")
+        # Two independent DC islands linking the same AC buses: two DC cycles,
+        # none attributed to transformers, and witnesses that name their island.
+        net["dc_bus"]["e1"] = Dict{String,Any}("terminal_names" => ["p","n"])
+        net["dc_bus"]["e2"] = Dict{String,Any}("terminal_names" => ["p","n"])
+        net["dc_branch"]["cable2"] = Dict{String,Any}("dc_bus_from" => "e1", "dc_bus_to" => "e2")
+        net["ibr"]["c3"] = Dict{String,Any}("bus" => "lv1", "dc_bus" => "e1")
+        net["ibr"]["c4"] = Dict{String,Any}("bus" => "lv2", "dc_bus" => "e2")
+        delete!(net["transformer"], "delta_wye"); delete!(net["bus"], "mv")
+        net["voltage_source"]["grid"]["bus"] = "lv0"
+        r, whole, mesh = consistent(net)
+        m = only(mesh)
+        @test whole["dc_mediated_cycle_rank"] == 2 && whole["transformer_mediated_cycle_rank"] == 0
+        @test sort([w["component_id"] for w in m.detail["cycle_closing_branches"]]) ==
+              ["d1:lv1|lv2", "e1:lv1|lv2"]
+        @test [d["dc_island"] for d in r["dc_link_islands"]] == ["d1", "e1"]
+        @test all(z -> z["cycle_rank"] == 0, r["structure"]["galvanic_zones"])
         # The bundled banks: radial verdict and zero cycle rank together.
         for name in ("na_high_leg_open_delta", "jp_three_wire_v_connection")
             r, whole, mesh = consistent(_pg_sys(name))
@@ -812,6 +862,18 @@ end
             @test length(g["units"]) == 1 && length(g["parallel_units"]) == 1 && !g["ambiguous"]
             @test g["n_branches"] == 2
         end
+        # A center-tapped unit anchors its bank: a unit paralleled across one
+        # of its legs is the parallel one, and the power unit stays a leg.
+        net = _pg_sys("na_high_leg_open_delta")
+        extra = deepcopy(net["transformer"]["single_phase"]["power"])
+        extra["terminal_map_from"] = ["a", "n"]; extra["terminal_map_to"] = ["a", "n"]
+        extra["v_nom_to"] = 120.0
+        net["transformer"]["single_phase"]["aaa_extra"] = extra     # sorts before the others
+        r = connectivity_analysis(net, Finding[])
+        g = only(r["transformer_bank_groups"])
+        @test g["units"] == ["lighting", "power"] && g["parallel_units"] == ["aaa_extra"]
+        @test g["ambiguous"] && r["n_extra_edges"] == 1
+        @test only(r["transformer_banks"])["units"] == ["lighting", "power"]
         # An unreadable unit stays its own branch and is named.
         net = _pg_dss("pf_open_delta_reg.dss")
         net["transformer"]["single_phase"]["reg2"]["terminal_map_to"] = "bc"

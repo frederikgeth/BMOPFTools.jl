@@ -128,13 +128,15 @@ function connectivity_analysis(net::Dict{String,Any},
     # island are joined through it. An AC section fed only over DC is part of
     # the network, not a disconnected component, and a DC link between two
     # buses of one AC network closes a loop like any other branch.
-    dc_links = _dc_link_ac_groups(net)
-    for group in dc_links
-        for k in 2:length(group)
-            add_edge_safe!(group[k-1], group[k])
+    dc_links = _dc_links(net)
+    for link in dc_links
+        for k in 2:length(link.buses)
+            add_edge_safe!(link.buses[k-1], link.buses[k])
         end
     end
-    result["dc_links"] = dc_links
+    result["dc_links"] = [link.buses for link in dc_links]
+    result["dc_link_islands"] = [Dict{String,Any}("dc_island" => link.island, "buses" => link.buses)
+                                 for link in dc_links]
 
     # Voltage source buses (connected to their bus)
     vsrc_buses = String[]
@@ -333,6 +335,7 @@ function connectivity_analysis(net::Dict{String,Any},
                 "simple_cycle_rank" => whole["simple_cycle_rank"],
                 "parallel_excess" => whole["parallel_excess"],
                 "transformer_mediated_cycle_rank" => whole["transformer_mediated_cycle_rank"],
+                "dc_mediated_cycle_rank" => whole["dc_mediated_cycle_rank"],
                 "cycle_closing_branches" => structure["cycle_closing_branches"])))
     end
     spatial = _spatial_analysis(net, levels, findings; config=config)
@@ -462,6 +465,8 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
     incident = [Set{String}() for _ in zone_sets]
     for edge in edges
         a = zone_by_bus[edge.from]; b = zone_by_bus[edge.to]
+        # A DC link is not a galvanic branch of a zone, wherever its ends are.
+        edge.kind == "dc_link" && continue
         if a == b
             push!(zone_edges[a], edge)
         else
@@ -469,7 +474,6 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
             # line or switch. It is skipped on purpose: a neutral bond is not
             # a zone interface.
             edge.continuous && continue
-            edge.kind == "dc_link" && continue      # a converter link, not a transformer
             transformer_id = edge.kind == "transformer:n_winding" ? first(rsplit(edge.id, ":"; limit=2)) : edge.id
             push!(incident[a], "$(edge.kind):$transformer_id")
             push!(incident[b], "$(edge.kind):$transformer_id")
@@ -484,6 +488,10 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
             _topology_counts(sort!(collect(zone)), zone_edges[i])))
     end
     whole = _topology_counts(buses, edges)
+    # Attribute each cycle to what closes it. Galvanic-zone ranks count lines
+    # and switches inside a zone; what remains without DC links is closed
+    # through transformers; what DC links add is closed through a DC island.
+    ac_only = _topology_counts(buses, [e for e in edges if e.kind != "dc_link"])
     # What one "physical branch" is in these counts and in the cycle witnesses.
     whole["branch_scope"] = "lines; closed switches; two-bus transformers, with a bank of " *
         "single-phase units counted once; n_winding winding pairs; DC links between " *
@@ -492,7 +500,8 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
     whole["n_merged_bank_legs"] = inventory.n_merged_bank_legs
     whole["n_dc_links"] = inventory.n_dc_links
     zone_rank = sum(z["cycle_rank"] for z in zones; init=0)
-    whole["transformer_mediated_cycle_rank"] = whole["cycle_rank"] - zone_rank
+    whole["transformer_mediated_cycle_rank"] = ac_only["cycle_rank"] - zone_rank
+    whole["dc_mediated_cycle_rank"] = whole["cycle_rank"] - ac_only["cycle_rank"]
 
     # A deterministic spanning forest localizes each excess physical branch.
     # A closing branch is only a graph witness; its record is not necessarily
@@ -507,7 +516,9 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
         i
     end
     closing = Dict{String,Any}[]
-    for edge in sort(edges, by=e -> (e.kind, e.id, e.from, e.to))
+    # AC branches build the forest first, so a cycle that exists only through a
+    # DC link names that link (and its DC island) as the closing branch.
+    for edge in sort(edges, by=e -> (e.kind == "dc_link", e.kind, e.id, e.from, e.to))
         a = root(index[edge.from]); b = root(index[edge.to])
         if a == b
             length(closing) < 10 && push!(closing, Dict{String,Any}(
@@ -767,9 +778,15 @@ end
 
 # AC buses coupled through each DC island: sorted groups of two or more AC bus
 # ids whose converters share a DC island (dc_buses joined by dc_branches).
-function _dc_link_ac_groups(net)::Vector{Vector{String}}
+_dc_link_ac_groups(net)::Vector{Vector{String}} = [link.buses for link in _dc_links(net)]
+
+# One record per DC island that couples two or more AC buses: `island` is the
+# island's label (its smallest dc_bus id), `buses` the sorted AC buses. Two
+# islands that link the same AC buses are two records.
+function _dc_links(net)
+    none = NamedTuple{(:island, :buses),Tuple{String,Vector{String}}}[]
     dc_buses = get(net, "dc_bus", Dict())
-    dc_buses isa AbstractDict && !isempty(dc_buses) || return Vector{String}[]
+    dc_buses isa AbstractDict && !isempty(dc_buses) || return none
     parent = Dict{String,String}(string(b) => string(b) for b in keys(dc_buses))
     function find(x)                     # iterative, with path compression
         root = x
@@ -799,7 +816,14 @@ function _dc_link_ac_groups(net)::Vector{Vector{String}}
             haskey(parent, d) && haskey(ac_buses, b) || continue
         push!(get!(groups, find(d), Set{String}()), b)
     end
-    sort!([sort!(collect(g)) for g in values(groups) if length(g) >= 2])
+    label = Dict{String,String}()
+    for d in keys(parent)
+        r = find(d)
+        label[r] = min(get(label, r, d), d)
+    end
+    append!(none, [(island=label[r], buses=sort!(collect(g)))
+                   for (r, g) in groups if length(g) >= 2])
+    sort!(none, by = l -> (l.buses, l.island))
 end
 
 """
@@ -809,7 +833,8 @@ Resolve, per ordered `(bus_from, bus_to)` pair, which single-phase units form
 one bank. The whole pair is resolved before anything is counted, and the result
 does not depend on component ids:
 
-- units are ordered by their secondary phase-conductor set (smaller sets first);
+- center-tapped units come first (the lighting transformer anchors its bank),
+  then units are ordered by their secondary phase-conductor set (smaller first);
 - a unit is a **leg** when its set neither contains nor is contained in the set
   of a leg already taken; otherwise it is **parallel** to the bank;
 - a unit whose maps cannot be read is **unassessed** and stays its own branch.
@@ -845,8 +870,12 @@ function _transformer_bank_groups(net)
     for key in sort!(collect(keys(pairs)))
         units = pairs[key]
         length(units) > 1 || continue
+        # A center-tapped unit is identified as a bank's lighting transformer
+        # by its subtype, so it anchors the bank: a unit across one of its legs
+        # is the parallel one, not the other way around.
         assessed = sort!([u for u in units if u.sig !== nothing],
-                         by = u -> (length(u.sig), sort!(collect(u.sig)), u.subtype, u.id))
+                         by = u -> (u.subtype != "center_tap", length(u.sig),
+                                    sort!(collect(u.sig)), u.subtype, u.id))
         legs = eltype(assessed)[]; parallel = eltype(assessed)[]; ambiguous = false
         for u in assessed
             clash = [l for l in legs if issubset(u.sig, l.sig) || issubset(l.sig, u.sig)]

@@ -13,8 +13,8 @@ reads, so `Buscoords` in feet or meters (IEEE test feeders, State Plane or any
 projected grid treated as a local plane) can be used directly. `units` is then
 required: `"m"`, `"km"`, `"ft"`, `"ftUS"` (US survey foot), `"kft"` or `"mi"`.
 The resulting frame is resolved before anything is written: an existing frame,
-unit or axis declaration that disagrees (at the root or in `meta`) is an error,
-and the case is left untouched.
+unit or axis declaration that disagrees (at the root, in `meta`, or on a bus the
+CSV matches) is an error, and the case is left untouched.
 
 Returns the number of buses matched and the number of CSV rows skipped
 because the bus ID was not present in `net` (open-switch stub buses and
@@ -30,12 +30,34 @@ geometry supplies WGS84 evidence.
 [`write_bmopf`](@ref) preserves these fields by default. Pass
 `include_coordinates=false` when writing for strict BMOPF schema consumers.
 """
+# Bus-level declarations that disagree with a resolved network `frame`: the
+# rule `_coordinate_inventory` applies when it excludes a bus.
+function _bus_frame_conflicts(bus, frame)
+    issues = String[]
+    local_frame = _coordinate_declarations(bus, _SPATIAL_CRS_KEYS)
+    any(r -> (t = _coordinate_crs(last(r)); t === nothing || t != frame.token), local_frame) &&
+        push!(issues, "bus_crs_conflict")
+    local_units = _coordinate_declarations(bus, ("coordinate_units",))
+    local_axes = _coordinate_declarations(bus, ("coordinate_axis_order",))
+    for (path, declaration) in local_frame
+        declaration isa AbstractDict || continue
+        haskey(declaration, "units") && push!(local_units, "$path.units" => declaration["units"])
+        haskey(declaration, "axis_order") && push!(local_axes, "$path.axis_order" => declaration["axis_order"])
+    end
+    any(r -> (u = _coordinate_unit(last(r)); u === nothing || u != frame.unit), local_units) &&
+        push!(issues, "bus_units_conflict")
+    any(r -> last(r) != frame.report["axis_order"], local_axes) &&
+        push!(issues, "bus_axis_order_conflict")
+    issues
+end
+
 function sideload_coordinates!(net::Dict{String,Any}, csv_path::AbstractString;
                                frame::Symbol=:geographic, units=nothing,
                                name::AbstractString="buscoords")
     isfile(csv_path) || throw(ArgumentError("Coordinate CSV not found: $csv_path"))
     frame in (:geographic, :cartesian) ||
         throw(ArgumentError("frame must be :geographic or :cartesian, got :$frame"))
+    frame_check = nothing
     fields = frame == :cartesian ? ("x", "y") : ("longitude", "latitude")
     if frame == :cartesian
         parsed = _coordinate_unit(units)
@@ -65,22 +87,43 @@ function sideload_coordinates!(net::Dict{String,Any}, csv_path::AbstractString;
             "loading these coordinates would leave the coordinate frame $(frame_check.status) " *
             "($(join(frame_check.report["issues"], ", "))); existing declarations: " *
             "$(repr(frame_check.report["declarations"])). Remove or correct them first"))
-        get!(net, "meta", Dict{String,Any}())["crs"] = declaration
     elseif units !== nothing
         throw(ArgumentError("units apply to frame=:cartesian only"))
     end
     buses = get(net, "bus", Dict())
-    n_matched = 0
-    n_skipped = 0
+    # Read every row first; nothing is written until the whole load is known
+    # to leave a consistent frame.
+    rows = Tuple{String,Float64,Float64}[]
     for line in eachline(csv_path)
         line = strip(line)
         isempty(line) && continue
         parts = split(line, ',')
         length(parts) >= 3 || continue
-        id  = strip(parts[1])
         lon = tryparse(Float64, strip(parts[2]))
         lat = tryparse(Float64, strip(parts[3]))
         (lon === nothing || lat === nothing) && continue
+        push!(rows, (String(strip(parts[1])), lon, lat))
+    end
+    if frame == :cartesian
+        # A matched bus may carry its own frame, unit or axis declaration. It
+        # must agree with the frame being loaded, by the same rule the profiler
+        # applies; otherwise the bus would be loaded and then excluded.
+        conflicts = String[]
+        for (id, _, _) in rows
+            bus = get(buses, id, nothing)
+            bus isa AbstractDict || continue
+            issues = _bus_frame_conflicts(bus, frame_check)
+            isempty(issues) || push!(conflicts, "$id ($(join(issues, ", ")))")
+        end
+        isempty(conflicts) || throw(ArgumentError(
+            "$(length(conflicts)) matched bus(es) declare a coordinate frame, unit or axis order " *
+            "that conflicts with the frame being loaded: $(join(first(sort!(conflicts), 5), "; "))" *
+            "$(length(conflicts) > 5 ? "; …" : ""). Remove or correct those declarations first"))
+        get!(net, "meta", Dict{String,Any}())["crs"] = declaration
+    end
+    n_matched = 0
+    n_skipped = 0
+    for (id, lon, lat) in rows
         bus = get(buses, id, nothing)
         if bus isa Dict
             bus[fields[1]] = lon

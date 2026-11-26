@@ -23,8 +23,9 @@ function _line_stamps_earth_shunt(line::Dict{String,Any}, linecodes::AbstractDic
         n == 0 && return false
         for Y in _line_shunt_complex(line, linecodes)
             Y === nothing && continue
-            size(Y, 1) >= n && size(Y, 2) >= n || continue
-            block = Y[1:n, 1:n]
+            # Sparse declarations are zero-padded to the conductor count, as
+            # every builder reads them: one diagonal entry is a path to earth.
+            block = _zero_padded_block(Y, n)
             all(isfinite, block) || continue
             scale = maximum(abs, block)
             scale > 0 || continue

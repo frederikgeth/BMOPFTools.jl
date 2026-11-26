@@ -300,6 +300,24 @@ using BMOPFTools
                 @test c == before
             end
         end
+        # The same holds for a declaration on a matched bus: it would be
+        # loaded and then excluded by the profiler, so it is refused up front.
+        for (key, value, issue) in (("coordinate_units", "m", "bus_units_conflict"),
+                                    ("crs", "EPSG:4326", "bus_crs_conflict"),
+                                    ("coordinate_axis_order", ["y", "x"], "bus_axis_order_conflict"))
+            c = base(); c["bus"]["b1"][key] = value
+            before = deepcopy(c)
+            err = try; sideload_coordinates!(c, csv; frame=:cartesian, units="ft"); nothing; catch e; e; end
+            @test err isa ArgumentError && occursin("b1", err.msg) && occursin(issue, err.msg)
+            @test c == before
+        end
+        # A conflicting declaration on a bus the CSV does not match is not this load's concern.
+        c = base(); c["bus"]["other"] = Dict{String,Any}("terminal_names" => ["a"], "coordinate_units" => "m")
+        @test sideload_coordinates!(c, csv; frame=:cartesian, units="ft") == (3, 1)
+        # An agreeing bus declaration is fine, and every matched bus is metric-eligible.
+        c = base(); c["bus"]["b1"]["coordinate_units"] = "ft"
+        @test sideload_coordinates!(c, csv; frame=:cartesian, units="ft") == (3, 1)
+        @test spatial(run(c))["coordinate_semantics"]["n_metric_eligible_buses"] == 3
         # Agreeing metadata is accepted, and the loaded case is a clean frame.
         ok = base(); ok["coordinate_units"] = "ft"
         @test sideload_coordinates!(ok, csv; frame=:cartesian, units="ft") == (3, 1)

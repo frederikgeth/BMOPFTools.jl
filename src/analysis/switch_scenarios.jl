@@ -71,9 +71,12 @@ function _physical_branch_inventory(net::Dict{String,Any})
     # DC links: AC buses whose converters share a DC island, chained in sorted
     # order exactly as the connectivity graph inserts them.
     n_dc_links = 0
-    for group in _dc_link_ac_groups(net)
+    for link in _dc_links(net)
+        group = link.buses
         for k in 2:length(group)
-            edge = branch("dc_link", "$(group[k-1])|$(group[k])", group[k-1], group[k], false)
+            # The id names the DC island, so two islands linking the same AC
+            # buses stay distinguishable in a cycle witness.
+            edge = branch("dc_link", "$(link.island):$(group[k-1])|$(group[k])", group[k-1], group[k], false)
             edge === nothing && continue
             push!(fixed, edge); push!(declared, edge); n_dc_links += 1
         end

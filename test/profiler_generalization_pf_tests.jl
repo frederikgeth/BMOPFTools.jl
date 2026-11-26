@@ -47,6 +47,18 @@ using JuMP, Ipopt
         end
     end
 
+    @testset "primaries on the same conductors do not make a high leg" begin
+        net = sys("na_high_leg_open_delta")
+        net["transformer"]["single_phase"]["power"]["terminal_map_from"] = ["a", "n"]
+        rep = report(net)
+        @test isempty(rep.results[:voltage_levels]["mixed_phase_to_neutral_buses"])
+        @test "E.VOLT.LEVEL_MISMATCH" in [f.code for f in rep.findings]
+        res = solve(net)
+        # In-phase secondaries add in line: 120 V + 240 V, not sqrt(3) x 120 V.
+        @test vmag(res, "svc", "c") ≈ 360.0 rtol = 0.03
+        @test !isapprox(vmag(res, "svc", "c"), sqrt(3) * 120.0; rtol = 0.2)
+    end
+
     @testset "an island is referenced exactly when the profiler says so" begin
         # Referenced through cable capacitance: phase-to-earth voltages are the
         # balanced nominal.
@@ -67,5 +79,16 @@ using JuMP, Ipopt
         shift_cap = hypot(sum(rc["bus"]["it1"][t]["vr"] for t in ("a", "b", "c")) / 3,
                           sum(rc["bus"]["it1"][t]["vi"] for t in ("a", "b", "c")) / 3)
         @test shift_cap < 1.0          # capacitance pins the neutral point near earth
+        # One sparse diagonal entry anchors the island in the solve, and the
+        # profiler agrees; explicit zeros beside it change neither.
+        sparse = sys("it_delta_island_unreferenced")
+        sparse["linecode"]["cable"]["B_from_1_1"] = 1e-7
+        padded = deepcopy(sparse)
+        padded["linecode"]["cable"]["B_from_2_2"] = 0.0; padded["linecode"]["cable"]["B_from_3_3"] = 0.0
+        @test isempty(errors(report(sparse))) && isempty(errors(report(padded)))
+        rs = solve(sparse); rp = solve(padded)
+        for t in ("a", "b", "c")
+            @test vmag(rs, "it1", t) ≈ vmag(rp, "it1", t) rtol = 1e-6
+        end
     end
 end

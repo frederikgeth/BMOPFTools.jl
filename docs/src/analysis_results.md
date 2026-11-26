@@ -128,7 +128,8 @@ a leg and closes a cycle.
 for every bus pair with more than one single-phase unit: `units` (the legs),
 `parallel_units`, `unassessed_units` (maps that cannot be read), `n_branches`,
 and `ambiguous`, true when a unit partly overlaps the legs, as `a–b` beside
-`a–n` and `b–n` does. The grouping is resolved for the whole pair before
+`a–n` and `b–n` does. A center-tapped unit anchors its bank: a unit across one of
+its legs is the parallel one. The grouping is resolved for the whole pair before
 anything is counted and does not depend on component ids.
 
 `results[:connectivity]["structure"]["whole_network"]["branch_scope"]` states
@@ -138,6 +139,12 @@ uses the same branches, so `n_extra_edges + neutral_only_cycle_rank` equals
 
 `results[:connectivity]["dc_links"]` lists groups of AC buses whose converters
 share one DC island; the buses of a group are connected through it.
+`dc_link_islands` gives the same groups with the `dc_island` label (its smallest
+`dc_bus` id), so two islands that link the same AC buses stay distinct. Cycles
+closed through a DC island are counted in
+`structure.whole_network["dc_mediated_cycle_rank"]`, not as transformer-mediated,
+and the closing-branch witness is the DC link, with an id of the form
+`<dc_island>:<bus>|<bus>`.
 
 ### Zone topology
 
@@ -170,7 +177,9 @@ transformer ratios. Three cases need care when reading it:
 - On a high-leg (four-wire) delta bus no single value describes every conductor.
   The map holds the center-tapped leg voltage, the bus is listed in
   `mixed_phase_to_neutral_buses`, and the power units that create the high leg are
-  listed in `high_leg_units`. The high leg sits at √3 times the leg voltage to
+  listed in `high_leg_units`. A power unit is identified only when its primary is
+  connected across different conductors than the center-tapped unit's; primaries
+  on the same conductors are in phase and do not close a delta. The high leg sits at √3 times the leg voltage to
   neutral. A power unit's own ratio is still checked, against twice the leg level.
 
 ### Transformer phase evidence

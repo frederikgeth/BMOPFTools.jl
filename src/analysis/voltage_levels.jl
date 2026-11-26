@@ -171,27 +171,39 @@ function _high_leg_power_units(net::Dict{String,Any})::Set{Tuple{String,String}}
     xfmr = get(net, "transformer", Dict())
     ct = get(xfmr, "center_tap", nothing); sp = get(xfmr, "single_phase", nothing)
     ct isa AbstractDict && sp isa AbstractDict || return out
-    # Secondary legs of the center-tapped units, per (bus_from, bus_to) pair.
-    lighting = Dict{Tuple{String,String},Set{String}}()
+    # Center-tapped units per (bus_from, bus_to) pair: secondary legs and the
+    # primary conductors each is connected across.
+    lighting = Dict{Tuple{String,String},Vector{Any}}()
     for (_, t) in ct
         t isa AbstractDict || continue
         f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
-        tm = get(t, "terminal_map_to", nothing)
+        tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
         f isa AbstractString && b isa AbstractString && tm isa AbstractVector &&
-            length(tm) == 3 || continue
-        union!(get!(lighting, (f, b), Set{String}()), (string(tm[1]), string(tm[3])))
+            length(tm) == 3 && tf isa AbstractVector || continue
+        push!(get!(lighting, (f, b), Any[]),
+              (legs=Set((string(tm[1]), string(tm[3]))), primary=Set(string.(tf))))
     end
     isempty(lighting) && return out
     for (id, t) in sp
         t isa AbstractDict || continue
-        legs = get(lighting, (get(t, "bus_from", nothing), get(t, "bus_to", nothing)), nothing)
-        legs === nothing && continue
-        tm = get(t, "terminal_map_to", nothing)
-        tm isa AbstractVector || continue
-        # The power unit must reach a conductor beyond the two legs. A unit
-        # across the legs themselves is paralleled with the lighting winding.
-        any(x -> !(string(x) in legs), tm) || continue
-        _winding_phase_to_phase(net, t, "terminal_map_to") && push!(out, ("single_phase", string(id)))
+        units = get(lighting, (get(t, "bus_from", nothing), get(t, "bus_to", nothing)), nothing)
+        units === nothing && continue
+        tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
+        tm isa AbstractVector && tf isa AbstractVector || continue
+        primary = Set(string.(tf))
+        for u in units
+            # The power unit must reach a conductor beyond the two legs: a unit
+            # across the legs themselves is paralleled with the lighting winding.
+            any(x -> !(string(x) in u.legs), tm) || continue
+            # ...and its primary must sit across different conductors than the
+            # lighting unit's. Two primaries on the same conductors are in
+            # phase: their secondaries add in line instead of closing a delta,
+            # and the third conductor is not a high leg.
+            primary != u.primary || continue
+            _winding_phase_to_phase(net, t, "terminal_map_to") || continue
+            push!(out, ("single_phase", string(id)))
+            break
+        end
     end
     out
 end
