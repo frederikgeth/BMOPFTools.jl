@@ -1,3 +1,24 @@
+# Bus-level declarations that disagree with a resolved network `frame`: the
+# rule `_coordinate_inventory` applies when it excludes a bus.
+function _bus_frame_conflicts(bus, frame)
+    issues = String[]
+    local_frame = _coordinate_declarations(bus, _SPATIAL_CRS_KEYS)
+    any(r -> (t = _coordinate_crs(last(r)); t === nothing || t != frame.token), local_frame) &&
+        push!(issues, "bus_crs_conflict")
+    local_units = _coordinate_declarations(bus, ("coordinate_units",))
+    local_axes = _coordinate_declarations(bus, ("coordinate_axis_order",))
+    for (path, declaration) in local_frame
+        declaration isa AbstractDict || continue
+        haskey(declaration, "units") && push!(local_units, "$path.units" => declaration["units"])
+        haskey(declaration, "axis_order") && push!(local_axes, "$path.axis_order" => declaration["axis_order"])
+    end
+    any(r -> (u = _coordinate_unit(last(r)); u === nothing || u != frame.unit), local_units) &&
+        push!(issues, "bus_units_conflict")
+    any(r -> last(r) != frame.report["axis_order"], local_axes) &&
+        push!(issues, "bus_axis_order_conflict")
+    issues
+end
+
 """
     sideload_coordinates!(net, csv_path; frame=:geographic, units=nothing, name="buscoords")
         -> (n_matched, n_skipped)
@@ -30,27 +51,6 @@ geometry supplies WGS84 evidence.
 [`write_bmopf`](@ref) preserves these fields by default. Pass
 `include_coordinates=false` when writing for strict BMOPF schema consumers.
 """
-# Bus-level declarations that disagree with a resolved network `frame`: the
-# rule `_coordinate_inventory` applies when it excludes a bus.
-function _bus_frame_conflicts(bus, frame)
-    issues = String[]
-    local_frame = _coordinate_declarations(bus, _SPATIAL_CRS_KEYS)
-    any(r -> (t = _coordinate_crs(last(r)); t === nothing || t != frame.token), local_frame) &&
-        push!(issues, "bus_crs_conflict")
-    local_units = _coordinate_declarations(bus, ("coordinate_units",))
-    local_axes = _coordinate_declarations(bus, ("coordinate_axis_order",))
-    for (path, declaration) in local_frame
-        declaration isa AbstractDict || continue
-        haskey(declaration, "units") && push!(local_units, "$path.units" => declaration["units"])
-        haskey(declaration, "axis_order") && push!(local_axes, "$path.axis_order" => declaration["axis_order"])
-    end
-    any(r -> (u = _coordinate_unit(last(r)); u === nothing || u != frame.unit), local_units) &&
-        push!(issues, "bus_units_conflict")
-    any(r -> last(r) != frame.report["axis_order"], local_axes) &&
-        push!(issues, "bus_axis_order_conflict")
-    issues
-end
-
 function sideload_coordinates!(net::Dict{String,Any}, csv_path::AbstractString;
                                frame::Symbol=:geographic, units=nothing,
                                name::AbstractString="buscoords")
