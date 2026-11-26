@@ -42,7 +42,7 @@ Returned top-level keys
                    dissipated; q_loss = net reactive absorption, negative when the
                    element is net-capacitive). `s_through = Σ|V_t||I_t|` is a
                    throughput scale for sizing numerical tolerances.
-- `"losses"`     — `{p_loss [W], q_loss [var]}` network totals over all lines, transformers, and DC branches (active power only)
+- `"losses"`     — `{p_loss [W], q_loss [var], p_loss_dc [W]}`: network totals over all lines, transformers, and DC branches; `p_loss_dc` is the DC-branch share of `p_loss`
 - `"voltage_source"` — `src_id => terminal => {cr, ci [A], ps [W], qs [var]}`
 - `"initialisation"` — `bus_id => terminal => {vr_init, vi_init, vm_init [V], va_init [rad]}`
   Ipopt start values set before `optimize!`. Always present; used by `profile_solution`
@@ -850,6 +850,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
     # ── DC network: signed node voltages + per-conductor branch currents ─────
     dc_bus_res    = Dict{String,Any}()
     dc_branch_res = Dict{String,Any}()
+    total_p_loss_dc = 0.0   # DC-branch share of the network loss
     if haskey(vars, :v_dc)
         v_dc_v = vars[:v_dc]
         for (b, dcbus) in get(net, "dc_bus", Dict())
@@ -886,6 +887,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
                 end
                 cond["loss"] = Dict{String,Any}("p_loss" => pl)
                 total_p_loss += pl
+                total_p_loss_dc += pl
             end
             dc_branch_res[id] = cond
         end
@@ -913,6 +915,7 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         "dc_branch"          => dc_branch_res,
         "initialisation"     => init_res,
         "losses"             => Dict{String,Any}(
-            "p_loss" => total_p_loss, "q_loss" => total_q_loss),
+            "p_loss" => total_p_loss, "q_loss" => total_q_loss,
+            "p_loss_dc" => total_p_loss_dc),
     )
 end

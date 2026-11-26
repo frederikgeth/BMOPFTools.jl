@@ -72,6 +72,12 @@ Initial General release candidate. Registration has not yet been requested.
     `solve_pf` waives the active-power setpoint of a single-coil DC-coupled
     unit only when its DC side supplies the determining equation (zero-width
     private balance, droop, or one voltage master per port).
+  - **`solution_check` agrees with the engine again** on the semantics
+    changed here: line angle windows are assessed on phase conductors only;
+    the AC power balance no longer counts DC-branch loss twice (the result
+    reports that share as `losses.p_loss_dc`); a two-terminal DELTA
+    generator is checked as one coil against its tighter rating; and the
+    Volt-watt `P_AVAILABLE` cap is per coil.
   - Open-delta regulators are unchanged: the bank does not connect its neutral
     terminals, and neutral continuity past it stays an explicit line or
     switch. Two OpenDSS cases (ideal and 0.5 ohm jumper) now pin this.

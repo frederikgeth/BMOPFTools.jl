@@ -807,7 +807,15 @@ function solution_check(net::Dict{String,Any},
                 Dict{String,Any}("reason"=>"unsupported_branch_angle_domain")))
             continue
         end
+        # The engine bounds PHASE conductors only: a neutral voltage is a small
+        # residual with no operating angle, and its phasor legitimately rotates
+        # by tens of degrees along a healthy four-wire line.
+        angle_neutrals = _neutral_labels(net)
+        is_angle_neutral(b, t) = t in angle_neutrals ||
+            t == _neutral_terminal(get(get(net, "bus", Dict()), b, Dict{String,Any}()))
         for k in eachindex(fr)
+            (is_angle_neutral(line["bus_from"], fr[k]) ||
+             is_angle_neutral(line["bus_to"], to[k])) && continue
             vf = get(get(bus_res, line["bus_from"], Dict()), fr[k], Dict())
             vt = get(get(bus_res, line["bus_to"], Dict()), to[k], Dict())
             coords = (get(vf,"vr",NaN), get(vf,"vi",NaN), get(vt,"vr",NaN), get(vt,"vi",NaN))
@@ -1098,7 +1106,13 @@ function solution_check(net::Dict{String,Any},
         ph_res isa Dict || continue
         tm = Vector{String}(get(gen, "terminal_map", String[]))
         cfg = get(gen, "configuration", "WYE")
-        ph_pos = cfg == "DELTA" ? collect(eachindex(tm)) : _phase_positions(tm)
+        # Coils as the engine builds them: a two-terminal DELTA unit is ONE
+        # coil whose current flows through both conductors, so the tighter of
+        # its per-conductor ratings governs.
+        one_coil_delta = cfg == "DELTA" && length(tm) == 2
+        ph_pos = cfg != "DELTA" ? _phase_positions(tm) :
+                 one_coil_delta ? [1] : collect(eachindex(tm))
+        one_coil_delta && !isempty(imax_arr) && (imax_arr = [minimum(imax_arr)])
 
         for (idx, ph) in enumerate(ph_pos)
             t_ph = tm[ph]
@@ -1215,7 +1229,10 @@ function solution_check(net::Dict{String,Any},
 
         tm   = Vector{String}(get(inv, "terminal_map", String[]))
         topo = get(inv, "topology", "FOUR_LEG")
-        n_phase = max(length(_phase_positions(tm)), 1)
+        # Number of COILS sharing the available power (mirrors the engine): a
+        # two-terminal SINGLE_PHASE unit is one coil even when both terminals
+        # are phases.
+        n_phase = topo == "SINGLE_PHASE" ? 1 : max(length(_phase_positions(tm)), 1)
         t_res   = get(bus_res, get(inv, "bus", ""), Dict())
 
         phase_keys = if topo == "SINGLE_PHASE"
@@ -1533,6 +1550,18 @@ function solution_check(net::Dict{String,Any},
     losses = get(result, "losses", Dict())
     p_loss = losses isa Dict ? Float64(get(losses, "p_loss", 0.0)) : 0.0
     q_loss = losses isa Dict ? Float64(get(losses, "q_loss", 0.0)) : 0.0
+    # `losses.p_loss` is the loss of the WHOLE network, DC conductors included.
+    # The balance below is the AC-network balance: every term in it is an
+    # AC-side quantity, and a converter enters through its AC injection, which
+    # already nets out whatever its DC side dissipates. The DC-branch share
+    # must therefore be taken back out, or it would be counted twice and every
+    # network with a lossy DC branch would report a spurious imbalance.
+    p_loss_dc = losses isa Dict && get(losses, "p_loss_dc", nothing) isa Real ?
+        Float64(losses["p_loss_dc"]) :
+        sum(Float64(get(get(branch, "loss", Dict()), "p_loss", 0.0))
+            for branch in values(get(result, "dc_branch", Dict()))
+            if branch isa AbstractDict; init=0.0)
+    p_loss_ac = p_loss - p_loss_dc
 
     # Standalone shunt and capacitor elements are neither injections nor branch
     # losses, so they must be counted explicitly: a shunt absorbs (P,Q) from its
@@ -1555,7 +1584,7 @@ function solution_check(net::Dict{String,Any},
     out["q_shunt"] = q_shunt
     out["q_capacitor"] = q_cap
 
-    balance_err   = abs(p_gen - p_load - p_shunt - p_loss)
+    balance_err   = abs(p_gen - p_load - p_shunt - p_loss_ac)
     q_balance_err = abs(q_gen + q_cap - q_load - q_shunt - q_loss)
     balance_tol   = max(0.01 * abs(p_load), 1.0)   # 1 % of load or 1 W
     # Reactive flows can be near zero while loads are unity-PF; floor on |q_load|
@@ -1568,6 +1597,7 @@ function solution_check(net::Dict{String,Any},
     out["p_load"]            = p_load
     out["q_load"]            = q_load
     out["p_loss"]            = p_loss
+    out["p_loss_dc"]         = p_loss_dc
     out["q_loss"]            = q_loss
     out["power_balance_err"]  = balance_err
     out["q_power_balance_err"] = q_balance_err

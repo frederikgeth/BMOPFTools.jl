@@ -715,6 +715,97 @@
             ("m2", merge(master(800.0), fixed_p(300.0)))])))
     end
 
+    # ── 14. The post-solve validator agrees with the engine ───────────────────
+    # `solution_check` re-derives limits from the case, independently of the
+    # model. For every semantic this change set touched, the engine's own
+    # solution must pass it, and a solution that breaks the rule must not.
+    @testset "solution_check mirrors the engine's semantics" begin
+        codes(net, result) = (found = Finding[]; solution_check(net, result, found);
+                              Set(f.code for f in found))
+
+        # Line angle windows bound phase conductors only.
+        buses = D(b => D("terminal_names" => ["a", "b", "c", "n"]) for b in ("src", "b1", "b2"))
+        fourwire(bf, bt) = merge(D("bus_from" => bf, "bus_to" => bt,
+            "terminal_map_from" => ["a", "b", "c", "n"],
+            "terminal_map_to" => ["a", "b", "c", "n"]),
+            D("R_series_$(k)_$(k)" => 0.2 for k in 1:4))
+        single(bus, ph) = D("bus" => bus, "terminal_map" => [ph, "n"],
+            "configuration" => "SINGLE_PHASE", "p_nom" => [3000.0], "q_nom" => [0.0])
+        feeder = D("bus" => buses,
+            "line" => D("l1" => fourwire("src", "b1"),
+                        "l2" => merge(fourwire("b1", "b2"),
+                                      D("va_diff_min" => -0.2, "va_diff_max" => 0.2))),
+            "voltage_source" => D("vs" => D("bus" => "src", "terminal_map" => ["a", "b", "c"],
+                "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2pi/3, 2pi/3])),
+            "load" => D("la" => single("b1", "a"), "lb" => single("b2", "b")))
+        result = solve_opf(deepcopy(feeder); per_unit=false)
+        @test solved(result)
+        @test !("E.SOL.ANGLE_VIOLATION" in codes(feeder, result))
+        # A phase conductor outside the window is still caught.
+        tight = deepcopy(feeder)
+        tight["line"]["l2"]["va_diff_min"] = 0.05; tight["line"]["l2"]["va_diff_max"] = 0.1
+        @test "E.SOL.ANGLE_VIOLATION" in codes(tight, result)
+
+        # The AC power balance is not thrown off by DC-branch loss.
+        for pu in (true, false)
+            net = mvdc_tie()
+            result = solve_opf(net; per_unit=pu)
+            @test result["losses"]["p_loss_dc"] ≈ result["dc_branch"]["line"]["loss"]["p_loss"] rtol=1e-9
+            @test result["losses"]["p_loss_dc"] > 10.0
+            @test !("W.SOL.POWER_BALANCE" in codes(net, result))
+            # Without the reported share the validator recovers it per branch.
+            stripped = deepcopy(result); delete!(stripped["losses"], "p_loss_dc")
+            @test !("W.SOL.POWER_BALANCE" in codes(net, stripped))
+            # A genuine imbalance is still reported.
+            broken = deepcopy(result)
+            broken["voltage_source"]["s1"]["a"]["ps"] += 500.0
+            @test "W.SOL.POWER_BALANCE" in codes(net, broken)
+        end
+
+        # A two-terminal DELTA generator: one coil, tighter rating governs.
+        line4 = merge(D("bus_from" => "src", "bus_to" => "b1",
+            "terminal_map_from" => ["a", "b", "c", "n"],
+            "terminal_map_to" => ["a", "b", "c", "n"]),
+            D("R_series_$(k)_$(k)" => 0.2 for k in 1:4))
+        gen_case(i_max) = D("bus" => D(b => D("terminal_names" => ["a", "b", "c", "n"])
+                                       for b in ("src", "b1")),
+            "voltage_source" => D("vs" => D("bus" => "src", "terminal_map" => ["a", "b", "c"],
+                "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2pi/3, 2pi/3])),
+            "line" => D("l1" => line4),
+            "generator" => D("g" => D("bus" => "b1", "terminal_map" => ["a", "b"],
+                "configuration" => "DELTA", "p_min" => [1000.0], "p_max" => [1000.0],
+                "q_min" => [0.0], "q_max" => [0.0], "i_max" => i_max)))
+        result = solve_opf(gen_case([5.0, 5.0]); per_unit=false)     # about 2.5 A
+        @test solved(result)
+        @test !("E.SOL.GEN_VIOLATION" in codes(gen_case([5.0, 5.0]), result))
+        # The same solution against a tighter rating on EITHER conductor.
+        @test "E.SOL.GEN_VIOLATION" in codes(gen_case([1.0, 5.0]), result)
+        @test "E.SOL.GEN_VIOLATION" in codes(gen_case([5.0, 1.0]), result)
+
+        # Volt-watt P_AVAILABLE is shared per coil for a phase-to-phase unit.
+        pv = D("bus" => D(b => D("terminal_names" => ["a", "b", "n"],
+                                 "perfectly_grounded_terminals" => ["n"]) for b in ("src", "e")),
+            "line" => D("l" => merge(D("bus_from" => "src", "bus_to" => "e",
+                "terminal_map_from" => ["a", "b", "n"], "terminal_map_to" => ["a", "b", "n"]),
+                D("R_series_$(k)_$(k)" => 0.01 for k in 1:3))),
+            "voltage_source" => D("s" => D("bus" => "src", "terminal_map" => ["a", "b"],
+                "v_magnitude" => [120.0, 120.0], "v_angle" => [0.0, Float64(pi)],
+                "cost" => [0.2, 0.2])),
+            "ibr" => D("pv" => D("bus" => "e", "terminal_map" => ["a", "b"],
+                "topology" => "SINGLE_PHASE", "prime_mover" => "PV",
+                "p_min" => [0.0], "p_max" => [6000.0], "p_avail" => 6000.0,
+                "q_min" => [0.0], "q_max" => [0.0], "s_max" => [8000.0],
+                "cost" => [-1.0], "control_profile" => "cp")),
+            "control_profile" => D("cp" => D("volt_watt" => D(
+                "voltage_reference" => "PG_PER_PHASE",
+                "breakpoints" => [200.0, 210.0], "p_limits" => [0.2, 1.0],
+                "p_unit" => "VA_FRACTION", "p_ref" => "P_AVAILABLE"))))
+        result = solve_opf(deepcopy(pv); per_unit=false)
+        @test solved(result)
+        @test only(values(result["ibr"]["pv"]))["pg"] ≈ 6000.0 rtol=2e-2
+        @test !any(startswith(code, "E.SOL") for code in codes(pv, result))
+    end
+
     @testset "unsupported IBR records are rejected, not skipped" begin
         net = D("bus" => D("f" => bus2(), "t" => bus2()),
             "voltage_source" => D("s" => src2("f")),

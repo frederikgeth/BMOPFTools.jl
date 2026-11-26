@@ -1170,7 +1170,7 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
 
     # Network-wide loss totals (W/var): × s_base
     if haskey(result, "losses") && result["losses"] isa Dict
-        for f in ("p_loss", "q_loss")
+        for f in ("p_loss", "q_loss", "p_loss_dc")
             haskey(result["losses"], f) && (result["losses"][f] = result["losses"][f] * sb)
         end
     end
