@@ -30,6 +30,7 @@ start of that page; its dataset examples are not executed by the docs build.
 | **Get units, per-unit bases, and cost right** | [Units, bases, scaling, and economics](tutorial_units.md) | [Units and scaling](opf.md#Units-and-scaling), [Objective spec](spec/objective.md) |
 | **Pick a defensible load model** (CVR, hosting, collapse) | [Choosing and identifying a load model](tutorial_load_models.md) | [Load spec](spec/load.md), [Impedance models & OPF decisions](tutorial_impedance_models.md) |
 | **Build a benchmark** an optimizer can respect | [Case augmentation](augmentation.md) | [From nameplate data to a defensible model](tutorial_nameplate.md), [DER placement](tutorial_ders.md) |
+| **Make a network smaller** without losing what matters | [Reducing a four-wire feeder, step by step](tutorial_network_reduction.md) | [Network reduction: which tool?](network_reduction.md), [Opti-KRON tutorial](tutorial_opti_kron.md), [Simplification tutorial](tutorial_simplify.md) |
 | **Diagnose an infeasible case** | [Infeasibility diagnosis](tutorial_infeasibility.md) | [Bounds & feasibility](bounds/index.md), [Trusting the solver](bounds/solver_trust.md) |
 | **Verify a solved OPF** you don't yet trust | [Trust but verify](tutorial_trust_but_verify.md) | [Solution projection](solution_projection.md), [Engine validation evidence](validation.md) |
 | **Model a specific device** (STATCOM, MVDC, regulator, PV droop) | [D-STATCOM study](tutorial_statcom.md) | [MVDC](tutorial_mvdc.md), [Tap optimization](tutorial_tap.md), [VVWO](tutorial_vvwo.md) |

@@ -65,6 +65,12 @@ makedocs(
                 "DER placement tutorial" => "tutorial_ders.md",
                 "Utility-data end-to-end tutorial" => "tutorial_end_to_end.md",
             ],
+            "Reduce the network" => [
+                "Network reduction: which tool?" => "network_reduction.md",
+                "Reducing a four-wire feeder" => "tutorial_network_reduction.md",
+                "Opti-KRON tutorial" => "tutorial_opti_kron.md",
+                "Error-bounded bus reduction (Opti-KRON)" => "opti_kron.md",
+            ],
         ],
         "Power flow & OPF studies" => [
             "OPF guide & model" => "opf.md",

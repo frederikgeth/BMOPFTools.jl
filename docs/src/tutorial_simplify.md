@@ -9,6 +9,13 @@
 
 *Reduce a network only within the supported circuit and constraint domain.*
 
+!!! tip "Which reduction do I need?"
+    `simplify_network` removes topology artifacts exactly but keeps every
+    loaded bus. To remove loaded buses with a voltage-error guarantee, use
+    Opti-KRON; to turn a four-wire model into a three-wire one, use
+    [`kron_reduce_neutrals`](@ref). [Network reduction](@ref network-reduction)
+    compares all three on real feeders.
+
 GIS-derived models often contain degree-2 junction buses, explicit switches,
 and unloaded stubs. Some can be eliminated exactly; others carry grounding,
 shunts, limits, or future modeling meaning. The package records reductions and

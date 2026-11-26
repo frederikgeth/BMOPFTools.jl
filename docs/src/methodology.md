@@ -89,6 +89,16 @@ with the wrong sign. Severity calibration:
 
 ## Kron reduction, grounding and earthing zones
 
+!!! note "Two Kron reductions"
+    On this page *Kron reduction* means eliminating a grounded **conductor**
+    (usually the neutral) from a line's impedance matrix
+    ([`kron_reduce_neutrals`](@ref)). Eliminating whole **buses**, as in
+    error-bounded network reduction ([`kron_reduce_buses`](@ref)), is the
+    same Schur complement applied to the nodal admittance matrix, under a
+    different condition: zero current injection at the eliminated nodes,
+    rather than zero voltage drop along the neutral. See
+    [Network reduction](@ref network-reduction).
+
 A 4-wire network whose every neutral is solidly grounded admits *exact*
 Kron reduction of the neutral; conversely, sparse neutral grounding makes
 the explicit 4-wire model essential [6, 7]. The checks formalize this:

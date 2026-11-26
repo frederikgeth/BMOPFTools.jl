@@ -842,6 +842,9 @@ include("analysis/transformer_loading.jl")
 include("knowledge/contracts.jl")
 
 include("network/simplify.jl")
+include("network/opti_kron.jl")
+include("network/kron_reduce.jl")
+include("network/neutral_kron.jl")
 
 include("report/formatting.jl")
 include("report/assessment_coverage.jl")
@@ -3182,6 +3185,12 @@ export diagnose_infeasibility
 export merge_series_lines, remove_dangling_lines
 export remove_open_switches, collapse_closed_switches
 export simplify_network
+export opti_kron_model, OptiKronModel, opti_kron_load_injections, extract_downstream_network
+export downstream_bus_counts, opti_kron_noload
+export OptiKronSet, OptiKronBox, OptiKronHull, OptiKronEllipsoid, OptiKronWasserstein
+export opti_kron_screen, OptiKronScreen, opti_kron_errors, opti_kron_worst_errors
+export opti_kron_reduction, OptiKronResult, opti_kron_required_buses
+export kron_reduce_buses, lift_solution, kron_reduce_neutrals
 export transformer_yprim, export_yprim, write_yprim
 export ybus_passive, YbusResult, line_yprim
 export ybus_linearized, LinearizedYbus
