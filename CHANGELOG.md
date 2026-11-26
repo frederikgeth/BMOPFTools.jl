@@ -114,6 +114,15 @@ Initial General release candidate. Registration has not yet been requested.
     across a zero-ohm conductor cannot offset an AC imbalance. Malformed DC
     evidence (absent or JSON null) is read as unavailable; the active-power
     balance is then not assessed and the verification is indeterminate.
+  - New finding codes, so that what the builders reject is reported by
+    validation first, from shared detectors: `E.INT.IDEAL_LOOP` and
+    `E.INT.DC_IDEAL_LOOP` (loops of ideal conductors) and
+    `E.INT.DC_REFERENCE_CONFLICT` (contradictory exact DC voltages).
+    `W.DOM.BUS_LIMIT_NOT_APPLICABLE` reports sequence or phase-to-neutral
+    limits on a bus where the OPF cannot define them, and
+    `W.CONV.PHASE_NAMED_AS_NEUTRAL` a declared phase whose name reads as a
+    neutral. `solution_check` reports `W.SOL.DC_OHM_RESIDUAL` and
+    `W.SOL.DC_LOSS_SHARE_MISMATCH` under their own codes.
   - Open-delta regulators are unchanged: the bank does not connect its neutral
     terminals, and neutral continuity past it stays an explicit line or
     switch. Two OpenDSS cases (ideal and 0.5 ohm jumper) now pin this.

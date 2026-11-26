@@ -1624,11 +1624,11 @@ function solution_check(net::Dict{String,Any},
     # of all on a case with no DC branch.
     p_loss_dc, dc_residuals = _derived_dc_branch_loss(net, result)
     for (id, k, drop, expected) in dc_residuals
-        push!(findings, Finding(WARNING, "W.SOL.POWER_BALANCE", :solution, :dc_branch, id,
+        push!(findings, Finding(WARNING, "W.SOL.DC_OHM_RESIDUAL", :solution, :dc_branch, id,
             "dc_branch '$id' conductor $k: reported voltage drop " *
             "$(round(drop; digits=3)) V does not match r·i = " *
             "$(round(expected; digits=3)) V for the case resistance and the reported current.",
-            Dict{String,Any}("reason"=>"dc_branch_ohm_residual", "conductor"=>k,
+            Dict{String,Any}("conductor"=>k,
                              "reported_drop_V"=>drop, "expected_drop_V"=>expected)))
     end
     reported_dc = losses isa Dict ? get(losses, "p_loss_dc", nothing) : nothing
@@ -1641,12 +1641,11 @@ function solution_check(net::Dict{String,Any},
                                 for m in missing)
     if dc_evidence_complete && reported_dc isa Real &&
             abs(Float64(reported_dc) - p_loss_dc) > max(0.01 * abs(p_loss_dc), 1.0)
-        push!(findings, Finding(WARNING, "W.SOL.POWER_BALANCE", :solution, :network, "",
+        push!(findings, Finding(WARNING, "W.SOL.DC_LOSS_SHARE_MISMATCH", :solution, :network, nothing,
             "Reported DC-branch loss share losses.p_loss_dc = " *
             "$(round(Float64(reported_dc); digits=2)) W does not match the " *
             "$(round(p_loss_dc; digits=2)) W recomputed from the DC branches of the case.",
-            Dict{String,Any}("reason"=>"inconsistent_dc_loss_share",
-                             "reported_p_loss_dc"=>Float64(reported_dc),
+            Dict{String,Any}("reported_p_loss_dc"=>Float64(reported_dc),
                              "derived_p_loss_dc"=>p_loss_dc)))
     end
     p_loss_ac = p_loss - p_loss_dc
@@ -1852,7 +1851,8 @@ function solution_check(net::Dict{String,Any},
     # Residual warnings are failed assessed checks, unlike near-active bounds
     # or informational quality diagnostics. Their historical severity is retained.
     residual_failures = ("W.SOL.LOAD_RESIDUAL", "W.SOL.LOAD_MODEL_RESIDUAL",
-        "W.SOL.POWER_BALANCE", "W.SOL.NEG_LOSS", "W.SOL.IBR_PF_DEVIATION")
+        "W.SOL.POWER_BALANCE", "W.SOL.NEG_LOSS", "W.SOL.IBR_PF_DEVIATION",
+        "W.SOL.DC_OHM_RESIDUAL", "W.SOL.DC_LOSS_SHARE_MISMATCH")
     failed = any(f -> f.section == :solution &&
         (f.severity == ERROR || f.code in residual_failures), findings)
     indeterminate = !isempty(missing) || any(f -> f.code in

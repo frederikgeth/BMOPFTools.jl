@@ -1100,6 +1100,7 @@ source_paths = [
   "test/Project.toml",
   "test/opf_engine_review_tests.jl",
   "test/opf_review_regression_tests.jl",
+  "src/validation/ideal_topology.jl",
   "test/opf_review_opendss_tests.jl",
   "test/data/opf_review_oracles/pf_mesh_unequal_ratio.dss",
   "test/data/opf_review_oracles/pf_4w_two_section.dss",

@@ -875,6 +875,7 @@ include("analysis/provenance.jl")
 include("infeasibility/transformer_headroom.jl")
 include("infeasibility/preflight.jl")
 
+include("validation/ideal_topology.jl")
 include("validation/schema.jl")
 include("validation/completeness.jl")
 include("validation/device_indexing.jl")

@@ -1675,7 +1675,10 @@ the model that is solved, not only in the data it was read from. A setpoint
 supplied as one parameter for both ends of the bound still counts as fixed.
 
 The engine avoids stamping the same equation twice when static data already
-implies it; see [Dependent equality rows](@ref opf-dependent-rows).
+implies it; see [Dependent equality rows](@ref opf-dependent-rows). Loops of
+ideal conductors and contradictory DC voltage references are not reduced but
+rejected, and static validation reports them first as `E.INT.IDEAL_LOOP`,
+`E.INT.DC_IDEAL_LOOP` and `E.INT.DC_REFERENCE_CONFLICT`.
 
 Volt-var specifies a reactive-power equality. Volt-watt specifies only an
 active-power **upper bound**, which is why a Volt-watt profile does not

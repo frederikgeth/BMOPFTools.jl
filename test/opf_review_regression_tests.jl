@@ -931,7 +931,7 @@
         end
         # Integrity accepts the one-entry bounds of a two-terminal DELTA generator.
         found = Finding[]; integrity_check(ll_net(cases[1]...), found)
-        @test !any(f -> f.code == "W.INT.DIM_MISMATCH" && f.id == "x", found)
+        @test !any(f -> f.code == "W.INT.DIM_MISMATCH" && f.component_id == "x", found)
 
         # A declared neutral label that no naming guess would find.
         named = D("terminal_conventions" => D("phase" => ["a", "b", "c"],
@@ -1196,7 +1196,7 @@
         forged["dc_branch"]["line"]["1"]["i_dc"] = 10.0
         checked = report(net, forged)
         @test checked.out["verification_status"] == "failed"
-        @test any(f -> get(f.detail, "reason", "") == "dc_branch_ohm_residual", checked.found)
+        @test "W.SOL.DC_OHM_RESIDUAL" in checked.codes
 
         # Missing or malformed DC evidence: indeterminate, never an error and
         # never a failed balance on a guessed zero.
@@ -1214,6 +1214,149 @@
             @test !("W.SOL.POWER_BALANCE" in checked.codes)
             @test checked.out["power_balance_assessed"] == false
         end
+    end
+
+    # ── 18. Finding codes for what the builders reject ───────────────────────
+    # Each code is exercised positively, negatively and at a boundary, agrees
+    # with the builder it mirrors, and survives the JSON report.
+    @testset "finding codes for ideal topology and reference conflicts" begin
+        integrity_codes(net) = (found = Finding[]; integrity_check(net, found); found)
+        has(found, code) = any(f -> f.code == code, found)
+        builds(net) = try build_opf_model(deepcopy(net); per_unit=false); true
+                      catch err; err isa ArgumentError ? false : rethrow() end
+
+        # DC ideal loops: tree (negative), loop (positive), resistive loop
+        # (negative), path between two fixed terminals (boundary).
+        function poles(edges; r=0.0)
+            net = dc_station([("m1", master(800.0))])
+            for b in ("dcB", "dcC")
+                net["dc_bus"][b] = deepcopy(net["dc_bus"]["dcA"])
+                net["dc_grounding"]["g$b"] = D("dc_bus" => b, "terminal" => "m", "r" => 0.0)
+            end
+            net["dc_branch"] = D("t$k" => D("dc_bus_from" => a, "dc_bus_to" => b,
+                "terminal_map_from" => ["p"], "terminal_map_to" => ["p"], "r" => [r])
+                for (k, (a, b)) in enumerate(edges))
+            net
+        end
+        tree = [("dcA", "dcB"), ("dcB", "dcC")]; ring = vcat(tree, [("dcC", "dcA")])
+        pinned = poles(tree)
+        for b in ("dcA", "dcC")
+            pinned["dc_bus"][b]["v_dc_min"] = [800.0, 0.0]
+            pinned["dc_bus"][b]["v_dc_max"] = [800.0, 0.0]
+        end
+        for (net, expected) in ((poles(tree), false), (poles(ring), true),
+                                (poles(ring; r=0.1), false), (pinned, true))
+            found = integrity_codes(net)
+            @test has(found, "E.INT.DC_IDEAL_LOOP") == expected
+            @test builds(net) == !expected          # validation and builder agree
+        end
+        loop = only(f for f in integrity_codes(poles(ring)) if f.code == "E.INT.DC_IDEAL_LOOP")
+        @test loop.component_id == "t3" && loop.detail["conductor"] == 1
+        @test loop.detail["closes_through_fixed_terminals"] == false
+        boundary = only(f for f in integrity_codes(pinned) if f.code == "E.INT.DC_IDEAL_LOOP")
+        @test boundary.detail["closes_through_fixed_terminals"] == true
+
+        # AC ideal loops: one closed switch (negative), two in parallel
+        # (positive), one of them open (boundary), a zero-impedance line in
+        # parallel with a closed switch (positive).
+        function ac(switches; ideal_line=false)
+            net = D("bus" => D("f" => bus2(), "t" => bus2()),
+                "voltage_source" => D("s" => src2("f")),
+                "line" => D("m" => line2("f", "t"; r=ideal_line ? 0.0 : 0.05,
+                                         x=ideal_line ? 0.0 : 0.03)),
+                "load" => D("l" => load2("t")),
+                "switch" => D("s$k" => D("bus_from" => "f", "bus_to" => "t",
+                    "terminal_map_from" => ["p"], "terminal_map_to" => ["p"],
+                    "open_switch" => open) for (k, open) in enumerate(switches)))
+            net
+        end
+        for (net, expected) in ((ac([false]), false), (ac([false, false]), true),
+                                (ac([false, true]), false),
+                                (ac([false]; ideal_line=true), true))
+            @test has(integrity_codes(net), "E.INT.IDEAL_LOOP") == expected
+            @test builds(net) == !expected
+        end
+
+        # DC reference conflicts: agreeing masters (negative), disagreeing
+        # masters (positive), a master against a fixed pole (positive), an
+        # inconsistent triangle (positive), a consistent one (boundary).
+        pin(net, v) = (net["dc_bus"]["dcA"]["v_dc_min"] = [v, 0.0];
+                       net["dc_bus"]["dcA"]["v_dc_max"] = [v, 0.0]; net)
+        two(v) = dc_station([("m1", master(800.0)), ("m2", merge(master(v), fixed_p(0.0)))])
+        for (net, expected) in ((two(800.0), false), (two(790.0), true),
+                                (pin(dc_station([("m1", master(800.0))]), 800.0), false),
+                                (pin(dc_station([("m1", master(800.0))]), 790.0), true))
+            @test has(integrity_codes(net), "E.INT.DC_REFERENCE_CONFLICT") == expected
+            @test builds(net) == !expected
+        end
+        clash = only(f for f in integrity_codes(two(790.0))
+                     if f.code == "E.INT.DC_REFERENCE_CONFLICT")
+        @test clash.component_id == "m2" && clash.detail["kind"] == "voltage_master"
+        @test clash.detail["stated_V"] == 790.0 && clash.detail["implied_V"] == 800.0
+    end
+
+    @testset "finding codes for inapplicable bus limits and phase names" begin
+        domain_codes(net) = (found = Finding[]; domain_rules_check(net, found); found)
+        fields(found) = sort!(vcat([f.detail["fields"] for f in found
+                                    if f.code == "W.DOM.BUS_LIMIT_NOT_APPLICABLE"]...))
+        bus(terminals; limits...) = merge(D("terminal_names" => terminals),
+                                          D(string(k) => v for (k, v) in limits))
+        net(b) = D("bus" => D("b" => b))
+        # Three phases with a neutral: every limit applies.
+        @test isempty(fields(domain_codes(net(bus(["a", "b", "c", "n"];
+            vneg_max=5.0, vuf_max=0.02, vpn_min=fill(207.0, 3))))))
+        # Two phases: sequence limits do not apply; phase-to-neutral still does.
+        @test fields(domain_codes(net(bus(["a", "b", "n"];
+            vneg_max=5.0, vuf_max=0.02, vpn_min=fill(207.0, 2))))) == ["vneg_max", "vuf_max"]
+        # Three phases, no neutral: phase-to-neutral does not apply; sequence does.
+        @test fields(domain_codes(net(bus(["a", "b", "c"];
+            vneg_max=5.0, vpn_max=fill(253.0, 3))))) == ["vpn_max"]
+        # No such limits at all: nothing to report.
+        @test isempty(fields(domain_codes(net(bus(["a", "n"]; v_min=[207.0])))))
+
+        named(labels; neutral=String[]) = D("terminal_conventions" =>
+                D("phase" => labels, "neutral" => neutral, "earth" => String[]),
+            "bus" => D("b" => D("terminal_names" => vcat(labels, neutral))))
+        lookalike(n) = [f for f in domain_codes(n) if f.code == "W.CONV.PHASE_NAMED_AS_NEUTRAL"]
+        @test only(lookalike(named(["a", "n"]))).detail["labels"] == ["n"]
+        @test isempty(lookalike(named(["a", "b"]; neutral=["n"])))      # n declared neutral
+        @test isempty(lookalike(named(["a", "b"])))                     # ordinary names
+        # Inferred roles never raise it: there is no declaration to contradict.
+        @test isempty(lookalike(D("bus" => D("b" => D("terminal_names" => ["a", "n"])))))
+    end
+
+    @testset "new finding codes are registered and serialize" begin
+        new_codes = ("E.INT.IDEAL_LOOP", "E.INT.DC_IDEAL_LOOP", "E.INT.DC_REFERENCE_CONFLICT",
+                     "W.SOL.DC_OHM_RESIDUAL", "W.SOL.DC_LOSS_SHARE_MISMATCH",
+                     "W.DOM.BUS_LIMIT_NOT_APPLICABLE", "W.CONV.PHASE_NAMED_AS_NEUTRAL")
+        for code in new_codes
+            entry = explain_finding(code)
+            @test entry["code"] == code
+            @test entry["severity"] == (startswith(code, "E.") ? "ERROR" : "WARNING")
+        end
+        # End to end through analyze and the JSON report.
+        net = dc_station([("m1", master(800.0)), ("m2", merge(master(790.0), fixed_p(0.0)))])
+        net["bus"]["f"]["vneg_max"] = 5.0
+        report = analyze(net)
+        codes = Set(f.code for f in report.findings)
+        @test "E.INT.DC_REFERENCE_CONFLICT" in codes
+        @test "W.DOM.BUS_LIMIT_NOT_APPLICABLE" in codes
+        io = IOBuffer(); BMOPFTools.render_json(report, io)
+        parsed = JSON3.read(String(take!(io)))
+        serialized = Set(String(f.code) for f in parsed.findings)
+        @test "E.INT.DC_REFERENCE_CONFLICT" in serialized
+        @test "W.DOM.BUS_LIMIT_NOT_APPLICABLE" in serialized
+        # The two validator codes carry structured evidence, not a reason string.
+        forged_net = mvdc_tie(); forged_net["dc_branch"]["line"]["r"] = [0.0, 0.0]
+        forged = solve_opf(deepcopy(forged_net))
+        forged["dc_bus"]["dcB"]["p"]["v_dc"] = forged["dc_bus"]["dcA"]["p"]["v_dc"] - 50.0
+        forged["dc_branch"]["line"]["1"]["i_dc"] = 10.0
+        forged["losses"]["p_loss_dc"] = 500.0
+        found = Finding[]; solution_check(forged_net, forged, found)
+        ohm = only(f for f in found if f.code == "W.SOL.DC_OHM_RESIDUAL")
+        @test ohm.detail["reported_drop_V"] ≈ 50.0 && ohm.detail["expected_drop_V"] == 0.0
+        share = only(f for f in found if f.code == "W.SOL.DC_LOSS_SHARE_MISMATCH")
+        @test share.detail["reported_p_loss_dc"] == 500.0 && share.detail["derived_p_loss_dc"] == 0.0
     end
 
     @testset "unsupported IBR records are rejected, not skipped" begin

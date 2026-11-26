@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "92cfe6136ea2547380cf089f2cf46906c2cac8efb1750922083cb36c9de5b8a4"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "28754957bee940d65ca900a01381fe295ea53e0624c37e307392b0c13b25c782"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -712,6 +712,15 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         catalogue_section="DOM",
         section_title="domain plausibility",
         meaning="A line/switch sets a **positive `s_max` on its neutral conductor**. A ground-referenced apparent-power limit is degenerate there: the neutral-to-ground voltage is ≈ 0, so `S = V∘I* ≈ 0` and the cap never binds even as the neutral current overheats the conductor. Rate the neutral with `i_max` (a current limit) instead. See [current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits).",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.DOM.BUS_LIMIT_NOT_APPLICABLE" => (
+        severity="WARNING",
+        namespace="DOM",
+        catalogue_section="DOM",
+        section_title="domain plausibility",
+        meaning="A bus carries a voltage limit that has no meaning on that bus, so the OPF does not enforce it. Two cases. (1) A **sequence or unbalance limit** (`vpos_min`/`vpos_max`, `vneg_max`, `vzero_max`, `vuf_max`) on a bus without exactly three phases: symmetrical components are a change of coordinates for three phasors, and are not defined for one or two. (2) A **phase-to-neutral limit** (`vpn_min`/`vpn_max`) on a bus with no neutral terminal: there is no neutral to measure against. The limit is therefore absent from the optimization although it is present in the data, and a solution can violate what the limit was meant to express. This usually arises when one set of limits is applied uniformly to every bus of a feeder that has single-phase laterals or three-wire sections. Either remove the limit from that bus, or state the requirement in a form the bus supports, such as a phase-to-earth limit (`v_min`/`v_max`) or a phase-to-phase limit (`vpp_min`/`vpp_max`).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1921,6 +1930,15 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         contract_id=nothing,
         knowledge_ids=String[],
     ),
+    "E.INT.IDEAL_LOOP" => (
+        severity="ERROR",
+        namespace="INT",
+        catalogue_section="INT",
+        section_title="structural integrity",
+        meaning="Ideal AC conductors form a **closed loop**: closed switches, or line conductors whose entire impedance row is exactly zero (no self and no mutual impedance). Two closed switches in parallel are the simplest case. A ring of perfect conductor has no impedance to share current by, so the split between its parallel paths is arbitrary: any circulating current can be added without changing a single voltage. For the optimizer that is one redundant voltage equality plus an unbounded-in-effect free direction, and the answer reported for the individual conductor currents (and any thermal limit checked on them) would be an artifact of the starting point. The OPF refuses to build such a case. If the elements really are in parallel, represent them as one, or give one of them its real impedance; a small but physical impedance is enough to make the split unique. An ideal conductor that does not close a loop is fine, and is the recommended way to model a negligible impedance. The check reads the case as written, so an impedance replaced through a coefficient provider at build time is judged by the builder instead.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
     "W.INT.WYE_WITHOUT_NEUTRAL" => (
         severity="WARNING",
         namespace="INT",
@@ -1972,6 +1990,15 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         catalogue_section="CONV",
         section_title="terminal-role conventions",
         meaning="The case declares no `terminal_conventions` block, so phase/neutral/earth roles were inferred from the naming convention (a terminal `n`/`N` is neutral, all others phase). Declare the block to make the classification explicit and self-documenting; it is written for you on the next [`write_bmopf`](@ref).",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.CONV.PHASE_NAMED_AS_NEUTRAL" => (
+        severity="WARNING",
+        namespace="CONV",
+        catalogue_section="CONV",
+        section_title="terminal-role conventions",
+        meaning="`terminal_conventions` declares a label as a **phase**, but the label (`n`, `N` or `n_ref`) is one the naming convention reads as a neutral. The declaration is what the case means, and the parts of the toolchain that resolve roles from it treat the conductor as a phase: line angle windows, source-bus grounding, and device terminal maps. Bus-level voltage limits, some objective terms and the bus checks of the solution verifier still fall back to the name and may treat the conductor as the bus neutral, which changes which voltages are bounded and how. Until every consumer follows the declaration, the robust choice is to rename the conductor so that its name and its role agree. This is a warning about tool coverage, not about the case being wrong.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2488,6 +2515,24 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         contract_id=nothing,
         knowledge_ids=String[],
     ),
+    "W.SOL.DC_OHM_RESIDUAL" => (
+        severity="WARNING",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="Post-solve: on a `dc_branch` conductor the reported voltage drop does not equal r·i for the case resistance and the reported current. Ohm's law is the one equation a DC conductor must satisfy, and it ties together three numbers the result reports separately (two terminal voltages and a current). When they disagree the result is not a solution of this case: it may come from a different resistance, a different unit base, or a hand-edited file. The check matters beyond the branch itself, because the DC loss used in the network power balance is r·i²; a drop reported across a zero-resistance conductor dissipates nothing, whatever v·i suggests. Counted as a failed check.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.SOL.DC_LOSS_SHARE_MISMATCH" => (
+        severity="WARNING",
+        namespace="SOL",
+        catalogue_section="SOL",
+        section_title="solution profiling",
+        meaning="Post-solve: the result's `losses.p_loss_dc` differs from the DC-branch loss recomputed as Σ r·i² from the case resistances and the reported branch currents. The reported share is a summary; the recomputed value is the evidence. The validator uses its own value when it closes the AC power balance, so a result cannot improve its balance by declaring a DC loss, least of all on a case with no DC branch. A mismatch means the summary and the detailed quantities in the same result do not describe the same solution. Counted as a failed check.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
     "I.SOL.BINDING_SUMMARY" => (
         severity="INFO",
         namespace="SOL",
@@ -2674,6 +2719,24 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         catalogue_section="DC",
         section_title="MVDC/LVDC network",
         meaning="A connected DC island (dc_buses joined by dc_branches) has no `dc_grounding` (perfect or resistive) — the signed DC voltages float (rank-deficient). The DC analog of `E.INT.NO_VOLTAGE_REFERENCE`.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.INT.DC_IDEAL_LOOP" => (
+        severity="ERROR",
+        namespace="INT",
+        catalogue_section="DC",
+        section_title="MVDC/LVDC network",
+        meaning="Zero-resistance `dc_branch` conductors form a **closed loop**. Think of it as a ring of perfect wire: Kirchhoff's voltage law around the ring reads 0 = 0, so one of its voltage relations says nothing new, and nothing opposes a current flowing round it. The branch currents are then not determined: any circulating current can be added to a solution and it remains a solution. In optimization terms the model has a redundant equality and a free direction, and a solver returns whichever circulation its starting point led to. Terminals fixed at a potential (a perfect ground, or `v_dc_min == v_dc_max`) count as one node, because an ideal path between two fixed terminals closes the same loop through their references. The OPF refuses to build such a case. Remove the redundant conductor, or give one conductor of the loop its resistance: any positive value makes the current split unique. The finding names the conductor that closes the loop in sorted order; the defect belongs to the loop as a whole, not to that conductor.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "E.INT.DC_REFERENCE_CONFLICT" => (
+        severity="ERROR",
+        namespace="INT",
+        catalogue_section="DC",
+        section_title="MVDC/LVDC network",
+        meaning="The case makes two **exact statements about the same DC voltage** and they disagree. Exact statements come from three sources: a terminal fixed at a potential (a perfect ground, or `v_dc_min == v_dc_max`), an ideal conductor (its two ends are at one voltage), and a voltage-master converter (`dc_control = \"V\"` holds its port at `dc_v_set`). Each is a line in a ledger of voltage differences. Following the ledger from one node to another must give one answer whichever path is taken; here two paths give different answers, for example two masters asking for 800 V and 790 V on one port, a master asking for 790 V across a pole already fixed at 800 V, or the three sides of a bipole that do not add up (p−m plus m−n must equal p−n). No operating point satisfies both, so this is a contradiction in the data, not an infeasibility for a solver to discover. The detail gives the stated and the already-implied value. Decide which statement is intended and remove or correct the other; if two converters are meant to share voltage control, one should be the master and the others on droop or power control.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2871,7 +2934,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="RED",
         catalogue_section="DC",
         section_title="MVDC/LVDC network",
-        meaning="Two `dc_branch`es connect the same unordered `dc_bus` pair.",
+        meaning="Two `dc_branch`es connect the same unordered `dc_bus` pair. Parallel **resistive** branches are well posed (the current divides by resistance). If the same conductor is zero-resistance in both, they form an ideal loop and `E.INT.DC_IDEAL_LOOP` is raised as well.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

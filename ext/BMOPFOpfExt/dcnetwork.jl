@@ -35,25 +35,14 @@ function _dc_terminals_with_role(dcbus::Dict, role::AbstractString)
        if String(get(pole, t, "")) == role]
 end
 
-# Set of perfectly-grounded (dc_bus, terminal): declared on the dc_bus, or a
-# dc_grounding with no/zero resistance.
-function _dc_grounded_terminals(net::Dict{String,Any})
-    g = Set{Tuple{String,String}}()
-    for (b, dcbus) in get(net, "dc_bus", Dict())
-        dcbus isa Dict || continue
-        for t in string.(get(dcbus, "perfectly_grounded_terminals", String[]))
-            push!(g, (b, t))
-        end
-    end
-    for (_, gr) in get(net, "dc_grounding", Dict())
-        gr isa Dict || continue
-        b = get(gr, "dc_bus", nothing); t = get(gr, "terminal", nothing)
-        (b isa AbstractString && t isa AbstractString) || continue
-        r = get(gr, "r", nothing)
-        (r === nothing || Float64(r) <= 0) && push!(g, (String(b), String(t)))
-    end
-    g
-end
+# Pure-data DC topology (grounded and fixed terminals, node equivalence under
+# ideal conductors, the voltage-reference graph, ideal-loop and conflict
+# detection) lives in the core package, where validation shares it.
+const _DC_EARTH              = BMOPFTools._DC_EARTH
+const _dc_grounded_terminals = BMOPFTools._dc_grounded_terminals
+const _dc_node_classes       = BMOPFTools._dc_node_classes
+const _dc_v_nom_port         = BMOPFTools._dc_v_nom_port
+const _DCReferenceGraph      = BMOPFTools._DCReferenceGraph
 
 """
     _add_dc_variables!(model, net) -> Dict
@@ -184,14 +173,14 @@ function _add_dc_network_constraints!(model, net, vars;
 
     # ── DC branches: Ohm's law per conductor + thermal limits ───────────────
     idc_br = vars[:idc_br]
-    ideal_parent = Dict{Tuple{String,String},Tuple{String,String}}()   # forest of ideal conductors
-    function ideal_root(x)
-        get!(ideal_parent, x, x)
-        while ideal_parent[x] != x
-            ideal_parent[x] = ideal_parent[ideal_parent[x]]
-            x = ideal_parent[x]
-        end
-        return x
+    # A loop of ideal conductors is a property of the case; validation reports
+    # it as E.INT.DC_IDEAL_LOOP from the same detector.
+    for loop in BMOPFTools._dc_ideal_loops(net)
+        throw(ArgumentError("dc_branch '$(loop.branch)' conductor $(loop.conductor) " *
+            "closes a loop of ideal (zero-resistance) DC conductors between " *
+            "$(loop.from) and $(loop.to). Its voltage row is implied by the others " *
+            "and a current could circulate around the loop undetermined. Remove " *
+            "the redundant conductor or give it its resistance (E.INT.DC_IDEAL_LOOP)."))
     end
     for (id, br) in get(net, "dc_branch", Dict())
         br isa Dict || continue
@@ -209,22 +198,8 @@ function _add_dc_network_constraints!(model, net, vars;
                 register(:dc_branch_voltage_drop, (id, k),
                     @constraint(model, i == (v_dc[kf] - v_dc[kt]) / rv[k]))
             elseif !(JuMP.is_fixed(v_dc[kf]) && JuMP.is_fixed(v_dc[kt]))
-                # An ideal conductor contributes a voltage equality and a free
-                # current. A LOOP of ideal conductors is degenerate twice over:
-                # one of its equalities is implied by the others, and a current
-                # can circulate around it at no cost, so the branch currents
-                # are not determined. Every terminal already fixed at a
-                # potential counts as one node, since a path of ideal
-                # conductors between two fixed terminals closes the same kind
-                # of loop through their references.
-                a = ideal_root(JuMP.is_fixed(v_dc[kf]) ? _DC_EARTH : kf)
-                b = ideal_root(JuMP.is_fixed(v_dc[kt]) ? _DC_EARTH : kt)
-                a == b && throw(ArgumentError("dc_branch '$id' conductor $k closes " *
-                    "a loop of ideal (zero-resistance) DC conductors between " *
-                    "$kf and $kt. Its voltage row is implied by the others and a " *
-                    "current could circulate around the loop undetermined. " *
-                    "Remove the redundant conductor or give it its resistance."))
-                ideal_parent[a] = b
+                # An ideal conductor: a voltage equality and a free current.
+                # (Loops of these were rejected above.)
                 register(:dc_branch_voltage_drop, (id, k),
                     @constraint(model, v_dc[kf] == v_dc[kt]))   # ideal conductor
             else
@@ -238,7 +213,8 @@ function _add_dc_network_constraints!(model, net, vars;
                     throw(ArgumentError("dc_branch '$id' conductor $k: an ideal " *
                         "(zero-resistance) conductor joins two terminals fixed at " *
                         "different voltages ($vf and $vt in working units). Give " *
-                        "the conductor its resistance or reconcile the references."))
+                        "the conductor its resistance or reconcile the references " *
+                        "(E.INT.DC_REFERENCE_CONFLICT)."))
             end
             # current flows from→to: leaves "from" (−i into node), enters "to" (+i)
             _dc_kcl_add!(kcl, bf, tmf[k], -i)
@@ -381,24 +357,6 @@ function _dc_port_voltage(model, vars, inv)
     return (nothing, b, tm)
 end
 
-# Default pole-to-return nominal DC voltage from the dc_bus `v_dc_nom`.
-function _dc_v_nom_port(net, b, tm)
-    dcb = get(get(net, "dc_bus", Dict()), b, nothing)
-    dcb isa Dict || return nothing
-    nom = Float64.(get(dcb, "v_dc_nom", Float64[]))
-    terms = string.(get(dcb, "terminal_names", String[]))
-    idx(t) = findfirst(==(t), terms)
-    if length(tm) >= 2
-        i, j = idx(tm[1]), idx(tm[2])
-        (i !== nothing && j !== nothing && i <= length(nom) && j <= length(nom)) || return nothing
-        return nom[i] - nom[j]
-    elseif length(tm) == 1
-        i = idx(tm[1])
-        return (i !== nothing && i <= length(nom)) ? nom[i] : nothing
-    end
-    nothing
-end
-
 # Build the strictly-increasing breakpoint pairs (xs in DC volts, ys in AC watts)
 # of a SATURATED V–P droop characteristic: P_ac rises with the DC-port voltage
 # (high DC voltage ⇒ export more to AC ⇒ relieve the bus), is flat at p_ref inside
@@ -420,77 +378,6 @@ function _droop_breakpoints(v_set, k, p_ref, deadband, P_lo, P_hi)
         end
     end
     length(xk) >= 2 ? (xk, yk) : nothing
-end
-
-const _DC_EARTH = ("", "")   # the common node of all perfectly grounded DC terminals
-
-"""
-    _dc_node_classes(net) -> (bus, terminal) -> representative
-
-Electrical equivalence of DC terminals under IDEAL connections: terminals
-joined by a zero-resistance `dc_branch` conductor are one node, and every
-perfectly grounded terminal is the earth node `_DC_EARTH`. Used wherever "the
-same DC port" must mean the same pair of nodes rather than the same record.
-"""
-function _dc_node_classes(net)
-    parent = Dict{Tuple{String,String},Tuple{String,String}}()
-    function find(x)
-        get!(parent, x, x)
-        while parent[x] != x
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        end
-        return x
-    end
-    # Earth, when present in a class, is always its representative.
-    function unite!(a, b)
-        ra = find(a); rb = find(b)
-        ra == rb && return nothing
-        rb == _DC_EARTH ? (parent[ra] = rb) : (parent[rb] = ra)
-        return nothing
-    end
-    net isa AbstractDict || return (bus, terminal) -> (String(bus), String(terminal))
-    for key in _dc_grounded_terminals(net)
-        unite!(_DC_EARTH, (String(key[1]), String(key[2])))
-    end
-    for (_, br) in get(net, "dc_branch", Dict())
-        br isa AbstractDict || continue
-        bf = String(get(br, "dc_bus_from", "")); bt = String(get(br, "dc_bus_to", ""))
-        tmf = string.(get(br, "terminal_map_from", String[]))
-        tmt = string.(get(br, "terminal_map_to", String[]))
-        rv = Float64.(get(br, "r", Float64[]))
-        for k in 1:min(length(tmf), length(tmt))
-            (k <= length(rv) && rv[k] > 0) && continue     # resistive: distinct nodes
-            unite!((bf, tmf[k]), (bt, tmt[k]))
-        end
-    end
-    return (bus, terminal) -> find((String(bus), String(terminal)))
-end
-
-"""
-    _DCReferenceGraph
-
-Voltage references between DC nodes as a union-find with potentials: every
-node carries its voltage relative to the representative of its component.
-Adding V(a) − V(b) = U either joins two components (an independent reference)
-or closes a cycle, in which case it must agree with what the component already
-implies.
-"""
-struct _DCReferenceGraph
-    parent::Dict{Tuple{String,String},Tuple{String,String}}
-    offset::Dict{Tuple{String,String},Float64}   # V(node) − V(parent)
-    _DCReferenceGraph() = new(Dict{Tuple{String,String},Tuple{String,String}}(),
-                              Dict{Tuple{String,String},Float64}())
-end
-
-# Representative of `x` and V(x) − V(representative), with path compression.
-function _dc_reference_find!(g::_DCReferenceGraph, x)
-    haskey(g.parent, x) || (g.parent[x] = x; g.offset[x] = 0.0)
-    g.parent[x] == x && return (x, 0.0)
-    root, above = _dc_reference_find!(g, g.parent[x])
-    g.offset[x] += above
-    g.parent[x] = root
-    return (root, g.offset[x])
 end
 
 """
@@ -516,27 +403,19 @@ end
 """
     _dc_reference_add!(graph, a, b, U, owner) -> Bool
 
-Record the reference V(a) − V(b) = U. Returns `true` when it is independent of
-those already recorded (its row must be stamped) and `false` when the existing
-references already imply it. Throws when they contradict it.
+Record the reference V(a) − V(b) = U in the model's reference graph. Returns
+`true` when it is independent of those already recorded (its row must be
+stamped) and `false` when they already imply it. Throws when they contradict
+it — the condition validation reports as `E.INT.DC_REFERENCE_CONFLICT`.
 """
 function _dc_reference_add!(g::_DCReferenceGraph, a, b, U::Real, owner)
-    ra, va = _dc_reference_find!(g, a)      # V(a) − V(ra)
-    rb, vb = _dc_reference_find!(g, b)      # V(b) − V(rb)
-    if ra == rb
-        implied = va - vb
-        isapprox(implied, U; atol=1e-9 * max(1.0, abs(implied), abs(U))) ||
-            throw(ArgumentError("$owner sets $U (working units) between DC " *
-                "nodes $a and $b, but the voltage references already recorded " *
-                "(other voltage masters, or terminals fixed by equal voltage " *
-                "bounds) fix that difference at $implied. The references " *
-                "contradict each other."))
-        return false
-    end
-    # V(ra) − V(rb) = U − va + vb
-    g.parent[ra] = rb
-    g.offset[ra] = U - va + vb
-    return true
+    status, implied = BMOPFTools._dc_reference_record!(g, a, b, U)
+    status == :conflict && throw(ArgumentError("$owner sets $U (working units) " *
+        "between DC nodes $a and $b, but the voltage references already recorded " *
+        "(other voltage masters, or terminals fixed by equal voltage bounds) fix " *
+        "that difference at $implied. The references contradict each other " *
+        "(E.INT.DC_REFERENCE_CONFLICT)."))
+    return status == :independent
 end
 
 """

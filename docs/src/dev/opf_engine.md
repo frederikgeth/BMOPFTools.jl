@@ -365,6 +365,15 @@ switches, see [zero impedance](@ref zero-impedance)) and on the DC side
 (`dc_branch` conductors with zero resistance), where every terminal already
 fixed at a potential counts as one node.
 
+Both conditions, and contradictory DC voltage references, are properties of
+the case and are reported by static validation before any model exists:
+`E.INT.IDEAL_LOOP`, `E.INT.DC_IDEAL_LOOP` and `E.INT.DC_REFERENCE_CONFLICT`
+(see the [finding-code reference](../findings.md)). The builders raise on
+exactly what those detectors return (`src/validation/ideal_topology.jl`), so a
+case that passes them is not rejected for these reasons at build time. The one
+exception is an AC impedance replaced through a coefficient provider, which
+only the builder can see.
+
 Two known cases are **not** reduced, for different reasons.
 
 - **Exact angle windows on all three phase pairs of a bus**

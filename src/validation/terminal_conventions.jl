@@ -169,6 +169,19 @@ function _check_terminal_conventions(net, findings, n_checks)
         isempty(inventory.unassessed_paths) || (result["status"]="indeterminate")
         return result
     end
+    # A label the case DECLARES a phase but that the naming convention would
+    # read as a neutral. The declaration is what is meant; the report exists
+    # because not every consumer honors it yet (bus-level limits and the
+    # solution checks still fall back to the name).
+    lookalikes = sort!([label for label in roles.phase if _is_convention_neutral(label)])
+    if !isempty(lookalikes)
+        push!(findings,Finding(WARNING,"W.CONV.PHASE_NAMED_AS_NEUTRAL",:domain_rules,:network,nothing,
+            "terminal_conventions declares $(join(repr.(lookalikes), ", ")) as phase, " *
+            "but the name follows the neutral naming convention. Bus-level voltage " *
+            "limits and solution checks may still treat it as the neutral.",
+            Dict{String,Any}("labels"=>lookalikes, "declared_role"=>"phase",
+                             "naming_convention_role"=>"neutral")))
+    end
 
     sets = (roles.phase, roles.neutral, roles.earth)
     for (ia,ib) in ((1,2),(1,3),(2,3))

@@ -693,6 +693,8 @@ function integrity_check(net::Dict{String,Any},
     _power_factor_config_check!(net, findings)
     result["n_reference_issues"] = n_ref_issues
     result["n_dimension_issues"] = n_dim_issues
+    _check_ideal_topology!(net, findings)
+
     result
 end
 
@@ -779,4 +781,63 @@ function _check_droop_options!(findings, cp_id, law, obj,
             "$law in '$cp_id': $ref_field '$rv' not yet supported (only $ref_ok).",
             Dict{String,Any}()))
     end
+end
+
+"""
+    _check_ideal_topology!(net, findings)
+
+Report ideal-coupling defects that leave a model without a unique solution, or
+with no solution at all, before any model is built: loops of ideal conductors
+(AC and DC) and contradictory DC voltage references. The OPF builders raise on
+exactly what these detectors return (`src/validation/ideal_topology.jl`).
+"""
+function _check_ideal_topology!(net::Dict{String,Any}, findings::Vector{Finding})
+    # Collections that are not objects are a schema defect reported elsewhere.
+    all(k -> get(net, k, Dict()) isa AbstractDict,
+        ("bus", "line", "switch", "dc_bus", "dc_branch", "dc_grounding", "ibr")) ||
+        return nothing
+    for loop in _ac_ideal_loops(net)
+        push!(findings, Finding(ERROR, "E.INT.IDEAL_LOOP", :integrity,
+            Symbol(loop.element), loop.id,
+            "$(loop.element) '$(loop.id)' conductor $(loop.conductor) closes a loop of " *
+            "ideal (zero-impedance) conductors between $(loop.from[1]).$(loop.from[2]) " *
+            "and $(loop.to[1]).$(loop.to[2]): its voltage relation is implied by the " *
+            "others and a current can circulate around the loop undetermined.",
+            Dict{String,Any}("element"=>loop.element, "conductor"=>loop.conductor,
+                "bus_from"=>loop.from[1], "terminal_from"=>loop.from[2],
+                "bus_to"=>loop.to[1], "terminal_to"=>loop.to[2],
+                "remedy"=>"remove_redundant_ideal_conductor_or_supply_impedance")))
+    end
+    haskey(net, "dc_bus") || return nothing
+    fixed = _dc_fixed_terminals(net)
+    for loop in _dc_ideal_loops(net)
+        push!(findings, Finding(ERROR, "E.INT.DC_IDEAL_LOOP", :integrity,
+            :dc_branch, loop.branch,
+            "dc_branch '$(loop.branch)' conductor $(loop.conductor) closes a loop of " *
+            "ideal (zero-resistance) DC conductors between $(loop.from[1]).$(loop.from[2]) " *
+            "and $(loop.to[1]).$(loop.to[2]): its voltage relation is implied by the " *
+            "others and a current can circulate around the loop undetermined.",
+            Dict{String,Any}("conductor"=>loop.conductor,
+                "dc_bus_from"=>loop.from[1], "terminal_from"=>loop.from[2],
+                "dc_bus_to"=>loop.to[1], "terminal_to"=>loop.to[2],
+                "closes_through_fixed_terminals"=>
+                    (haskey(fixed, loop.from) || haskey(fixed, loop.to)),
+                "remedy"=>"remove_redundant_ideal_conductor_or_supply_resistance")))
+    end
+    for conflict in _dc_reference_conflicts(net)
+        master = conflict.kind == :voltage_master
+        push!(findings, Finding(ERROR, "E.INT.DC_REFERENCE_CONFLICT", :integrity,
+            master ? :ibr : :dc_bus, master ? conflict.owner : conflict.from[1],
+            (master ?
+                "IBR '$(conflict.owner)' (dc_control=\"V\") sets $(conflict.stated) V " *
+                "across its DC port" :
+                "DC terminal $(conflict.owner) is fixed at $(conflict.stated) V") *
+            ", but the voltage references already in the case (terminals fixed by " *
+            "grounding or equal bounds, ideal conductors, other voltage masters) fix " *
+            "that difference at $(conflict.implied) V.",
+            Dict{String,Any}("kind"=>String(conflict.kind), "owner"=>conflict.owner,
+                "stated_V"=>conflict.stated, "implied_V"=>conflict.implied,
+                "dc_bus"=>conflict.from[1], "terminal"=>conflict.from[2])))
+    end
+    return nothing
 end
