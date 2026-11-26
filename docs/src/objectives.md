@@ -56,7 +56,7 @@ result = extract_result(ctx)
 | Term | Physical unit | Smooth? | Convex? | What it does |
 |---|---|---|---|---|
 | [`opf_generation_cost_term`](@ref) | currency/hour | exact | quadratic | The `solve_opf` default. Cheapest dispatch. |
-| [`opf_loss_term`](@ref) | W | exact | bilinear, non-convex | Least-loss dispatch. |
+| [`opf_loss_term`](@ref) | W | exact | bilinear, non-convex | Least-loss dispatch over AC lines, transformers, and DC branches. |
 | [`opf_sequence_term`](@ref) `norm=:squared` | V² | exact | quadratic | Reduces unbalance everywhere a little. |
 | [`opf_sequence_term`](@ref) `norm=:magnitude` | V | to ε | group-lasso | Drives a few buses to balanced. |
 | [`opf_sequence_term`](@ref) `norm=:max` | V² | exact | convex quadratic epigraph | Protects the worst bus. **Minimization only.** |
@@ -210,9 +210,28 @@ underestimates the exact norm by at most `ε` and is C^∞ everywhere including 
 origin (where the exact norm's AD gradient is `0/0` and Ipopt rejects the model
 outright).
 
-`ε = eps_rel × scale`, where `scale` is the quantity's characteristic physical
-magnitude. One `eps_rel` therefore means the same *relative* smoothing for a
-voltage penalty and a current penalty, in either unit mode.
+`ε = eps_rel × scale`, where `scale` is a reference magnitude chosen by the
+engine, the same in either unit mode:
+
+| Quantity | `scale` |
+|---|---|
+| voltage at a bus | that bus's declared voltage bound (`v_max`, else `v_min`), else its voltage base |
+| current at a bus | `s_base` divided by that voltage scale |
+| power | `s_base` |
+
+One `eps_rel` therefore means the same *relative* smoothing for a voltage
+penalty and a current penalty.
+
+!!! warning "The current scale follows `s_base`, not a conductor rating"
+    The current scale is a **base** current, not the magnitude of the currents
+    in your network. At the default `s_base = 1 MVA` on a 230 V bus it is about
+    4.3 kA, so `ε ≈ 4 A` at `eps_rel = 1e-3`. Neutral and control-effort
+    currents on a low-voltage feeder are typically 5–30 A. A `:magnitude`
+    (group-lasso) current term is then smoothed over much of its working range
+    and behaves almost quadratically, and its optimum moves if `s_base` is
+    changed. For a current-magnitude objective on a small feeder, choose
+    `s_base` near the feeder rating (for example `1e5` or `1e4`), or lower
+    `eps_rel` accordingly, and report both.
 
 **The safe range for `eps_rel` depends on how the norm is used, and guidance
 that is right in one regime is wrong in the other.**

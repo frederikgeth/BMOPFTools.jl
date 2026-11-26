@@ -199,8 +199,17 @@ concern, so a failure points straight at the responsible component:
 | `pf_3wdg_dyn`, `pf_3wdg_dyn_unbalanced`, `pf_4wdg_dyyn`, `pf_3wdg_dyn_zgnd` | **n-winding with a DELTA winding** (`Dyn`/`Dyyn`, delta primary): winding count (3/4), neutral grounding (solid vs 0.5 Ω-shunt MV neutral), unbalanced loading, the `solve_pf`/feasibility-OPF paths, and per-unit. The delta coil is line-to-line (`delta_roll = -1` matches OpenDSS's 30° rotation; `r_winding`/`x_sc` on the delta coil base `n_ph·V_LL²/S`) |
 | `pf_center_tap_loaded`, `pf_center_tap_balanced_heavy`, `pf_center_tap_240`, `pf_center_tap_singleleg_pn`, `pf_center_tap_oneleg_extreme` | split-phase **coupled-coil** model under load — leg symmetry on a balanced heavy load, a 240 V phase-to-phase load, a single leg-to-neutral load, and an extreme one-leg load (see [Split-phase transformer depth](#Split-phase-transformer-depth)) |
 | `pf_autotransformer`, `pf_open_delta_reg` | step-voltage regulators / autotransformers and open-delta (ABBC) regulation |
+| `pf_mesh_unequal_ratio` † | a low-voltage **mesh closed across two transformers of unequal ratio**: the circulating current driven by the ratio mismatch, in SI and per-unit — the oracle for one voltage base per galvanic zone. `pf_autotransformer` is re-used the same way with a regulator nameplate voltage pair, which must not rescale the per-unit model |
+| `pf_4w_two_section` † | **neutral phasors along a two-section four-wire feeder** with single-phase loads on different phases: the neutral voltage rotates by tens of degrees between the two ends of a section while the phases barely move, so a line angle window must leave the solution unchanged |
+| `pf_delta_gen_1ph` † | a **two-terminal line-to-line generator** (`DELTA`, one coil), against OpenDSS's single-phase `Generator` across two phases |
 | `pf_cap_wye`, `pf_cap_delta` | fixed shunt **capacitor banks** (wye / delta) as a constant susceptance `B = q_rated/v_nom²`, validated against OpenDSS's own `Capacitor` solve in both SI and per-unit, and cross-checked against the equivalent `shunt` object |
 | `pf_pv_1ph`, `pf_pv_4leg` | IBR current injection at a pinned dispatch — single-phase and FOUR_LEG |
+
+† These decks live in
+[`test/data/opf_review_oracles/`](https://github.com/frederikgeth/BMOPFTools.jl/tree/main/test/data/opf_review_oracles)
+and are exercised by `test/opf_review_opendss_tests.jl`. Each pins a defect
+that an internal per-unit-against-SI comparison could not have caught on its
+own, because both unit systems could share the error.
 
 Single-phase, FOUR_LEG per-phase, and FOUR_LEG AVERAGE-reference **smart-IBR
 droop** are additionally validated against OpenDSS `InvControl` (deadband, slope,

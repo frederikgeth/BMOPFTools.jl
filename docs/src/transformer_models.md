@@ -25,9 +25,9 @@ short-circuit/open-circuit test data into a validated model — see the
 | `open_delta_regulator` | two-bus | two L-L cores | 3-phase only; ABBC/BCAC/CABA |
 | `n_winding` | winding-list | any n, WYE and/or DELTA | exact ZB leakage for any n; no tap optimization |
 
-A subtype string outside this set is **not silently dropped** — the OPF builder
-and the `Yprim` export both emit a warning that the device contributes no
-constraints / is omitted from the export.
+A subtype string outside this set is **not silently dropped**: the OPF builder
+raises an `ArgumentError` rather than build a network with the device missing,
+and the `Yprim` export warns that the device is omitted.
 
 ## Conventions
 
@@ -95,7 +95,7 @@ do not cause the legacy zero-shunt recovery to fail.
 | `center_tap` | nominal HV ohms and nominal ohms per secondary half-winding; `v_nom_to` is per leg | primary star arm scales by `tap²`; both secondary arms retain their nominal ohms |
 | Yd / Dy | nominal bus-base ohms (`V_LL²/S`); delta coil impedance is three times its bus-base value | the wye-referred equivalent scales by `tap²` for Yd and is constant for Dy |
 | Yd / Dy combined fields | already wye-referred, for both hand-authored JSON and PowerIO | normalize onto the wye winding, then apply the same rule as split fields |
-| `n_winding` | `r_winding` on each nominal coil base; `x_sc` on winding 1's coil base | only nominal winding taps are supported; non-unity winding taps are rejected |
+| `n_winding` | `r_winding` on each nominal coil base; `x_sc` on winding 1's coil base | no tap is supported; any tap field on the unit or a winding is rejected, including a value of 1 |
 | `single_phase_autotransformer` / `open_delta_regulator` | supplied series ohms on the declared side, with regulator connection and type defining `n_eff` | regulator equations use `Z_from + n_eff² Z_to`; the ordinary transformer `tap²` correction does not apply |
 
 The ordinary subtype conventions are tested against independent OpenDSS
@@ -140,11 +140,11 @@ is hidden.
 | Area | Status |
 |---|---|
 | **`n_winding` tap** | No tap optimization — the ratio is held at nominal. Tap fields on an `n_winding` transformer or its windings raise `ArgumentError` at native OPF build. Model a regulated winding with a two-bus subtype instead. |
-| **4+ winding import** | `from_dss` imports the validated `n_winding` cases emitted by PowerIO v0.9. Unsupported winding sets refuse loudly, not built wrong. |
+| **4+ winding import** | `from_dss` imports the validated `n_winding` cases emitted by PowerIO. Unsupported winding sets refuse loudly, not built wrong. |
 | **Discrete taps** | Optimized taps are continuous; there is no discrete-step (`numtaps`) model. |
 | **Per-winding ratings** | A two-bus transformer carries one `s_rating` (winding-1 base). Distinct per-winding kVA is retained only on `n_winding` (per-winding `s_max`). |
 
-## Nameplate rating (`s_rating`) as a loading cap
+## [Nameplate rating (`s_rating`) as a loading cap](@id transformer-nameplate-cap)
 
 For the two-bus (two-winding) subtypes, `s_rating` plays two roles:
 
@@ -154,22 +154,37 @@ For the two-bus (two-winding) subtypes, `s_rating` plays two roles:
    OPF matches this: the leakage is per-unitized by `z_base(winding-1 bus)` and
    `s_rating`. **This base never changes**, so OpenDSS round-trips stay exact.
 2. **Apparent-power loading cap (when declared).** The nameplate is enforced as
-   a per-winding coil apparent-power limit `P² + Q² ≤ (s_rating / n_\text{ph})²`
-   (the coil voltage is phase-to-neutral for a wye winding, line-to-line for a
-   delta winding, so it is never ≈ 0 — no neutral degeneracy), alongside the
-   per-winding `i_max_from`/`i_max_to` current cones when present. Because
-   `s_rating` is required by the normal records for these subtypes, they normally
-   have this loading cap; to solve without the limit (e.g. a determined power flow compared against limit-free
-   OpenDSS), remove `s_rating` from the network dict before calling the OPF. Keep
-   in mind the primary coil carries load *plus* copper losses, so at exactly-rated
-   delivery the from-side cap binds slightly below the secondary nameplate
-   throughput (by the loss margin). See
+   a coil apparent-power limit `P² + Q² ≤ S_coil²` on the coils of **one**
+   winding, alongside the `i_max_from`/`i_max_to` current cones when present.
+   The coil voltage is phase-to-neutral for a wye winding and line-to-line for
+   a delta winding, so it is never ≈ 0 and the cap has no neutral degeneracy.
+   The capped winding and the per-coil share depend on the subtype:
+
+   | Subtype | Capped coils | Per-coil cap `S_coil` |
+   |---|---|---|
+   | `single_phase` | each from-side coil | `s_rating / n_coils` |
+   | `center_tap` | the HV coil | `s_rating` (the whole nameplate) |
+   | `wye_delta` (Yd) | the wye coils, on the **from** side | `s_rating / n_ph` |
+   | `delta_wye` (Dy) | the wye coils, on the **to** side | `s_rating / n_ph` |
+   | `single_phase_autotransformer` | the from-side through power | `s_rating` |
+   | `open_delta_regulator` | each regulator's from-side line-to-line pair | `s_rating` per regulator |
+
+   The cap is enforced in `solve_pf` as well as in the OPF. A supplied
+   `s_rating` must be finite and strictly positive; an **absent** `s_rating`
+   leaves the unit uncapped. Because the normal records for these subtypes
+   carry the field, they normally have this loading cap; to solve without the
+   limit (for example a power flow compared against limit-free OpenDSS), remove
+   `s_rating` from the network dict first. Keep in mind that a from-side coil
+   carries load *plus* copper losses, so at exactly-rated delivery a from-side
+   cap binds slightly below the secondary nameplate throughput (by the loss
+   margin). See
    [current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits).
 
 For `n_winding` transformers, the top-level nameplate does **not** automatically
 create a loading cap. Declare finite per-winding `s_max` (the winding's own VA)
 or `i_max` inside each winding entry to impose the corresponding supported
-coil limits. A winding with neither finite cap remains without its own thermal
+coil limits; both are kept in `solve_pf` too, where they play the role of the
+winding nameplate. A winding with neither finite cap remains without its own thermal
 constraint, even if the transformer has `s_rating`; other winding or network
 constraints can still bound its operating point. Explicit `Inf` means unbounded
 and zero is a restriction. See `W.OPS.XFMR_UNCONSTRAINED` in the

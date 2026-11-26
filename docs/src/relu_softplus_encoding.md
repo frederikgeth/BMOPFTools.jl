@@ -258,9 +258,20 @@ uses
 ```
 
 i.e. `relu_eps` (default `2e-3`, exposed as the `volt_var_watt_eps` keyword of
-[`solve_opf`](@ref)) times the mean breakpoint. Scaling $\varepsilon$ to the mean
-breakpoint keeps the corner radius a fixed *fraction* of the voltage range, so the
-droop is identical in SI and per-unit solves.
+[`solve_opf`](@ref)) times the mean breakpoint. Scaling $\varepsilon$ with the
+breakpoints makes it transform like a voltage, so the droop is identical in SI
+and per-unit solves.
+
+Note what this scale is and is not. $\varepsilon$ is a fixed fraction of the
+breakpoints' **mean voltage**, not of the **span** between them. For a curve
+with closely spaced breakpoints the two differ widely: on the AS/NZS 4777.2
+Volt-watt ramp from 253 V to 260 V, the default gives
+$\varepsilon \approx 2\times10^{-3} \times 256.5 \approx 0.51$ V, about 7 % of
+the 7 V ramp, and the smoothed cap sits a few percent of rating below the
+standard's curve at the first knee. Reduce `volt_var_watt_eps` when a narrow
+ramp must be followed closely. (The DC voltage droop of a converter station
+uses a span-scaled $\varepsilon$ instead; the two are deliberately not the
+same rule.)
 
 The tradeoff is the usual one:
 

@@ -74,6 +74,7 @@ makedocs(
         ],
         "Power flow & OPF studies" => [
             "OPF guide & model" => "opf.md",
+            "Transformer equations in the OPF" => "opf_transformers.md",
             "Solver guide" => "solvers.md",
             "Choosing an objective" => "objectives.md",
             "Objectives tutorial" => "tutorial_objectives.md",

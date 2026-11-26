@@ -482,6 +482,45 @@ Do not mix solver-specific options in a portable configuration object unless
 you filter them by solver. For example, `print_level` is meaningful to Ipopt
 and MadNLP, while Gurobi uses `OutputFlag`.
 
+### [Zero-degree-of-freedom solves stop on the feasibility tolerance](@id solver-square-termination)
+
+A power flow, or an OPF in which every device is at a fixed setpoint, has as
+many equations as unknowns. There is nothing to optimize, and Ipopt treats such
+a *square* problem specially: it stops as soon as the constraint violation
+falls below `constr_viol_tol` and returns `Feasible_Point_Found`, without
+driving the residual down to `tol`. The engine reports that outcome as
+`LOCALLY_SOLVED`; the raw solver status is available from
+[`opf_research_provenance`](@ref), or `JuMP.raw_status` on a staged model.
+
+Two facts make this matter in practice:
+
+- `constr_viol_tol` defaults to `1e-4` and is **absolute**, in the model's
+  working coordinates.
+- In per-unit, one unit of residual is a base quantity. At the default
+  `s_base = 1 MVA`, a residual of `1e-4` in a power row is **100 W**, and in a
+  KCL row on a 230 V bus (`I_base ≈ 4.3 kA`) it is about **0.4 A**.
+
+For most studies that is negligible. It is not negligible when the result is
+compared against a reference power-flow solver, when small quantities are of
+interest (neutral voltages, losses on short lines), or when a constraint is
+homogeneous in a small voltage, so that its whole magnitude sits below the
+tolerance. In those cases tighten both tolerances, and consider a system base
+closer to the feeder's size:
+
+```julia
+result = solve_pf(net;
+    solver_options = ["tol" => 1e-10, "constr_viol_tol" => 1e-10])
+
+result = solve_pf(net; s_base = 1e5,           # 100 kVA feeder
+    solver_options = ["constr_viol_tol" => 1e-8])
+```
+
+A problem with at least one degree of freedom is not affected in this way:
+Ipopt then requires the scaled optimality error, which includes the constraint
+violation, to fall below `tol` (default `1e-8`). Whatever the settings, a
+status is a claim by the solver; check physical residuals in SI (see
+[Validating the OPF](validation.md)).
+
 ### A practical solver-selection workflow
 
 1. Start with Ipopt in per-unit coordinates and validate the solution.
