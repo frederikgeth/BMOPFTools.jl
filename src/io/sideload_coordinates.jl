@@ -1,8 +1,18 @@
 """
-    sideload_coordinates!(net, csv_path) -> (n_matched, n_skipped)
+    sideload_coordinates!(net, csv_path; frame=:geographic, units=nothing, name="buscoords")
+        -> (n_matched, n_skipped)
 
 Read a OpenDSS-style bus coordinate CSV (`bus_id,x,y`, no header) and add
-`"longitude"` and `"latitude"` fields to matching bus objects in `net`.
+coordinate fields to matching bus objects in `net`.
+
+With the default `frame=:geographic` the columns are stored as `"longitude"`
+and `"latitude"`. With `frame=:cartesian` they are stored as `"x"` and `"y"`,
+and `net["meta"]["crs"]` is set to the local Cartesian declaration
+`{"type": "cartesian", "name": name, "units": units}` that spatial analysis
+reads, so `Buscoords` in feet or meters (IEEE test feeders, State Plane or any
+projected grid treated as a local plane) can be used directly. `units` is then
+required: `"m"`, `"km"`, `"ft"`, `"ftUS"` (US survey foot), `"kft"` or `"mi"`.
+An existing, different `meta.crs` is an error rather than being overwritten.
 
 Returns the number of buses matched and the number of CSV rows skipped
 because the bus ID was not present in `net` (open-switch stub buses and
@@ -18,8 +28,31 @@ geometry supplies WGS84 evidence.
 [`write_bmopf`](@ref) preserves these fields by default. Pass
 `include_coordinates=false` when writing for strict BMOPF schema consumers.
 """
-function sideload_coordinates!(net::Dict{String,Any}, csv_path::AbstractString)
+function sideload_coordinates!(net::Dict{String,Any}, csv_path::AbstractString;
+                               frame::Symbol=:geographic, units=nothing,
+                               name::AbstractString="buscoords")
     isfile(csv_path) || throw(ArgumentError("Coordinate CSV not found: $csv_path"))
+    frame in (:geographic, :cartesian) ||
+        throw(ArgumentError("frame must be :geographic or :cartesian, got :$frame"))
+    fields = frame == :cartesian ? ("x", "y") : ("longitude", "latitude")
+    if frame == :cartesian
+        parsed = _coordinate_unit(units)
+        parsed === nothing || first(parsed) == "degrees" &&
+            throw(ArgumentError("a Cartesian frame needs length units, got $(repr(units))"))
+        parsed === nothing && throw(ArgumentError(
+            "frame=:cartesian requires units (\"m\", \"km\", \"ft\", \"ftUS\", \"kft\" or \"mi\"), got $(repr(units))"))
+        isempty(strip(name)) && throw(ArgumentError("the Cartesian frame name must not be empty"))
+        declaration = Dict{String,Any}("type" => "cartesian", "name" => String(strip(name)),
+                                       "units" => first(parsed))
+        meta = get!(net, "meta", Dict{String,Any}())
+        meta isa AbstractDict || throw(ArgumentError("net[\"meta\"] must be an object"))
+        existing = get(meta, "crs", nothing)
+        existing === nothing || existing == declaration || throw(ArgumentError(
+            "net[\"meta\"][\"crs\"] already declares $(repr(existing)); remove it before loading Cartesian coordinates"))
+        meta["crs"] = declaration
+    elseif units !== nothing
+        throw(ArgumentError("units apply to frame=:cartesian only"))
+    end
     buses = get(net, "bus", Dict())
     n_matched = 0
     n_skipped = 0
@@ -34,8 +67,8 @@ function sideload_coordinates!(net::Dict{String,Any}, csv_path::AbstractString)
         (lon === nothing || lat === nothing) && continue
         bus = get(buses, id, nothing)
         if bus isa Dict
-            bus["longitude"] = lon
-            bus["latitude"]  = lat
+            bus[fields[1]] = lon
+            bus[fields[2]] = lat
             n_matched += 1
         else
             n_skipped += 1

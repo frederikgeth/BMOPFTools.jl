@@ -86,21 +86,27 @@ that the migrated model preserves every intended scientific meaning.
 | `W.CONN.MESHED` | W | Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail. Single-phase transformer units that join the same two buses on different conductors are one bank (`transformer_banks` in the result) and count as one branch; units on the same conductors are parallel and do close a cycle. Radiality is assessed over phase-carrying branches: a line or closed switch that maps only neutral- or earth-role terminals at both ends (for example, a neutral bond beside a service transformer) closes no phase-conductor cycle. Such cycles are counted in `neutral_only_cycle_rank` (result and detail) and do not raise this warning. |
 | `W.CONN.DANGLING` | W | Degree-1 buses with no load, generator or shunt attached — dead ends that contribute variables and constraints but no physics; often conversion artifacts (e.g. switch far-ends). |
 
-## GEO — declared geographic coordinates
+## GEO — declared coordinate frames
 
 See the [spatial diagnostics guide](spatial_diagnostics.md) for illustrated
 interpretation and the separate `S.*` candidate / `R.*` review catalog.
 Coincident buses, shared routes and zero transformer extent alone emit no Finding.
 
-These checks require a network-level WGS84 declaration. An absent or different
-CRS leaves geodesic comparisons unassessed; field names alone do not establish
-a geographic frame. The component's structured detail records the measured
-values, threshold, and CRS evidence.
+These checks require a network-level frame declaration: a geographic
+longitude/latitude frame (WGS84, or an equivalent national datum such as
+GDA2020, JGD2011, NAD83 or ETRS89) or a local Cartesian frame with length
+units. An absent, projected or otherwise uninterpreted CRS leaves metric
+comparisons unassessed; field names alone do not establish a frame and nothing
+is reprojected. The structured detail records the measured values, threshold,
+and CRS evidence.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `W.GEO.WGS84_RANGE` | W | A finite bus coordinate is outside the longitude ±180° or latitude ±90° range despite an explicit network WGS84 declaration. This suggests a coordinate or CRS metadata error. |
-| `W.GEO.LINE_SHORTER_THAN_CHORD` | W | A line's physical length (`meta.physical_length_m`, or declared `length` when no physical/regularization metadata prevents that interpretation) is more than `max(5 m, 10% of chord)` shorter than the geodesic distance between its explicitly declared WGS84 bus coordinates. An explicitly regularized electrical length without physical length, or invalid explicit physical metadata, makes this check indeterminate. Structured evidence preserves both lengths and the comparison basis; inspect coordinates, units, and length provenance. |
+| `W.GEO.WGS84_RANGE` | W | A finite bus coordinate is outside the longitude ±180° or latitude ±90° range despite an explicit geographic frame declaration. This suggests a coordinate or CRS metadata error. `in_range_if_axes_exchanged` records whether the values would be a valid position with longitude and latitude exchanged; the fields are never swapped for the reader. |
+| `W.GEO.LINE_SHORTER_THAN_CHORD` | W | A line's physical length (`meta.physical_length_m`, or declared `length` when no physical/regularization metadata prevents that interpretation) is more than `max(5 m, 10% of chord)` shorter than the distance between its bus positions in the declared frame (geodesic for a geographic frame, Euclidean for a local Cartesian one). An explicitly regularized electrical length without physical length, or invalid explicit physical metadata, makes this check indeterminate. A length of exactly 1 on a line whose impedance is given as inline totals (the OpenDSS default placeholder) is not compared. Structured evidence preserves both lengths and the comparison basis; inspect coordinates, units, and length provenance. |
+| `W.GEO.LINE_LONGER_THAN_CHORD` | W | A line's physical length exceeds `max(5 × chord, chord + 100 m)` and no valid route polyline of matching length accounts for it. Routing along streets and conductor sag make a line somewhat longer than its chord; several times longer points at a length unit, a duplicated bus position, or a missing route. The same OpenDSS placeholder length is not compared. |
+| `W.GEO.LENGTH_SCALE_SUSPECT` | W | Across at least ten lines with a chord of 10 m or more, the median ratio of declared length to bus-to-bus distance sits within 5 % of a known unit factor (kilometers, feet, kilofeet or miles stored as meters; coordinates in feet or kilometers declared as meters) and at least 60 % of the lines agree. One network-level Finding: a consistent factor is a unit, not a route. |
+| `W.GEO.COORDINATE_OUTLIER` | W | One network-level Finding listing buses at the geographic origin (0, 0), a common "no position" placeholder, or farther from the median bus position than `max(100 km, 20 × the 90th-percentile distance)`. Needs at least five positioned buses for the extent rule. |
 | `W.GEO.ROUTE_ENDPOINT_GAP` | W | A declared WGS84 route polyline's endpoints differ from the connected bus positions by more than `max(20 m, 10% of chord)`, with reversed route direction allowed. Inspect the bus reference, route provenance, and snapping assumptions. |
 
 ## VOLT — voltage levels

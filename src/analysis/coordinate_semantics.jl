@@ -2,6 +2,33 @@
 # interpretation of a projected EPSG code as a local Euclidean frame.
 const _SPATIAL_CRS_KEYS = ("coordinate_reference_system", "crs", "coordinate_system")
 
+# Geographic (longitude/latitude in degrees) reference systems accepted beside
+# WGS84, by EPSG code and by name. Distances here are great-circle lengths on a
+# sphere compared against tolerances of max(5 m, 10 %): the datum realization
+# (a shift of at most a couple of meters between these frames, and a common
+# shift for both ends of a line) cannot change a verdict. Coordinates are used
+# as declared; nothing is transformed between datums, and one case must still
+# declare one frame.
+const _SPATIAL_GEOGRAPHIC_DATUMS = Dict{String,String}(
+    "4283" => "GDA94", "7844" => "GDA2020",                     # Australia
+    "4612" => "JGD2000", "6668" => "JGD2011",                   # Japan
+    "4269" => "NAD83", "6318" => "NAD83(2011)",                 # North America
+    "4258" => "ETRS89",                                        # Europe
+    "4167" => "NZGD2000")                                      # New Zealand
+const _SPATIAL_GEOGRAPHIC_NAMES = Dict{String,String}(
+    lowercase(replace(v, r"[()]" => "")) => v for v in values(_SPATIAL_GEOGRAPHIC_DATUMS))
+
+# Datum name of a recognized non-WGS84 geographic CRS token, or nothing.
+function _spatial_geographic_datum(crs::AbstractString)
+    token = lowercase(replace(strip(crs), r"[\s_\-()]" => ""))
+    code = startswith(token, "epsg:") ? token[6:end] : token
+    haskey(_SPATIAL_GEOGRAPHIC_DATUMS, code) && return _SPATIAL_GEOGRAPHIC_DATUMS[code]
+    get(_SPATIAL_GEOGRAPHIC_NAMES, token, nothing)
+end
+
+_coordinate_is_geographic(token) =
+    token == "WGS84" || (token isa AbstractString && startswith(token, "geographic:"))
+
 function _coordinate_declarations(record, keys)
     rows = Pair{String,Any}[]
     for (prefix, source) in (("", record), ("meta.", get(record, "meta", nothing)))
@@ -23,13 +50,22 @@ function _coordinate_crs(value)
             any(k -> haskey(value, k), ("epsg", "code")) && return nothing
             return "cartesian:$(strip(name))"
         end
-        kind === nothing || kind in ("geographic", "wgs84") || return nothing
+        # A projected frame is a declaration this package does not interpret:
+        # the same fact as the plain string "EPSG:28356", so the same token.
+        kind === nothing || kind in ("geographic", "wgs84", "projected") || return nothing
         tokens = [_coordinate_crs(value[k]) for k in ("epsg", "code", "name") if haskey(value, k)]
-        isempty(tokens) || any(isnothing, tokens) || length(unique(tokens)) != 1 ? nothing : first(tokens)
+        token = isempty(tokens) || any(isnothing, tokens) || length(unique(tokens)) != 1 ? nothing : first(tokens)
+        token === nothing && return nothing
+        kind == "projected" && _coordinate_is_geographic(token) && return nothing
+        token
     elseif value isa AbstractString || (value isa Integer && !(value isa Bool))
         token = strip(string(value))
         isempty(token) && return nothing
-        _spatial_is_wgs84(token) ? "WGS84" : lowercase(token)
+        _spatial_is_wgs84(token) && return "WGS84"
+        datum = _spatial_geographic_datum(token)
+        datum === nothing || return "geographic:$datum"
+        # A bare integer is an EPSG code: one token for 28356 and "EPSG:28356".
+        all(isdigit, token) ? "epsg:$token" : lowercase(token)
     else
         nothing
     end
@@ -39,8 +75,13 @@ function _coordinate_unit(value)
     value isa AbstractString || return nothing
     token = lowercase(strip(value))
     token in ("m", "metre", "metres", "meter", "meters") && return ("m", 1.0)
-    token in ("km", "kilometre", "kilometer") && return ("km", 1000.0)
+    token in ("km", "kilometre", "kilometres", "kilometer", "kilometers") && return ("km", 1000.0)
     token in ("ft", "foot", "feet", "international_foot") && return ("ft", 0.3048)
+    # US survey foot (State Plane coordinates): exactly 1200/3937 m.
+    token in ("ftus", "us_survey_foot", "us_survey_feet", "survey_foot", "survey_feet",
+              "us-ft", "usft") && return ("ftUS", 1200 / 3937)
+    token in ("kft", "kilofoot", "kilofeet") && return ("kft", 304.8)
+    token in ("mi", "mile", "miles") && return ("mi", 1609.344)
     token in ("deg", "degree", "degrees") && return ("degrees", 1.0)
     nothing
 end
@@ -52,7 +93,7 @@ function _coordinate_frame(net)
     any(isnothing, tokens) && push!(issues, "invalid_crs_declaration")
     length(unique(filter(!isnothing, tokens))) > 1 && push!(issues, "conflicting_crs_declarations")
     token = isempty(tokens) || !isempty(issues) ? nothing : first(tokens)
-    kind = token === nothing ? "unknown" : token == "WGS84" ? "wgs84" :
+    kind = token === nothing ? "unknown" : _coordinate_is_geographic(token) ? "wgs84" :
         startswith(token, "cartesian:") ? "cartesian" : "unsupported"
     units = _coordinate_declarations(net, ("coordinate_units",))
     axes = _coordinate_declarations(net, ("coordinate_axis_order",))
@@ -78,6 +119,10 @@ function _coordinate_frame(net)
         kind == "cartesian" ? "declared_cartesian" : kind == "unsupported" ? "declared_other" : "unspecified"
     (kind=kind, token=token, unit=unit, status=status,
      report=Dict{String,Any}("status" => status, "frame" => token,
+        "datum" => token == "WGS84" ? "WGS84" :
+            token isa AbstractString && startswith(token, "geographic:") ? token[12:end] : nothing,
+        "distance_basis" => kind == "wgs84" ? "great-circle length on a sphere of radius 6371008.8 m" :
+            kind == "cartesian" ? "Euclidean length in the declared local frame" : nothing,
         "units" => unit === nothing ? nothing : first(unit), "axis_order" => expected_axes,
         "unit_scale_to_m" => kind == "cartesian" && unit !== nothing ? last(unit) : nothing,
         "issues" => sort!(unique(issues)),

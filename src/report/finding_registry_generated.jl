@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "060547ede162b5d47f74912d29252e985cd0c4a971d113aae61ee5bd2f955968"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "df8bff6c30fdfaceb27a87ddbca06ec83b3316e1135ca08bf40e64a510ae35f4"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -224,8 +224,8 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         severity="WARNING",
         namespace="GEO",
         catalogue_section="GEO",
-        section_title="declared geographic coordinates",
-        meaning="A finite bus coordinate is outside the longitude ±180° or latitude ±90° range despite an explicit network WGS84 declaration. This suggests a coordinate or CRS metadata error.",
+        section_title="declared coordinate frames",
+        meaning="A finite bus coordinate is outside the longitude ±180° or latitude ±90° range despite an explicit geographic frame declaration. This suggests a coordinate or CRS metadata error. `in_range_if_axes_exchanged` records whether the values would be a valid position with longitude and latitude exchanged; the fields are never swapped for the reader.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -233,8 +233,35 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         severity="WARNING",
         namespace="GEO",
         catalogue_section="GEO",
-        section_title="declared geographic coordinates",
-        meaning="A line's physical length (`meta.physical_length_m`, or declared `length` when no physical/regularization metadata prevents that interpretation) is more than `max(5 m, 10% of chord)` shorter than the geodesic distance between its explicitly declared WGS84 bus coordinates. An explicitly regularized electrical length without physical length, or invalid explicit physical metadata, makes this check indeterminate. Structured evidence preserves both lengths and the comparison basis; inspect coordinates, units, and length provenance.",
+        section_title="declared coordinate frames",
+        meaning="A line's physical length (`meta.physical_length_m`, or declared `length` when no physical/regularization metadata prevents that interpretation) is more than `max(5 m, 10% of chord)` shorter than the distance between its bus positions in the declared frame (geodesic for a geographic frame, Euclidean for a local Cartesian one). An explicitly regularized electrical length without physical length, or invalid explicit physical metadata, makes this check indeterminate. A length of exactly 1 on a line whose impedance is given as inline totals (the OpenDSS default placeholder) is not compared. Structured evidence preserves both lengths and the comparison basis; inspect coordinates, units, and length provenance.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.GEO.LINE_LONGER_THAN_CHORD" => (
+        severity="WARNING",
+        namespace="GEO",
+        catalogue_section="GEO",
+        section_title="declared coordinate frames",
+        meaning="A line's physical length exceeds `max(5 × chord, chord + 100 m)` and no valid route polyline of matching length accounts for it. Routing along streets and conductor sag make a line somewhat longer than its chord; several times longer points at a length unit, a duplicated bus position, or a missing route. The same OpenDSS placeholder length is not compared.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.GEO.LENGTH_SCALE_SUSPECT" => (
+        severity="WARNING",
+        namespace="GEO",
+        catalogue_section="GEO",
+        section_title="declared coordinate frames",
+        meaning="Across at least ten lines with a chord of 10 m or more, the median ratio of declared length to bus-to-bus distance sits within 5 % of a known unit factor (kilometers, feet, kilofeet or miles stored as meters; coordinates in feet or kilometers declared as meters) and at least 60 % of the lines agree. One network-level Finding: a consistent factor is a unit, not a route.",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.GEO.COORDINATE_OUTLIER" => (
+        severity="WARNING",
+        namespace="GEO",
+        catalogue_section="GEO",
+        section_title="declared coordinate frames",
+        meaning="One network-level Finding listing buses at the geographic origin (0, 0), a common \"no position\" placeholder, or farther from the median bus position than `max(100 km, 20 × the 90th-percentile distance)`. Needs at least five positioned buses for the extent rule.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -242,7 +269,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         severity="WARNING",
         namespace="GEO",
         catalogue_section="GEO",
-        section_title="declared geographic coordinates",
+        section_title="declared coordinate frames",
         meaning="A declared WGS84 route polyline's endpoints differ from the connected bus positions by more than `max(20 m, 10% of chord)`, with reversed route direction allowed. Inspect the bus reference, route provenance, and snapping assumptions.",
         contract_id=nothing,
         knowledge_ids=String[],

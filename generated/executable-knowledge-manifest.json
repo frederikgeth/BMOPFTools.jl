@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "61e8ea872ee2541a09473eadf53888bd7eae640f5a6a7ee4e6bd6f115a6f6865",
+  "corpus_sha256": "5a53f5001d269b8246924b979bc040911fdb77f45cee990daec89e0170b52d5e",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "060547ede162b5d47f74912d29252e985cd0c4a971d113aae61ee5bd2f955968"
+      "sha256": "df8bff6c30fdfaceb27a87ddbca06ec83b3316e1135ca08bf40e64a510ae35f4"
     },
     {
       "path": "docs/src/first_case.md",
@@ -318,7 +318,7 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "08131743f4a276b9489784caf4206a8e504b5d3646bd26886fb2743bdae93e9e"
+      "sha256": "c8587a3f8f7c66412818465750696a058b0396add2d4e3f54c594f730283c509"
     },
     {
       "path": "knowledge/executable.toml",
@@ -450,7 +450,7 @@
     },
     {
       "path": "src/analysis/coordinate_semantics.jl",
-      "sha256": "ffb8ec238ca9af2465bee5889569bd676b1db7f1739f7391b90aee9f91bc289a"
+      "sha256": "79ca45f4965e35dc0e5a34d7b06920b9839d0f43505bac4d3cab851c8ec3e365"
     },
     {
       "path": "src/analysis/diversity.jl",
@@ -494,7 +494,7 @@
     },
     {
       "path": "src/analysis/spatial.jl",
-      "sha256": "94b6e4ecb04f9cf2c2308c8666f31bb955aba32315ed678ca1a347dff893ae6d"
+      "sha256": "4c1860723aea9fe32798c938736de574d3b23056a2f79ab9e6962e5fcc57603a"
     },
     {
       "path": "src/analysis/spatial_proximity.jl",
@@ -510,7 +510,7 @@
     },
     {
       "path": "src/analysis/spatial_review_evidence.jl",
-      "sha256": "edf2e95c8be960f07f240a54637e72ce19406ed1ec003a444d5111f29e6958ce"
+      "sha256": "3050bc54aefbadf3a1cf88b01ab007aeba7d4e629dde3537f0076f5b31c9cb85"
     },
     {
       "path": "src/analysis/spatial_routes.jl",
@@ -518,7 +518,7 @@
     },
     {
       "path": "src/analysis/spatial_topology.jl",
-      "sha256": "e2bbd405f1359b8fb5e91f650918ae9b43ee0fdd83f16411b2dccb3ac834f9a4"
+      "sha256": "a31b4b26e8a9e4f5c9fb166808cf6a974fa35e7fe0059ea9b5fab62574e0d089"
     },
     {
       "path": "src/analysis/switch_scenarios.jl",
@@ -622,7 +622,7 @@
     },
     {
       "path": "src/io/sideload_coordinates.jl",
-      "sha256": "428c39c97ba02362797336f8cf67fdd0d441a4f46e3b394bd49bb511396869ea"
+      "sha256": "61e9576ea20be67d2382e0969eb720c17de0b163a2ffd9d46793e1c40f85514c"
     },
     {
       "path": "src/io/to_dss.jl",
@@ -670,7 +670,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "133c7c37e9f5a0385425db3205c5b8db1c8d9231c027b691a96243b050480fb3"
+      "sha256": "467991a5573b1292612a76085960bb4075fbcdd4711f6539a8516611d3274357"
     },
     {
       "path": "src/report/formatting.jl",

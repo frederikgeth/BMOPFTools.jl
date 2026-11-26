@@ -128,6 +128,82 @@ end
 
 _wgs84_point(p) = p !== nothing && -180 <= p[1] <= 180 && -90 <= p[2] <= 90
 
+# Known unit factors between a declared length and the bus-to-bus distance.
+# `factor` is length ÷ distance when the named slip is present.
+const _SPATIAL_LENGTH_SCALE_FACTORS = (
+    (0.001, "lengths look like kilometers stored where meters are expected"),
+    (1000.0, "lengths look like meters while positions are 1000 times closer (kilometer coordinates declared as meters, or millimeter lengths)"),
+    (1 / 0.3048, "lengths look like feet stored where meters are expected"),
+    (0.3048, "positions look like feet declared as meters"),
+    (1 / 304.8, "lengths look like kilofeet stored where meters are expected"),
+    (1 / 1609.344, "lengths look like miles stored where meters are expected"),
+)
+
+# Network-level reading of the length/distance ratio. Individual lines differ
+# from their chord for good reasons (sag, routing along streets); a ratio that
+# sits on a unit factor across the whole network is a unit, not a route.
+function _spatial_length_scale(chord_rows; min_lines::Int=10, min_chord_m::Float64=10.0,
+                               tolerance::Float64=0.05)
+    ratios = sort!(Float64[r.length / r.chord for r in chord_rows
+                           if r.chord >= min_chord_m && r.length > 0])
+    out = Dict{String,Any}("status" => "indeterminate", "reason" => "too_few_lines",
+        "n_lines" => length(ratios), "min_lines" => min_lines, "min_chord_m" => min_chord_m,
+        "median_length_to_chord" => nothing, "factor" => nothing, "reading" => nothing)
+    length(ratios) >= min_lines || return out
+    n = length(ratios)
+    med = isodd(n) ? ratios[(n + 1) ÷ 2] : (ratios[n ÷ 2] + ratios[n ÷ 2 + 1]) / 2
+    out["median_length_to_chord"] = med
+    out["status"] = "passed"; out["reason"] = "no_unit_factor_matched"
+    for (factor, reading) in _SPATIAL_LENGTH_SCALE_FACTORS
+        abs(med / factor - 1) <= tolerance || continue
+        # The bulk must agree, not only the median.
+        agree = count(r -> abs(r / factor - 1) <= 4 * tolerance, ratios)
+        agree >= 0.6 * n || continue
+        out["status"] = "suspect"; out["reason"] = "unit_factor_matched"
+        out["factor"] = factor; out["reading"] = reading
+        out["fraction_agreeing"] = agree / n
+        break
+    end
+    out
+end
+
+# Buses whose position cannot belong to the network it is drawn in: the
+# geographic origin (0, 0), a common placeholder for "no position", and
+# positions far outside the extent of all the others.
+function _spatial_coordinate_outliers(metric_coords, raw_coords, kind; min_buses::Int=5)
+    out = Dict{String,Any}("buses" => String[], "reasons" => Dict{String,Any}(),
+        "n_assessed" => length(metric_coords),
+        "rule" => "geographic (0, 0); or farther from the median position than max(100 km, 20 x the 90th-percentile distance)")
+    ids = sort!(collect(keys(metric_coords)))
+    reasons = Dict{String,Any}()
+    if kind == "wgs84"
+        for id in ids
+            p = metric_coords[id]
+            p == (0.0, 0.0) && (reasons[id] = Dict{String,Any}("reason" => "null_island"))
+        end
+    end
+    placed = [id for id in ids if !haskey(reasons, id)]
+    if length(placed) >= min_buses
+        mid(v) = (s = sort(v); s[(length(s) + 1) ÷ 2])
+        center = (mid([metric_coords[id][1] for id in placed]), mid([metric_coords[id][2] for id in placed]))
+        dist = Dict(id => _coordinate_distance(metric_coords[id], center, kind) for id in placed)
+        finite = sort!(Float64[d for d in values(dist) if d !== nothing])
+        if !isempty(finite)
+            p90 = finite[clamp(round(Int, 1 + (length(finite) - 1) * 0.9), 1, length(finite))]
+            limit = max(100_000.0, 20 * p90)
+            out["extent_p90_m"] = p90; out["limit_m"] = limit
+            for id in placed
+                d = dist[id]
+                d !== nothing && d > limit && (reasons[id] = Dict{String,Any}(
+                    "reason" => "far_from_network", "distance_from_median_m" => d))
+            end
+        end
+    end
+    out["buses"] = sort!(collect(keys(reasons)))
+    out["reasons"] = reasons
+    out
+end
+
 # A coordinate-free case may still carry PowerIO's GeoLayer in extras.geojson.
 # Say so instead of silently treating the case as coordinate-free; applying the
 # layer stays an explicit sideload_geolayer! call.
@@ -478,14 +554,19 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
         for id in sort!(collect(keys(coords)))
             point = coords[id]
             _wgs84_point(point) && continue
+            # Evidence only: the values would be a valid position with the two
+            # fields exchanged. Named fields are never swapped on the reader's behalf.
+            swapped = _wgs84_point((point[2], point[1]))
             push!(findings, Finding(WARNING, "W.GEO.WGS84_RANGE", :connectivity,
-                :bus, id, "Bus '$id' has coordinates outside the declared WGS84 longitude/latitude range.",
+                :bus, id, "Bus '$id' has coordinates outside the declared geographic longitude/latitude range." *
+                    (swapped ? " The values are in range with longitude and latitude exchanged." : ""),
                 Dict{String,Any}("longitude" => point[1], "latitude" => point[2],
-                                 "declared_crs" => declared_crs)))
+                                 "declared_crs" => declared_crs,
+                                 "in_range_if_axes_exchanged" => swapped)))
         end
     end
     caution = crs_status == "declared_wgs84" ?
-        "Network metadata declares WGS84; meter distances use valid longitude/latitude pairs only." :
+        "Network metadata declares a geographic longitude/latitude frame ($(something(frame.report["datum"], "WGS84"))); meter distances use valid longitude/latitude pairs only." :
         crs_status == "declared_cartesian" ?
         "Explicit local Cartesian x/y coordinates are converted to meters using declared units; no map projection is inferred." :
         crs_status == "ambiguous" ?
@@ -531,19 +612,48 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
                 push!(chord_rows, (id=string(id), tier=tier, length=length_m,
                                    chord=chord, ratio=chord > 0 ? length_m / chord : nothing))
             end
-            if crs_status == "declared_wgs84" && context["chord_check"]["status"] == "failed"
+            # The network frame is declared (geographic or local Cartesian),
+            # so a length disagreement is a statement about this line. A
+            # length of exactly 1 on a line whose impedance is given as inline
+            # totals is the OpenDSS default placeholder, not a physical length.
+            declared_frame = crs_status in ("declared_wgs84", "declared_cartesian")
+            placeholder_length = _line_has_inline_z(line) && !context["length_scales_impedance"] &&
+                length_m == 1.0 && context["comparison_basis"] == "declared_length"
+            placement = geodesic ?
+                Dict{String,Any}("from_lonlat" => collect(a), "to_lonlat" => collect(b)) :
+                Dict{String,Any}("from_xy_m" => collect(metric_coords[from]),
+                                 "to_xy_m" => collect(metric_coords[to]))
+            reference_length = context["comparison_length_m"]
+            route_explains = context["recomputed_route_length_m"] !== nothing &&
+                context["physical_route_check"]["status"] == "passed"
+            if declared_frame && !placeholder_length && reference_length !== nothing &&
+               !route_explains && reference_length > max(5 * chord, chord + 100.0)
+                push!(findings, Finding(WARNING, "W.GEO.LINE_LONGER_THAN_CHORD",
+                    :connectivity, :line, string(id),
+                    "Line '$id' is far longer than the distance between its buses " *
+                    "($(round(reference_length, digits=1)) m against $(round(chord, digits=1)) m) " *
+                    "and no route geometry accounts for it; inspect the length unit and the bus positions.",
+                    merge(placement, Dict{String,Any}("bus_from" => from, "bus_to" => to,
+                        "length_m" => length_m, "chord_m" => chord,
+                        "comparison_length_m" => reference_length,
+                        "comparison_basis" => context["comparison_basis"],
+                        "length_to_chord" => chord > 0 ? reference_length / chord : nothing,
+                        "threshold_m" => max(5 * chord, chord + 100.0),
+                        "declared_crs" => declared_crs,
+                        "length_scales_impedance" => context["length_scales_impedance"]))))
+            end
+            if declared_frame && !placeholder_length && context["chord_check"]["status"] == "failed"
                 push!(findings, Finding(WARNING, "W.GEO.LINE_SHORTER_THAN_CHORD",
                     :connectivity, :line, string(id),
-                    "Line '$id' has a length below the geographic distance between its buses; inspect its physical/electrical length basis.",
-                    Dict{String,Any}("bus_from" => from, "bus_to" => to,
-                        "from_lonlat" => collect(a), "to_lonlat" => collect(b),
+                    "Line '$id' has a length below the distance between its buses; inspect its physical/electrical length basis.",
+                    merge(placement, Dict{String,Any}("bus_from" => from, "bus_to" => to,
                         "length_m" => length_m, "chord_m" => chord,
                         "comparison_length_m" => context["comparison_length_m"],
                         "comparison_basis" => context["comparison_basis"],
                         "physical_length_m" => context["physical_length_m"],
                         "electrical_length_regularized" => context["electrical_length_regularized"],
                         "tolerance_m" => context["chord_check"]["tolerance_m"], "declared_crs" => declared_crs,
-                        "length_scales_impedance" => context["length_scales_impedance"])))
+                        "length_scales_impedance" => context["length_scales_impedance"]))))
             end
             route = _spatial_route(line)
             if geodesic && route !== nothing && get(route, "basis", nothing) == "WGS84_geodesic_polyline"
@@ -575,6 +685,26 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
                 end
             end
         end
+    end
+
+    length_scale = _spatial_length_scale(chord_rows)
+    if crs_status in ("declared_wgs84", "declared_cartesian") && length_scale["status"] == "suspect"
+        push!(findings, Finding(WARNING, "W.GEO.LENGTH_SCALE_SUSPECT", :connectivity,
+            :network, nothing,
+            "Across $(length_scale["n_lines"]) lines the median ratio of declared length to " *
+            "bus-to-bus distance is $(round(length_scale["median_length_to_chord"], sigdigits=4)), " *
+            "close to $(length_scale["factor"]): $(length_scale["reading"]). " *
+            "A consistent factor points at a unit, not at individual lines.",
+            copy(length_scale)))
+    end
+    outliers = _spatial_coordinate_outliers(metric_coords, coords, frame.kind)
+    if crs_status in ("declared_wgs84", "declared_cartesian") && !isempty(outliers["buses"])
+        push!(findings, Finding(WARNING, "W.GEO.COORDINATE_OUTLIER", :connectivity,
+            :bus, nothing,
+            "$(length(outliers["buses"])) bus(es) carry a placeholder position or lie far " *
+            "outside the extent of the rest of the network: " *
+            "$(join(first(outliers["buses"], 5), ", "))$(length(outliers["buses"]) > 5 ? ", …" : "").",
+            copy(outliers)))
     end
 
     transformers = _spatial_transformer_extent(net, metric_coords, eligible; distance_kind=frame.kind)
@@ -616,6 +746,8 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
             "n_outside_wgs84_range" => n_outside),
         "coincidence" => _spatial_coincidence(net, coords, level_by_bus, crs_status; excluded=excluded),
         "length_context" => _spatial_length_summary(context_rows),
+        "length_scale" => length_scale,
+        "coordinate_outliers" => outliers,
         "routes" => Dict{String,Any}(
             "n_lines" => length(lines), "n_with_route" => n_routes,
             "basis_counts" => route_basis,
