@@ -4,6 +4,48 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- OPF engine review (November 2026): correctness fixes found by a
+  line-by-line audit of the unbalanced IVR engine, each pinned by a regression
+  test and, where OpenDSS can express the case, by an OpenDSS oracle.
+  - **Per-unit voltage bases** are now assigned per galvanic zone. Buses joined
+    by lines, switches, regulators or autotransformers share one base; only an
+    isolating transformer changes it. Previously a regulator's `v_nom_*`
+    nameplate rescaled the downstream coordinates on top of its tap (a 5 %
+    boost solved as 10 %), and a line closing a loop between transformers of
+    unequal ratio joined buses with different bases, removing the circulating
+    current. SI solves were unaffected.
+  - **Line angle windows** (`va_diff_min`/`va_diff_max`) bound phase
+    conductors only. They were also stamped on the neutral, whose phasor
+    routinely rotates by tens of degrees along a healthy four-wire line, so
+    feasible cases were reported infeasible.
+  - **DELTA generators** follow the load geometry: two or three distinct
+    phase terminals, a two-terminal map is one coil (it was two anti-parallel
+    coils, doubling the unit), and a neutral terminal is rejected. Supplied
+    `p_min`/`p_max`/`q_min`/`q_max` vectors must have one entry per coil; a
+    short vector used to leave the remaining coils unbounded.
+  - **Losses include DC branches.** `result["losses"]["p_loss"]`,
+    `opf_total_loss` and `opf_element_loss` (new block `"dc_branch"`) count
+    DC-conductor I²R, and each `dc_branch` result carries `loss.p_loss`. A
+    loss objective could previously route current through a resistive DC tie
+    at no apparent cost.
+  - **DC voltage droop** acts on the pole-voltage magnitude, so a negative
+    pole sags under load like a positive one instead of rising.
+  - **Volt-watt with `p_ref = "P_AVAILABLE"`** divides the available power by
+    the number of coils, not phase terminals; a phase-to-phase single-phase
+    unit was capped at half its available power.
+  - **`solve_pf` requires a determined problem.** Generators and AC-only IBRs
+    need fixed active power, and reactive power that is fixed or set by a
+    constant power factor or Volt-var law; missing and one-sided bounds are
+    rejected instead of returning a start-point-dependent answer.
+  - **Feasibility OPF** penalizes slack in amperes in either unit system, so
+    the reported slack location no longer depends on `per_unit`.
+  - A capacitor without `v_nom` is rejected (the 1.0 fallback meant one volt
+    in SI and one per-unit voltage in per-unit). An IBR with an unsupported
+    topology is rejected instead of being left out of the network with a
+    warning. A shared-DC-link balance with `p_dc_min == p_dc_max` is one
+    equality row, `:ibr_dc_power_equality`. Apparent-power auxiliaries start
+    on their defining equalities.
+
 - Add network-reduction tools: explicit-neutral Kron reduction
   (`kron_reduce_neutrals`, ported from PowerOptLab with its tests and
   cross-checked against the PSK-000008 boundary contract), and a prototype of

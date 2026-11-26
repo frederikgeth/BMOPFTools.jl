@@ -106,6 +106,7 @@ function build_pf!(ctx::OpfContext)
     BMOPFTools.set_opf_start_values!(ctx)
 
     _validate_pf_generators(ctx.net)
+    _validate_pf_ibrs(ctx.net)
 
     # Device constraints only — no _add_voltage_and_bus_bounds!.
     BMOPFTools.add_opf_device_constraints!(ctx)
@@ -181,6 +182,10 @@ function _strip_operational_limits!(net::Dict{String,Any})
             for f in _PF_LIMIT_FIELDS
                 delete!(xfmr, f)
             end
+            # n_winding ratings live per winding, one level further down, and
+            # are deliberately KEPT: a winding's `s_max` is that transformer's
+            # nameplate (the counterpart of the always-enforced `s_rating`),
+            # and its `i_max` is enforced with it.
         end
     end
 
@@ -194,27 +199,70 @@ Throw an `ArgumentError` if any generator has a non-degenerate active or reactiv
 power range (`p_min != p_max` or `q_min != q_max`). A power flow has no objective
 to select a point within a range, so generators must be fixed setpoints.
 """
+# One side of a fixed setpoint: both bounds present, equal length, and equal.
+# A missing or one-sided bound leaves the coil's power free, which a power
+# flow (no objective) cannot resolve — it would return wherever the start
+# point happened to lead.
+function _require_fixed_setpoint(owner, label, lo, hi)
+    (isempty(lo) || isempty(hi) || length(lo) != length(hi)) && throw(ArgumentError(
+        "$owner: solve_pf requires $(label)_min and $(label)_max, one entry " *
+        "per coil, with $(label)_min == $(label)_max. A power flow has no " *
+        "objective to choose a dispatch, so a missing or one-sided bound " *
+        "leaves the operating point undetermined. Use solve_opf for " *
+        "range-bounded devices."))
+    for k in eachindex(lo)
+        # Relative comparison: the working values may be per-unit or SI.
+        isapprox(lo[k], hi[k]; rtol=1e-9, atol=1e-12 * max(1.0, abs(lo[k]))) ||
+            throw(ArgumentError(
+                "$owner: $(label)_min[$k] ≠ $(label)_max[$k]. solve_pf requires " *
+                "fixed setpoints ($(label)_min == $(label)_max); a power flow has " *
+                "no objective to choose a dispatch within a range. Use solve_opf " *
+                "for range-bounded devices."))
+    end
+    return nothing
+end
+
 function _validate_pf_generators(net::Dict{String,Any})
     for (gid, gen) in get(net, "generator", Dict())
         gen isa Dict || continue
-        p_min = Float64.(get(gen, "p_min", Float64[]))
-        p_max = Float64.(get(gen, "p_max", Float64[]))
-        q_min = Float64.(get(gen, "q_min", Float64[]))
-        q_max = Float64.(get(gen, "q_max", Float64[]))
-
-        for (lo, hi, label) in ((p_min, p_max, "p"), (q_min, q_max, "q"))
-            n = min(length(lo), length(hi))
-            for k in 1:n
-                if !isapprox(lo[k], hi[k]; atol=1e-9, rtol=1e-9)
-                    throw(ArgumentError(
-                        "Generator '$gid': $(label)_min[$k]=$(lo[k]) ≠ " *
-                        "$(label)_max[$k]=$(hi[k]). solve_pf requires fixed " *
-                        "generator setpoints ($(label)_min == $(label)_max); a " *
-                        "power flow has no objective to choose a dispatch within " *
-                        "a range. Use solve_opf for range-bounded generators."))
-                end
-            end
+        for label in ("p", "q")
+            _require_fixed_setpoint("Generator '$gid'", label,
+                Float64.(get(gen, "$(label)_min", Float64[])),
+                Float64.(get(gen, "$(label)_max", Float64[])))
         end
+    end
+    return nothing
+end
+
+"""
+    _validate_pf_ibrs(net)
+
+Require every AC-only IBR to be a determined device, coil by coil:
+
+- **Active power** must be a fixed setpoint (`p_min == p_max`). A Volt-watt
+  curve only *caps* P, so it does not determine it.
+- **Reactive power** must be fixed (`q_min == q_max`) or set by a control law
+  that determines it: a constant power factor or a Volt-var curve.
+
+IBRs with a DC side (`dc_bus`) or a shared DC link (`dc_link_coupled`) are not
+checked here: their active power is set by the DC-side control law and balance.
+"""
+function _validate_pf_ibrs(net::Dict{String,Any})
+    profiles = get(net, "control_profile", Dict())
+    for (id, inv) in get(net, "ibr", Dict())
+        inv isa Dict || continue
+        (haskey(inv, "dc_bus") || get(inv, "dc_link_coupled", false) === true) && continue
+        owner = "IBR '$id'"
+        _require_fixed_setpoint(owner, "p",
+            Float64.(get(inv, "p_min", Float64[])),
+            Float64.(get(inv, "p_max", Float64[])))
+        profile = get(profiles, get(inv, "control_profile", nothing), nothing)
+        q_law = profile isa AbstractDict &&
+            (BMOPFTools._constant_pf_value(profile) !== nothing ||
+             get(profile, "volt_var", nothing) !== nothing)
+        q_law || _require_fixed_setpoint(owner, "q",
+            Float64.(get(inv, "q_min", Float64[])),
+            Float64.(get(inv, "q_max", Float64[])))
     end
     return nothing
 end

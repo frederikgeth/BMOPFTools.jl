@@ -7,10 +7,11 @@
 # ──────────
 # A single system MVA base (s_base, VA) is chosen by the caller.
 # V_base at the source bus comes from the first voltage source's v_magnitude[1].
-# V_base propagates through transformers by the turns ratio N = v_nom_from/v_nom_to:
+# Buses joined by copper (lines, switches, regulators, autotransformers) form a
+# galvanic zone and share one V_base. V_base changes only across an isolating
+# transformer, by its turns ratio N = v_nom_from/v_nom_to:
 #   V_base[to] = V_base[from] / N
-# Lines and switches do not change the voltage base.
-# Buses not reachable from the BFS receive the source V_base as a fallback.
+# Zones not reachable from the source receive the source V_base as a fallback.
 #
 # Derived bases per bus:
 #   Z_base[bus] = V_base[bus]^2 / s_base   (Ω)
@@ -49,85 +50,102 @@ function _compute_classic_bases(net::Dict{String,Any}, s_base::Float64)
     end
     src_vbase == 0.0 && (src_vbase = 1.0)   # degenerate fallback
 
-    v_base = Dict{String,Float64}()
-    src_bus != "" && (v_base[src_bus] = src_vbase)
-
-    # BFS through transformers to propagate V_base.
-    # Build adjacency: bus -> [(neighbor_bus, v_nom_from, v_nom_to, from_is_from)]
-    xfmr_adj = Dict{String,Vector{Tuple{String,Float64,Float64}}}()
+    # ── Galvanic zones ───────────────────────────────────────────────────────
+    # A voltage base is a coordinate scale for a *conductor*, so every bus
+    # joined by copper must share one. Lines and switches are copper; so are
+    # regulators and autotransformers (`GALVANIC_CONTINUOUS_SUBTYPES`), whose
+    # two bus records are bonded through a common bushing and whose builders
+    # use `tap_ratio`, never `v_nom_*`. Collapse those into zones first
+    # (union-find), then let only *isolating* transformers change the base.
+    #
+    # Assigning a base bus-by-bus at first visit instead is wrong twice over:
+    # a regulator's nameplate ratio would rescale the downstream coordinates
+    # on top of the tap the model already applies, and a line that closes a
+    # loop between two transformers of unequal ratio would join buses with
+    # different bases, silently dropping the circulating current.
+    parent = Dict{String,String}(String(b) => String(b) for b in buses)
+    function zone(b)
+        b = String(b)
+        haskey(parent, b) || (parent[b] = b)
+        while parent[b] != b
+            parent[b] = parent[parent[b]]
+            b = parent[b]
+        end
+        return b
+    end
+    function bond!(a, b)
+        (isempty(a) || isempty(b)) && return
+        ra, rb = zone(a), zone(b)
+        ra == rb || (parent[ra] = rb)
+        return
+    end
+    for family in ("line", "switch")
+        for (_, branch) in get(net, family, Dict())
+            bond!(String(get(branch, "bus_from", "")), String(get(branch, "bus_to", "")))
+        end
+    end
     xfmr_dict = get(net, "transformer", Dict())
-    for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
-        subtype in BMOPFTools.WINDING_LIST_SUBTYPES && continue   # handled below
+    for subtype in BMOPFTools.GALVANIC_CONTINUOUS_SUBTYPES
         for (_, xfmr) in get(xfmr_dict, subtype, Dict())
-            bf = get(xfmr, "bus_from", "")
-            bt = get(xfmr, "bus_to",   "")
-            vrf = Float64(get(xfmr, "v_nom_from", 1.0))
-            vrt = Float64(get(xfmr, "v_nom_to",   1.0))
-            (isempty(bf) || isempty(bt)) && continue
-            push!(get!(xfmr_adj, bf, Tuple{String,Float64,Float64}[]), (bt, vrf, vrt))
-            push!(get!(xfmr_adj, bt, Tuple{String,Float64,Float64}[]), (bf, vrt, vrf))
+            xfmr isa AbstractDict || continue
+            bond!(String(get(xfmr, "bus_from", "")), String(get(xfmr, "bus_to", "")))
         end
     end
 
-    # n-winding: propagate base from winding 1 to every other winding's bus.
+    # Isolating transformers: zone -> [(neighbor_zone, v_nom_this, v_nom_neighbor)].
+    Edge = Tuple{String,Float64,Float64}
+    xfmr_adj = Dict{String,Vector{Edge}}()
+    function couple!(ba, va, bb, vb)
+        (isempty(ba) || isempty(bb)) && return
+        za, zb = zone(ba), zone(bb)
+        za == zb && return          # both windings in one galvanic zone
+        push!(get!(xfmr_adj, za, Edge[]), (zb, va, vb))
+        push!(get!(xfmr_adj, zb, Edge[]), (za, vb, va))
+        return
+    end
+    for subtype in BMOPFTools.TRANSFORMER_SUBTYPES
+        subtype in BMOPFTools.WINDING_LIST_SUBTYPES && continue
+        subtype in BMOPFTools.GALVANIC_CONTINUOUS_SUBTYPES && continue
+        for (_, xfmr) in get(xfmr_dict, subtype, Dict())
+            xfmr isa AbstractDict || continue
+            couple!(String(get(xfmr, "bus_from", "")),
+                    Float64(get(xfmr, "v_nom_from", 1.0)),
+                    String(get(xfmr, "bus_to", "")),
+                    Float64(get(xfmr, "v_nom_to", 1.0)))
+        end
+    end
+    # n-winding: every other winding is referred to winding 1.
     for (_, xfmr) in get(xfmr_dict, "n_winding", Dict())
         ws = BMOPFTools._nw_windings(xfmr)
         isempty(ws) && continue
-        b1, v1 = ws[1].bus, ws[1].v_nom
-        isempty(b1) && continue
         for j in 2:length(ws)
-            bj, vj = ws[j].bus, ws[j].v_nom
-            isempty(bj) && continue
-            push!(get!(xfmr_adj, b1, Tuple{String,Float64,Float64}[]), (bj, v1, vj))
-            push!(get!(xfmr_adj, bj, Tuple{String,Float64,Float64}[]), (b1, vj, v1))
+            couple!(ws[1].bus, ws[1].v_nom, ws[j].bus, ws[j].v_nom)
         end
     end
 
-    # Lines and switches do not change the voltage base; build adjacency for
-    # same-base propagation so all buses on an LV feeder inherit the correct
-    # v_base from the transformer LV terminal rather than falling back to the
-    # MV source base.
-    line_adj = Dict{String,Vector{String}}()
-    for (_, line) in get(net, "line", Dict())
-        bf = get(line, "bus_from", "")
-        bt = get(line, "bus_to",   "")
-        (isempty(bf) || isempty(bt)) && continue
-        push!(get!(line_adj, bf, String[]), bt)
-        push!(get!(line_adj, bt, String[]), bf)
+    # Breadth-first over zones. A zone reached twice through transformers of
+    # unequal ratio keeps its first base: each transformer's `v_nom_*` is
+    # scaled by its own side's bus base, so its per-unit ratio simply differs
+    # from one and the loop's circulating current is retained.
+    zone_base = Dict{String,Float64}()
+    queue = String[]
+    if !isempty(src_bus)
+        zone_base[zone(src_bus)] = src_vbase
+        push!(queue, zone(src_bus))
     end
-    for (_, sw) in get(net, "switch", Dict())
-        bf = get(sw, "bus_from", "")
-        bt = get(sw, "bus_to",   "")
-        (isempty(bf) || isempty(bt)) && continue
-        push!(get!(line_adj, bf, String[]), bt)
-        push!(get!(line_adj, bt, String[]), bf)
-    end
-
-    queue = isempty(src_bus) ? String[] : [src_bus]
-    visited = isempty(src_bus) ? Set{String}() : Set{String}([src_bus])
     while !isempty(queue)
-        bus = popfirst!(queue)
-        vb  = v_base[bus]
-        for (nb, vref_this, vref_nb) in get(xfmr_adj, bus, Tuple{String,Float64,Float64}[])
-            nb in visited && continue
-            push!(visited, nb)
-            # V_base[nb] = V_base[bus] * (vref_nb / vref_this)
-            ratio = vref_this > 0.0 ? vref_nb / vref_this : 1.0
-            v_base[nb] = vb * ratio
-            push!(queue, nb)
-        end
-        for nb in get(line_adj, bus, String[])
-            nb in visited && continue
-            push!(visited, nb)
-            v_base[nb] = vb   # lines preserve the voltage base
-            push!(queue, nb)
+        z = popfirst!(queue)
+        for (nz, vref_this, vref_nz) in get(xfmr_adj, z, Edge[])
+            haskey(zone_base, nz) && continue
+            ratio = (vref_this > 0.0 && vref_nz > 0.0) ? vref_nz / vref_this : 1.0
+            zone_base[nz] = zone_base[z] * ratio
+            push!(queue, nz)
         end
     end
 
-    # Buses not reached by BFS get the source V_base as fallback.
-    for b in buses
-        haskey(v_base, b) || (v_base[b] = src_vbase)
-    end
+    # Zones not reached from the source get the source V_base as fallback.
+    v_base = Dict{String,Float64}(
+        String(b) => get(zone_base, zone(b), src_vbase) for b in buses)
 
     z_base = Dict(b => v_base[b]^2 / s_base for b in keys(v_base))
     i_base = Dict(b => s_base / v_base[b]   for b in keys(v_base))
@@ -1137,6 +1155,8 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
         for (_, cvals) in cond_dict
             cvals isa Dict || continue
             haskey(cvals, "i_dc") && (cvals["i_dc"] = cvals["i_dc"] * ib)
+            # branch loss is stored on the system power base
+            haskey(cvals, "p_loss") && (cvals["p_loss"] = cvals["p_loss"] * sb)
         end
     end
 

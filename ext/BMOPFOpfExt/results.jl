@@ -42,7 +42,7 @@ Returned top-level keys
                    dissipated; q_loss = net reactive absorption, negative when the
                    element is net-capacitive). `s_through = Σ|V_t||I_t|` is a
                    throughput scale for sizing numerical tolerances.
-- `"losses"`     — `{p_loss [W], q_loss [var]}` network totals over all lines + transformers
+- `"losses"`     — `{p_loss [W], q_loss [var]}` network totals over all lines, transformers, and DC branches (active power only)
 - `"voltage_source"` — `src_id => terminal => {cr, ci [A], ps [W], qs [var]}`
 - `"initialisation"` — `bus_id => terminal => {vr_init, vi_init, vm_init [V], va_init [rad]}`
   Ipopt start values set before `optimize!`. Always present; used by `profile_solution`
@@ -869,6 +869,23 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
             for k in eachindex(tmf)
                 haskey(idc_br_v, (id, k)) || continue
                 cond[string(k)] = Dict{String,Any}("i_dc" => val(idc_br_v[(id, k)]))
+            end
+            # Ohmic loss Σ_k (v_from,k − v_to,k)·i_k, on the system power base
+            # so it totals with the AC element losses. Counted in
+            # `losses.p_loss`: a DC conductor dissipates real power too.
+            if has_values
+                bf = String(get(br, "dc_bus_from", "")); bt = String(get(br, "dc_bus_to", ""))
+                tmt = string.(get(br, "terminal_map_to", String[]))
+                w = bases === nothing ? 1.0 : _dc_power_base(bases) / bases.s_base
+                pl = 0.0
+                for k in 1:min(length(tmf), length(tmt))
+                    kf = (bf, tmf[k]); kt = (bt, tmt[k])
+                    (haskey(v_dc_v, kf) && haskey(v_dc_v, kt) &&
+                     haskey(idc_br_v, (id, k))) || continue
+                    pl += w * (val(v_dc_v[kf]) - val(v_dc_v[kt])) * val(idc_br_v[(id, k)])
+                end
+                cond["loss"] = Dict{String,Any}("p_loss" => pl)
+                total_p_loss += pl
             end
             dc_branch_res[id] = cond
         end

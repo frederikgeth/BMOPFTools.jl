@@ -483,7 +483,10 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
 
         # Per-phase available active power (model units) for p_ref=P_AVAILABLE.
         p_avail_per = let pa = get(inv, "p_avail", nothing)
-            n = max(length(_phase_positions(tm, nlabels)), 1)
+            # Divide by the number of COILS, not phase terminals: a two-terminal
+            # SINGLE_PHASE unit is one coil even when both terminals are phases.
+            n = topo == "SINGLE_PHASE" ? 1 :
+                max(length(_phase_positions(tm, nlabels)), 1)
             pa isa Number ?
                 Float64(pa) / n /
                 (bases === nothing ? 1.0 : _ac_power_base(bases, bus)) : 0.0
@@ -516,7 +519,10 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
         p_exprs    = JuMP.QuadExpr[]
 
         if topo == "SINGLE_PHASE"
-            length(tm) >= 2 || (@warn "IBR '$inv_id': SINGLE_PHASE needs ≥2 terminals"; continue)
+            # Skipping the device would leave its current variables free and
+            # outside KCL: the unit would vanish from the network silently.
+            length(tm) >= 2 || throw(ArgumentError(
+                "IBR '$inv_id': SINGLE_PHASE needs two terminals."))
             t_ph  = tm[1]
             t_ref = tm[2]
             dvr = @expression(model, vr[(bus, t_ph)] - vr[(bus, t_ref)])
@@ -665,7 +671,8 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             end
 
         else
-            @warn "IBR '$inv_id': unknown topology '$topo' — skipping."
+            throw(ArgumentError("IBR '$inv_id': unsupported topology '$topo' " *
+                "(expected SINGLE_PHASE, FOUR_LEG, or THREE_LEG)."))
         end
 
         # DC-side active-power coupling of the per-phase active powers.
@@ -688,10 +695,15 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             p_net = @expression(model, sum(p_exprs))
             p_dc_min = get(inv, "p_dc_min", 0.0)
             p_dc_max = get(inv, "p_dc_max", 0.0)
-            _register_semantic_constraint!(ctx, :ibr_dc_power_lower,
-                String(inv_id), @constraint(model, p_net >= Float64(p_dc_min)))
-            _register_semantic_constraint!(ctx, :ibr_dc_power_upper,
-                String(inv_id), @constraint(model, p_net <= Float64(p_dc_max)))
+            # The STATCOM default p_dc_min == p_dc_max == 0 is a balance, not a
+            # range. `_box_constraints!` stamps it as ONE equality
+            # (:ibr_dc_power_equality); two opposing inequalities would have no
+            # interior and non-unique multipliers.
+            for (side, cref) in pairs(_box_constraints!(
+                    model, p_net, Float64(p_dc_min), Float64(p_dc_max)))
+                _register_semantic_constraint!(ctx,
+                    Symbol(:ibr_dc_power_, side), String(inv_id), cref)
+            end
         end
     end
 end

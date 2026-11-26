@@ -2693,7 +2693,7 @@ export opf_vuf_term
 
 """
     opf_element_loss(ctx, block, id) -> JuMP expression
-    opf_total_loss(ctx; blocks=("line","transformer","switch")) -> JuMP expression
+    opf_total_loss(ctx; blocks=("line","transformer","dc_branch")) -> JuMP expression
 
 Active-power loss of one two-port element, or of the whole network, as a JuMP
 expression in the model's WORKING units (per-unit when `per_unit=true`).

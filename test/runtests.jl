@@ -3853,6 +3853,7 @@ include("mcp_execution_tests.jl")
             include("semantic_block_tests.jl")
             include("opf_tests.jl")
             include("opf_engine_review_tests.jl")
+            include("opf_review_regression_tests.jl")
             include("opf_device_substitution_tests.jl")
             include("opf_domain_tests.jl")
             include("opf_final_hardening_tests.jl")
@@ -4018,6 +4019,7 @@ include("mcp_execution_tests.jl")
             @test_skip "Requires JuMP, Ipopt, and OpenDSSDirect"
         else
             include("powerflow_comparison_tests.jl")
+            include("opf_review_opendss_tests.jl")
             include("powerio_numerical_tests.jl")
             include("transformer_opendss_tests.jl")
         end

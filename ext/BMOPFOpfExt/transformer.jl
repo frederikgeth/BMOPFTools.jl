@@ -1163,8 +1163,8 @@ end
 # tap ratio `a` (regulated/source) and ANSI connection type, define the effective
 # from→to ratio (BMOPFTools._autotransformer_neff):
 #
-#   Type B (standard SVR, default):  n_eff = a
-#   Type A:                          n_eff = 1/a
+#   Type B (standard SVR, default):  n_eff = 1/a
+#   Type A:                          n_eff = a
 #
 # The voltage and current-coupling constraints are then IDENTICAL in form to the
 # wye-wye transformer with N := n_eff and series impedance Z = R + jX referred to

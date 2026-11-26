@@ -24,10 +24,16 @@ units the dict currently holds (SI, or per-unit after `_pu_scale_capacitors!`).
 """
 function _cap_susceptances(cap::Dict{String,Any})::Vector{Float64}
     q = Float64.(get(cap, "q_rated", Float64[]))
-    v = Float64(get(cap, "v_nom", 1.0))
+    # `v_nom` has no meaningful default. A fallback of 1.0 would be one volt in
+    # an SI model and one per-unit voltage in a per-unit model — two different
+    # capacitors from the same record — so a missing value is rejected, as it
+    # is for voltage-dependent loads.
+    haskey(cap, "v_nom") || throw(ArgumentError(
+        "Capacitor requires v_nom: the susceptance B = q_rated / v_nom² " *
+        "cannot be formed without the nominal voltage the rating refers to."))
+    v = Float64(cap["v_nom"])
     # B = q_rated / v_nom² is undefined at v_nom ≤ 0. Silently zeroing the
-    # susceptance (the old behavior) masks a data error as a no-op capacitor;
-    # reject it instead. (v_nom defaults to 1.0 when absent.)
+    # susceptance masks a data error as a no-op capacitor; reject it instead.
     v > 0.0 || error("Capacitor requires a strictly positive v_nom (got $v); " *
         "the susceptance B = q_rated / v_nom² is undefined at zero.")
     q ./ v^2

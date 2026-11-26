@@ -54,6 +54,7 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
         q_max     = Float64.(get(gen, "q_max", Float64[]))
         i_max_g   = Float64.(get(gen, "i_max", Float64[]))
         s_max_g   = Float64.(get(gen, "s_max", Float64[]))
+        _validate_generator_geometry(gid, gen, net, nlabels)
 
         # P/Q box rows per phase: :generator_{p,q}_{lower,upper}, or one
         # :generator_{p,q}_equality row when a static minimum equals its maximum.
@@ -144,8 +145,10 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
             end
 
         elseif cfg == "DELTA"
+            # One coil per phase pair: three for a closed delta, one for a
+            # two-terminal (single line-to-line) unit.
             n_c = length(tm)
-            for k in 1:n_c
+            for k in first(_generator_positions(tm, cfg, nlabels))
                 t_pos = tm[k]; t_neg = tm[(k % n_c) + 1]
                 dvr = @expression(model, vr[(bus,t_pos)] - vr[(bus,t_neg)])
                 dvi = @expression(model, vi[(bus,t_pos)] - vi[(bus,t_neg)])

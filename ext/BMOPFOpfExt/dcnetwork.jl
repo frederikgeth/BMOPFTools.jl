@@ -451,7 +451,15 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
         # the per-phase p_max/p_min sums when given, else ±Σs_max.
         P_hi = isempty(p_max) ? (isempty(smax) ? 0.0 : sum(smax))  : sum(p_max)
         P_lo = isempty(p_min) ? (isempty(smax) ? 0.0 : -sum(smax)) : sum(p_min)
-        bp = _droop_breakpoints(v_set, k, p_ref, db, P_lo, P_hi)
+        # The droop law is about the port voltage MAGNITUDE: a heavily loaded
+        # DC bus sags towards zero whichever pole the port sits on. `Uport` is
+        # signed (first minus second terminal), so on a negative pole — or a
+        # reversed `dc_terminal_map` — write the curve on −Uport against
+        # |v_set|. Writing it on the signed value would make the magnitude
+        # RISE under load there.
+        v_set == 0 && error("IBR '$inv_id': dc_control=\"droop\" needs a nonzero dc_v_set.")
+        polarity = v_set < 0 ? -1.0 : 1.0
+        bp = _droop_breakpoints(abs(v_set), k, p_ref, db, P_lo, P_hi)
         if bp === nothing
             error("IBR '$inv_id': degenerate droop (need dc_droop>0 and a non-empty " *
                   "s_max for the saturation limits).")
@@ -461,7 +469,8 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
         ε  = max(relu_eps * (xs[end] - xs[1]), 1e-6)
         op = relu_operator_for!(relu_ops, model, ε; mode=softplus)
         register(:dc_converter_droop,
-            @constraint(model, p_ac_expr == curve_expr(op, Uport, base, triples)))
+            @constraint(model, p_ac_expr ==
+                curve_expr(op, polarity == 1.0 ? Uport : -Uport, base, triples)))
     end
 end
 

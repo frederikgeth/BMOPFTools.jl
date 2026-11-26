@@ -1,0 +1,37 @@
+! Single line-to-line generator on a four-wire branch.
+! (BMOPF: generator, configuration DELTA, two-terminal map = ONE coil)
+!
+! Topology: src ──[4-wire line, 0.5 km]── lb
+!   generator across lb.1–lb.2 (line-to-line), 8 kW at unity power factor
+!   single-phase load on phase 3
+!
+! A two-terminal delta device is one coil across that phase pair. This is the
+! oracle against counting it twice (once per terminal, cyclically).
+
+Clear
+
+! Base frequency locked to 50 Hz (BMOPF's modeling frequency).
+Set DefaultBaseFreq=50
+
+New Circuit.pf_delta_gen_1ph basekv=0.415 pu=1.0 angle=0 phases=3 bus1=src.1.2.3 model=ideal
+
+New Reactor.grnd bus1=src.4 bus2=src.0 R=0.001 X=0
+
+New Linecode.4w nphases=4
+~ Rmatrix=[0.500|0.020 0.500|0.020 0.020 0.500|0.020 0.020 0.020 0.500]
+~ Xmatrix=[0.200|0.050 0.200|0.050 0.050 0.200|0.050 0.050 0.050 0.200]
+~ Cmatrix=[0|0 0|0 0 0|0 0 0 0]
+~ units=km
+
+New Line.l1 bus1=src.1.2.3.4 bus2=lb.1.2.3.4 linecode=4w length=500 units=m
+
+! model=1: constant kW and kvar. Vminpu/Vmaxpu widened so it stays constant power.
+New Generator.g1 bus1=lb.1.2 phases=1 kv=0.415 kw=8 kvar=0 model=1 Vminpu=0 Vmaxpu=2
+
+New Load.ld3 bus1=lb.3.4 kv=0.240 kw=5 kvar=1 phases=1 model=1 Vminpu=0 Vmaxpu=2
+
+Set VoltageBases=[0.415]
+CalcVoltageBases
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve

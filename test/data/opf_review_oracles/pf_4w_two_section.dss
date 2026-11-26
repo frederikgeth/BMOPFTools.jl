@@ -1,0 +1,39 @@
+! Two-section four-wire feeder with single-phase loads on DIFFERENT phases.
+!
+! Topology: src ──[4-wire, 300 m]── b1 ──[4-wire, 300 m]── b2
+!   b1: load on phase 1 (to neutral);  b2: load on phase 2 (to neutral)
+!   neutral earthed at the source only; it floats at b1 and b2.
+!
+! The neutral voltage at b1 is set by the sum of both return currents, the one
+! at b2 by that sum plus the phase-2 return alone. The two neutral phasors
+! therefore differ by tens of degrees while the phase voltages barely rotate.
+! This is the oracle for the line angle-difference limit: an angle window is a
+! statement about PHASE conductors, and applying it to the neutral would
+! reject this ordinary operating point.
+
+Clear
+
+! Base frequency locked to 50 Hz (BMOPF's modeling frequency).
+Set DefaultBaseFreq=50
+
+New Circuit.pf_4w_two_section basekv=0.415 pu=1.0 angle=0 phases=3 bus1=src.1.2.3 model=ideal
+
+New Reactor.grnd bus1=src.4 bus2=src.0 R=0.001 X=0
+
+New Linecode.4w nphases=4
+~ Rmatrix=[0.500|0.020 0.500|0.020 0.020 0.500|0.020 0.020 0.020 0.500]
+~ Xmatrix=[0.200|0.050 0.200|0.050 0.050 0.200|0.050 0.050 0.050 0.200]
+~ Cmatrix=[0|0 0|0 0 0|0 0 0 0]
+~ units=km
+
+New Line.l1 bus1=src.1.2.3.4 bus2=b1.1.2.3.4 linecode=4w length=300 units=m
+New Line.l2 bus1=b1.1.2.3.4  bus2=b2.1.2.3.4 linecode=4w length=300 units=m
+
+New Load.la bus1=b1.1.4 kv=0.240 kw=6 kvar=1 phases=1 model=1 Vminpu=0 Vmaxpu=2
+New Load.lb bus1=b2.2.4 kv=0.240 kw=6 kvar=1 phases=1 model=1 Vminpu=0 Vmaxpu=2
+
+Set VoltageBases=[0.415]
+CalcVoltageBases
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve
