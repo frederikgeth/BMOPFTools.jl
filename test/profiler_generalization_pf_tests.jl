@@ -76,6 +76,24 @@ using JuMP, Ipopt
         @test vmag(solve(net), "svc", "c") ≈ sqrt(7) * 120.0 rtol = 0.03
     end
 
+    @testset "a bank fed from an upstream center tap is not a verified high leg" begin
+        net = sys("na_high_leg_open_delta")
+        net["bus"]["mid"] = Dict{String,Any}("terminal_names" => ["a","b","n"])
+        net["shunt"]["gnd_mid"] = Dict{String,Any}("bus" => "mid", "terminal_map" => ["n"], "G_1_1" => 0.04, "B_1_1" => 0.0)
+        up = deepcopy(net["transformer"]["center_tap"]["lighting"]); up["bus_to"] = "mid"
+        net["transformer"]["center_tap"]["upstream"] = up
+        for (st, id) in (("center_tap", "lighting"), ("single_phase", "power"))
+            u = net["transformer"][st][id]; u["bus_from"] = "mid"; u["v_nom_from"] = 120.0
+            for k in ("r_series_from", "x_series_from"); u[k] = u[k] * (120.0 / 7200.0)^2; end
+        end
+        b = only(report(net).results[:voltage_levels]["high_leg_banks"])
+        @test b["status"] == "unverified"
+        res = solve(net)
+        # The primary legs are 180° apart, so the "third" conductor is far from
+        # the sqrt(3) x 120 V a delta would give.
+        @test !isapprox(vmag(res, "svc", "c"), sqrt(3) * 120.0; rtol = 0.2)
+    end
+
     @testset "an island is referenced exactly when the profiler says so" begin
         # Referenced through cable capacitance: phase-to-earth voltages are the
         # balanced nominal.

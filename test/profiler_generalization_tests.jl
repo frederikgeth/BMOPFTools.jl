@@ -925,6 +925,37 @@ end
         wye["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => ["a","n"],
             "configuration" => "SINGLE_PHASE", "p_nom" => [100.0], "q_nom" => [0.0])
         @test isempty(groups(wye))
+        # The same earth admittance as a standalone shunt that merely LISTS the
+        # phases in its map: only the matrix couplings tie terminals.
+        sh = deepcopy(net); delete!(sh["linecode"]["cable"], "B_from_4_4")
+        sh["shunt"] = Dict{String,Any}("earth" => Dict{String,Any}("bus" => "it1",
+            "terminal_map" => ["a","b","c","n"], "G_1_1" => 0.0, "B_1_1" => 0.0, "G_4_4" => 1e-3))
+        @test floats(sh, phases)
+        @test Set((t["bus"], t["terminal"]) for t in only(groups(sh)).detail["terminals"]) == Set(phases)
+        # A nonzero entry between a phase and the earthed terminal does tie them...
+        tied = deepcopy(sh); tied["shunt"]["earth"]["G_1_4"] = -1e-4; tied["shunt"]["earth"]["G_4_1"] = -1e-4
+        tied["shunt"]["earth"]["G_1_1"] = 1e-4
+        @test !floats(tied, phases) && isempty(groups(tied))
+        # ...and so does a row of its own to earth.
+        own = deepcopy(sh); own["shunt"]["earth"]["G_2_2"] = 1e-5
+        @test !floats(own, phases) && isempty(groups(own))
+        # A load written against earth (one terminal, no neutral) references its
+        # phase, and through the delta the other two: the solver uses the
+        # phase-to-reference voltage for it.
+        for cfg in ("SINGLE_PHASE", "WYE")
+            ld = deepcopy(net)
+            tm = cfg == "WYE" ? ["a","b","c"] : ["a"]
+            ld["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => tm,
+                "configuration" => cfg, "model" => "constant_impedance",
+                "p_nom" => fill(100.0, length(tm)), "q_nom" => fill(0.0, length(tm)),
+                "v_nom" => fill(230.0, length(tm)))
+            @test isempty(groups(ld))
+        end
+        # A phase-to-phase load is no reference.
+        pp = deepcopy(net)
+        pp["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => ["a","b"],
+            "configuration" => "SINGLE_PHASE", "p_nom" => [100.0], "q_nom" => [0.0])
+        @test length(groups(pp)) == 1
         # The whole-island finding is not repeated per group.
         bare = _pg_sys("it_delta_island_unreferenced")
         f = Finding[]; integrity_check(bare, f)
@@ -983,19 +1014,28 @@ end
         # ...and a source that puts b in phase with a makes it none.
         net["voltage_source"]["grid"]["v_angle"] = [0.0, 0.0, 2π/3]
         @test isempty(bank(net))
-        # Unresolvable primary phasors: reported as unverified, not as a conflict,
-        # and not called a high leg in the split-phase finding.
+        # Phase labels are never evidence of an angle. Fed from an upstream
+        # center tap, the two primary legs called "a" and "b" are 180° apart:
+        # nothing in the primary's zone establishes their phasors, so the bank
+        # is unverified, kept out of propagation, and not called a high leg.
         net = _pg_sys("na_high_leg_open_delta")
-        delete!(net, "voltage_source")
-        relabel(x) = x isa AbstractString ? get(Dict("a" => "u", "b" => "v", "c" => "w"), x, x) :
-                     x isa AbstractVector ? Any[relabel(v) for v in x] :
-                     x isa AbstractDict ? Dict{String,Any}(k => (k in ("bus", "bus_from", "bus_to", "linecode", "name", "configuration") ? v : relabel(v)) for (k, v) in x) : x
-        net = relabel(net)
-        net["terminal_conventions"] = Dict{String,Any}("phase" => ["u","v","w"], "neutral" => ["n"], "earth" => String[])
+        net["bus"]["mid"] = Dict{String,Any}("terminal_names" => ["a","b","n"])
+        net["shunt"]["gnd_mid"] = Dict{String,Any}("bus" => "mid", "terminal_map" => ["n"], "G_1_1" => 0.04, "B_1_1" => 0.0)
+        up = deepcopy(net["transformer"]["center_tap"]["lighting"]); up["bus_to"] = "mid"
+        net["transformer"]["center_tap"]["upstream"] = up
+        for (st, id) in (("center_tap", "lighting"), ("single_phase", "power"))
+            u = net["transformer"][st][id]; u["bus_from"] = "mid"; u["v_nom_from"] = 120.0
+            for k in ("r_series_from", "x_series_from"); u[k] = u[k] * (120.0 / 7200.0)^2; end
+        end
         b = only(bank(net))
-        @test b["status"] == "unverified" && b["high_leg"] == ["w"]
-        f = Finding[]; connectivity_analysis(net, f)
-        @test isempty(only(x for x in f if x.code == "I.PROV.SPLIT_PHASE_ZONE").detail["high_leg"])
+        @test b["status"] == "unverified" && b["high_leg"] == ["c"]
+        rep = _pg_analyze(net)
+        @test !("E.VOLT.LEVEL_MISMATCH" in _pg_codes(rep.findings))
+        split = only(f for f in rep.findings if f.code == "I.PROV.SPLIT_PHASE_ZONE" && f.detail["zone_anchor"] == "svc")
+        @test isempty(split.detail["high_leg"]) && split.detail["other_phases"] == ["c"]
+        # No source at all: unverified as well.
+        net = _pg_sys("na_high_leg_open_delta"); delete!(net, "voltage_source")
+        @test only(bank(net))["status"] == "unverified"
     end
 
     @testset "high-leg banks are resolved once per network" begin
@@ -1041,8 +1081,28 @@ end
               ra["structure"]["whole_network"]["cycle_rank"] == 0
         # mv - lv0 - lv1 - lv2 - first - island - other: the island hop counts two.
         @test ra["tree_depth_max"] == 6
-        @test any(startswith("dc_island:"), ra["longest_path_buses"])
+        # The bus path lists AC buses only (placement strategies slice it);
+        # the walk with the island vertex is separate.
+        @test !any(startswith("dc_island:"), ra["longest_path_buses"])
+        @test any(startswith("dc_island:"), ra["longest_path_vertices"])
+        @test length(ra["longest_path_vertices"]) == length(ra["longest_path_buses"]) + 1
         @test !any(startswith("dc_island:"), ra["degree_1_buses"])
+        # src -> DC island -> recv -> leaf: the near-source half of the bus path
+        # still reaches recv, as it does over a direct AC branch.
+        chain = Dict{String,Any}(
+            "bus" => Dict{String,Any}(b => Dict{String,Any}("terminal_names" => ["a","n"]) for b in ("src", "recv", "leaf")),
+            "voltage_source" => Dict{String,Any}("s" => Dict{String,Any}("bus" => "src", "terminal_map" => ["a"],
+                "v_magnitude" => [230.0], "v_angle" => [0.0])),
+            "line" => Dict{String,Any}("l" => Dict{String,Any}("bus_from" => "recv", "bus_to" => "leaf",
+                "terminal_map_from" => ["a","n"], "terminal_map_to" => ["a","n"])),
+            "dc_bus" => Dict{String,Any}("link" => Dict{String,Any}("terminal_names" => ["p","n"])),
+            "ibr" => Dict{String,Any}("c1" => Dict{String,Any}("bus" => "src", "dc_bus" => "link"),
+                                      "c2" => Dict{String,Any}("bus" => "recv", "dc_bus" => "link")))
+        conn = connectivity_analysis(chain, Finding[])
+        @test conn["longest_path_buses"] == ["src", "recv", "leaf"]
+        @test conn["longest_path_vertices"] == ["src", "dc_island:link", "recv", "leaf"]
+        path = conn["longest_path_buses"]
+        @test "recv" in path[1:max(1, cld(length(path), 2))]
     end
 
     # ── Noise budget on decks an independent engine solves ──────────────────

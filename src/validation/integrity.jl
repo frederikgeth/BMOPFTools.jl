@@ -21,12 +21,14 @@ that neutral. The phases can then shift together without changing any equation.
 
 A *conductor group* is a set of `(bus, terminal)` nodes joined by elements that
 fix voltage differences between them: a line or closed switch conductor, a
-mutual shunt entry, the terminals of one load, generator, IBR, capacitor or
-shunt, the terminals of one transformer winding side (both sides for the
-galvanically continuous subtypes). A group is referenced when one of its nodes
-is tied to earth: a perfectly grounded terminal, a voltage-source terminal or
-the neutral of a source bus, a shunt or stamped line-shunt row with a nonzero
-sum, or a transformer neutral impedance. Declared terminals that no element
+mutual line-shunt entry, the terminals of one load, generator, IBR or
+capacitor, two shunt terminals with a nonzero admittance entry between them,
+the terminals of one transformer winding side (both sides for the galvanically
+continuous subtypes). A group is referenced when one of its nodes is tied to
+earth: a perfectly grounded terminal, a voltage-source terminal or the neutral
+of a source bus, a shunt or stamped line-shunt row with a nonzero sum, a
+transformer neutral impedance, or a load or generator written against earth
+(WYE or one-terminal SINGLE_PHASE with no neutral in its map). Declared terminals that no element
 touches are not groups (they are `W.INT.UNUSED_BUS_TERMINAL`).
 """
 function _unreferenced_conductor_groups(net)
@@ -112,14 +114,29 @@ function _unreferenced_conductor_groups(net)
             tie!(node(f, tmf[k]), node(t, tmt[k]))
         end
     end
+    engine_neutrals = try _neutral_labels(net) catch; nothing end
     for kind in ("load", "generator", "ibr", "capacitor"), (_, c) in table(kind)
-        c isa AbstractDict && tie_all!(get(c, "bus", nothing), get(c, "terminal_map", nothing))
+        c isa AbstractDict || continue
+        b = get(c, "bus", nothing); tm = get(c, "terminal_map", nothing)
+        tie_all!(b, tm)
+        # A WYE or one-terminal SINGLE_PHASE load or generator whose map holds
+        # no neutral is written against earth: the solver uses the
+        # phase-to-reference voltage, so the device itself references each of
+        # its phase terminals (an implicit earth return).
+        kind in ("load", "generator") && b isa AbstractString && strs(tm) && !isempty(tm) || continue
+        cfg = get(c, "configuration", nothing)
+        has_neutral = engine_neutrals === nothing ? _neutral_pos(tm) !== nothing :
+            _neutral_pos(tm, engine_neutrals) !== nothing
+        implicit = (cfg == "WYE" && !has_neutral) || (cfg == "SINGLE_PHASE" && length(tm) == 1 && !has_neutral)
+        implicit && foreach(t -> earth!(b, t), tm)
     end
     for (_, sh) in table("shunt")
         sh isa AbstractDict || continue
         b = get(sh, "bus", nothing); tm = get(sh, "terminal_map", nothing)
         b isa AbstractString && strs(tm) || continue
-        tie_all!(b, tm)
+        # Only what the admittance matrix couples is tied: a nonzero entry
+        # between two terminals, and a nonzero row sum to earth. Listing a
+        # terminal in the map does not connect it to anything.
         Y = try
             G = _pattern_keys_to_matrix(sh, "G_"); B = _pattern_keys_to_matrix(sh, "B_")
             n = length(tm)
@@ -134,6 +151,10 @@ function _unreferenced_conductor_groups(net)
         scale > 0 || continue
         for i in 1:length(tm)
             abs(sum(Y[i, :])) > 1e-9 * scale && earth!(b, tm[i])
+            for j in i+1:length(tm)
+                (abs(Y[i, j]) > 1e-9 * scale || abs(Y[j, i]) > 1e-9 * scale) &&
+                    tie!(node(b, tm[i]), node(b, tm[j]))
+            end
         end
     end
     for record in _connection_records(net)

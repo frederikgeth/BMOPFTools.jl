@@ -226,7 +226,11 @@ function connectivity_analysis(net::Dict{String,Any},
             end
         end
         result["tree_depth_max"]   = max_depth
-        result["longest_path_buses"] = max_path
+        # `longest_path_buses` lists AC buses only, as its consumers (DER and
+        # IBR placement among them) expect; the full walk, DC-island vertices
+        # included, is `longest_path_vertices`.
+        result["longest_path_buses"] = [v for v in max_path if !startswith(v, "dc_island:")]
+        result["longest_path_vertices"] = max_path
     end
 
     # Open switch isolated sections: an open switch's endpoint is only genuinely

@@ -140,9 +140,10 @@ uses the same branches, so `n_extra_edges + neutral_only_cycle_rank` equals
 `results[:connectivity]["dc_links"]` lists groups of AC buses whose converters
 share one DC island; the buses of a group are connected through it. In the
 degree and path metrics each DC island is a vertex of its own, joined to every
-AC bus it couples, so a hop over a DC island counts as two and
-`longest_path_buses` shows it as `dc_island:<label>`; the metrics do not depend
-on how the AC buses are named.
+AC bus it couples, so a hop over a DC island counts as two and the metrics do not depend on how
+the AC buses are named. `longest_path_buses` lists AC buses only;
+`longest_path_vertices` is the same walk with each DC island shown as
+`dc_island:<label>`.
 `dc_link_islands` gives the same groups with the `dc_island` label (its smallest
 `dc_bus` id), so two islands that link the same AC buses stay distinct. Cycles
 closed through a DC island are counted in
@@ -183,13 +184,15 @@ transformer ratios. Three cases need care when reading it:
   `mixed_phase_to_neutral_buses`, and the power units that create the high leg are
   listed in `high_leg_units`; `high_leg_banks` gives, per power unit, the
   lighting unit, the buses, the high-leg conductor and a `status`. A bank is
-  identified from the nominal phasors of the two primary windings (source angles
-  in the primary's zone, else the standard order of `a/b/c` or `1/2/3` labels):
+  identified from the nominal phasors of the two primary windings, taken from
+  the angles a voltage source declares in the primary's own galvanic zone:
   the third conductor must come out at √3 times the leg level. Primaries on the
   same phase, a line-to-line beside a line-to-neutral primary, or one reversed
-  winding do not close the delta and are ordinary level conflicts. When the
-  phasors cannot be resolved the status is `unverified`: the unit is kept out
-  of level propagation, and not called a high leg. The high leg sits at √3 times the leg voltage to
+  winding do not close the delta and are ordinary level conflicts. Phase
+  labels are never evidence of an angle: behind another transformer (two legs
+  of an upstream center tap are 180° apart, whatever they are called) the
+  status is `unverified`, the unit is kept out of level propagation, and it is
+  not called a high leg. The high leg sits at √3 times the leg voltage to
   neutral. A power unit's own ratio is still checked, against twice the leg level.
 
 ### Transformer phase evidence

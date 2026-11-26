@@ -180,9 +180,11 @@ end
 #
 # Returns one record per identified power unit, resolved once per network:
 # `(id, bus_from, bus_to, lighting, high, status)`. `status` is "verified", or
-# "unverified" when the primary phasors cannot be resolved (no source in the
-# primary's zone and non-standard phase labels); such a unit is kept out of
-# level propagation rather than raised as a false conflict, and is reported.
+# "unverified" when the primary phasors are not established: no voltage source
+# in the primary's own galvanic zone declares the angle of each conductor the
+# windings use. Phase labels are never taken as evidence of an angle. An
+# unverified unit is kept out of level propagation rather than raised as a
+# false conflict, is reported with that status, and is not called a high leg.
 function _high_leg_banks(net::Dict{String,Any})
     out = NamedTuple{(:id, :bus_from, :bus_to, :lighting, :high, :status),
                      Tuple{String,String,String,String,Vector{String},String}}[]
@@ -206,8 +208,6 @@ function _high_leg_banks(net::Dict{String,Any})
     roles = _index_roles(net)
     is_return(x) = roles === nothing ? _is_convention_neutral(x) :
         (x in roles.neutral || x in roles.earth)
-    standard = Dict("a" => 0.0, "b" => -2π/3, "c" => 2π/3, "A" => 0.0, "B" => -2π/3, "C" => 2π/3,
-                    "1" => 0.0, "2" => -2π/3, "3" => 2π/3)
     zone_of = nothing; zone_angles = Dict{Int,Dict{String,Float64}}()
     function phasor(bus, t)
         is_return(t) && return 0.0 + 0.0im
@@ -227,9 +227,13 @@ function _high_leg_banks(net::Dict{String,Any})
                 end
             end
         end
+        # Only a source in the primary's own galvanic zone establishes the
+        # phasor of a conductor. A label such as "a" or "b" says nothing about
+        # the angle behind another transformer (two legs of an upstream center
+        # tap are 180° apart whatever they are called), so labels are never
+        # used to verify a bank.
         angles = get(zone_angles, get(zone_of, bus, 0), nothing)
-        angle = angles !== nothing && haskey(angles, t) ? angles[t] : get(standard, t, nothing)
-        angle === nothing ? nothing : cis(angle)
+        angles !== nothing && haskey(angles, t) ? cis(angles[t]) : nothing
     end
     function direction(bus, tm)
         a = phasor(bus, tm[1]); b = phasor(bus, tm[2])
