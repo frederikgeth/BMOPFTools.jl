@@ -92,12 +92,12 @@ println("INFOs    : ", length(infos(report)))
 ```
 
 Findings are meant to be matched on their **code**, never on message text. This
-feeder imports with zero errors and two warnings: a handful of degree-1 buses
-with nothing attached (`W.CONN.DANGLING` — switch and stub endpoints), and
-`W.OPS.IMPORT_DEPENDENT` — the feeder has **no local generation at all**. That
-second warning is the analyzer telling you the import is a *passive load
-feeder*: there is nothing for an OPF to optimize yet, which is exactly what the
-DER-placement step below is for. The missing operating bounds show up as INFO
+feeder imports with zero errors and a warning for a handful of degree-1 buses
+with nothing attached (`W.CONN.DANGLING` — switch and stub endpoints). The
+feeder has **no local generation at all**: `results[:operational]["passive_feeder"]`
+is true. A passive load feeder imports by construction, so that is recorded as a
+fact rather than raised as a warning, but it does mean there is nothing for an
+OPF to optimize yet, which is exactly what the DER-placement step below is for. The missing operating bounds show up as INFO
 findings such as `I.PRE.NO_VOLT_BOUNDS`, which the augmentation step fills.
 
 ```julia
@@ -251,7 +251,7 @@ println("New      : ", join(sort(collect(setdiff(after, before))), ", "))
 Augmentation cleared `I.PRE.NO_VOLT_BOUNDS` — every bus now has voltage bounds,
 so the OPF is well-posed — and the new INFO codes are consequences of the fills
 (e.g. `I.PROV.OVERLAPPING_VOLTAGE_BOUNDS` notes that the phase-to-ground and
-phase-to-neutral envelopes now coexist). `W.OPS.IMPORT_DEPENDENT` also cleared:
+phase-to-neutral envelopes now coexist). `passive_feeder` is now false:
 the DER-placement step gave the feeder local active capacity, and that pass
 counts both dispatchable `generator` units and the `ibr` fleet we placed (a PV
 IBR on each load bus, sized well above the local load), so the feeder is no

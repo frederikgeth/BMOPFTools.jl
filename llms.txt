@@ -19,6 +19,10 @@ claims, evidence status, misconceptions, and stable PSK identities.
 - API reference: docs/src/api.md
 - Finding codes: docs/src/findings.md
 - Spatial diagnostics, cleanup review and exports: docs/src/spatial_diagnostics.md
+- Profiling tutorials: docs/src/tutorial_profile_messy_case.md, docs/src/tutorial_system_types.md, docs/src/tutorial_opendss_port.md, docs/src/tutorial_spatial_cleanup.md
+- Grounding and neutral findings: docs/src/grounding_findings.md
+- Profiler thresholds and accepting findings: docs/src/howto_thresholds.md, docs/src/howto_accept_findings.md
+- Analysis result keys: docs/src/analysis_results.md
 - Scientific contracts: docs/src/scientific_contracts.md
 - JSON execution interface and recipes: docs/src/execution_interface.md
 - AI-assistant guidance: docs/src/ai_assistants.md

@@ -105,7 +105,7 @@ These describe how the code is actually written. New code should match them.
   Tier 3.)
 - **Every transformation is auditable.** Anything that mutates a network records
   what it did: `fix_case` and `augment_case` return a `TransformationManifest`,
-  and `migrate` appends `W.MIGRATE.UPGRADED` notes to `_meta`. A new
+  and `migrate` appends `W.MIGRATE.*` notes (one code per transformation) to `_meta`. A new
   transformation must leave the same kind of trail; never mutate silently.
 - **Terminology discipline.** Prefer the canonical component term. The recent
   `inverter` → `ibr` (inverter-based resource) rename is the worked example: the

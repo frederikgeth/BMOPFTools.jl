@@ -1,9 +1,8 @@
 {
  "name": "eu_tn_four_wire",
  "meta": {
-  "source": "Original synthetic teaching fixture; not calibrated to a utility population",
   "license": "CC-BY-4.0",
-  "description": "10 kV / 400 V Dyn substation, neutral earthed at the transformer only, four-wire LV feeder"
+  "description": "Original synthetic teaching fixture, not calibrated to a utility population. 10 kV / 400 V Dyn substation, neutral earthed at the transformer only, four-wire LV feeder"
  },
  "terminal_conventions": {
   "phase": [
@@ -82,16 +81,28 @@
    "X_series_1_3": 0.0001,
    "R_series_1_4": 4.9999999999999996e-05,
    "X_series_1_4": 0.0001,
+   "R_series_2_1": 4.9999999999999996e-05,
+   "X_series_2_1": 0.0001,
    "R_series_2_2": 0.0003,
    "X_series_2_2": 0.00030000000000000003,
    "R_series_2_3": 4.9999999999999996e-05,
    "X_series_2_3": 0.0001,
    "R_series_2_4": 4.9999999999999996e-05,
    "X_series_2_4": 0.0001,
+   "R_series_3_1": 4.9999999999999996e-05,
+   "X_series_3_1": 0.0001,
+   "R_series_3_2": 4.9999999999999996e-05,
+   "X_series_3_2": 0.0001,
    "R_series_3_3": 0.0003,
    "X_series_3_3": 0.00030000000000000003,
    "R_series_3_4": 4.9999999999999996e-05,
    "X_series_3_4": 0.0001,
+   "R_series_4_1": 4.9999999999999996e-05,
+   "X_series_4_1": 0.0001,
+   "R_series_4_2": 4.9999999999999996e-05,
+   "X_series_4_2": 0.0001,
+   "R_series_4_3": 4.9999999999999996e-05,
+   "X_series_4_3": 0.0001,
    "R_series_4_4": 0.0003,
    "X_series_4_4": 0.00030000000000000003,
    "i_max": [

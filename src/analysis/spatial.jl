@@ -76,6 +76,13 @@ function _spatial_line_context(id, line, chord, metric_status)
                          ("declared_physical_length_mismatch", declared_physical_check))
         check["status"] == "failed" && push!(tags, tag)
     end
+    # Far above the chord with no route of matching length to account for it:
+    # sag and street routing lengthen a line, but not several times over.
+    excess_threshold = chord === nothing ? nothing : max(5 * chord, chord + 100.0)
+    route_explains = geometry.length !== nothing && physical_route_check["status"] == "passed"
+    far_longer = comparison !== nothing && excess_threshold !== nothing &&
+        comparison > excess_threshold && !route_explains
+    far_longer && push!(tags, "far_longer_than_chord")
     regularized === true && push!(tags, "regularized_electrical_length")
     geometry.status == "indeterminate" && push!(tags, "invalid_route_geometry")
     route !== nothing && haskey(route, "length_m") && stored_route === nothing &&
@@ -91,6 +98,7 @@ function _spatial_line_context(id, line, chord, metric_status)
         "chord_m" => chord, "stored_route_length_m" => stored_route,
         "recomputed_route_length_m" => geometry.length,
         "route_geometry_status" => geometry.status, "route_geometry_reason" => geometry.reason,
+        "chord_excess_threshold_m" => excess_threshold,
         "chord_check" => chord_check, "route_length_check" => route_check,
         "physical_route_check" => physical_route_check, "declared_physical_check" => declared_physical_check,
         "contexts" => tags,
@@ -624,10 +632,7 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
                 Dict{String,Any}("from_xy_m" => collect(metric_coords[from]),
                                  "to_xy_m" => collect(metric_coords[to]))
             reference_length = context["comparison_length_m"]
-            route_explains = context["recomputed_route_length_m"] !== nothing &&
-                context["physical_route_check"]["status"] == "passed"
-            if declared_frame && !placeholder_length && reference_length !== nothing &&
-               !route_explains && reference_length > max(5 * chord, chord + 100.0)
+            if declared_frame && !placeholder_length && "far_longer_than_chord" in context["contexts"]
                 push!(findings, Finding(WARNING, "W.GEO.LINE_LONGER_THAN_CHORD",
                     :connectivity, :line, string(id),
                     "Line '$id' is far longer than the distance between its buses " *
@@ -638,7 +643,7 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
                         "comparison_length_m" => reference_length,
                         "comparison_basis" => context["comparison_basis"],
                         "length_to_chord" => chord > 0 ? reference_length / chord : nothing,
-                        "threshold_m" => max(5 * chord, chord + 100.0),
+                        "threshold_m" => context["chord_excess_threshold_m"],
                         "declared_crs" => declared_crs,
                         "length_scales_impedance" => context["length_scales_impedance"]))))
             end

@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "5a53f5001d269b8246924b979bc040911fdb77f45cee990daec89e0170b52d5e",
+  "corpus_sha256": "e3bc9a953b470b723855eaea201718e064177c19c7d35f43a8ce672c548860c8",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -78,7 +78,7 @@
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "7b6fa2eebeb4d541fdf9f49999f3dddfeda8f6cafa6f7236514a5157f7fe2429"
+      "sha256": "89b20c6451bf33bef371be85cab30f4465a479699540ebf8831546597226223c"
     },
     {
       "path": "docs/src/api.md",
@@ -106,7 +106,7 @@
     },
     {
       "path": "docs/src/conventions.md",
-      "sha256": "144398b4659ee49c823437fee0fade820b5a788b5d70f3d183deaeb055bc054a"
+      "sha256": "9384917441121771919b90dd8dab329ab912f66f0b864f8edbeebac274727af5"
     },
     {
       "path": "docs/src/conversion.md",
@@ -118,7 +118,7 @@
     },
     {
       "path": "docs/src/dev/versioning.md",
-      "sha256": "13103d896ef079303db2aba5dada9e910dfd1ef9c6973bc5ae33bfa1d2a9238f"
+      "sha256": "28edc430d18e7daea419fbcbde923a635baba3194ef5242bd23c5201d297f45a"
     },
     {
       "path": "docs/src/device_indexing.md",
@@ -134,7 +134,7 @@
     },
     {
       "path": "docs/src/first_case.md",
-      "sha256": "a7747103b1737de0cb91e892a2768b9a3247b5746157269e5cd97dcc3702f57e"
+      "sha256": "7978ece8b55711b3d1198fdcc4551451319116d41d3368334eecda4e6778162b"
     },
     {
       "path": "docs/src/formulation_substitutions.md",
@@ -178,7 +178,7 @@
     },
     {
       "path": "docs/src/spatial_diagnostics.md",
-      "sha256": "92e42b3e59499d0a0bba8a0c7f06f2e72415ad76a35624fcd2922f4025a1855d"
+      "sha256": "8830a4faf4e9787f9f7d718c0db2791b6a0d7bebf7c9440bbbcbcb7dbf2423d8"
     },
     {
       "path": "docs/src/spec/control-profile.md",
@@ -222,7 +222,7 @@
     },
     {
       "path": "docs/src/tutorial_triage.md",
-      "sha256": "9f7b3c262c9cece36f4564b0d278721ef3e302ef3d3fe27b7015df6f70f6ff94"
+      "sha256": "604f9f322b8bbd83615414167d8299dcd0d642fd3edc37fc5413e62cd29308f2"
     },
     {
       "path": "docs/src/tutorial_trust_but_verify.md",
@@ -494,7 +494,7 @@
     },
     {
       "path": "src/analysis/spatial.jl",
-      "sha256": "4c1860723aea9fe32798c938736de574d3b23056a2f79ab9e6962e5fcc57603a"
+      "sha256": "4cddb7906008ec5c19581971d3a39561351a10002fb83388305b38b230fa5405"
     },
     {
       "path": "src/analysis/spatial_proximity.jl",
@@ -502,7 +502,7 @@
     },
     {
       "path": "src/analysis/spatial_review.jl",
-      "sha256": "124224e62a6beffa4f170654b72bcdb6b4f1fc6a50756333cbf9a6de42c220d0"
+      "sha256": "f04a41a35fbf191976c0e218dc6aab7250dd76cc9d22b008b131125f2d9de668"
     },
     {
       "path": "src/analysis/spatial_review_decisions.jl",

@@ -21,9 +21,11 @@ start of that page; its dataset examples are not executed by the docs build.
 | I want to… | Start here | Then |
 |---|---|---|
 | **Explore a network visually** in the browser | [Visualizing a case with Tellegen](visualization.md) | [Analysis & reports](analysis.md), [Buses & terminals primer](terminals_primer.md) |
-| **Convert OpenDSS** into a BMOPF case | [Conversion guide](conversion.md) | [Analysis & reports](analysis.md), [Utility-data end-to-end tutorial](tutorial_end_to_end.md) |
+| **Convert OpenDSS** into a BMOPF case | [Conversion guide](conversion.md) | [Porting an OpenDSS feeder](tutorial_opendss_port.md), [Utility-data end-to-end tutorial](tutorial_end_to_end.md) |
 | **Derive model inputs from nameplate data** | [From nameplate data to a defensible model](tutorial_nameplate.md) | [Case augmentation](augmentation.md), [Data model conventions](conventions.md) |
+| **Learn to read a profiler report** on a small case | [Profile your first messy case](tutorial_profile_messy_case.md) | [Accept and track findings](howto_accept_findings.md), [Analysis & reports](analysis.md) |
 | **Triage a messy import** (warnings, provenance, repairs) | [Findings triage](tutorial_triage.md) | [Finding-code reference](findings.md), [Analysis & reports](analysis.md) |
+| **Check line lengths against coordinates** | [Spatial cleanup](tutorial_spatial_cleanup.md) | [Spatial diagnostics](spatial_diagnostics.md), [Visualizing a case with Tellegen](visualization.md) |
 | **Turn transformer test data into model fields** | [From test report to transformer model](tutorial_transformer_tests.md) | [Transformer models](transformer_models.md), [Transformer spec](spec/transformer.md) |
 | **Understand four-wire physics** (why terminals, neutrals, matrices) | [Buses & terminals primer](terminals_primer.md) | [Impedance models & OPF decisions](tutorial_impedance_models.md), [Line geometry](tutorial_line_geometry.md) |
 | **Get grounding, neutrals, and sequence coordinates right** | [Ground, neutral, and earth return](tutorial_grounding.md) | [Grounding spec](spec/grounding.md), [SWER case study](tutorial_swer.md) |
@@ -40,6 +42,40 @@ start of that page; its dataset examples are not executed by the docs build.
 | **Update coefficients and re-solve safely** | [Repeated solves](repeated_solves.md) | [Case families](tutorial_case_development.md), [Model extensions](differentiable_extensions.md) |
 | **Build a differentiable or bilevel research extension** | [Model extensions and sensitivities](differentiable_extensions.md) | [Custom formulations](tutorial_custom_formulations.md), [OPF engine](dev/opf_engine.md) |
 | **Extend or debug the solver** | [OPF engine: scope & status](dev/opf_engine.md) | [OPF model](opf.md), [Contributing](dev/contributing.md) |
+
+## Route by system type
+
+The profiler describes each of these without treating a legitimate practice as
+a defect; [System types and regional practice](tutorial_system_types.md) runs
+one small case of each.
+
+| My network is… | Read | Fixture to copy from |
+|---|---|---|
+| **European** three-phase four-wire LV, neutral earthed at the substation | [System types: Europe](@ref systems-europe) | `eu_tn_four_wire.json` |
+| **North American** multi-grounded-neutral primary with split-phase services | [System types: North America](@ref systems-north-america), [Porting an OpenDSS feeder](tutorial_opendss_port.md) | `na_mgn_split_phase.json` |
+| **North American** open-wye/open-delta or high-leg delta service | [System types: high-leg delta](@ref systems-high-leg) | `na_high_leg_open_delta.json` |
+| **Japanese** three-wire primary, 100/200 V and V-connection | [System types: Japan](@ref systems-japan) | `jp_three_wire_v_connection.json` |
+| **Australian** MEN low voltage | [System types: Australia](@ref systems-australia) | `au_men_four_wire.json` |
+| **Australian** SWER | [SWER case study](tutorial_swer.md) | `test/data/SWER` |
+| An **unearthed delta or IT** island | [An island with no reference](grounding_findings.md#An-island-with-no-reference) | `it_delta_island_*.json` |
+
+The fixtures are in `test/data/profiler_systems`.
+
+## I have a finding and do not know what it means
+
+| The code starts with… | It is about | Read |
+|---|---|---|
+| `E.PROV.FLOATING_NEUTRAL`, `E.INT.NO_VOLTAGE_REFERENCE`, `I.PROV.KRON_*`, `W.PROV.IMPLICIT_GROUNDING` | grounding and neutrals | [Grounding and neutral findings explained](grounding_findings.md) |
+| `W.GEO.` | line lengths against coordinates | [Spatial cleanup](tutorial_spatial_cleanup.md) |
+| `I.PROV.DSS_DEFAULT_`, `W.PROV.REGULATOR_PATTERN` | values an OpenDSS import may have invented | [Porting an OpenDSS feeder](tutorial_opendss_port.md), [How network diagnostics work](methodology.md) |
+| `EMIT.`, `READ.`, `PARSE.` | what an import could not carry | [Ingest warnings](conversion.md#ingest-warnings) |
+| `I.PROV.` on linecodes and impedances | where the impedance data came from | [Impedance provenance hints](analysis.md#Impedance-provenance-hints) |
+| `E.PRE.`, `W.PRE.`, `I.PRE.` | whether an OPF can be feasible | [Infeasibility diagnosis](tutorial_infeasibility.md) |
+| `E.SOL.`, `W.SOL.` | a solved result | [Trust but verify](tutorial_trust_but_verify.md) |
+| anything else | | `explain_finding("CODE")`, then the [finding-code reference](findings.md) |
+
+To change when a finding fires, see [Tune profiler thresholds](howto_thresholds.md);
+to live with one, see [Accept and track findings](howto_accept_findings.md).
 
 ## The judgment spine
 

@@ -1,9 +1,8 @@
 {
  "name": "it_delta_island_unreferenced",
  "meta": {
-  "source": "Original synthetic teaching fixture; not calibrated to a utility population",
   "license": "CC-BY-4.0",
-  "description": "Unearthed 400 V delta island with no modeled path to earth: no voltage reference"
+  "description": "Original synthetic teaching fixture, not calibrated to a utility population. Unearthed 400 V delta island with no modeled path to earth: no voltage reference"
  },
  "terminal_conventions": {
   "phase": [
@@ -24,10 +23,16 @@
    "X_series_1_2": 0.0001,
    "R_series_1_3": 4.9999999999999996e-05,
    "X_series_1_3": 0.0001,
+   "R_series_2_1": 4.9999999999999996e-05,
+   "X_series_2_1": 0.0001,
    "R_series_2_2": 0.0003,
    "X_series_2_2": 0.00030000000000000003,
    "R_series_2_3": 4.9999999999999996e-05,
    "X_series_2_3": 0.0001,
+   "R_series_3_1": 4.9999999999999996e-05,
+   "X_series_3_1": 0.0001,
+   "R_series_3_2": 4.9999999999999996e-05,
+   "X_series_3_2": 0.0001,
    "R_series_3_3": 0.0003,
    "X_series_3_3": 0.00030000000000000003,
    "i_max": [

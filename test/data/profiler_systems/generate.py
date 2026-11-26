@@ -12,15 +12,15 @@ import math
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-META = {"source": "Original synthetic teaching fixture; not calibrated to a utility population",
-        "license": "CC-BY-4.0"}
+META = {"license": "CC-BY-4.0"}
+ORIGIN = "Original synthetic teaching fixture, not calibrated to a utility population. "
 A = [0.0, -2 * math.pi / 3, 2 * math.pi / 3]
 
 
 def linecode(n, r=3.0e-4, x=1.0e-4, i_max=200.0, b=None):
     lc = {}
     for i in range(1, n + 1):
-        for j in range(i, n + 1):
+        for j in range(1, n + 1):  # full row-first storage, as the spec defines
             lc[f"R_series_{i}_{j}"] = r if i == j else r / 6
             lc[f"X_series_{i}_{j}"] = x * 3 if i == j else x
     if b is not None:  # shunt susceptance to earth, S/m, split over both ends
@@ -75,7 +75,7 @@ def bus(names, grounded=None):
 
 
 def case(name, description, **parts):
-    return {"name": name, "meta": dict(META, description=description),
+    return {"name": name, "meta": dict(META, description=ORIGIN + description),
             "terminal_conventions": {"phase": ["a", "b", "c"], "neutral": ["n"], "earth": []},
             **parts}
 

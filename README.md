@@ -215,8 +215,9 @@ retain the returned manifests, and analyze the resulting case again.
 | I want to… | Start here |
 |---|---|
 | Follow the full preparation and solve workflow | [End-to-end tutorial](docs/src/tutorial_end_to_end.md) |
-| Understand a case and its diagnostics | [Analysis & reports](docs/src/analysis.md), [Finding-code reference](docs/src/findings.md) |
-| Investigate geographic and electrical inconsistencies | [Spatial diagnostics](docs/src/spatial_diagnostics.md), [Tellegen visualization](docs/src/visualization.md) |
+| Understand a case and its diagnostics | [Profile your first messy case](docs/src/tutorial_profile_messy_case.md), [Analysis & reports](docs/src/analysis.md), [Finding-code reference](docs/src/findings.md) |
+| See what the profiler reports for your kind of network (North American, European, Japanese, Australian) | [System types and regional practice](docs/src/tutorial_system_types.md), [Grounding and neutral findings explained](docs/src/grounding_findings.md) |
+| Investigate geographic and electrical inconsistencies | [Spatial cleanup tutorial](docs/src/tutorial_spatial_cleanup.md), [Spatial diagnostics](docs/src/spatial_diagnostics.md), [Tellegen visualization](docs/src/visualization.md) |
 | Understand the input model and conversion choices | [Data model conventions](docs/src/conventions.md), [Conversion guide](docs/src/conversion.md), [BMOPF specification](https://distribution-system-opt.github.io/math-and-data-model-specifications/) |
 | Prepare scenarios and study assumptions | [Case augmentation](docs/src/augmentation.md), [Developing OPF case families](docs/src/tutorial_case_development.md) |
 | Run and verify OPF | [OPF guide](docs/src/opf.md), [Result dictionary](docs/src/results.md), [Trust but verify](docs/src/tutorial_trust_but_verify.md) |

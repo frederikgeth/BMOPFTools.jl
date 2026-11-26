@@ -151,7 +151,7 @@ in the convention statement instead) — the adapted ENWL library [8] is the
 canonical universal case, and its single 1 m source jumper per feeder is
 the canonical scattered true-positive.
 
-Limit of the method: defaults that PMD resolves at parse time (e.g.
+Limit of the method: defaults that the importer resolves at parse time (e.g.
 `basefreq` mismatches) leave no trace in the converted data and cannot be
 fingerprinted downstream.
 
@@ -312,7 +312,7 @@ per-network screens describe features worth inspecting after augmentation:
     Interoperability Using the Common Information Model in Smart Grids,"
     *Energies* 13 (6) (2020) 1435 (CIM as an asset-first, object-identity model
     for semantic interoperability and data exchange).
-28. B. Bahrani et al., "Grid-Forming IBR-Based Resource Research Landscape:
+28. B. Bahrani et al., "Grid-Forming Inverter-Based Resource Research Landscape:
     Understanding the Key Assets for Renewable-Rich Power Systems," *IEEE Power &
     Energy Magazine* 22 (2) (2024) 18–29 (IBR-based resources as a distinct
     asset class from synchronous generators — capability-limited, inertia-free,

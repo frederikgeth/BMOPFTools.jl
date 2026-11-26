@@ -70,7 +70,7 @@ The machinery lives in `src/io/migrate.jl`:
 - `_CURRENT_SPEC` is the tag this build targets (currently `:draft`).
 - [`parse_bmopf`](../api.md) calls [`BMOPFTools.migrate`](../api.md) automatically; you can
   also call `BMOPFTools.migrate` directly on an already-parsed dict.
-- Each upgrade appends a `W.MIGRATE.UPGRADED` note to `_meta` so the
+- Each upgrade appends a `W.MIGRATE.*` note (one code per transformation) to `_meta` so the
   transformation is auditable.
 
 ### What the spec does *not* track: derived reductions

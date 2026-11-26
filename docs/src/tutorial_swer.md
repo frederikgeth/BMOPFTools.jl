@@ -76,9 +76,12 @@ println("lv_1 nominal (V)   : ",
         round(report.results[:voltage_levels]["bus_voltage_map"]["lv_1"], digits=1))
 ```
 
-[`analyze`](@ref) recognizes the topology directly: the single-wire,
-transformer-isolated sections are flagged `I.PROV.SWER_ZONE`, and the
-center-tap-fed section as split-phase.
+[`analyze`](@ref) recognizes the topology directly: the transformer-isolated
+backbone, whose spans carry one conductor and no neutral, is flagged
+`I.PROV.SWER_ZONE`, and the center-tap-fed section as split-phase. The other
+customer bus, `lv_1`, is an ordinary two-wire 240 V service behind its own
+transformer: no branch there uses the earth as a return, so it is a
+`single_phase` zone, not SWER.
 
 ```@example swer
 for f in report.findings
