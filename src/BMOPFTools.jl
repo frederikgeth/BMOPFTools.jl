@@ -469,6 +469,28 @@ neutral by the case's declared label(s) rather than the hard-wired `"n"` guess.
 _neutral_labels(net::Dict{String,Any})::Set{String} = _terminal_roles(net).neutral
 
 """
+    _earth_labels(net) -> Set{String}
+
+The terminal-name labels the case declares as protective earth (empty when the
+case declares no `terminal_conventions`, or they cannot be resolved). A
+protective-earth conductor is neither a phase nor the neutral, so it has no
+entry in the per-phase bound arrays (`v_min`/`v_max`, `vpn_*`), forms no phase
+pair (`vpp_*`, `va_diff_*`) and is not part of a symmetrical-component
+transform. Every place that lists "the phase terminals of a bus" filters by
+this set, so the engine, the bound producers and the post-solve checks index
+those arrays the same way.
+"""
+function _earth_labels(net)::Set{String}
+    roles = try
+        _terminal_roles(net)
+    catch err
+        err isa InterruptException && rethrow()
+        nothing
+    end
+    roles === nothing ? Set{String}() : roles.earth
+end
+
+"""
     _return_label_predicate(net) -> (label, fallback_neutral) -> Bool
 
 Classify a terminal-map label as a return (neutral or earth) conductor with the

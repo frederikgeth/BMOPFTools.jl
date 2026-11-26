@@ -358,8 +358,14 @@ const _CONDUCTOR_MATRIX_PREFIXES =
 function _keep_conductors!(d::AbstractDict, keep::Vector{Int}, n::Int)
     for prefix in _CONDUCTOR_MATRIX_PREFIXES
         M = _pattern_keys_to_matrix(d, prefix)
-        (M === nothing || size(M) != (n, n)) && continue
-        _nk_write_matrix!(d, prefix, M[keep, keep])
+        M === nothing && continue
+        (size(M, 1) > n || size(M, 2) > n) && continue   # malformed; reported elsewhere
+        # A matrix smaller than the conductor count is legal: the entries it
+        # omits are zero. Pad it to the full count before slicing, so every
+        # entry that remains keeps its conductor.
+        full = zeros(eltype(M), n, n)
+        full[1:size(M, 1), 1:size(M, 2)] .= M
+        _nk_write_matrix!(d, prefix, full[keep, keep])
     end
     for field in ("i_max", "s_max")
         v = get(d, field, nothing)
@@ -456,6 +462,7 @@ end
 
 # Pass 5: remove only bounds satisfied by explicit fixed source voltages.
 function _fix_source_bus_bounds!(net′, entries)
+    earth = _earth_labels(net′)
     for (bid, bus) in get(net′, "bus", Dict())
         sources = [vs for vs in values(get(net′, "voltage_source", Dict()))
                    if get(vs, "bus", nothing) == bid]
@@ -480,7 +487,8 @@ function _fix_source_bus_bounds!(net′, entries)
         end
         conflict && continue
         nt = _neutral_terminal(bus)
-        phases = [string(t) for t in get(bus, "terminal_names", String[]) if t != nt]
+        phases = [string(t) for t in get(bus, "terminal_names", String[])
+                  if t != nt && !(string(t) in earth)]
         isempty(phases) && continue
         all(t -> haskey(fixed, t), phases) || continue
         values_by_family = Dict("v" => abs.([fixed[t] for t in phases]))

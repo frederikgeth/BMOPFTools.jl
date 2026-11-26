@@ -1360,6 +1360,7 @@
     @testset "new finding codes are registered and serialize" begin
         new_codes = ("E.INT.IDEAL_LOOP", "E.INT.DC_IDEAL_LOOP", "E.INT.DC_REFERENCE_CONFLICT",
                      "W.SOL.DC_OHM_RESIDUAL", "W.SOL.DC_LOSS_SHARE_MISMATCH",
+                     "W.SOL.DC_VSET_RESIDUAL",
                      "W.DOM.BUS_LIMIT_NOT_APPLICABLE", "W.CONV.PHASE_NAMED_AS_NEUTRAL")
         for code in new_codes
             entry = explain_finding(code)
@@ -1633,6 +1634,211 @@
         ctx = build_opf_model(band; per_unit=false)
         @test family_rows(ctx, :dc_bus_voltage_ln_lower) == 1
         @test family_rows(ctx, :dc_bus_voltage_ln_upper) == 1
+    end
+
+    # ── Seventh review ───────────────────────────────────────────────────────
+    @testset "fix_case keeps each line shunt on its conductor" begin
+        only_earthed = FixRecipe(apply_largest_component=false, apply_simplify_network=false,
+            apply_remove_zero_loads=false, apply_source_bus_bounds=false,
+            apply_low_impedance_to_switch=false)
+        grounded() = D("terminal_names" => ["n", "a", "b"],
+                       "perfectly_grounded_terminals" => ["n"])
+        # Conductor order [n, a, b]; the neutral conductor is ideal and joins
+        # two earthed terminals. The shunt matrix is 2×2 on a three-conductor
+        # line, which is legal: the omitted entries are zero. G_to_2_2 is a
+        # conductance on phase a.
+        function net(maps, zs, shunt)
+            D("bus" => D("src" => grounded(), "e" => grounded()),
+              "voltage_source" => D("s" => D("bus" => "src", "terminal_map" => ["a", "b"],
+                  "v_magnitude" => [230.0, 230.0], "v_angle" => [0.0, -2pi/3])),
+              "line" => D("l" => merge(D("bus_from" => "src", "bus_to" => "e",
+                  "terminal_map_from" => maps, "terminal_map_to" => maps), zs, shunt)),
+              "load" => D("l" => D("bus" => "e", "terminal_map" => ["a", "b", "n"],
+                  "configuration" => "WYE", "p_nom" => [400.0, 300.0], "q_nom" => zeros(2))))
+        end
+        z3 = merge(D("R_series_1_1" => 0.0, "R_series_2_2" => 0.2, "R_series_3_3" => 0.2),
+                   D("X_series_$(k)_$(k)" => 0.0 for k in 1:3))
+        z2 = merge(D("R_series_1_1" => 0.2, "R_series_2_2" => 0.2),
+                   D("X_series_$(k)_$(k)" => 0.0 for k in 1:2))
+        written = net(["n", "a", "b"], z3, D("G_to_2_2" => 1e-3))
+        @test only(BMOPFTools._ac_earthed_ideal_conductors(written)).conductor == 1
+        repaired, manifest = fix_case(written; recipe=only_earthed)
+        line = repaired["line"]["l"]
+        @test line["terminal_map_from"] == ["a", "b"]
+        @test line["G_to_1_1"] == 1e-3            # still on phase a
+        @test get(line, "G_to_2_2", 0.0) == 0.0   # phase b has none
+        @test line["R_series_1_1"] == 0.2 && line["R_series_2_2"] == 0.2
+        # Same network as the two-conductor line written by hand.
+        by_hand = solve_opf(net(["a", "b"], z2, D("G_to_1_1" => 1e-3)); per_unit=false)
+        fixed = solve_opf(repaired; per_unit=false)
+        @test solved(by_hand) && solved(fixed)
+        for t in ("a", "b")
+            @test fixed["bus"]["e"][t]["vm"] ≈ by_hand["bus"]["e"][t]["vm"] rtol=1e-9
+        end
+        @test fixed["voltage_source"]["s"]["a"]["ps"] ≈ by_hand["voltage_source"]["s"]["a"]["ps"] rtol=1e-7
+        @test fixed["voltage_source"]["s"]["b"]["ps"] ≈ by_hand["voltage_source"]["s"]["b"]["ps"] rtol=1e-7
+    end
+
+    @testset "ideal voltage rows: independence is current determinacy" begin
+        basis = BMOPFTools._IdealRowBasis{Symbol}()
+        add!(terms...) = BMOPFTools._ideal_row_add!(basis, collect(terms))
+        @test add!(:a => 1.0, :b => -1.0)             # a − b
+        @test add!(:b => 1.0, :c => -1.0)             # b − c
+        @test !add!(:a => 1.0, :c => -1.0)            # a − c: the ring closes
+        @test !add!(:a => 2.0, :b => -2.0)            # a scaled restatement
+        @test !add!(:a => 1.0, :a => -1.0)            # a self-loop has no unknown
+        @test !add!()                                 # nor has a row between references
+        @test add!(:c => 1.0, :x => -0.5)             # a ratio row, c − ½x
+        @test !add!(:a => 1.0, :x => -0.5)            # the same ratio by another path
+        @test add!(:a => 1.0, :y => -0.25)            # a different unknown is new
+
+        ideal(bf, bt; n=1.0) = D("bus_from" => bf, "bus_to" => bt,
+            "terminal_map_from" => ["p", "n"], "terminal_map_to" => ["p", "n"],
+            "v_nom_from" => 240.0 * n, "v_nom_to" => 240.0, "s_rating" => 50e3)
+        function feeder(units; switch=false)
+            net = D("bus" => D(b => bus2() for b in ("src", "a", "b")),
+                "voltage_source" => D("s" => src2("src")),
+                "line" => D("l" => line2("src", "a")),
+                "transformer" => D("single_phase" => D(units...)),
+                "load" => D("l" => load2("b")))
+            switch && (net["switch"] = D("sw" => D("bus_from" => "a", "bus_to" => "b",
+                "terminal_map_from" => ["p"], "terminal_map_to" => ["p"], "open_switch" => false)))
+            net
+        end
+        loops(net) = (found = Finding[]; integrity_check(net, found);
+                      [f for f in found if f.code == "E.INT.IDEAL_LOOP"])
+        builds(net) = try build_opf_model(deepcopy(net); per_unit=false); true
+                      catch err; err isa ArgumentError ? false : rethrow() end
+        # One ideal transformer: its current is the load current. Accepted.
+        single = feeder(["t1" => ideal("a", "b")])
+        @test isempty(loops(single)) && builds(single)
+        @test solved(solve_pf(single))
+        # Two in parallel: the load current divides between them arbitrarily.
+        pair = feeder(["t1" => ideal("a", "b"), "t2" => ideal("a", "b")])
+        hit = only(loops(pair))
+        @test hit.component_type == :transformer && hit.component_id == "t2"
+        @test hit.detail["remedy"] == "supply_transformer_leakage_impedance"
+        @test !builds(pair)
+        @test_throws ArgumentError solve_pf(pair)
+        # An ideal transformer bridged by a closed switch: the same defect.
+        bridged = feeder(["t1" => ideal("a", "b")]; switch=true)
+        @test only(loops(bridged)).component_id == "t1" && !builds(bridged)
+        # Leakage determines the split; parallel real transformers are fine.
+        real_pair = feeder(["t1" => xfmr2("a", "b", 240.0, 240.0),
+                            "t2" => xfmr2("a", "b", 240.0, 240.0)])
+        @test isempty(loops(real_pair))
+        shared = solve_pf(real_pair)
+        @test solved(shared)
+        # Unequal ratios in parallel are a contradiction, not a loop of equal
+        # statements; the builder accepts the rows and the solver reports it.
+        mismatch = feeder(["t1" => ideal("a", "b"), "t2" => ideal("a", "b"; n=1.05)])
+        @test isempty(loops(mismatch)) && builds(mismatch)
+    end
+
+    @testset "an ideal tie between two voltage sources is rejected" begin
+        # Both ends of the switch pole are held at a fixed voltage, so its
+        # voltage relation only repeats data. The rule is conservative: it
+        # holds even when exact power setpoints at one source would pin the
+        # pole current. The remedy is one voltage reference, not two.
+        function tied(second_source::Bool)
+            net = D("bus" => D("a" => bus2(), "b" => bus2()),
+                "voltage_source" => D("s" => src2("a"; v=230.0)),
+                "switch" => D("sw" => D("bus_from" => "a", "bus_to" => "b",
+                    "terminal_map_from" => ["p"], "terminal_map_to" => ["p"],
+                    "open_switch" => false)),
+                "load" => D("l" => load2("b"; p=1000.0, q=0.0)))
+            second_source && (net["voltage_source"]["s2"] = merge(src2("b"; v=230.0),
+                D("p_min" => [0.0], "p_max" => [0.0], "q_min" => [0.0], "q_max" => [0.0])))
+            net
+        end
+        found = Finding[]; integrity_check(tied(true), found)
+        loop = only(f for f in found if f.code == "E.INT.IDEAL_LOOP")
+        @test loop.detail["between_references"] == true
+        @test loop.detail["removable_by_fix_case"] == false
+        @test loop.detail["remedy"] == "keep_one_voltage_reference_or_supply_impedance"
+        @test_throws ArgumentError build_opf_model(tied(true); per_unit=false)
+        # With one reference the tie current is the load current, 1000/230 A.
+        r = solve_pf(tied(false); per_unit=false)
+        @test solved(r)
+        @test r["bus"]["b"]["p"]["vm"] ≈ 230.0 rtol=1e-8
+    end
+
+    @testset "protective earth is not a phase in any per-phase quantity" begin
+        names = ["a", "b", "c", "n", "pe"]
+        bus(extra=D()) = merge(D("terminal_names" => names,
+            "perfectly_grounded_terminals" => ["n", "pe"]), extra)
+        net(limits) = D(
+            "terminal_conventions" => D("phase" => ["a", "b", "c"], "neutral" => ["n"],
+                                        "earth" => ["pe"]),
+            "bus" => D("src" => bus(), "e" => bus(limits)),
+            "line" => D("l" => merge(D("bus_from" => "src", "bus_to" => "e",
+                "terminal_map_from" => ["a", "b", "c"], "terminal_map_to" => ["a", "b", "c"]),
+                D("R_series_$(k)_$(k)" => 0.05 for k in 1:3))),
+            "voltage_source" => D("s" => D("bus" => "src", "terminal_map" => ["a", "b", "c"],
+                "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2pi/3, 2pi/3])),
+            "load" => D("l" => D("bus" => "e", "terminal_map" => ["a", "b", "c", "n"],
+                "configuration" => "WYE", "p_nom" => [3000.0, 1000.0, 500.0],
+                "q_nom" => zeros(3))))
+        # Three phases, so three per-phase entries and three phase pairs.
+        limits = D("v_min" => fill(200.0, 3), "v_max" => fill(250.0, 3),
+                   "vpn_min" => fill(200.0, 3), "vpn_max" => fill(250.0, 3),
+                   "vpp_min" => fill(350.0, 3), "vpp_max" => fill(440.0, 3),
+                   "vpos_min" => 200.0)
+        ctx = build_opf_model(net(limits); per_unit=false, add_objective=false)
+        @test count(k -> k.family == :bus_vpn_lower, opf_object_keys(ctx; kind=:constraint)) == 3
+        @test count(k -> k.family == :bus_vpp_lower, opf_object_keys(ctx; kind=:constraint)) == 3
+        # The symmetrical-component transform is over a, b, c only.
+        for component in (:zero, :positive, :negative)
+            (re, im) = opf_sequence_voltage(ctx, "e"; component=component)
+            @test re isa JuMP.AbstractJuMPScalar && im isa JuMP.AbstractJuMPScalar
+        end
+        BMOPFTools.set_opf_objective!(ctx, [BMOPFTools.opf_vuf_term(ctx, ["e"])])
+        BMOPFTools.enforce_kcl!(ctx)
+        model = BMOPFTools.opf_model(ctx)
+        JuMP.set_silent(model); JuMP.optimize!(model)
+        @test JuMP.termination_status(model) in (JuMP.LOCALLY_SOLVED, JuMP.OPTIMAL)
+        @test 0.0 < opf_report_vuf(ctx, "e") < 2.0
+        @test opf_report_sequence_voltage(ctx, "e"; component=:positive) ≈ 229.0 atol=2.0
+        # The verifier indexes the same arrays the same way.
+        result = solve_opf(net(limits); per_unit=false)
+        @test solved(result)
+        found = Finding[]; checked = solution_check(net(limits), result, found)
+        @test !any(f -> startswith(f.code, "E.SOL"), found)
+        found = Finding[]; solution_check(net(merge(limits, D("vpn_min" => [229.9, 200.0, 200.0]))),
+                                          result, found)
+        @test any(f -> startswith(f.code, "E.SOL"), found)             # phase a sags below 229.9 V
+        # A four-entry array is a length error, as on any three-phase bus.
+        @test_throws Exception build_opf_model(net(D("vpn_min" => fill(200.0, 4))); per_unit=false)
+    end
+
+    @testset "solution_check: exact DC references are verified" begin
+        exact = dc_station([("p1", fixed_p(100.0)), ("m1", master(800.0))];
+                           bus_fields=D("vdc_ln_min" => 800.0, "vdc_ln_max" => 800.0))
+        by_master = dc_station([("p1", fixed_p(100.0)), ("m1", master(800.0))])
+        band = dc_station([("p1", fixed_p(100.0)), ("m1", master(800.0))];
+                          bus_fields=D("vdc_ln_min" => 795.0, "vdc_ln_max" => 805.0))
+        function tampered(net, v)
+            result = solve_opf(net; per_unit=false)
+            @test solved(result)
+            found = Finding[]; clean = solution_check(net, result, found)
+            @test clean["verification_status"] == "checks_passed"
+            result["dc_bus"]["dcA"]["p"]["v_dc"] = v
+            found = Finding[]; checked = solution_check(net, result, found)
+            checked, found
+        end
+        # 790 V is inside the pole's own [600, 1000] V band but is not 800 V.
+        checked, found = tampered(exact, 790.0)
+        @test checked["verification_status"] == "failed" && checked["feasible"] == false
+        hit = first(f for f in found if f.code == "E.SOL.DC_VOLT_VIOLATION")
+        @test hit.detail["family"] == "vdc_ln" && hit.detail["exact"] == true
+        @test hit.detail["v_dc_difference"] ≈ 790.0
+        checked, found = tampered(by_master, 790.0)
+        @test checked["verification_status"] == "failed" && checked["feasible"] == false
+        miss = only(f for f in found if f.code == "W.SOL.DC_VSET_RESIDUAL")
+        @test miss.component_id == "m1" && miss.detail["residual"] ≈ -10.0
+        # A genuine band: inside is fine for the bound, outside is a violation.
+        checked, found = tampered(band, 810.0)
+        @test any(f -> f.code == "E.SOL.DC_VOLT_VIOLATION" && f.detail["exact"] == false, found)
     end
 
     @testset "solution_check: null result blocks and the report" begin

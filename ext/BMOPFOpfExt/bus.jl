@@ -46,6 +46,7 @@ neutral terminals (their voltage is determined by physics, not operational limit
 function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars;
                               constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
+    earth = BMOPFTools._earth_labels(net)
     register(family, index, cref) = _register_semantic_constraint!(
         constraint_context, family, index, cref)
     fixed = _source_fixed_terminals(net)
@@ -63,7 +64,7 @@ function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars;
         # per-phase arrays indexed by this order, so the phase index k is kept
         # aligned to the array even when a phase is grounded/source-fixed (those
         # are skipped at apply-time but do not shift k).
-        phase_terms = [t for t in terminals if t != neutral]
+        phase_terms = [t for t in terminals if t != neutral && !(t in earth)]
         _check_per_phase_bound(v_min, length(phase_terms), bid, "v_min")
         _check_per_phase_bound(v_max, length(phase_terms), bid, "v_max")
 
@@ -100,6 +101,7 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
     vr    = vars[:vr]; vi = vars[:vi]
     fixed = _source_fixed_terminals(net)
     sequence_roles = BMOPFTools._terminal_roles(net)
+    earth = BMOPFTools._earth_labels(net)
     register(family, index, cref) = _register_semantic_constraint!(
         constraint_context, family, index, cref)
 
@@ -114,7 +116,7 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
         # and the post-solve validator. A grounded or source-fixed phase is
         # skipped at apply-time but does NOT shift the index — collapsing onto the
         # filtered list would misalign every entry after the first such phase.
-        phase_all  = [t for t in terminals if t != neutral]
+        phase_all  = [t for t in terminals if t != neutral && !(t in earth)]
         n_phase    = length(phase_all)
         applicable(t) = !((bid, t) in grounded) && !((bid, t) in fixed)
 

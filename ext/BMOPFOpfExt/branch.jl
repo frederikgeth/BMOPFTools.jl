@@ -35,55 +35,82 @@
 # limits are symmetric and either alone would suffice; both are kept for
 # generality when shunts are non-zero.
 
-# Union-find over native, structurally ideal voltage rows. Store it on the
-# model so line and switch builders share it, but custom switch builders do not
-# contribute fictitious native edges. Coefficients are resolved before recording.
+# A basis of the native, structurally ideal voltage rows (closed switch poles,
+# zero-impedance line conductors, ideal fixed-ratio transformer coils). Store
+# it on the model so the line, switch and transformer builders share it, but
+# custom builders do not contribute fictitious native rows. Coefficients are
+# resolved before recording.
 #
-# The question it answers is whether the CURRENTS of the ideal conductors are
-# determined. An ideal conductor carries a current that no impedance sets, so
-# only Kirchhoff's current law can fix it, and it does so exactly when the
-# ideal conductors form a forest in which every terminal with a fixed voltage
-# is one and the same node. Such a terminal is a perfect ground or a source
-# terminal; each has a free injection in the model, so KCL places no condition
-# there. A cycle — parallel ideal conductors, an ideal ring, or one ideal
-# conductor between two fixed terminals (the neutral of a four-wire switch
-# between two grounded-neutral buses closes through the earth) — leaves a
-# current undetermined and a voltage row dependent, and is rejected.
+# It answers two questions at once (`BMOPFTools._IdealRowBasis`). An ideal
+# element carries a current that no impedance sets, so only Kirchhoff's current
+# law can fix it; that current enters KCL with the coefficients of the
+# element's voltage row. The rows are therefore independent exactly when every
+# ideal current is determined. Variables with a fixed voltage (perfect grounds,
+# source terminals) are left out of a row: their voltage is data and their
+# injection is free. A dependent row — parallel ideal conductors, an ideal
+# ring, an ideal conductor between two fixed terminals (the neutral of a
+# four-wire switch between two grounded-neutral buses closes through the
+# earth), two ideal transformers in parallel, an ideal transformer bridged by a
+# closed switch — is rejected.
 #
 # Validation reports the same condition as E.INT.IDEAL_LOOP
 # (`BMOPFTools._ac_ideal_loops`), and `fix_case` removes the redundant
 # conductor where both ends are earthed.
-function _record_ideal_voltage_edge!(model, owner, p, q)
+_ideal_voltage_basis(model) = get!(model.ext, :BMOPFIdealVoltageRows) do
     # Variable identity separates time/scenario contexts sharing one model.
-    parents = get!(model.ext, :BMOPFIdealVoltageForest) do
-        Dict{Any,Any}()
-    end
-    function root(x)
-        get!(parents, x, x)
-        while parents[x] != x
-            parents[x] = parents[parents[x]]
-            x = parents[x]
-        end
-        return x
-    end
-    between_references = JuMP.is_fixed(p) && JuMP.is_fixed(q)
-    rp = root(JuMP.is_fixed(p) ? :reference : p)
-    rq = root(JuMP.is_fixed(q) ? :reference : q)
-    rp == rq && throw(ArgumentError(
+    BMOPFTools._IdealRowBasis{Any}()
+end
+
+_is_fixed_voltage(v) = v isa JuMP.VariableRef && JuMP.is_fixed(v)
+
+# Record one ideal voltage row, `Σ coefficient·variable = 0`, given as
+# (variable, coefficient) pairs. Returns false when the row is dependent.
+function _ideal_voltage_row_independent!(model, terms)
+    free = [(v, a) for (v, a) in terms if !_is_fixed_voltage(v)]
+    return BMOPFTools._ideal_row_add!(_ideal_voltage_basis(model), free)
+end
+
+function _record_ideal_voltage_edge!(model, owner, p, q)
+    _ideal_voltage_row_independent!(model, ((p, 1.0), (q, -1.0))) && return nothing
+    between_references = _is_fixed_voltage(p) && _is_fixed_voltage(q)
+    throw(ArgumentError(
         "$owner closes a loop of ideal conductors at $p — $q" *
         (between_references ?
             ": both terminals are held at a fixed voltage (perfect grounds or " *
-            "source terminals), so the conductor closes its loop through the " *
-            "earth or the source and nothing determines the current it carries. " *
-            "Between two earthed terminals the conductor is redundant: leave it " *
-            "out of the element's terminal maps, or let `fix_case` remove it." :
-            " (parallel ideal conductors, a ring, a self-loop, or a path between " *
-            "two terminals held at a fixed voltage). Its voltage row is dependent " *
-            "and the current around the loop is undetermined; remove the " *
-            "redundant ideal conductor or supply its physical impedance.") *
+            "source terminals), so the conductor's voltage relation only repeats " *
+            "data, and the conductor closes its loop through the earth or the " *
+            "source, where the injection is free. Between two earthed terminals " *
+            "the conductor is redundant: leave it out of the element's terminal " *
+            "maps, or let `fix_case` remove it. Between two source terminals, " *
+            "keep one of the two sources as the voltage reference." :
+            " (parallel ideal conductors, a ring, a self-loop, a path between " *
+            "two terminals held at a fixed voltage, or a path in parallel with " *
+            "an ideal transformer). Its voltage row is dependent and the current " *
+            "around the loop is undetermined; remove the redundant ideal " *
+            "conductor or supply its physical impedance.") *
         " (E.INT.IDEAL_LOOP)"))
-    parents[rp] = rq
-    return nothing
+end
+
+# The ideal (zero-leakage, fixed-ratio) coil row
+# (V_p − V_q) − ratio·(V_p' − V_q') = 0; `q`/`q2` are `nothing` for a coil
+# referred to the implicit zero reference. A ratio that is a decision variable
+# (a free tap) is not a structural row and is not recorded.
+function _record_ideal_transformer_row!(model, owner, p, q, p2, q2, ratio)
+    ratio isa Real || return nothing
+    terms = Any[(p, 1.0), (p2, -Float64(ratio))]
+    # A reference that is not a variable is the implicit zero reference.
+    q isa JuMP.VariableRef && push!(terms, (q, -1.0))
+    q2 isa JuMP.VariableRef && push!(terms, (q2, Float64(ratio)))
+    _ideal_voltage_row_independent!(model, terms) && return nothing
+    throw(ArgumentError(
+        "$owner is ideal (zero leakage impedance) and its voltage relation is " *
+        "already implied by other ideal elements or fixed voltages: another " *
+        "ideal transformer in parallel, a closed switch or zero-impedance line " *
+        "across it, or fixed voltages on both sides. The row is dependent and " *
+        "the current through the transformer is undetermined (parallel ideal " *
+        "units can share a load in any proportion). Supply the leakage " *
+        "impedance of the transformer, or remove the parallel ideal path. " *
+        "(E.INT.IDEAL_LOOP)"))
 end
 
 """
@@ -117,6 +144,7 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
     buses = get(net, "bus", Dict())
     vr = vars[:vr]; vi = vars[:vi]
     cr_fr = vars[:cr_fr]; ci_fr = vars[:ci_fr]
+    earth = BMOPFTools._earth_labels(net)
     cr_to = vars[:cr_to]; ci_to = vars[:ci_to]
     register(family, index, cref) = _register_semantic_constraint!(
         constraint_context, family, index, cref)
@@ -225,11 +253,11 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
                 # row's shunt term is unbounded and we must leave c_fr[k] free).
                 bus_fr = get(buses, b_fr, Dict{String,Any}())
                 vmax_fr = Union{Float64,Nothing}[
-                    _terminal_vmax_to_ground(bus_fr, tmfr[j], grounded, b_fr)
+                    _terminal_vmax_to_ground(bus_fr, tmfr[j], grounded, b_fr; earth=earth)
                     for j in 1:n_map]
                 bus_to = get(buses, b_to, Dict{String,Any}())
                 vmax_to = Union{Float64,Nothing}[
-                    _terminal_vmax_to_ground(bus_to, tmto[j], grounded, b_to)
+                    _terminal_vmax_to_ground(bus_to, tmto[j], grounded, b_to; earth=earth)
                     for j in 1:n_map]
                 for k in 1:min(n_map, length(i_max))
                     ilim = Float64(i_max[k])

@@ -438,53 +438,171 @@ function _ac_reference_terminals(net::Dict{String,Any})
 end
 
 """
+    _IdealRowBasis{K}
+
+An incremental basis of ideal voltage rows, for deciding whether a new row is
+linearly independent of the rows recorded so far. A row is a homogeneous linear
+relation between terminal voltages that no impedance relaxes:
+
+- an ideal conductor states `V_p − V_q = 0`;
+- one coil pair of an ideal (zero-leakage) transformer with a fixed ratio
+  states `(V_p − V_q) − N·(V_p' − V_q') = 0`.
+
+Each row has one current that only Kirchhoff's current law can determine, and
+that current is injected with exactly the row's coefficients (`+I` at `p`,
+`−I` at `q`; for a transformer the ampere-turn balance supplies the factor
+`N`). The injection pattern is therefore the transpose of the voltage rows, so
+the two questions have one answer: the rows are independent **if and only if**
+KCL determines every ideal current. Terminals held at a fixed voltage (perfect
+grounds, source terminals) are left out of a row before it is tested, because
+their voltage is not an unknown and their injection is free.
+
+For ideal conductors alone this is the forest test of graph theory (the rows
+are the incidence rows of a graph); the basis extends it to rows with a ratio.
+Rows are reduced by sparse Gaussian elimination; `pivots[k]` is a recorded row
+scaled to coefficient one at `k`, stored without that entry.
+"""
+struct _IdealRowBasis{K}
+    pivots::Dict{K,Dict{K,Float64}}
+end
+_IdealRowBasis{K}() where {K} = _IdealRowBasis{K}(Dict{K,Dict{K,Float64}}())
+
+"""
+    _ideal_row_add!(basis, terms) -> Bool
+
+Record the row `Σ coefficient·V[key] = 0` given as `(key, coefficient)` pairs.
+Returns `true` when the row is independent of those already recorded (it is
+then kept), `false` when it is dependent, which includes a row with no unknown
+left. Coefficients below `1e-9` of the row's largest are treated as zero.
+"""
+function _ideal_row_add!(basis::_IdealRowBasis{K}, terms) where {K}
+    row = Dict{K,Float64}()
+    for (key, a) in terms
+        row[key] = get(row, key, 0.0) + Float64(a)
+    end
+    scale = maximum(abs, values(row); init=0.0)
+    tol = 1e-9 * scale
+    filter!(kv -> abs(kv.second) > tol, row)
+    # A recorded row never contains the pivot of an earlier one, so reduction
+    # only ever moves forward through the rows and terminates.
+    while true
+        hit = nothing
+        for key in keys(row)
+            haskey(basis.pivots, key) && (hit = key; break)
+        end
+        hit === nothing && break
+        a = pop!(row, hit)
+        for (key, b) in basis.pivots[hit]
+            v = get(row, key, 0.0) - a * b
+            abs(v) > tol ? (row[key] = v) : delete!(row, key)
+        end
+    end
+    isempty(row) && return false
+    pivot = first(row).first
+    for (key, v) in row
+        abs(v) > abs(row[pivot]) && (pivot = key)
+    end
+    a = pop!(row, pivot)
+    for key in keys(row)
+        row[key] /= a
+    end
+    basis.pivots[pivot] = row
+    return true
+end
+
+"""
+    _ac_ideal_transformer_rows(net) -> Vector{NamedTuple}
+
+The voltage rows of the ideal `single_phase` transformers (wye–wye and
+single-phase units: zero series impedance on both sides and a fixed tap), each
+as `(id, winding, from, to, terms)` where `terms` are `((bus, terminal),
+coefficient)` pairs of `(V_p − V_q) − N·(V_p' − V_q') = 0` and `from`/`to` are
+the two `p` terminals. Wye–delta units and regulators are judged by the OPF
+builder, which holds their winding wiring.
+"""
+function _ac_ideal_transformer_rows(net::Dict{String,Any})
+    Node = Tuple{String,String}
+    rows = NamedTuple{(:id, :winding, :from, :to, :terms),
+                      Tuple{String,Int,Node,Node,Vector{Pair{Node,Float64}}}}[]
+    xfmrs = get(get(net, "transformer", Dict()), "single_phase", Dict())
+    xfmrs isa AbstractDict || return rows
+    roles = _terminal_roles_or_nothing(net)
+    roles === nothing && return rows
+    for id in sort!(collect(String.(keys(xfmrs))))
+        x = xfmrs[id]; x isa Dict{String,Any} || continue
+        zero_field(f) = (v = get(x, f, 0.0); v isa Real && iszero(v))
+        all(zero_field, ("r_series_from", "x_series_from", "r_series_to", "x_series_to")) || continue
+        _xfmr_ratio_coeff_bounds("single_phase", x) === nothing || continue   # free tap
+        bf = _bus_id(get(x, "bus_from", "")); bt = _bus_id(get(x, "bus_to", ""))
+        tmf = _terminal_list(get(x, "terminal_map_from", String[]))
+        tmt = _terminal_list(get(x, "terminal_map_to", String[]))
+        N = try
+            _xfmr_turns_ratio(x) * _xfmr_tap_mult(x)
+        catch
+            continue
+        end
+        pf = _xfmr_winding_pairs(tmf, roles.neutral); pt = _xfmr_winding_pairs(tmt, roles.neutral)
+        for k in 1:min(length(pf), length(pt))
+            (p, q) = pf[k]; (p2, q2) = pt[k]
+            terms = Pair{Node,Float64}[(bf, tmf[p]) => 1.0, (bt, tmt[p2]) => -N]
+            q === nothing || push!(terms, (bf, tmf[q]) => -1.0)
+            q2 === nothing || push!(terms, (bt, tmt[q2]) => N)
+            push!(rows, (id=id, winding=k, from=(bf, tmf[p]), to=(bt, tmt[p2]), terms=terms))
+        end
+    end
+    rows
+end
+
+"""
     _ac_ideal_loops(net) -> Vector{NamedTuple}
 
-Ideal AC conductors whose current the network does not determine, each as
-`(element, id, conductor, from, to)`. An ideal conductor is a closed switch
-conductor, or a line conductor whose whole impedance row is exactly zero (no
-self and no mutual impedance).
+Ideal AC elements whose voltage row is dependent, and whose current the
+network therefore does not determine, each as
+`(element, id, conductor, from, to)`. The ideal elements are closed switch
+conductors, line conductors whose whole impedance row is exactly zero (no self
+and no mutual impedance), and the coil pairs of ideal `single_phase`
+transformers (`_ac_ideal_transformer_rows`; `conductor` is then the winding).
 
-An ideal conductor carries a current that no impedance sets; only Kirchhoff's
-current law can fix it. KCL fixes the currents of a set of ideal conductors
-exactly when they form a forest over the nodes, where every terminal that can
-supply any current (`_ac_reference_terminals`: perfect grounds and source
-terminals) is one and the same node. So besides parallel ideal conductors and
-ideal rings, an ideal conductor **between two reference terminals** is a loop:
-the neutral of a four-wire switch between two buses with grounded neutrals
-closes through the earth, and how the return current divides between that
-conductor and the earth is determined by nothing in the model. This is the
-same rule as on the DC side (`_dc_ideal_loops`).
+The test is the row-independence test of [`_IdealRowBasis`](@ref), with every
+terminal held at a fixed voltage (`_ac_reference_terminals`: perfect grounds
+and source terminals) left out of the rows. For conductors alone it reads as a
+graph rule: the ideal conductors must form a forest in which all those
+terminals are one node. So besides parallel ideal conductors and ideal rings,
+an ideal conductor **between two reference terminals** is reported: the
+neutral of a four-wire switch between two buses with grounded neutrals closes
+through the earth, and how the return current divides between that conductor
+and the earth is determined by nothing in the model. Two ideal transformers in
+parallel, or one in parallel with a closed switch, are reported for the same
+reason: their voltage rows say the same thing twice and the current divides
+arbitrarily between them.
+
+The rule is sufficient, not necessary. Between two terminals whose voltages
+are both fixed the row is always dependent (both sides are data), and it is
+reported even in the special case where exact power setpoints at one of the
+sources happen to pin the current.
 
 Such a conductor between two **earthed** terminals is redundant rather than
 wrong, and `fix_case` removes it (`_ac_earthed_ideal_conductors`).
 
-Lines are visited before switches, each in sorted order. This is the static
-counterpart of the check the OPF line and switch builders make while stamping.
-The two agree on the case as written; a coefficient provider that changes a
-line impedance at build time is seen only by the builder.
+Lines are visited first, then switches, then transformers, each in sorted
+order. This is the static counterpart of the check the OPF builders make while
+stamping. The two agree on the case as written; a coefficient provider that
+changes a line impedance at build time, and the ideal wye–delta units and
+regulators, are seen only by the builder.
 """
 function _ac_ideal_loops(net::Dict{String,Any})
     Node = Tuple{String,String}
     loops = NamedTuple{(:element, :id, :conductor, :from, :to),
                        Tuple{String,String,Int,Node,Node}}[]
     references = _ac_reference_terminals(net)
-    parent = Dict{Node,Node}()
-    function root(x)
-        get!(parent, x, x)
-        while parent[x] != x
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        end
-        return x
-    end
-    function edge!(element, id, k, a, b)
-        ra = root(a in references ? _DC_EARTH : a)
-        rb = root(b in references ? _DC_EARTH : b)
-        ra == rb ? push!(loops, (element=element, id=id, conductor=k, from=a, to=b)) :
-                   (parent[ra] = rb)
+    basis = _IdealRowBasis{Node}()
+    function row!(element, id, k, a, b, terms)
+        free = [t for t in terms if !(t.first in references)]
+        _ideal_row_add!(basis, free) ||
+            push!(loops, (element=element, id=id, conductor=k, from=a, to=b))
         return nothing
     end
+    edge!(element, id, k, a, b) = row!(element, id, k, a, b, [a => 1.0, b => -1.0])
     linecodes = get(net, "linecode", Dict())
     lines = get(net, "line", Dict())
     for id in sort!(collect(String.(keys(lines))))
@@ -513,6 +631,9 @@ function _ac_ideal_loops(net::Dict{String,Any})
         for k in 1:min(length(tmf), length(tmt))
             edge!("switch", id, k, (bf, tmf[k]), (bt, tmt[k]))
         end
+    end
+    for r in _ac_ideal_transformer_rows(net)
+        row!("transformer", r.id, r.winding, r.from, r.to, r.terms)
     end
     loops
 end

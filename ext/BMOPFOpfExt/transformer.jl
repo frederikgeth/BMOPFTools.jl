@@ -368,6 +368,9 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
             register(:transformer_voltage_imag, (tid, "fr", k),
                 @constraint(model, vi_fr - N * vi_to == -N * (Rp * Iti + Xp * Itr)))
         else
+            _record_ideal_transformer_row!(model, "Transformer '$tid' winding $k",
+                vr[(b_fr, t_p_fr)], t_q_fr === nothing ? nothing : vr[(b_fr, t_q_fr)],
+                vr[(b_to, t_p_to)], t_q_to === nothing ? nothing : vr[(b_to, t_q_to)], N)
             register(:transformer_voltage_real, (tid, "fr", k),
                 @constraint(model, vr_fr == N * vr_to))
             register(:transformer_voltage_imag, (tid, "fr", k),
@@ -1021,6 +1024,10 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
                 n_eff * vi_wye_pn
                 - (Reff * Iwi + Xeff * Iwr)))
         else
+            _record_ideal_transformer_row!(model, "Transformer '$tid' winding $k",
+                vr[(b_del, t_del_k)], vr[(b_del, t_del_other)],
+                vr[(b_wye, t_wye_ph)], n_pos === nothing ? nothing : vr[(b_wye, tm_wye[n_pos])],
+                n_eff)
             register(:transformer_voltage_real, (tid, side_wye, k), @constraint(model,
                 vr[(b_del, t_del_k)] - vr[(b_del, t_del_other)] == n_eff * vr_wye_pn))
             register(:transformer_voltage_imag, (tid, side_wye, k), @constraint(model,
@@ -1223,6 +1230,8 @@ function _add_regulating_winding!(model, refs, n_eff,
             r_fr * refs.Isi - n_eff * r_to * refs.Iti
             + x_fr * refs.Isr - n_eff * x_to * refs.Itr))
     else
+        _record_ideal_transformer_row!(model, "A regulating winding",
+            refs.vr_fr_p, refs.vr_fr_q, refs.vr_to_p, refs.vr_to_q, n_eff)
         register(:transformer_voltage_real,
             @constraint(model, dvr_fr == n_eff * dvr_to))
         register(:transformer_voltage_imag,

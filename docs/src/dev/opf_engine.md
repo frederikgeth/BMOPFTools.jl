@@ -384,14 +384,35 @@ impedance sets. These fail in different ways and are judged separately:
   to switches, grounding shunts to perfect grounds) are followed by that
   cleanup.
 
+  The AC check is implemented as a rank test rather than a graph search, so
+  that it also covers ideal transformers. Each ideal element contributes one
+  voltage row: $V_p - V_q = 0$ for a conductor, and
+  $(V_p - V_q) - N\,(V_{p'} - V_{q'}) = 0$ for a coil pair of a zero-leakage
+  transformer with a fixed ratio. The element's one unknown current enters
+  KCL with exactly those coefficients (the ampere-turn balance supplies the
+  $N$), so the current columns are the transpose of the voltage rows: the rows
+  are independent if and only if KCL determines every ideal current.
+  Fixed-voltage terminals are dropped from a row before the test. The builders
+  feed rows to an incremental sparse elimination (`_IdealRowBasis`) and reject
+  the first dependent one. For conductors alone this reduces to the forest
+  rule. Two ideal transformers in parallel, or one bridged by a closed switch,
+  are dependent, and so is a single ideal grounded-wye/delta unit whose wye
+  terminals and neutral are all fixed by a source (its three delta rows then
+  sum to a statement about data; the free current is the zero-sequence
+  current circulating in the delta). A ratio that is a decision variable (a free tap) is not a
+  structural row and is not tested. The test is sufficient, not necessary: a
+  row between two fixed voltages is rejected even if power setpoints elsewhere
+  would happen to pin its current.
+
 Both conditions, and contradictory DC voltage references, are properties of
 the case and are reported by static validation before any model exists:
 `E.INT.IDEAL_LOOP`, `E.INT.DC_IDEAL_LOOP` and `E.INT.DC_REFERENCE_CONFLICT`
 (see the [finding-code reference](../findings.md)). The builders raise on
 exactly what those detectors return (`src/validation/ideal_topology.jl`), so a
-case that passes them is not rejected for these reasons at build time. The one
-exception is an AC impedance replaced through a coefficient provider, which
-only the builder can see.
+case that passes them is not rejected for these reasons at build time. Two
+things only the builder can see: an AC impedance replaced through a
+coefficient provider, and the winding wiring of ideal wye–delta transformers
+and regulators (static validation covers ideal `single_phase` units).
 
 Two known cases are **not** reduced, for different reasons.
 

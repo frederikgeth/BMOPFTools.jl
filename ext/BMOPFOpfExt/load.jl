@@ -35,7 +35,8 @@ function _load_voltage_lower(ctx, vars, bus, positive, negative)
     ctx === nothing && return nothing
     b = ctx.net["bus"][bus]
     neutral = BMOPFTools._neutral_terminal(b)
-    phases = [t for t in b["terminal_names"] if t != neutral]
+    earth = BMOPFTools._earth_labels(ctx.net)
+    phases = [t for t in b["terminal_names"] if t != neutral && !(t in earth)]
     function bound(family, index)
         key = BMOPFTools.OpfModelKey(:constraint, family, index)
         haskey(ctx.objects, key) || return nothing

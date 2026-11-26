@@ -548,6 +548,9 @@ function solution_check(net::Dict{String,Any},
 
     buses   = get(net, "bus", Dict())
     bus_res = get(result, "bus", Dict())
+    # Per-phase arrays and phase pairs are indexed over the phase conductors:
+    # neither the neutral nor a declared protective earth (`_earth_labels`).
+    earth   = _earth_labels(net)
 
     source_buses = Set(get(vs, "bus", "") for (_, vs) in get(net, "voltage_source", Dict())
                        if vs isa Dict)
@@ -568,7 +571,7 @@ function solution_check(net::Dict{String,Any},
         nt = _neutral_terminal(bus)
 
         term_names = Vector{String}(get(bus, "terminal_names", String[]))
-        phase_ts_ordered = [t for t in term_names if t != nt]
+        phase_ts_ordered = [t for t in term_names if t != nt && !(t in earth)]
 
         for (k, t) in enumerate(phase_ts_ordered)
             haskey(t_res, t) || continue
@@ -616,7 +619,7 @@ function solution_check(net::Dict{String,Any},
 
         # Phase terminals in terminal_names order (neutral excluded)
         term_names = Vector{String}(get(bus, "terminal_names", String[]))
-        phase_ts_ordered = [t for t in term_names if t != nt]
+        phase_ts_ordered = [t for t in term_names if t != nt && !(t in earth)]
 
         for (k, t) in enumerate(phase_ts_ordered)
             haskey(t_res, t) || continue
@@ -662,7 +665,7 @@ function solution_check(net::Dict{String,Any},
         # Enumerate pairs over the FULL phase list (i<j); the pair index must
         # match the producer/OPF, so a terminal absent from the result is skipped
         # without shifting the index (see _add_bus_limit_constraints!).
-        phase_ts_ordered = [t for t in term_names if t != nt]
+        phase_ts_ordered = [t for t in term_names if t != nt && !(t in earth)]
         length(phase_ts_ordered) < 2 && continue
 
         pair_idx = 0
@@ -807,7 +810,7 @@ function solution_check(net::Dict{String,Any},
         t_res isa Dict || continue
         nt = _neutral_terminal(bus)
         term_names = Vector{String}(get(bus, "terminal_names", String[]))
-        phase_ts_ordered = [t for t in term_names if t != nt]
+        phase_ts_ordered = [t for t in term_names if t != nt && !(t in earth)]
         length(phase_ts_ordered) < 2 && continue
         va_nom = get(bus, "va_nom", nothing)
         nom(idx) = (va_nom isa AbstractVector && idx <= length(va_nom)) ?
@@ -1854,7 +1857,8 @@ function solution_check(net::Dict{String,Any},
     # or informational quality diagnostics. Their historical severity is retained.
     residual_failures = ("W.SOL.LOAD_RESIDUAL", "W.SOL.LOAD_MODEL_RESIDUAL",
         "W.SOL.POWER_BALANCE", "W.SOL.NEG_LOSS", "W.SOL.IBR_PF_DEVIATION",
-        "W.SOL.DC_OHM_RESIDUAL", "W.SOL.DC_LOSS_SHARE_MISMATCH")
+        "W.SOL.DC_OHM_RESIDUAL", "W.SOL.DC_LOSS_SHARE_MISMATCH",
+        "W.SOL.DC_VSET_RESIDUAL")
     failed = any(f -> f.section == :solution &&
         (f.severity == ERROR || f.code in residual_failures), findings)
     indeterminate = !isempty(missing) || any(f -> f.code in
@@ -1866,8 +1870,9 @@ function solution_check(net::Dict{String,Any},
     out
 end
 
-# Post-solve DC checks: signed line-to-ground voltages within their bounds, and
-# DC branch conductor currents within their thermal limit.
+# Post-solve DC checks: signed line-to-ground voltages within their bounds,
+# voltage-pair bounds and voltage-master setpoints met, and DC branch conductor
+# currents within their thermal limit.
 function _check_dc_solution(net, result, findings)
     dc_bus_res = _record(result, "dc_bus")
     for (b, dcbus) in get(net, "dc_bus", Dict())
@@ -1891,6 +1896,71 @@ function _check_dc_solution(net, result, findings)
                     "v_dc_max = $(vmax[k]) V.", Dict{String,Any}("v_dc"=>v)))
             end
         end
+    end
+
+    # Voltage-PAIR bounds and voltage-master setpoints. A terminal can sit
+    # inside its own [v_dc_min, v_dc_max] band while the difference between two
+    # terminals is wrong, so these are checked on the difference itself, with
+    # the orientation the OPF uses (`_dc_exact_pair_references`). An exact
+    # bound (min == max) is the band of zero width.
+    solved(key) = _evidence(get(_record(_record(dc_bus_res, key[1]), key[2]), "v_dc", nothing))
+    pair_tol(x) = max(1e-6, 1e-6 * abs(x))
+    function check_pair!(b, family, from, to, orient, lo, hi)
+        d = orient * (solved(from) - solved(to))
+        isnan(d) && return nothing
+        lo = lo isa Real ? Float64(lo) : -Inf
+        hi = hi isa Real ? Float64(hi) : Inf
+        (d < lo - pair_tol(lo) || d > hi + pair_tol(hi)) || return nothing
+        push!(findings, Finding(ERROR, "E.SOL.DC_VOLT_VIOLATION", :solution, :dc_bus, b,
+            "dc_bus '$b': $(family) between '$(from[2])' and '$(to[2])' is " *
+            "$(round(d; digits=3)) V, outside [$(lo), $(hi)] V" *
+            (lo == hi ? " (an exact bound: the difference is stated outright)." : "."),
+            Dict{String,Any}("family"=>family, "terminal_from"=>from[2],
+                "terminal_to"=>to[2], "v_dc_difference"=>d, "min"=>lo, "max"=>hi,
+                "exact"=>lo == hi)))
+        return nothing
+    end
+    for (b, dcbus) in get(net, "dc_bus", Dict())
+        dcbus isa Dict || continue
+        b = String(b)
+        pole = get(dcbus, "pole", nothing)
+        role(t) = pole isa AbstractDict ? get(pole, t, "") : ""
+        terms = _terminal_list(get(dcbus, "terminal_names", String[]))
+        ret = _dc_return_terminal(dcbus)
+        lo = get(dcbus, "vdc_ln_min", nothing); hi = get(dcbus, "vdc_ln_max", nothing)
+        if (lo !== nothing || hi !== nothing) && ret !== nothing
+            for t in terms
+                t == ret && continue
+                orient = role(t) == "POSITIVE" ? 1.0 : role(t) == "NEGATIVE" ? -1.0 : 0.0
+                orient == 0.0 || check_pair!(b, "vdc_ln", (b, t), (b, ret), orient, lo, hi)
+            end
+        end
+        lo = get(dcbus, "vdc_ll_min", nothing); hi = get(dcbus, "vdc_ll_max", nothing)
+        if lo !== nothing || hi !== nothing
+            pos = [t for t in terms if role(t) == "POSITIVE"]
+            neg = [t for t in terms if role(t) == "NEGATIVE"]
+            (isempty(pos) || isempty(neg)) ||
+                check_pair!(b, "vdc_ll", (b, pos[1]), (b, neg[1]), 1.0, lo, hi)
+        end
+    end
+    for (id, inv) in get(net, "ibr", Dict())
+        (inv isa Dict && haskey(inv, "dc_bus") &&
+         get(inv, "dc_control", "P") == "V") || continue
+        b = _bus_id(inv["dc_bus"]); tm = _terminal_list(get(inv, "dc_terminal_map", String[]))
+        isempty(tm) && continue
+        v_set = let x = get(inv, "dc_v_set", nothing)
+            x isa Real ? Float64(x) : _dc_v_nom_port(net, b, tm)
+        end
+        v_set === nothing && continue
+        v_port = solved((b, tm[1])) - (length(tm) >= 2 ? solved((b, tm[2])) : 0.0)
+        isnan(v_port) && continue
+        abs(v_port - v_set) > pair_tol(v_set) || continue
+        push!(findings, Finding(WARNING, "W.SOL.DC_VSET_RESIDUAL", :solution, :ibr, String(id),
+            "ibr '$id' is a DC voltage master (dc_control = \"V\") with setpoint " *
+            "$(v_set) V, but the reported port voltage on dc_bus '$b' is " *
+            "$(round(v_port; digits=3)) V.",
+            Dict{String,Any}("dc_bus"=>b, "v_set"=>v_set, "v_port"=>v_port,
+                "residual"=>v_port - v_set)))
     end
 
     dc_br_res = _record(result, "dc_branch")
@@ -2073,6 +2143,7 @@ function voltage_zone_summary(net::Dict{String,Any}, result::Dict{String,Any})
     end
 
     roles = _index_roles(net)
+    earth = _earth_labels(net)
     function return_only_bus(b)
         names = get(get(buses, b, Dict()), "terminal_names", nothing)
         names isa AbstractVector && !isempty(names) &&
@@ -2148,7 +2219,7 @@ function voltage_zone_summary(net::Dict{String,Any}, result::Dict{String,Any})
             # v_min/v_max are per-phase arrays; map each phase terminal to its
             # index so the bound for terminal t can be looked up.
             phase_ix = Dict{String,Int}()
-            for (k, t) in enumerate(t for t in Vector{String}(get(bus, "terminal_names", String[])) if t != nt)
+            for (k, t) in enumerate(t for t in Vector{String}(get(bus, "terminal_names", String[])) if t != nt && !(t in earth))
                 phase_ix[t] = k
             end
             _vb(v, t) = v === nothing ? nothing :

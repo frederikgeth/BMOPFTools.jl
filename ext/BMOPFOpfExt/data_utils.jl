@@ -443,7 +443,8 @@ Returns `nothing` if none of these apply (e.g. the ENWL benchmark, which carries
 only `vpn_max` on a floating neutral): the caller then leaves the variable free.
 """
 function _terminal_vmax_to_ground(bus::Dict{String,Any}, terminal::String,
-                                  grounded::Set{Tuple{String,String}}, bid::String)
+                                  grounded::Set{Tuple{String,String}}, bid::String;
+                                  earth=Set{String}())
     (bid, terminal) in grounded && return 0.0
 
     neutral = BMOPFTools._neutral_terminal(bus)
@@ -457,7 +458,8 @@ function _terminal_vmax_to_ground(bus::Dict{String,Any}, terminal::String,
 
     # Phase terminal: find its index among the phase terminals (terminal_names
     # order, neutral excluded). v_min/v_max and vpn_max are per-phase arrays.
-    phase_terms = [t for t in get(bus, "terminal_names", String[]) if t != neutral]
+    phase_terms = [t for t in get(bus, "terminal_names", String[])
+                   if t != neutral && !(t in earth)]
     k = findfirst(==(terminal), phase_terms)
     k === nothing && return nothing
 

@@ -169,7 +169,10 @@ if _HAS_JUMP_IPOPT
             x = _interop_tx(net, kind)
             x["tap"] = tap
             delete!(net, "load")
-            delete!(x, "r_series"); delete!(x, "x_series")
+            # No load, so no current: the leakage does not enter the start
+            # values. It stays, because an ideal grounded-wye/delta unit
+            # directly on a source leaves its zero-sequence current
+            # undetermined and is rejected (E.INT.IDEAL_LOOP).
             wye_from = kind == "wye_delta"
             wd, dd = wye_from ? ("f", "t") : ("t", "f")
             x[wye_from ? "terminal_map_to" : "terminal_map_from"] = perm

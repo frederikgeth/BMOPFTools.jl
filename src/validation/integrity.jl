@@ -801,19 +801,31 @@ function _check_ideal_topology!(net::Dict{String,Any}, findings::Vector{Finding}
     for loop in _ac_ideal_loops(net)
         between = loop.from in ac_references && loop.to in ac_references
         fixable = (loop.element, loop.id, loop.conductor) in removable
-        push!(findings, Finding(ERROR, "E.INT.IDEAL_LOOP", :integrity,
-            Symbol(loop.element), loop.id,
+        is_xfmr = loop.element == "transformer"
+        text = if is_xfmr
+            "transformer '$(loop.id)' winding $(loop.conductor) is ideal (zero leakage " *
+            "impedance) and its voltage relation between $(loop.from[1]).$(loop.from[2]) " *
+            "and $(loop.to[1]).$(loop.to[2]) is already implied by other ideal elements " *
+            "or fixed voltages: another ideal transformer in parallel, a closed switch " *
+            "or zero-impedance line across it, or fixed voltages on both sides. The " *
+            "current through it is undetermined; supply its leakage impedance or " *
+            "remove the parallel ideal path."
+        else
             "$(loop.element) '$(loop.id)' conductor $(loop.conductor) closes a loop of " *
             "ideal (zero-impedance) conductors between $(loop.from[1]).$(loop.from[2]) " *
             "and $(loop.to[1]).$(loop.to[2])" *
             (between ?
-                ": both terminals can supply any current (perfect grounds or source " *
-                "terminals), so the loop closes through the earth or the source and " *
-                "nothing determines the current in this conductor." :
+                ": both terminals are held at a fixed voltage (perfect grounds or source " *
+                "terminals), so the conductor's voltage relation only repeats data, and " *
+                "the loop closes through the earth or the source, where the injection " *
+                "is free." :
                 ": its voltage relation is implied by the others and a current can " *
                 "circulate around the loop undetermined.") *
             (fixable ? " Both ends are earthed, so the conductor is redundant; " *
-                       "`fix_case` removes it." : ""),
+                       "`fix_case` removes it." : "")
+        end
+        push!(findings, Finding(ERROR, "E.INT.IDEAL_LOOP", :integrity,
+            Symbol(loop.element), loop.id, text,
             Dict{String,Any}("element"=>loop.element, "conductor"=>loop.conductor,
                 "bus_from"=>loop.from[1], "terminal_from"=>loop.from[2],
                 "bus_to"=>loop.to[1], "terminal_to"=>loop.to[2],
@@ -822,6 +834,8 @@ function _check_ideal_topology!(net::Dict{String,Any}, findings::Vector{Finding}
                     (loop.from in ac_references || loop.to in ac_references),
                 "removable_by_fix_case"=>fixable,
                 "remedy"=>fixable ? "remove_earthed_ideal_conductor" :
+                    is_xfmr ? "supply_transformer_leakage_impedance" :
+                    (between && !fixable) ? "keep_one_voltage_reference_or_supply_impedance" :
                     "remove_redundant_ideal_conductor_or_supply_impedance")))
     end
     haskey(net, "dc_bus") || return nothing

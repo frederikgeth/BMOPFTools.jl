@@ -816,7 +816,13 @@ explicitly, outside the OPF).
     arbitrary current. The neutral pole is redundant there, so map only the
     phase poles (a three-pole switch), or let [`fix_case`](@ref) remove it; the
     rest of the solution is unchanged. The same rule applies to line conductors
-    whose impedance is exactly zero.
+    whose impedance is exactly zero, and to **ideal transformers** (zero
+    leakage): one is fine, but two in parallel, or one bridged by a closed
+    switch, can share the load in any proportion and are rejected. Give
+    paralleled transformers their leakage impedance. An ideal
+    grounded-wye/delta transformer directly on a voltage source is rejected for
+    the same reason (its zero-sequence current is undetermined); a feeder
+    impedance or the transformer's leakage resolves it.
 
 An **open** switch has its current variables fixed to zero
 ($c^r_{sw,k} = c^i_{sw,k} = 0$); the voltage-equality is dropped, so the two

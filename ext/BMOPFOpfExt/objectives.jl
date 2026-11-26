@@ -358,7 +358,8 @@ function BMOPFTools.opf_sequence_voltage(ctx::OpfContext, bus::AbstractString;
         "bus '$bus' is not in the network"))
     terminals = get(ctx.bus_terminals, bus, String[])
     neutral   = BMOPFTools._neutral_terminal(bus_dict)
-    phase_all = [t for t in terminals if t != neutral]
+    earth     = BMOPFTools._earth_labels(ctx.net)
+    phase_all = [t for t in terminals if t != neutral && !(t in earth)]
     terms = _sequence_voltage_terms(ctx.model, ctx.vars[:vr], ctx.vars[:vi],
                                     bus, phase_all, neutral, ctx.grounded)
     return getfield(terms, component)
@@ -962,8 +963,9 @@ function _phases_in_bus_order(ctx::OpfContext, bus::AbstractString, entries, wha
     bus_dict = get(get(ctx.net, "bus", Dict{String,Any}()), String(bus), nothing)
     bus_dict isa AbstractDict || throw(ArgumentError("bus '$bus' is not in the network"))
     neutral = BMOPFTools._neutral_terminal(bus_dict)
+    earth = BMOPFTools._earth_labels(ctx.net)
     order = [t for t in get(ctx.bus_terminals, String(bus), String[])
-             if t != neutral && !(t in nlabels)]
+             if t != neutral && !(t in nlabels) && !(t in earth)]
     by_terminal = Dict(String(t) => (re, ie) for (t, re, ie) in entries)
     picked = Tuple{Any,Any}[]
     for t in order

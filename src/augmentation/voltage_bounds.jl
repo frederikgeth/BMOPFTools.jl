@@ -150,6 +150,7 @@ function _apply_voltage_bounds!(net′::Dict{String,Any},
                                  entries::Vector{TransformEntry},
                                  r::AugmentationRecipe,
                                  bus_voltage_map::Dict{String,Float64})
+    earth = _earth_labels(net′)
     buses = get(net′, "bus", Dict())
 
     source_buses = Set{String}()
@@ -174,7 +175,7 @@ function _apply_voltage_bounds!(net′::Dict{String,Any},
 
         nt       = _neutral_terminal(bus)
         terms    = get(bus, "terminal_names", String[])
-        n_phase  = count(t -> string(t) != nt, terms)
+        n_phase  = count(t -> string(t) != nt && !(string(t) in earth), terms)
         has_neutral = nt !== nothing && any(t -> string(t) == nt, terms)
         is_four_wire = has_neutral && n_phase >= 1
 
@@ -287,6 +288,7 @@ function _apply_angle_diff_bounds!(net′::Dict{String,Any},
                                     entries::Vector{TransformEntry},
                                     r::AugmentationRecipe)
     buses = get(net′, "bus", Dict())
+    earth = _earth_labels(net′)
 
     source_buses = Set{String}()
     for (_, vs) in get(net′, "voltage_source", Dict())
@@ -306,7 +308,7 @@ function _apply_angle_diff_bounds!(net′::Dict{String,Any},
 
         nt      = _neutral_terminal(bus)
         terms   = get(bus, "terminal_names", String[])
-        n_phase = count(t -> string(t) != nt, terms)
+        n_phase = count(t -> string(t) != nt && !(string(t) in earth), terms)
 
         va_nom =
             (bid in split_phase_buses && n_phase == 2) ? [0.0, π]             :

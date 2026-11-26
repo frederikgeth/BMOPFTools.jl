@@ -191,7 +191,11 @@ and optional voltage-magnitude bounds in four flavors: phase-to-ground
 and sequence (`vpos_*`). `v_min`/`v_max` and `vpn_min`/`vpn_max` are
 **per-phase arrays** (one element per phase terminal, in `terminal_names` order,
 neutral excluded); `vpp_min`/`vpp_max` are **per-pair arrays** (one element per
-unordered phase pair, in `(i<j)` order). A scalar `v_min`/`v_max` is **rejected
+unordered phase pair, in `(i<j)` order). A terminal declared as protective
+earth in `terminal_conventions` is not a phase either: it has no entry in these
+arrays, forms no phase pair, and is left out of the symmetrical-component
+transform, so a bus with `a`, `b`, `c`, `n` and `pe` takes three per-phase
+entries and three pairs. A scalar `v_min`/`v_max` is **rejected
 at ingest** (`parse_bmopf`) — wrap it in an array of the phase count. The
 neutral conductor has its own separate, optional, **maximum-only** bound
 `vn_max` (scalar, neutral-to-ground), valid only when the bus has a neutral.

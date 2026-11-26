@@ -18,9 +18,10 @@ neither bound, fall back to per-unit defaults [0.85, 1.10]·v_nom on every phase
 infeasibility). `lb_of(k)`/`ub_of(k)` return the bound for the k-th phase
 terminal, or `nothing` if unbounded.
 """
-function _phase_vbounds(bus, v_nom)
+function _phase_vbounds(bus, v_nom; earth=Set{String}())
     nt = _neutral_terminal(bus)
-    phase_ts = [t for t in Vector{String}(get(bus, "terminal_names", String[])) if t != nt]
+    phase_ts = [t for t in Vector{String}(get(bus, "terminal_names", String[]))
+                if t != nt && !(t in earth)]
     v_min = get(bus, "v_min", nothing)
     v_max = get(bus, "v_max", nothing)
     if v_min === nothing && v_max === nothing && v_nom !== nothing
@@ -103,6 +104,7 @@ function diagnose_infeasibility(fopf_result::Dict{String,Any},
 
     # ── Analyze each top bus ──────────────────────────────────────────────────
     bus_net  = get(net, "bus",       Dict())
+    earth    = _earth_labels(net)
     load_net = get(net, "load",      Dict())
     gen_net  = get(net, "generator", Dict())
     v_nom_by_bus = _assign_nominal_voltages(net)
@@ -115,7 +117,7 @@ function diagnose_infeasibility(fopf_result::Dict{String,Any},
         bus     = get(bus_net, bid, Dict())
         bus_res = get(bus_result, bid, Dict())
         v_nom   = get(v_nom_by_bus, bid, nothing)
-        phase_ts, lb_of, ub_of = _phase_vbounds(bus, v_nom)
+        phase_ts, lb_of, ub_of = _phase_vbounds(bus, v_nom; earth=earth)
 
         # Check whether the solved voltage at each phase terminal is near a bound
         viol = String[]
@@ -174,7 +176,7 @@ function diagnose_infeasibility(fopf_result::Dict{String,Any},
     for (bid, bus) in bus_net
         bus_res = get(bus_result, bid, Dict())
         v_nom   = get(v_nom_by_bus, bid, nothing)
-        phase_ts, lb_of, ub_of = _phase_vbounds(bus, v_nom)
+        phase_ts, lb_of, ub_of = _phase_vbounds(bus, v_nom; earth=earth)
 
         for (k, t) in enumerate(phase_ts)
             tv = get(bus_res, t, nothing)

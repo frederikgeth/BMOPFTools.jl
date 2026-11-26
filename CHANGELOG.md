@@ -137,6 +137,32 @@ Initial General release candidate. Registration has not yet been requested.
     runs after the two passes that can create the pattern. A radial feeder
     of ideal neutral conductors between grounded buses, which failed in both
     `solve_pf` and `solve_opf`, is now reported and repaired this way.
+  - Ideal transformers are part of the same rule. Two zero-leakage
+    transformers in parallel, or one bridged by a closed switch, state one
+    voltage relation twice and could share a load in any proportion; the
+    builders now reject them, and validation reports ideal `single_phase`
+    units as `E.INT.IDEAL_LOOP`. One ideal transformer on its path is
+    unaffected, with one exception that is now rejected too: an ideal
+    grounded-wye/delta unit connected directly to a voltage source, whose
+    zero-sequence current nothing determines. The rule is sufficient, not necessary: an ideal tie between
+    two voltage sources is rejected even when power setpoints on the second
+    source would pin its current.
+  - `fix_case` pads a line shunt matrix that is smaller than the conductor
+    count before removing a conductor, so each remaining shunt entry stays on
+    its conductor.
+  - A terminal declared as protective earth is not a phase in any per-phase
+    quantity: `v_min`/`v_max` and `vpn_*` take one entry per phase conductor,
+    `vpp_*` and `va_diff_*` one per pair of phase conductors, and the
+    sequence objective and reporting functions (`opf_sequence_voltage`,
+    `opf_vuf_term`, `opf_report_vuf`) transform the three phases of a bus
+    that also carries a neutral and a protective earth. The bound producers
+    and `solution_check` index the arrays the same way. **Breaking** for a
+    case that declares a protective-earth label and sized these arrays to
+    include it.
+  - `solution_check` verifies DC voltage-pair bounds (`vdc_ln_*`,
+    `vdc_ll_*`, reported as `E.SOL.DC_VOLT_VIOLATION`) and voltage-master
+    setpoints (new `W.SOL.DC_VSET_RESIDUAL`), which a result could miss while
+    every terminal stayed inside its own band.
   - On the DC side ideal conductors, exact voltage-pair bounds
     (`vdc_ln_min == vdc_ln_max`) and voltage masters share one reference
     graph, so restatements are dropped and contradictions raise; a loop is
