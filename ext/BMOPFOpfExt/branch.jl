@@ -39,15 +39,24 @@
 # model so line and switch builders share it, but custom switch builders do not
 # contribute fictitious native edges. Coefficients are resolved before recording.
 #
-# A cycle of ideal conductors — parallel ideal conductors, an ideal ring, a
-# self-loop — has one dependent voltage row and a current that can circulate
-# around it undetermined. It is rejected; validation reports the same condition
-# as E.INT.IDEAL_LOOP (`BMOPFTools._ac_ideal_loops`).
+# The question it answers is whether the CURRENTS of the ideal conductors are
+# determined. An ideal conductor carries a current that no impedance sets, so
+# only Kirchhoff's current law can fix it, and it does so exactly when the
+# ideal conductors form a forest in which every terminal with a fixed voltage
+# is one and the same node. Such a terminal is a perfect ground or a source
+# terminal; each has a free injection in the model, so KCL places no condition
+# there. A cycle — parallel ideal conductors, an ideal ring, or one ideal
+# conductor between two fixed terminals (the neutral of a four-wire switch
+# between two grounded-neutral buses closes through the earth) — leaves a
+# current undetermined and a voltage row dependent, and is rejected.
+#
+# Validation reports the same condition as E.INT.IDEAL_LOOP
+# (`BMOPFTools._ac_ideal_loops`), and `fix_case` removes the redundant
+# conductor where both ends are earthed.
 function _record_ideal_voltage_edge!(model, owner, p, q)
     # Variable identity separates time/scenario contexts sharing one model.
-    Node = JuMP.VariableRef
     parents = get!(model.ext, :BMOPFIdealVoltageForest) do
-        Dict{Node,Node}()
+        Dict{Any,Any}()
     end
     function root(x)
         get!(parents, x, x)
@@ -57,33 +66,24 @@ function _record_ideal_voltage_edge!(model, owner, p, q)
         end
         return x
     end
-    rp, rq = root(p), root(q)
+    between_references = JuMP.is_fixed(p) && JuMP.is_fixed(q)
+    rp = root(JuMP.is_fixed(p) ? :reference : p)
+    rq = root(JuMP.is_fixed(q) ? :reference : q)
     rp == rq && throw(ArgumentError(
-        "$owner closes an ideal-conductor cycle at $p — $q (including parallel edges or a self-loop). Its voltage row is dependent and the current around the cycle is undetermined; remove the redundant ideal coupling or supply the physical impedance (E.INT.IDEAL_LOOP)."))
+        "$owner closes a loop of ideal conductors at $p — $q" *
+        (between_references ?
+            ": both terminals are held at a fixed voltage (perfect grounds or " *
+            "source terminals), so the conductor closes its loop through the " *
+            "earth or the source and nothing determines the current it carries. " *
+            "Between two earthed terminals the conductor is redundant: leave it " *
+            "out of the element's terminal maps, or let `fix_case` remove it." :
+            " (parallel ideal conductors, a ring, a self-loop, or a path between " *
+            "two terminals held at a fixed voltage). Its voltage row is dependent " *
+            "and the current around the loop is undetermined; remove the " *
+            "redundant ideal conductor or supply its physical impedance.") *
+        " (E.INT.IDEAL_LOOP)"))
     parents[rp] = rq
     return nothing
-end
-
-"""
-    _ideal_row_between_fixed(owner, vr_p, vi_p, vr_q, vi_q) -> Bool
-
-Whether an ideal conductor joins two terminals whose voltages are BOTH already
-fixed (perfect grounds, or source terminals). Its voltage relation then has no
-unknown left: if the two fixed voltages agree it is implied and must not be
-stamped (a constant row adds an equality with nothing to satisfy it, and a
-feeder of ideal neutral conductors between grounded buses accumulates one per
-section); if they disagree, the conductor is a short circuit across a voltage
-difference, which is a contradiction in the data.
-"""
-function _ideal_row_between_fixed(owner, vr_p, vi_p, vr_q, vi_q)
-    all(JuMP.is_fixed, (vr_p, vi_p, vr_q, vi_q)) || return false
-    a = complex(JuMP.fix_value(vr_p), JuMP.fix_value(vi_p))
-    b = complex(JuMP.fix_value(vr_q), JuMP.fix_value(vi_q))
-    isapprox(a, b; atol=1e-9 * max(1.0, abs(a), abs(b))) || throw(ArgumentError(
-        "$owner is an ideal (zero-impedance) conductor between two terminals " *
-        "fixed at different voltages ($a and $b in working units). Supply its " *
-        "impedance or reconcile the two references."))
-    return true
 end
 
 """
@@ -157,29 +157,15 @@ function _add_line_constraints!(model, net, vars, kcl_r, kcl_i;
             coefficient(:physics, :line, lid, :X_series, (k, j), X[k, j])
             for k in 1:n_map, j in 1:n_map]
 
-        # An ideal conductor between two fixed terminals has an implied voltage
-        # row, which is omitted. Its current is then set by nothing in the
-        # model (both ends can supply any current), exactly as for a closed
-        # switch between two grounded terminals; the value reported for it is
-        # not meaningful.
-        implied_row = falses(n_map)
         for k in 1:n_map
             if all(_is_structural_zero, R_model[k,:]) && all(_is_structural_zero, X_model[k,:])
-                owner = "Line '$lid' conductor $k"
-                if _ideal_row_between_fixed(owner,
-                        vr[(b_fr, tmfr[k])], vi[(b_fr, tmfr[k])],
-                        vr[(b_to, tmto[k])], vi[(b_to, tmto[k])])
-                    implied_row[k] = true
-                else
-                    _record_ideal_voltage_edge!(model, owner,
-                        vr[(b_fr, tmfr[k])], vr[(b_to, tmto[k])])
-                end
+                _record_ideal_voltage_edge!(model, "Line '$lid' conductor $k",
+                    vr[(b_fr, tmfr[k])], vr[(b_to, tmto[k])])
             end
         end
 
         # ── KVL ───────────────────────────────────────────────────────────────
         for k in 1:n_map
-            implied_row[k] && continue
             t_fr = tmfr[k]; t_to = tmto[k]
             register(:line_voltage_drop_real, (string(lid), k),
                 @constraint(model,

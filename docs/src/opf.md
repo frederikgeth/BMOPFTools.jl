@@ -790,7 +790,7 @@ KVL voltage-drop equation is replaced by a state-dependent condition, and there
 is no $\pi$-shunt.
 
 A **closed** switch replaces KVL with a **zero voltage drop** (lossless short),
-imposed per mapped conductor $k$ (neutral included if mapped):
+imposed per mapped conductor $k$:
 
 ```math
 v^r_{b^\text{fr},t^\text{fr}_k} = v^r_{b^\text{to},t^\text{to}_k}, \qquad
@@ -802,6 +802,21 @@ mechanism by which power flows through the closed switch. The two terminals are
 held at equal voltage but are **not** merged into one bus (a separate
 [`collapse_closed_switches`](@ref) network simplification does that node merge
 explicitly, outside the OPF).
+
+!!! warning "KCL must be able to determine the current"
+    Because no impedance sets a switch current, the closed switch poles (and
+    any other ideal conductors) must form a **tree**. Two closed switches in
+    parallel can pass any circulating current, and so can one pole between two
+    terminals that can each supply any current: two perfect grounds, or a
+    source terminal and a ground. The common case is a **four-wire switch
+    between two buses whose neutrals are both perfectly grounded**. Its neutral
+    pole joins two points at earth potential, with the earth as a second ideal
+    path between them, and nothing decides how the return current divides.
+    The engine rejects such a case (`E.INT.IDEAL_LOOP`) rather than report an
+    arbitrary current. The neutral pole is redundant there, so map only the
+    phase poles (a three-pole switch), or let [`fix_case`](@ref) remove it; the
+    rest of the solution is unchanged. The same rule applies to line conductors
+    whose impedance is exactly zero.
 
 An **open** switch has its current variables fixed to zero
 ($c^r_{sw,k} = c^i_{sw,k} = 0$); the voltage-equality is dropped, so the two

@@ -533,7 +533,7 @@
                 "transformer" => D("single_phase" => D("t" => xfmr2("hv", "lv", 230.0, 12.0))),
                 "load" => D("l" => load2("lv"; p=20.0, q=5.0)))
             open === nothing || (net["switch"] = D("sw" => D("bus_from" => "hv", "bus_to" => "lv",
-                "terminal_map_from" => ["p", "n"], "terminal_map_to" => ["p", "n"],
+                "terminal_map_from" => ["p"], "terminal_map_to" => ["p"],
                 "open_switch" => open)))
             net
         end
@@ -1411,27 +1411,164 @@
               "load" => D("l" => D("bus" => names[end], "terminal_map" => ["a", "n"],
                   "configuration" => "SINGLE_PHASE", "p_nom" => [2000.0], "q_nom" => [300.0])))
         end
-        neutral_rows(ctx) = count(k -> k.family in (:line_voltage_drop_real, :line_voltage_drop_imag) &&
-                                       k.index[2] == 2, opf_object_keys(ctx; kind=:constraint))
-        @test neutral_rows(build_opf_model(feeder(); per_unit=false)) == 0
-        @test neutral_rows(build_opf_model(feeder(neutral_ohm=0.1); per_unit=false)) == 12
+        # The ideal neutral of each section joins two perfect grounds: a loop
+        # through the earth whose current nothing determines. Validation
+        # reports every section, and the builder refuses the case.
+        found = Finding[]; integrity_check(feeder(), found)
+        loops = [f for f in found if f.code == "E.INT.IDEAL_LOOP"]
+        @test length(loops) == 6
+        @test all(f -> f.detail["conductor"] == 2 && f.detail["between_references"], loops)
+        @test_throws ArgumentError build_opf_model(feeder(); per_unit=false)
+        # A neutral with its real resistance is determined, and fine.
+        found = Finding[]; integrity_check(feeder(neutral_ohm=0.1), found)
+        @test !any(f -> f.code == "E.INT.IDEAL_LOOP", found)
         reference = solve_pf(feeder(neutral_ohm=0.1); per_unit=false)
+
+        # `fix_case` removes the redundant conductors, exactly: the phase
+        # voltages match the feeder with a real neutral, because with both
+        # neutral ends earthed the neutral conductor never affected them.
+        only_earthed = FixRecipe(apply_largest_component=false, apply_simplify_network=false,
+            apply_remove_zero_loads=false, apply_source_bus_bounds=false)
+        repaired, manifest = fix_case(feeder(); recipe=only_earthed)
+        @test length(manifest.entries) == 6
+        @test all(e -> e.rule == "E.INT.IDEAL_LOOP" && e.component_type == :line, manifest.entries)
+        @test all(l -> l["terminal_map_from"] == ["a"] && !haskey(l, "R_series_2_2"),
+                  values(repaired["line"]))
+        found = Finding[]; integrity_check(repaired, found)
+        @test !any(f -> f.code == "E.INT.IDEAL_LOOP", found)
         for solver in (solve_pf, solve_opf), pu in (true, false)
-            result = solver(feeder(); per_unit=pu)
+            result = solver(deepcopy(repaired); per_unit=pu)
             @test solved(result)
-            # Phase voltages do not depend on how the return current divides
-            # between an ideal neutral and the earth.
             @test result["bus"]["b6"]["a"]["vm"] ≈ reference["bus"]["b6"]["a"]["vm"] rtol=1e-6
         end
-        # Not an ideal loop in the reportable sense: the row is implied.
-        found = Finding[]; integrity_check(feeder(), found)
-        @test !any(f -> f.code == "E.INT.IDEAL_LOOP", found)
-        # An ideal conductor between two DIFFERENT fixed voltages is a short.
+        # An ideal conductor between two DIFFERENT fixed voltages is a short;
+        # it is reported and refused like any other loop between references.
         short = feeder(sections=1)
         short["voltage_source"]["t"] = D("bus" => "b1", "terminal_map" => ["a", "n"],
             "v_magnitude" => [230.0, 0.0], "v_angle" => [0.0, 0.0])
         short["line"]["l1"]["R_series_1_1"] = 0.0; short["line"]["l1"]["X_series_1_1"] = 0.0
         @test_throws ArgumentError build_opf_model(short; per_unit=false)
+    end
+
+    @testset "fix_case removes earthed ideal conductors" begin
+        only_earthed = FixRecipe(apply_largest_component=false, apply_simplify_network=false,
+            apply_remove_zero_loads=false, apply_source_bus_bounds=false)
+        builds(net) = try build_opf_model(deepcopy(net); per_unit=false); true
+                      catch err; err isa ArgumentError ? false : rethrow() end
+        grounded() = D("terminal_names" => ["a", "b", "c", "n"],
+                       "perfectly_grounded_terminals" => ["n"])
+        function switched(; maps=["a", "b", "c", "n"], fields=D())
+            D("bus" => D("src" => grounded(), "mid" => grounded(), "e" => grounded()),
+              "voltage_source" => D("s" => D("bus" => "src", "terminal_map" => ["a", "b", "c"],
+                  "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2pi/3, 2pi/3])),
+              "line" => D("l" => merge(D("bus_from" => "src", "bus_to" => "mid",
+                  "terminal_map_from" => ["a", "b", "c"], "terminal_map_to" => ["a", "b", "c"]),
+                  D("R_series_$(k)_$(k)" => 0.05 for k in 1:3))),
+              "switch" => D("sw" => merge(D("bus_from" => "mid", "bus_to" => "e",
+                  "terminal_map_from" => maps, "terminal_map_to" => maps,
+                  "open_switch" => false), fields)),
+              "load" => D("l" => D("bus" => "e", "terminal_map" => ["a", "b", "c", "n"],
+                  "configuration" => "WYE", "p_nom" => [3000.0, 1000.0, 500.0],
+                  "q_nom" => zeros(3))))
+        end
+        # A four-wire switch between two grounded-neutral buses: rejected as
+        # written, repaired by dropping the neutral conductor and its ratings.
+        net = switched(; fields=D("i_max" => [50.0, 50.0, 50.0, 80.0],
+                                  "s_max" => fill(20e3, 4)))
+        @test !builds(net)
+        repaired, manifest = fix_case(net; recipe=only_earthed)
+        sw = repaired["switch"]["sw"]
+        @test sw["terminal_map_from"] == ["a", "b", "c"] == sw["terminal_map_to"]
+        @test sw["i_max"] == [50.0, 50.0, 50.0] && sw["s_max"] == fill(20e3, 3)
+        entry = only(manifest.entries)
+        @test entry.component_type == :switch && entry.component_id == "sw"
+        @test entry.old_value["terminal_map_from"] == ["a", "b", "c", "n"]
+        @test entry.new_value["terminal_map_from"] == ["a", "b", "c"]
+        @test net["switch"]["sw"]["terminal_map_from"] == ["a", "b", "c", "n"]   # input untouched
+        @test builds(repaired)
+        # The repair is exact: same phase voltages as the three-pole switch.
+        direct = solve_opf(switched(; maps=["a", "b", "c"]); per_unit=false)
+        fixed = solve_opf(repaired; per_unit=false)
+        @test solved(direct) && solved(fixed)
+        for t in ("a", "b", "c")
+            @test fixed["bus"]["e"][t]["vm"] ≈ direct["bus"]["e"][t]["vm"] rtol=1e-9
+        end
+        # Idempotent, and a no-op on a case that has nothing to remove.
+        again, manifest2 = fix_case(repaired; recipe=only_earthed)
+        @test isempty(manifest2.entries) && again == repaired
+        # An element with no conductor left is removed.
+        net = switched(); net["switch"]["bond"] = D("bus_from" => "src", "bus_to" => "e",
+            "terminal_map_from" => ["n"], "terminal_map_to" => ["n"], "open_switch" => false)
+        repaired, manifest = fix_case(net; recipe=only_earthed)
+        @test !haskey(repaired["switch"], "bond")
+        @test any(e -> e.component_id == "bond" && e.field == "(removed)", manifest.entries)
+        # The recipe can be switched off; the case then stays rejected.
+        off = FixRecipe(apply_largest_component=false, apply_simplify_network=false,
+            apply_remove_zero_loads=false, apply_source_bus_bounds=false,
+            apply_remove_earthed_ideal_conductors=false)
+        untouched, manifest = fix_case(switched(); recipe=off)
+        @test isempty(manifest.entries) && !builds(untouched)
+
+        # A shared linecode gets a reduced copy; the other line keeps its own.
+        # Two conductors per metre: a resistive phase and an ideal neutral.
+        codes = D("lc" => D("i_max" => [100.0, 100.0],
+            "R_series_1_1" => 1e-4, "X_series_1_1" => 5e-5,
+            "R_series_1_2" => 0.0, "X_series_1_2" => 0.0,
+            "R_series_2_1" => 0.0, "X_series_2_1" => 0.0,
+            "R_series_2_2" => 0.0, "X_series_2_2" => 0.0))
+        two = D("bus" => D("src" => bus2(), "a1" => bus2(),
+                           "a2" => D("terminal_names" => ["p", "n"])),
+            "voltage_source" => D("s" => src2("src")),
+            "linecode" => codes,
+            "line" => D("x" => D("bus_from" => "src", "bus_to" => "a1", "linecode" => "lc",
+                                 "length" => 100.0, "terminal_map_from" => ["p", "n"],
+                                 "terminal_map_to" => ["p", "n"]),
+                        "y" => D("bus_from" => "a1", "bus_to" => "a2", "linecode" => "lc",
+                                 "length" => 100.0, "terminal_map_from" => ["p", "n"],
+                                 "terminal_map_to" => ["p", "n"])),
+            "load" => D("l" => load2("a2")))
+        # Line y ends on an ungrounded neutral: its ideal neutral is an ordinary
+        # (determined) conductor and is kept. Line x joins two grounds.
+        repaired, manifest = fix_case(two; recipe=only_earthed)
+        @test only(manifest.entries).component_id == "x"
+        @test repaired["line"]["y"]["linecode"] == "lc"
+        @test repaired["line"]["y"]["terminal_map_from"] == ["p", "n"]
+        reduced_id = repaired["line"]["x"]["linecode"]
+        @test reduced_id != "lc" && haskey(repaired["linecode"], reduced_id)
+        @test repaired["linecode"][reduced_id]["i_max"] == [100.0]
+        @test repaired["linecode"]["lc"]["i_max"] == [100.0, 100.0]
+        @test builds(repaired) && solved(solve_opf(repaired))
+
+        # A conductor that is coupled to another is NOT redundant and is kept:
+        # here the neutral's undetermined current would act on the phase.
+        coupled = feeder_line = D("bus" => D("f" => bus2(), "t" => bus2()),
+            "voltage_source" => D("s" => src2("f")),
+            "line" => D("m" => D("bus_from" => "f", "bus_to" => "t",
+                "terminal_map_from" => ["p", "n"], "terminal_map_to" => ["p", "n"],
+                "R_series_1_1" => 0.05, "X_series_1_1" => 0.03,
+                "R_series_1_2" => 0.01, "X_series_1_2" => 0.0,
+                "R_series_2_1" => 0.0, "X_series_2_1" => 0.0,
+                "R_series_2_2" => 0.0, "X_series_2_2" => 0.0)),
+            "load" => D("l" => load2("t")))
+        kept, manifest = fix_case(coupled; recipe=only_earthed)
+        @test isempty(manifest.entries)
+        @test kept["line"]["m"]["terminal_map_from"] == ["p", "n"]
+        found = Finding[]; integrity_check(kept, found)
+        @test any(f -> f.code == "E.INT.IDEAL_LOOP", found)      # still reported
+
+        # The two approximating passes can create the pattern; the default
+        # recipe cleans up after them, so its output always builds.
+        approximated = switched()
+        delete!(approximated, "switch")
+        approximated["linecode"] = D("tiny" => D("R_series_$(k)_$(k)" => 1e-6 for k in 1:4))
+        approximated["line"]["tie"] = D("bus_from" => "mid", "bus_to" => "e",
+            "linecode" => "tiny", "length" => 1.0,
+            "terminal_map_from" => ["a", "b", "c", "n"], "terminal_map_to" => ["a", "b", "c", "n"])
+        prepared, manifest = fix_case(approximated;
+            recipe=FixRecipe(apply_low_impedance_to_switch=true, apply_simplify_network=false))
+        converted = only(values(prepared["switch"]))
+        @test converted["terminal_map_from"] == ["a", "b", "c"]
+        @test builds(prepared)
     end
 
     @testset "sequence limits use one phase selection" begin

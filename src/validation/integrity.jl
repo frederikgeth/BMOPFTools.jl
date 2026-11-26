@@ -796,17 +796,33 @@ function _check_ideal_topology!(net::Dict{String,Any}, findings::Vector{Finding}
     all(k -> get(net, k, Dict()) isa AbstractDict,
         ("bus", "line", "switch", "dc_bus", "dc_branch", "dc_grounding", "ibr")) ||
         return nothing
+    ac_references = _ac_reference_terminals(net)
+    removable = Set((c.element, c.id, c.conductor) for c in _ac_earthed_ideal_conductors(net))
     for loop in _ac_ideal_loops(net)
+        between = loop.from in ac_references && loop.to in ac_references
+        fixable = (loop.element, loop.id, loop.conductor) in removable
         push!(findings, Finding(ERROR, "E.INT.IDEAL_LOOP", :integrity,
             Symbol(loop.element), loop.id,
             "$(loop.element) '$(loop.id)' conductor $(loop.conductor) closes a loop of " *
             "ideal (zero-impedance) conductors between $(loop.from[1]).$(loop.from[2]) " *
-            "and $(loop.to[1]).$(loop.to[2]): its voltage relation is implied by the " *
-            "others and a current can circulate around the loop undetermined.",
+            "and $(loop.to[1]).$(loop.to[2])" *
+            (between ?
+                ": both terminals can supply any current (perfect grounds or source " *
+                "terminals), so the loop closes through the earth or the source and " *
+                "nothing determines the current in this conductor." :
+                ": its voltage relation is implied by the others and a current can " *
+                "circulate around the loop undetermined.") *
+            (fixable ? " Both ends are earthed, so the conductor is redundant; " *
+                       "`fix_case` removes it." : ""),
             Dict{String,Any}("element"=>loop.element, "conductor"=>loop.conductor,
                 "bus_from"=>loop.from[1], "terminal_from"=>loop.from[2],
                 "bus_to"=>loop.to[1], "terminal_to"=>loop.to[2],
-                "remedy"=>"remove_redundant_ideal_conductor_or_supply_impedance")))
+                "between_references"=>between,
+                "closes_through_reference"=>
+                    (loop.from in ac_references || loop.to in ac_references),
+                "removable_by_fix_case"=>fixable,
+                "remedy"=>fixable ? "remove_earthed_ideal_conductor" :
+                    "remove_redundant_ideal_conductor_or_supply_impedance")))
     end
     haskey(net, "dc_bus") || return nothing
     dc_grounded = _dc_grounded_terminals(net)

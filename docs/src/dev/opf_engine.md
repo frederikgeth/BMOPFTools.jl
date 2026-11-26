@@ -365,11 +365,9 @@ impedance sets. These fail in different ways and are judged separately:
   question above. On the DC side an ideal conductor is a reference with value
   zero in the same graph as fixed terminals, exact pair bounds and voltage
   masters: stamped when independent, omitted when implied, an error when
-  contradictory. On the AC side a line conductor with an all-zero impedance
-  row between two terminals that are both fixed (two grounded neutrals) has an
-  implied relation, which is omitted; a feeder of ideal neutral conductors
-  between grounded buses would otherwise accumulate one constant row per
-  section and defeat the solver.
+  contradictory. On the AC side the only such relations are those of ideal
+  conductors themselves, and a dependent one always comes with an undetermined
+  current, so it is handled by the second check.
 - *Is the current determined?* Only Kirchhoff's current law can fix it, and it
   does so exactly when the ideal conductors form a forest over the nodes. A
   loop leaves a circulating current free, and dropping a row does not cure
@@ -377,12 +375,14 @@ impedance sets. These fail in different ways and are judged separately:
   grounded terminal is one node, because a ground supplies any current: a
   single ideal conductor between two grounds is a loop through the earth. A
   terminal pinned by equal voltage bounds supplies no current and is an
-  ordinary node. On the AC side loops among lines and closed switches are
-  rejected (see [zero impedance](@ref zero-impedance)), but an ideal conductor
-  between two grounded terminals is accepted: four-wire switches and lines
-  between buses with grounded neutrals are ordinary practice, and the only
-  consequence is that the current reported for that one conductor carries no
-  meaning.
+  ordinary node. The AC side follows the same rule, with perfect grounds and
+  source terminals as the one node (see [zero impedance](@ref zero-impedance)):
+  the neutral pole of a four-wire switch between two buses with grounded
+  neutrals is a loop through the earth. That conductor is redundant rather
+  than wrong — both ends are at earth potential — so `fix_case` removes it, and
+  the two `fix_case` passes that can create the pattern (low-impedance lines
+  to switches, grounding shunts to perfect grounds) are followed by that
+  cleanup.
 
 Both conditions, and contradictory DC voltage references, are properties of
 the case and are reported by static validation before any model exists:

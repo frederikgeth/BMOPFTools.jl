@@ -123,16 +123,26 @@ Initial General release candidate. Registration has not yet been requested.
     `W.CONV.PHASE_NAMED_AS_NEUTRAL` a declared phase whose name reads as a
     neutral. `solution_check` reports `W.SOL.DC_OHM_RESIDUAL` and
     `W.SOL.DC_LOSS_SHARE_MISMATCH` under their own codes.
-  - Ideal conductors are judged twice, separately: whether the voltage
-    relation is new, and whether the current is determined. An ideal AC line
-    conductor between two fixed terminals (an ideal neutral between grounded
-    buses) no longer stamps a constant row; a radial feeder of such sections
-    failed in both `solve_pf` and `solve_opf`. On the DC side ideal
-    conductors, exact voltage-pair bounds (`vdc_ln_min == vdc_ln_max`) and
-    voltage masters share one reference graph, so restatements are dropped
-    and contradictions raise; a loop is now defined by current determinacy,
-    so pinning the poles of an ideal triangle no longer hides it and an
-    ideal conductor between two perfect grounds is a loop through the earth.
+  - **Breaking: ideal AC conductors must have a determined current.** The
+    OPF now rejects an ideal conductor (a closed switch pole, or a line
+    conductor with an all-zero impedance row) between two terminals that can
+    each supply any current — perfect grounds and source terminals — as it
+    already rejected parallel ideal conductors and rings. The usual instance
+    is the neutral pole of a four-wire switch between two buses with
+    perfectly grounded neutrals: it closes a loop through the earth and its
+    current was arbitrary. Validation reports it as `E.INT.IDEAL_LOOP`. The
+    conductor is redundant, so leave it out of the terminal maps, or run
+    `fix_case`: the new pass `apply_remove_earthed_ideal_conductors` (on by
+    default) removes it exactly and records the change in the manifest. It
+    runs after the two passes that can create the pattern. A radial feeder
+    of ideal neutral conductors between grounded buses, which failed in both
+    `solve_pf` and `solve_opf`, is now reported and repaired this way.
+  - On the DC side ideal conductors, exact voltage-pair bounds
+    (`vdc_ln_min == vdc_ln_max`) and voltage masters share one reference
+    graph, so restatements are dropped and contradictions raise; a loop is
+    defined by current determinacy, so pinning the poles of an ideal
+    triangle no longer hides it and an ideal conductor between two perfect
+    grounds is a loop through the earth.
   - Sequence and unbalance limits take their three phases from one
     selection shared by preflight, builder and verifier, excluding a
     declared protective-earth terminal; a three-phase bus with a `pe`

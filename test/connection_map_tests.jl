@@ -5,6 +5,19 @@ function _cm_net(neutral="n"; phases=["a","b","c"])
         "bus"=>Dict(b=>Dict{String,Any}("terminal_names"=>vcat(phases,[neutral]),
             "perfectly_grounded_terminals"=>[neutral]) for b in ("f","t","u")))
 end
+# Ground a bus neutral through a shunt instead of perfectly. A switch pole (an
+# ideal conductor) between two PERFECT grounds closes a loop through the earth
+# (E.INT.IDEAL_LOOP), which is a separate defect from the terminal-map roles
+# these tests examine. With a finite grounding at one end the pole's current is
+# determined and the bus still has its voltage reference.
+function _cm_shunt_ground!(net,bus)
+    grounded=net["bus"][bus]["perfectly_grounded_terminals"]
+    isempty(grounded) && return net
+    net["shunt"]=Dict{String,Any}("ground_$bus"=>Dict{String,Any}("bus"=>bus,
+        "terminal_map"=>copy(grounded),"G_1_1"=>1.0))
+    net["bus"][bus]["perfectly_grounded_terminals"]=String[]
+    net
+end
 function _cm_branch!(net,kind,fr,to)
     c=Dict{String,Any}("bus_from"=>"f","bus_to"=>"t","terminal_map_from"=>fr,"terminal_map_to"=>to)
     if kind=="line"
@@ -13,6 +26,7 @@ function _cm_branch!(net,kind,fr,to)
             c["X_series_$(i)_$j"]=i==j ? 0.5 : 0.0
         end
     end
+    kind=="switch" && _cm_shunt_ground!(net,"t")
     net[kind]=Dict{String,Any}("x"=>c); c
 end
 function _cm_xf!(net,subtype,fr,to)
@@ -41,6 +55,7 @@ _cm_errors(fs)=[f for f in fs if f.severity==ERROR]
         @test length(_cm_code(fs,"I.TMAP.CROSS_PHASE_LINE"))==1
         @test net==before
         net["switch"]["s"]["terminal_map_to"]=["b","return"]
+        _cm_shunt_ground!(net,"t")      # see the helper: keep the neutral pole determined
         @test isempty(_cm_errors(_cm_findings(net)))
         @test length(_cm_code(_cm_findings(net),"I.TMAP.CROSS_PHASE_LINE"))==1
     end

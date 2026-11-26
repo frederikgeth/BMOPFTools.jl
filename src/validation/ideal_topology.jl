@@ -445,17 +445,19 @@ Ideal AC conductors whose current the network does not determine, each as
 conductor, or a line conductor whose whole impedance row is exactly zero (no
 self and no mutual impedance).
 
-A cycle of such conductors — two in parallel, a ring, a self-loop — has one
-dependent voltage relation and a current that can circulate around it
-undetermined.
+An ideal conductor carries a current that no impedance sets; only Kirchhoff's
+current law can fix it. KCL fixes the currents of a set of ideal conductors
+exactly when they form a forest over the nodes, where every terminal that can
+supply any current (`_ac_reference_terminals`: perfect grounds and source
+terminals) is one and the same node. So besides parallel ideal conductors and
+ideal rings, an ideal conductor **between two reference terminals** is a loop:
+the neutral of a four-wire switch between two buses with grounded neutrals
+closes through the earth, and how the return current divides between that
+conductor and the earth is determined by nothing in the model. This is the
+same rule as on the DC side (`_dc_ideal_loops`).
 
-An ideal conductor between two terminals that are BOTH held at a fixed voltage
-(`_ac_reference_terminals`: perfect grounds and source terminals) is not
-reported. Its voltage relation is implied and the OPF omits it. Its current is
-indeed not determined, since both ends can supply any current; but a four-wire
-switch or line between two buses with grounded neutrals is ordinary modeling
-practice, and the only consequence is that the current reported for that one
-conductor is not meaningful. The DC side is stricter (`_dc_ideal_loops`).
+Such a conductor between two **earthed** terminals is redundant rather than
+wrong, and `fix_case` removes it (`_ac_earthed_ideal_conductors`).
 
 Lines are visited before switches, each in sorted order. This is the static
 counterpart of the check the OPF line and switch builders make while stamping.
@@ -477,8 +479,8 @@ function _ac_ideal_loops(net::Dict{String,Any})
         return x
     end
     function edge!(element, id, k, a, b)
-        (a in references && b in references) && return nothing   # implied row, see above
-        ra, rb = root(a), root(b)
+        ra = root(a in references ? _DC_EARTH : a)
+        rb = root(b in references ? _DC_EARTH : b)
         ra == rb ? push!(loops, (element=element, id=id, conductor=k, from=a, to=b)) :
                    (parent[ra] = rb)
         return nothing
@@ -513,4 +515,92 @@ function _ac_ideal_loops(net::Dict{String,Any})
         end
     end
     loops
+end
+
+"""
+    _ac_earthed_terminals(net) -> Set{(bus, terminal)}
+
+AC terminals held at earth potential by a perfect ground: declared
+`perfectly_grounded_terminals`, and the neutral of every voltage-source bus
+(which the OPF grounds). A subset of `_ac_reference_terminals`; source PHASE
+terminals are references but are not at zero volts.
+"""
+function _ac_earthed_terminals(net::Dict{String,Any})
+    earthed = Set{Tuple{String,String}}()
+    buses = get(net, "bus", Dict())
+    for (bid, bus) in buses
+        bus isa Dict || continue
+        for t in _terminal_list(get(bus, "perfectly_grounded_terminals", String[]))
+            push!(earthed, (String(bid), t))
+        end
+    end
+    roles = _terminal_roles_or_nothing(net)
+    roles === nothing && return earthed
+    for (_, vs) in get(net, "voltage_source", Dict())
+        vs isa Dict || continue
+        bus = _bus_id(get(vs, "bus", ""))
+        nt = _declared_bus_neutral(roles, get(buses, bus, nothing))
+        nt === nothing || push!(earthed, (bus, nt))
+    end
+    earthed
+end
+
+"""
+    _ac_earthed_ideal_conductors(net) -> Vector{NamedTuple}
+
+Ideal AC conductors that join two **earthed** terminals, each as
+`(element, id, conductor)`. Both ends are at zero volts and both can sink any
+current, so the conductor does nothing electrically: it carries no determinate
+current and removing it changes no other quantity in the network. These are the
+loops `_ac_ideal_loops` reports that have an exact, automatic remedy
+(`fix_case`, pass "remove earthed ideal conductors").
+
+For a line the conductor must be decoupled both ways: its impedance row AND
+column are zero, and so are its shunt rows and columns. A nonzero mutual term
+would let the undetermined current act on another conductor, which removal
+cannot preserve.
+"""
+function _ac_earthed_ideal_conductors(net::Dict{String,Any})
+    out = NamedTuple{(:element, :id, :conductor), Tuple{String,String,Int}}[]
+    earthed = _ac_earthed_terminals(net)
+    linecodes = get(net, "linecode", Dict())
+    lines = get(net, "line", Dict())
+    for id in sort!(collect(String.(keys(lines))))
+        line = lines[id]; line isa Dict{String,Any} || continue
+        Z, n = try
+            _line_z_complex(line, linecodes)
+        catch
+            (nothing, 0)
+        end
+        (Z === nothing || n == 0) && continue
+        bf = _bus_id(get(line, "bus_from", "")); bt = _bus_id(get(line, "bus_to", ""))
+        tmf = _terminal_list(get(line, "terminal_map_from", String[]))
+        tmt = _terminal_list(get(line, "terminal_map_to", String[]))
+        (length(tmf) == n && length(tmt) == n) || continue
+        source = _line_has_inline_z(line) ? line :
+                 get(linecodes, get(line, "linecode", nothing), nothing)
+        source isa AbstractDict || continue
+        shunts = [M for prefix in ("G_from_", "B_from_", "G_to_", "B_to_")
+                  for M in (_pattern_keys_to_matrix(source, prefix),) if M !== nothing]
+        for k in 1:n
+            ((bf, tmf[k]) in earthed && (bt, tmt[k]) in earthed) || continue
+            (all(iszero, @view Z[k, :]) && all(iszero, @view Z[:, k])) || continue
+            all(M -> size(M, 1) < k || size(M, 2) < k ||
+                     (all(iszero, @view M[k, :]) && all(iszero, @view M[:, k])), shunts) || continue
+            push!(out, (element="line", id=id, conductor=k))
+        end
+    end
+    switches = get(net, "switch", Dict())
+    for id in sort!(collect(String.(keys(switches))))
+        sw = switches[id]; sw isa Dict || continue
+        get(sw, "open_switch", false) === true && continue
+        bf = _bus_id(get(sw, "bus_from", "")); bt = _bus_id(get(sw, "bus_to", ""))
+        tmf = _terminal_list(get(sw, "terminal_map_from", String[]))
+        tmt = _terminal_list(get(sw, "terminal_map_to", String[]))
+        for k in 1:min(length(tmf), length(tmt))
+            ((bf, tmf[k]) in earthed && (bt, tmt[k]) in earthed) &&
+                push!(out, (element="switch", id=id, conductor=k))
+        end
+    end
+    out
 end
