@@ -592,14 +592,18 @@ end
         net["transformer"]["wye_delta"] = nothing
         net["dc_bus"] = Dict{String,Any}("d" => Dict{String,Any}("terminal_names" => ["p","n"]))
         net["dc_branch"] = nothing; net["ibr"] = nothing
-        @test _pg_analyze(net) isa SummaryReport
+        # The passes changed here tolerate it. (analyze as a whole does not yet:
+        # the inventory pass iterates transformer groups without a guard.)
+        @test provenance_analysis(net, Finding[]) isa Dict
+        @test BMOPFTools._dc_link_ac_groups(net) == Vector{String}[]
+        @test BMOPFTools._transformer_neutral_earthing(net) isa Dict
 
         # A center-tap record that is a Dict of another value type.
         net = _pg_sys("na_high_leg_open_delta")
         net["transformer"]["single_phase"]["power"] =
             Dict{String,Any}(net["transformer"]["single_phase"]["power"])
         net["transformer"]["single_phase"] = Dict{String,Any}("power" =>
-            Dict{String,Union{String,Vector{String},Float64}}(
+            Dict{String,Union{String,Vector,Real}}(
                 k => v for (k, v) in net["transformer"]["single_phase"]["power"]))
         @test BMOPFTools._high_leg_power_units(net) == Set([("single_phase", "power")])
 

@@ -119,8 +119,10 @@ describe only the declared snapshot; switch scenarios introduce no Findings.
 the same two buses on different conductors (three line-to-neutral units, an
 open-wye/open-delta pair, a center-tapped lighting unit with a power unit). Each
 entry gives `bus_from`, `bus_to` and the sorted `units`. A bank is one branch of
-the bus graph for radiality, and supplies the union of its legs' phases. Units on
-identical conductors are parallel transformers, are not listed, and close a cycle.
+the bus graph for radiality, and supplies the union of its legs' phases. A unit
+whose secondary phase conductors another unit already spans (the same pair, or
+the two legs of a center-tapped winding) is a parallel transformer: it is not
+listed and closes a cycle.
 
 `results[:connectivity]["dc_links"]` lists groups of AC buses whose converters
 share one DC island; the buses of a group are connected through it.
