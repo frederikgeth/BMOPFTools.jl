@@ -91,6 +91,8 @@ BMOPFTools.execute_case_parse
 BMOPFTools.execute_analysis
 BMOPFTools.execute_solution_verification
 BMOPFTools.explain_finding
+BMOPFTools.expand_findings
+BMOPFTools.is_rolled_up
 BMOPFTools.execute_finding_explanation
 BMOPFTools.execution_error_response
 ```

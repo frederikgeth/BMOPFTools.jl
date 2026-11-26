@@ -629,7 +629,7 @@ function integrity_check(net::Dict{String,Any},
             union!(get!(all_used_terminals, b, Set{String}()), ts)
         end
     end
-    for comp_type in ("load", "generator", "shunt", "voltage_source", "ibr")
+    for comp_type in ("load", "generator", "shunt", "voltage_source", "ibr", "capacitor")
         for (_, c) in get(net, comp_type, Dict())
             c isa Dict || continue
             b  = get(c, "bus", nothing)
@@ -638,6 +638,15 @@ function integrity_check(net::Dict{String,Any},
             s = get!(all_used_terminals, b, Set{String}())
             for t in tm; push!(s, string(t)); end
         end
+    end
+    # A perfectly grounded terminal is pinned to zero volts: it is a declared
+    # reference, not a free voltage variable, whether or not a component uses it.
+    for (bus_id, bus) in buses
+        bus isa Dict || continue
+        pg = get(bus, "perfectly_grounded_terminals", nothing)
+        pg isa AbstractVector || continue
+        s = get!(all_used_terminals, bus_id, Set{String}())
+        for t in pg; push!(s, string(t)); end
     end
 
     n_unused_bus_terminals = 0

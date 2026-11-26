@@ -53,7 +53,15 @@ function operational_analysis(net::Dict{String,Any},
     result["generation_load_ratio"] =
         total_p_w > 0 ? round(100.0 * total_p_cap / total_p_w, digits=1) : nothing
 
-    if total_p_cap < total_p_w * 0.05
+    # A feeder that declares no generator and no IBR at all is passive by
+    # construction: importing everything is its definition, not a data finding.
+    # The fact stays in the result; the warning is for a case that declares
+    # local resources whose active capacity is nevertheless negligible.
+    import_dependent = total_p_cap < total_p_w * 0.05
+    has_local_resource = !isempty(gens) || !isempty(get(net, "ibr", Dict()))
+    result["import_dependent"] = import_dependent
+    result["passive_feeder"] = !has_local_resource
+    if import_dependent && has_local_resource
         push!(findings, Finding(WARNING, "W.OPS.IMPORT_DEPENDENT", :operational, :network, nothing,
             "Network is heavily import-dependent: local generation capacity " *
             "($(round(total_p_cap/1e6, digits=2)) MW) is less than 5% of total load " *
@@ -178,6 +186,11 @@ function operational_analysis(net::Dict{String,Any},
         zone_label = let src = intersect(zone, vsrc_buses)
             isempty(src) ? minimum(zone) : first(src)
         end
+
+        # A zone that carries no load at all (an MV backbone whose customers
+        # sit behind distribution transformers, a source stub) has nothing to
+        # be unbalanced: every phase is trivially "unloaded" there.
+        isempty(phase_loaded) && continue
 
         for t in sort(collect(setdiff(phase_present, phase_loaded)))
             push!(unloaded_findings, (zone_label, t, zone_label))

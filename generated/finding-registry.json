@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "5ce0aed91f0966e45989527e39d2ef2492cbe4fe698d453c7473670a2ecebe68"
+    "sha256": "cb21dd34f4e3108b16a06b720d7d1afc355fea80b8b784e990157f5952f15e88"
   },
   "finding_count": 391,
   "findings": [
@@ -235,7 +235,7 @@
       "namespace": "CONN",
       "catalogue_section": "CONN",
       "section_title": "connectivity & topology",
-      "meaning": "Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail. Radiality is assessed over phase-carrying branches: a line or closed switch that maps only neutral- or earth-role terminals at both ends (for example, a neutral bond beside a service transformer) closes no phase-conductor cycle. Such cycles are counted in `neutral_only_cycle_rank` (result and detail) and do not raise this warning.",
+      "meaning": "Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail. Single-phase transformer units that join the same two buses on different conductors are one bank (`transformer_banks` in the result) and count as one branch; units on the same conductors are parallel and do close a cycle. Radiality is assessed over phase-carrying branches: a line or closed switch that maps only neutral- or earth-role terminals at both ends (for example, a neutral bond beside a service transformer) closes no phase-conductor cycle. Such cycles are counted in `neutral_only_cycle_rank` (result and detail) and do not raise this warning.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -427,7 +427,7 @@
       "namespace": "OPS",
       "catalogue_section": "OPS",
       "section_title": "operational loading",
-      "meaning": "Local generation capacity below 5 % of total load — the case is a pure import feeder; with only a slack source the dispatch problem is loss minimization at best.",
+      "meaning": "The case declares generators or IBRs, but their active capacity is below 5 % of total load — the dispatch problem is loss minimization at best. A passive feeder that declares no generator and no IBR at all imports by construction and is not warned; `results[:operational][\"import_dependent\"]` and `[\"passive_feeder\"]` carry the fact either way.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -447,7 +447,7 @@
       "namespace": "OPS",
       "catalogue_section": "OPS",
       "section_title": "operational loading",
-      "meaning": "Lines without any thermal limit (`i_max`/`s_max` on the line or its linecode) — the OPF will have no flow constraints there.",
+      "meaning": "Lines without any thermal limit (`i_max`/`s_max` on the line or its linecode) — the OPF will have no flow constraints there. Dropped from an `analyze` report when `W.PROV.I_MAX_ABSENT` names the same lines.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -467,7 +467,7 @@
       "namespace": "OPS",
       "catalogue_section": "OPS",
       "section_title": "operational loading",
-      "meaning": "A phase terminal is present on buses in a galvanic zone (connected via lines and closed switches; transformers and neutral-only branches are boundaries) but no load connects to it anywhere in that zone. Reported per zone and per terminal. Common in partial-phase feeders; worth reviewing before interpreting unbalance results.",
+      "meaning": "A phase terminal is present on buses in a galvanic zone (connected via lines and closed switches; transformers and neutral-only branches are boundaries) but no load connects to it anywhere in that zone. Reported per zone and per terminal, for zones that carry at least one load (a load-free backbone or source stub has nothing to be unbalanced). Common in partial-phase feeders; worth reviewing before interpreting unbalance results.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -977,7 +977,7 @@
       "namespace": "DOM",
       "catalogue_section": "DOM",
       "section_title": "domain plausibility",
-      "meaning": "An IBR's Volt-var/Volt-watt droop has breakpoint voltages outside the bus's `[v_min, v_max]` band — the droop may never engage within the feasible operating range, so the control is effectively inert.",
+      "meaning": "Every breakpoint voltage of an IBR's Volt-var/Volt-watt droop lies on one side of the bus's `[v_min, v_max]` band — the band sits wholly in a saturated tail of the curve, so the control is effectively inert over the feasible range. Breakpoints beyond the band on both sides are the normal grid-code shape (the sloped segments still cross the band) and are not flagged.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1591,7 +1591,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "A line has near-zero series impedance and may be better represented by the spec's lossless `switch` object.",
+      "meaning": "A line has near-zero series impedance and may be better represented by the spec's lossless `switch` object. Not repeated in an `analyze` report for a line that also raises `W.DOM.LINE_LOW_IMPEDANCE`, which states the same fact more strongly.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1701,7 +1701,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "A galvanic zone is single-wire (one phase conductor across all its buses) and transformer-isolated — a Single-Wire-Earth-Return section. Distinguished from a single-phase lateral, which shares its three-phase feeder's zone.",
+      "meaning": "A galvanic zone has one phase conductor across all its buses, is transformer-isolated, and a branch witnesses the earth return: at least one line or closed switch carries that phase alone and none carries a neutral — a Single-Wire-Earth-Return section. A two-wire (phase + metallic neutral) section, or a branchless service bus behind a single-phase transformer, is reported as a `single_phase` zone instead. Distinguished from a single-phase lateral, which shares its three-phase feeder's zone.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1741,7 +1741,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "A bus declares more phase conductors than its galvanic feed (voltage source or feeding-transformer secondary) supplies — e.g. a 3-phase bus downstream of a single-phase or split-phase (180°) source within one zone. Phase count cannot increase without a transformer.",
+      "meaning": "A bus declares more phase conductors than its galvanic feed (voltage source or feeding-transformer secondary) supplies — e.g. a 3-phase bus downstream of a single-phase or split-phase (180°) source within one zone. Phase count cannot increase without a transformer. A bank of single-phase units supplies the union of its legs: three line-to-neutral units, or an open-delta pair on (a,b) and (b,c), supply three phases.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1832,7 +1832,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "A neutral section (continuity graph over lines/closed switches) with no path to ground **and** loads/generators using it — the zero-sequence path is undefined; 4-wire analysis is ill-posed.",
+      "meaning": "A neutral section (continuity graph over lines/closed switches) with no path to ground (perfect grounding, a grounding shunt, a source that references the neutral, or a transformer neutral impedance) **and** loads/generators using it — the zero-sequence path is undefined; 4-wire analysis is ill-posed.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2164,7 +2164,7 @@
       "namespace": "INT",
       "catalogue_section": "INT",
       "section_title": "structural integrity",
-      "meaning": "A galvanic island (transformer windings are separations) with no source, perfect grounding, or grounding shunt — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island.",
+      "meaning": "A galvanic island (transformer windings are separations) with no source, perfect grounding, grounding shunt, or transformer neutral impedance (`r/x_neutral_from`/`to` on a side that has a neutral terminal — impedance and resonant earthing) — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2204,7 +2204,7 @@
       "namespace": "INT",
       "catalogue_section": "INT",
       "section_title": "structural integrity",
-      "meaning": "A bus declares a terminal in `terminal_names` that is not referenced by any component at that bus (no branch end, load, generator, shunt, or voltage source uses it). The terminal adds a free voltage variable with no KCL constraint — pure numeric overhead. Almost always a conversion artifact or a missing connection. Voltage-source buses are excluded (the source pins every declared terminal regardless).",
+      "meaning": "A bus declares a terminal in `terminal_names` that is not referenced by any component at that bus (no branch end, load, generator, shunt, capacitor, IBR, or voltage source uses it) and is not perfectly grounded — a grounded terminal is pinned, not free. The terminal adds a free voltage variable with no KCL constraint — pure numeric overhead. Almost always a conversion artifact or a missing connection. Voltage-source buses are excluded (the source pins every declared terminal regardless).",
       "contract_id": null,
       "knowledge_ids": []
     },

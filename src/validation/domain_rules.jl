@@ -415,13 +415,22 @@ function _check_droop_breakpoint_band(net, findings, n_checks)
             bps = get(sub, "breakpoints", nothing)
             bps isa AbstractVector || continue
             n_checks[] += 1
-            outside = [Float64(b) for b in bps if Float64(b) < lo || Float64(b) > hi]
-            isempty(outside) || push!(findings, Finding(WARNING,
+            all(b -> b isa Real && isfinite(b), bps) && !isempty(bps) || continue
+            vals = Float64.(bps)
+            # The band lies wholly in a saturated tail of the curve only when
+            # every breakpoint is on one side of it. Breakpoints beyond the
+            # band on both sides are how grid codes specify the curve (for
+            # example AS/NZS 4777.2 volt-var 207–258 V against a 216–253 V
+            # band): the sloped segments still cross the band.
+            side = all(<=(lo), vals) ? "below" : all(>=(hi), vals) ? "above" : nothing
+            side === nothing && continue
+            push!(findings, Finding(WARNING,
                 "W.DOM.DROOP_BREAKPOINT_OUTSIDE_BAND", :domain_rules, :ibr, inv_id,
-                "IBR '$inv_id': $law breakpoint(s) $(outside) V lie outside the " *
+                "IBR '$inv_id': every $law breakpoint ($(vals) V) lies $side the " *
                 "bus voltage band [$(round(lo,digits=1)), $(round(hi,digits=1))] V; " *
-                "the droop may never engage within the feasible range.",
-                Dict{String,Any}("breakpoints" => outside)))
+                "the droop is saturated over the whole feasible range.",
+                Dict{String,Any}("breakpoints" => vals, "law" => law,
+                    "band_V" => [lo, hi], "side" => side)))
         end
     end
 end

@@ -552,9 +552,19 @@ end
 
 function _check_opendss_defaults(net::Dict{String,Any},
                                   findings::Vector{Finding},
-                                  lc_result::Dict{String,Any})::Dict{String,Any}
+                                  lc_result::Dict{String,Any};
+                                  cfg::AbstractDict=_dss_defaults_cfg())::Dict{String,Any}
     res = Dict{String,Any}()
     n_hits = 0
+    # Fingerprints come from the call's configuration ([provenance.dss_defaults]),
+    # falling back to the packaged value key by key.
+    _f(key, default) = Float64(get(cfg, key, default))
+    dss_normamps = _f("normamps", _DSS_NORMAMPS)
+    dss_xhl_pu   = _f("xhl_pu", _DSS_XHL_PU)
+    dss_rw_pu    = _f("rw_pu", _DSS_RW_PU)
+    dss_pf       = _f("pf", _dss_defaults_cfg()["pf"])
+    dss_pf_tan   = tan(acos(dss_pf))
+    dss_kv_ll    = (_f("basekv_v", _DSS_KV_LL[1]), _f("kv_v", _DSS_KV_LL[2]))
 
     # --- default line constants (via recovered sequence parameters) ---
     dz = String[]
@@ -589,7 +599,7 @@ function _check_opendss_defaults(net::Dict{String,Any},
             vals = v isa AbstractVector ? Float64.(v) : [Float64(v)]
             # i_max maps from normamps; emergamps (600) does not reach i_max,
             # and 600 A is a common genuine rating — fingerprint 400 only
-            any(==(_DSS_NORMAMPS), vals) && push!(amp_hits, "$ct/$id")
+            any(==(dss_normamps), vals) && push!(amp_hits, "$ct/$id")
         end
     end
     if !isempty(amp_hits)
@@ -611,8 +621,8 @@ function _check_opendss_defaults(net::Dict{String,Any},
             pu = _xfmr_pu(t, subtype)
             pu === nothing && continue
             r_pu, x_pu = pu
-            hit_x = x_pu !== nothing && isapprox(x_pu, _DSS_XHL_PU; rtol=1e-3)
-            hit_r = r_pu !== nothing && isapprox(r_pu, _DSS_RW_PU;  rtol=1e-3)
+            hit_x = x_pu !== nothing && isapprox(x_pu, dss_xhl_pu; rtol=1e-3)
+            hit_r = r_pu !== nothing && isapprox(r_pu, dss_rw_pu;  rtol=1e-3)
             (hit_x || hit_r) && push!(xfmr_hits,
                 "$id ($(hit_x ? "xhl=7%" : "")$(hit_x && hit_r ? ", " : "")$(hit_r ? "%r=0.2" : ""))")
         end
@@ -637,14 +647,14 @@ function _check_opendss_defaults(net::Dict{String,Any},
         pairs = [(Float64(p[i]), Float64(q[i])) for i in eachindex(p)
                  if Float64(p[i]) > 0]
         isempty(pairs) && continue
-        all(isapprox(qq / pp, _DSS_PF_TAN; rtol=1e-3) for (pp, qq) in pairs) &&
+        all(isapprox(qq / pp, dss_pf_tan; rtol=1e-3) for (pp, qq) in pairs) &&
             push!(pf_hits, id)
     end
     if !isempty(pf_hits)
         n_hits += length(pf_hits)
         push!(findings, Finding(INFO, "I.PROV.DSS_DEFAULT_PF", :provenance,
             :load, nothing,
-            "$(length(pf_hits)) load(s) have power factor exactly 0.88 — the " *
+            "$(length(pf_hits)) load(s) have power factor exactly $(dss_pf) — the " *
             "OpenDSS default; reactive demand was likely never specified.",
             Dict{String,Any}("loads" => sort(pf_hits))))
     end
@@ -655,7 +665,7 @@ function _check_opendss_defaults(net::Dict{String,Any},
         vm = get(vs, "v_magnitude", nothing)
         vm isa AbstractVector && !isempty(vm) || continue
         vmax = maximum(Float64.(vm))
-        any(isapprox(vmax, kv / sqrt(3); rtol=1e-4) for kv in _DSS_KV_LL) &&
+        any(isapprox(vmax, kv / sqrt(3); rtol=1e-4) for kv in dss_kv_ll) &&
             push!(kv_hits, "voltage_source/$id")
     end
     for subtype in TRANSFORMER_SUBTYPES
@@ -665,7 +675,7 @@ function _check_opendss_defaults(net::Dict{String,Any},
             for f in ("v_nom_from", "v_nom_to")
                 v = get(t, f, nothing)
                 v === nothing && continue
-                any(isapprox(Float64(v), kv; rtol=1e-4) for kv in _DSS_KV_LL) &&
+                any(isapprox(Float64(v), kv; rtol=1e-4) for kv in dss_kv_ll) &&
                     push!(kv_hits, "transformer/$id ($f)")
             end
         end
@@ -765,7 +775,10 @@ Two independent conditions are checked for each line that references a linecode:
 A line meeting either condition gets an `I.PROV.LINE_SWITCH_LIKE` info finding.
 """
 function _check_switch_like_lines(net::Dict{String,Any},
-                                   findings::Vector{Finding})::Dict{String,Any}
+                                   findings::Vector{Finding};
+                                   cfg::AbstractDict=_switch_like_cfg())::Dict{String,Any}
+    z_per_m = Float64(get(cfg, "z_per_m", _SWITCH_LIKE_Z_PER_M))
+    z_total = Float64(get(cfg, "z_total", _SWITCH_LIKE_Z_TOTAL))
     linecodes = get(net, "linecode", Dict())
     hits = Dict{String, Vector{String}}()   # line_id => reasons
 
@@ -784,9 +797,9 @@ function _check_switch_like_lines(net::Dict{String,Any},
                   zeros(Float64, n, n)
             diag_r = [abs(R[k,k]) for k in 1:n]
             diag_x = [abs(Xm[k,k]) for k in 1:n]
-            if all(<(_SWITCH_LIKE_Z_TOTAL), diag_r) &&
-               all(<(_SWITCH_LIKE_Z_TOTAL), diag_x)
-                push!(reasons, "inline total impedance < $(_SWITCH_LIKE_Z_TOTAL) Ω on all diagonals")
+            if all(<(z_total), diag_r) &&
+               all(<(z_total), diag_x)
+                push!(reasons, "inline total impedance < $(z_total) Ω on all diagonals")
             end
             isempty(reasons) || (hits[lid] = reasons)
             continue
@@ -807,17 +820,17 @@ function _check_switch_like_lines(net::Dict{String,Any},
         # Condition 1: per-unit-length impedance
         diag_r = [abs(R[k,k]) for k in 1:n]
         diag_x = [abs(Xm[k,k]) for k in 1:n]
-        if all(<(_SWITCH_LIKE_Z_PER_M), diag_r) && all(<(_SWITCH_LIKE_Z_PER_M), diag_x)
-            push!(reasons, "linecode impedance < $(_SWITCH_LIKE_Z_PER_M) Ω/m on all diagonals")
+        if all(<(z_per_m), diag_r) && all(<(z_per_m), diag_x)
+            push!(reasons, "linecode impedance < $(z_per_m) Ω/m on all diagonals")
         end
 
         # Condition 2: effective total impedance (R * length, X * length)
         len = get(line, "length", nothing)
         if len !== nothing
             len_f = Float64(len)
-            if all(<(_SWITCH_LIKE_Z_TOTAL), diag_r .* len_f) &&
-               all(<(_SWITCH_LIKE_Z_TOTAL), diag_x .* len_f)
-                push!(reasons, "effective impedance (Z·length) < $(_SWITCH_LIKE_Z_TOTAL) Ω on all diagonals")
+            if all(<(z_total), diag_r .* len_f) &&
+               all(<(z_total), diag_x .* len_f)
+                push!(reasons, "effective impedance (Z·length) < $(z_total) Ω on all diagonals")
             end
         end
 

@@ -13,6 +13,17 @@
 # changing them would be a correctness bug, not a preference.
 
 # ---------------------------------------------------------------------------
+# Report consolidation  (report/finding_consolidation.jl)
+#
+# `analyze` reports an INFO or WARNING code raised on more than
+# `rollup_threshold` components as ONE Finding that lists the components,
+# instead of one Finding per component. `expand_findings(report)` restores the
+# per-component Findings. ERROR Findings are never rolled up. 0 disables.
+# ---------------------------------------------------------------------------
+[report]
+rollup_threshold = 25
+
+# ---------------------------------------------------------------------------
 # Domain plausibility checks  (validation/domain_rules.jl)
 # ---------------------------------------------------------------------------
 [domain_rules]

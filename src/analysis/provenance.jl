@@ -38,7 +38,13 @@ The summary string under `"convention"` states the inferred modeling
 convention explicitly; renderers print it in the report.
 """
 function provenance_analysis(net::Dict{String,Any},
-                              findings::Vector{Finding})::Dict{String,Any}
+                              findings::Vector{Finding};
+                              config::AbstractDict=_DEFAULT_CONFIG)::Dict{String,Any}
+    prov_cfg = get(config, "provenance", Dict{String,Any}())
+    prov_cfg isa AbstractDict || (prov_cfg = Dict{String,Any}())
+    _section(key, fallback) = let v = get(prov_cfg, key, nothing)
+        v isa AbstractDict ? v : fallback
+    end
     result = Dict{String,Any}()
     vl = voltage_level_analysis(net, Finding[])   # duplicate findings discarded
     result["linecodes"]           = _classify_linecodes(net, findings)
@@ -49,7 +55,8 @@ function provenance_analysis(net::Dict{String,Any},
     result["grounding"]           = _grounding_analysis(net, findings)
     _check_ungrounded_wye_neutrals(net, findings)
     result["opendss_defaults"]    = _check_opendss_defaults(net, findings,
-                                                              result["linecodes"])
+                                        result["linecodes"];
+                                        cfg=_section("dss_defaults", _dss_defaults_cfg()))
     result["impedance_transform"] = _classify_impedance_transformation(
                                         net, findings, result["linecodes"]; voltage_levels=vl)
     result["earthing_zones"]      = _earthing_zones(net, vl)
@@ -66,7 +73,8 @@ function provenance_analysis(net::Dict{String,Any},
     result["overlapping_voltage_bounds"]  = _check_bus_voltage_bound_overlap(net, findings)
     result["voltage_source_sequence"]     = _check_voltage_source_sequence(net, findings)
     result["i_max_incomplete"]            = _check_i_max_completeness(net, findings)
-    result["switch_like_lines"]           = _check_switch_like_lines(net, findings)
+    result["switch_like_lines"]           = _check_switch_like_lines(net, findings;
+                                                cfg=_section("switch_like", _switch_like_cfg()))
     result["powerio_conversion"]          = _report_powerio_conversion(net, findings)
     result["convention"]          = _convention_statement(result)
     result

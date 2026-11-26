@@ -950,6 +950,7 @@ include("report/render_ascii_tree.jl")
 include("report/render_solution_markdown.jl")
 include("report/render_json.jl")
 include("report/finding_registry.jl")
+include("report/finding_consolidation.jl")
 include("execution/interface.jl")
 
 include("infeasibility/infeasibility.jl")
@@ -961,7 +962,7 @@ include("augmentation.jl")
 # ---------------------------------------------------------------------------
 
 """
-    analyze(net::Dict{String,Any}; t_index::Int=1, config=load_config()) -> SummaryReport
+    analyze(net::Dict{String,Any}; t_index::Int=1, config=BMOPFTools._DEFAULT_CONFIG) -> SummaryReport
 
 Run all analysis and validation passes on a BMOPF network dict and return
 a [`SummaryReport`](@ref).
@@ -969,6 +970,13 @@ a [`SummaryReport`](@ref).
 Geospatial analysis runs automatically when buses contain coordinate fields.
 Pass a configuration with `config["spatial"]["enabled"] = false` to skip the
 entire spatial pass while retaining the other analysis and validation passes.
+
+A code raised on more than `config["report"]["rollup_threshold"]` components
+(default 25) is reported as one roll-up Finding that lists them, and a Finding
+that a stronger one already states for the same component is dropped;
+`results[:consolidation]` records both, and [`expand_findings`](@ref) restores
+the per-component Findings. ERROR Findings are never consolidated. Set the
+threshold to `0` to disable roll-up.
 
 For snapshot networks, `t_index` is ignored. For networks with a
 `"time_series"` key, the snapshot at `t_index` is materialized first.
@@ -986,7 +994,7 @@ function analyze(net::Dict{String,Any}; t_index::Int=1, config::Dict=_DEFAULT_CO
     results[:diversity]      = diversity_analysis(working, findings)
     results[:operational]    = operational_analysis(working, findings; config=config)
     results[:load_models]    = load_model_analysis(working, findings)
-    results[:provenance]     = provenance_analysis(working, findings)
+    results[:provenance]     = provenance_analysis(working, findings; config=config)
     results[:preflight]      = infeasibility_preflight(working, findings)
 
     # Validation passes
@@ -999,6 +1007,10 @@ function analyze(net::Dict{String,Any}; t_index::Int=1, config::Dict=_DEFAULT_CO
     results[:benchmark]      = benchmark_readiness_check(working, findings)
 
     results[:assessment] = _assessment_coverage(results)
+
+    # Make the report proportional to distinct problems: drop a Finding a
+    # stronger one already states and roll up a code raised on many components.
+    findings, results[:consolidation] = _consolidate_findings(findings; config=config)
 
     SummaryReport(
         get(net, "name", nothing),
@@ -3211,6 +3223,7 @@ export Severity, ERROR, WARNING, INFO
 export Finding, SummaryReport, SolutionReport
 export ScientificContractResult, contract_result_to_dict
 export explain_finding
+export expand_findings, is_rolled_up
 export execute_contract, execute_case_parse, execute_analysis, execute_solution_verification
 export execute_finding_explanation, execution_error_response
 export check_parallel_member_limit_preservation

@@ -157,4 +157,207 @@ end
             @test vmap_y[load["bus"]] ≈ load["v_nom"][1] rtol = 1e-6
         end
     end
+
+    # ── Report noise: narrowed triggers ─────────────────────────────────────
+
+    _pg_feeder(; n_lines::Int=3, len::Float64=50.0) = begin
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}("b0" => Dict{String,Any}(
+                "terminal_names" => ["a","b","c","n"], "perfectly_grounded_terminals" => ["n"])),
+            "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+                "bus" => "b0", "terminal_map" => ["a","b","c"],
+                "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2π/3, 2π/3])),
+            "linecode" => Dict{String,Any}("lc" => Dict{String,Any}(
+                ("$(q)_series_$(k)_$(k)" => (q == "R" ? 3e-4 : 1e-4) for q in ("R","X"), k in 1:4)...,
+                "i_max" => fill(200.0, 4))),
+            "line" => Dict{String,Any}(), "load" => Dict{String,Any}())
+        for k in 1:n_lines
+            net["bus"]["b$k"] = Dict{String,Any}("terminal_names" => ["a","b","c","n"])
+            net["line"]["l$(lpad(k, 4, '0'))"] = Dict{String,Any}(
+                "bus_from" => "b$(k-1)", "bus_to" => "b$k", "linecode" => "lc", "length" => len,
+                "terminal_map_from" => ["a","b","c","n"], "terminal_map_to" => ["a","b","c","n"])
+        end
+        for (k, ph) in enumerate(("a","b","c"))
+            net["load"]["ld$ph"] = Dict{String,Any}("bus" => "b$n_lines",
+                "terminal_map" => [ph, "n"], "configuration" => "SINGLE_PHASE",
+                "p_nom" => [1000.0 * k], "q_nom" => [100.0 * k], "v_nom" => [230.0])
+        end
+        net
+    end
+
+    @testset "unused-terminal check ignores pinned and capacitor-used terminals" begin
+        net = _pg_feeder()
+        net["bus"]["b1"]["terminal_names"] = ["a","b","c","n","n_ref"]
+        net["bus"]["b1"]["perfectly_grounded_terminals"] = ["n_ref"]
+        f = Finding[]
+        r = integrity_check(net, f)
+        @test r["n_unused_bus_terminals"] == 0          # n_ref is pinned, not free
+        # Negative: the same extra terminal without the grounding IS free.
+        delete!(net["bus"]["b1"], "perfectly_grounded_terminals")
+        f = Finding[]
+        integrity_check(net, f)
+        @test any(x -> x.code == "W.INT.UNUSED_BUS_TERMINAL" && x.component_id == "b1" &&
+                       x.detail["terminals"] == ["n_ref"], f)
+        # A floating-star capacitor bank uses its star-point terminal.
+        net["capacitor"] = Dict{String,Any}("cap" => Dict{String,Any}(
+            "bus" => "b1", "terminal_map" => ["a","b","c","n_ref"]))
+        f = Finding[]
+        integrity_check(net, f)
+        @test !any(x -> x.code == "W.INT.UNUSED_BUS_TERMINAL" && x.component_id == "b1", f)
+    end
+
+    @testset "unloaded-phase note needs a zone that carries load" begin
+        # The source-side zone of the SWER deck has no load at all.
+        net = _pg_dss("../SWER/Master.dss")
+        f = Finding[]
+        operational_analysis(net, f)
+        anchors = [x.detail["zone_anchor"] for x in f if x.code == "I.OPS.UNLOADED_PHASE"]
+        @test !any(a -> startswith(a, "_pio_vsource") || a == "mv", anchors)
+        # A loaded zone with one phase left out is still reported.
+        feeder = _pg_feeder(); delete!(feeder["load"], "ldc")
+        f = Finding[]
+        operational_analysis(feeder, f)
+        @test [x.detail["terminal"] for x in f if x.code == "I.OPS.UNLOADED_PHASE"] == ["c"]
+    end
+
+    @testset "droop breakpoints beyond the band are not a defect" begin
+        droop(bps) = begin
+            net = _pg_feeder()
+            net["bus"]["b3"]["v_min"] = fill(216.0, 3); net["bus"]["b3"]["v_max"] = fill(253.0, 3)
+            net["control_profile"] = Dict{String,Any}("cp" => Dict{String,Any}(
+                "volt_var" => Dict{String,Any}("breakpoints" => bps)))
+            net["ibr"] = Dict{String,Any}("pv" => Dict{String,Any}("bus" => "b3",
+                "terminal_map" => ["a","n"], "control_profile" => "cp"))
+            f = Finding[]; n = Ref(0)
+            BMOPFTools._check_droop_breakpoint_band(net, f, n)
+            [x for x in f if x.code == "W.DOM.DROOP_BREAKPOINT_OUTSIDE_BAND"]
+        end
+        @test isempty(droop([207.0, 220.0, 240.0, 258.0]))   # AS/NZS 4777.2 Australia A
+        @test isempty(droop([220.0, 240.0]))                  # all inside
+        @test isempty(droop([200.0, 260.0]))                  # one sloped segment spans the band
+        @test isempty(droop([216.0, 253.0]))                  # ...also exactly on the bounds
+        hit = droop([255.0, 260.0, 265.0])                    # entirely above the band
+        @test length(hit) == 1 && hit[1].detail["side"] == "above"
+        low = droop([200.0, 210.0])                           # entirely below
+        @test length(low) == 1 && low[1].detail["side"] == "below"
+        @test length(droop([253.0, 260.0])) == 1              # touching the upper bound only
+    end
+
+    @testset "provenance thresholds follow the call configuration" begin
+        net = _pg_feeder(; len=0.1)                # Z·length = 3e-5 Ω < 1e-4 Ω default
+        f = Finding[]
+        provenance_analysis(net, f)
+        @test count(x -> x.code == "I.PROV.LINE_SWITCH_LIKE", f) == 3
+        cfg = load_config()
+        cfg["provenance"]["switch_like"]["z_total"] = 1e-6
+        f = Finding[]
+        provenance_analysis(net, f; config=cfg)
+        @test !any(x -> x.code == "I.PROV.LINE_SWITCH_LIKE", f)
+        # ...and through analyze, which is what the configuration file documents.
+        tight = _pg_analyze(net)
+        loose = redirect_stderr(devnull) do; analyze(net; config=cfg); end
+        @test "I.PROV.LINE_SWITCH_LIKE" in _pg_codes(expand_findings(tight)) ||
+              "W.DOM.LINE_LOW_IMPEDANCE" in _pg_codes(expand_findings(tight))
+        @test !("I.PROV.LINE_SWITCH_LIKE" in _pg_codes(loose.findings))
+
+        # The OpenDSS default power factor fingerprint is configurable too.
+        pfnet = _pg_feeder()
+        for l in values(pfnet["load"]); l["q_nom"] = [l["p_nom"][1] * tan(acos(0.95))]; end
+        f = Finding[]; provenance_analysis(pfnet, f)
+        @test !any(x -> x.code == "I.PROV.DSS_DEFAULT_PF", f)
+        cfg2 = load_config(); cfg2["provenance"]["dss_defaults"]["pf"] = 0.95
+        f = Finding[]; provenance_analysis(pfnet, f; config=cfg2)
+        @test any(x -> x.code == "I.PROV.DSS_DEFAULT_PF", f)
+        # A partial user section falls back to packaged values key by key.
+        cfg3 = load_config(); cfg3["provenance"]["dss_defaults"] = Dict{String,Any}("pf" => 0.95)
+        f = Finding[]; provenance_analysis(pfnet, f; config=cfg3)
+        @test any(x -> x.code == "I.PROV.DSS_DEFAULT_PF", f)
+    end
+
+    # ── Report noise: consolidation ─────────────────────────────────────────
+
+    @testset "consolidation: roll-up is thresholded, lossless and never hides errors" begin
+        mk(sev, code, id; ctype=:line) = Finding(sev, code, :domain_rules, ctype, id,
+            "msg $id", Dict{String,Any}("k" => id))
+        cfg(n) = Dict{String,Any}("report" => Dict{String,Any}("rollup_threshold" => n))
+        raw = Finding[mk(WARNING, "W.X.MANY", "l$(lpad(k, 2, '0'))") for k in 30:-1:1]
+        push!(raw, mk(INFO, "I.X.FEW", "a"), mk(INFO, "I.X.FEW", "b"))
+        append!(raw, [mk(ERROR, "E.X.MANY", "e$k") for k in 1:30])
+        push!(raw, Finding(WARNING, "W.X.NET", :domain_rules, :network, nothing, "net"))
+
+        out, summary = BMOPFTools._consolidate_findings(raw; config=cfg(25))
+        rolled = filter(is_rolled_up, out)
+        @test length(rolled) == 1
+        r = only(rolled)
+        @test r.code == "W.X.MANY" && r.severity == WARNING && r.component_id === nothing
+        @test r.detail["count"] == 30
+        @test r.detail["components"] == ["l$(lpad(k, 2, '0'))" for k in 1:30]
+        @test count(f -> f.code == "E.X.MANY", out) == 30        # errors stay per component
+        @test count(f -> f.code == "I.X.FEW", out) == 2          # below threshold
+        @test summary["rolled_up"] == [Dict{String,Any}("code" => "W.X.MANY", "n" => 30)]
+        @test summary["n_findings_before"] == 63 && summary["n_findings_after"] == 34
+
+        # Lossless: expansion restores every per-component record.
+        expanded = expand_findings(out)
+        @test length(expanded) == length(raw)
+        key(f) = (f.code, string(f.component_id), f.message, f.detail)
+        @test Set(key.(expanded)) == Set(key.(raw))
+        @test !any(is_rolled_up, expanded)
+
+        # Boundary: exactly the threshold is not rolled up; one more is.
+        at = Finding[mk(INFO, "I.X.AT", "c$k") for k in 1:25]
+        @test !any(is_rolled_up, BMOPFTools._consolidate_findings(at; config=cfg(25))[1])
+        push!(at, mk(INFO, "I.X.AT", "c26"))
+        @test any(is_rolled_up, BMOPFTools._consolidate_findings(at; config=cfg(25))[1])
+        # Disabled, and malformed thresholds fall back to the default.
+        @test !any(is_rolled_up, BMOPFTools._consolidate_findings(at; config=cfg(0))[1])
+        @test BMOPFTools._rollup_threshold(cfg(-1)) == 25
+        @test BMOPFTools._rollup_threshold(cfg(true)) == 25
+        @test BMOPFTools._rollup_threshold(Dict{String,Any}()) == 25
+        # A component that raises one code twice cannot be keyed: left as is.
+        dup = vcat(at, [mk(INFO, "I.X.AT", "c1")])
+        @test !any(is_rolled_up, BMOPFTools._consolidate_findings(dup; config=cfg(25))[1])
+    end
+
+    @testset "consolidation: a stronger finding subsumes the weaker one" begin
+        sw(id) = Finding(INFO, "I.PROV.LINE_SWITCH_LIKE", :provenance, :line, id, "s")
+        lo(id) = Finding(WARNING, "W.DOM.LINE_LOW_IMPEDANCE", :domain_rules, :line, id, "l")
+        out, summary = BMOPFTools._consolidate_findings(Finding[sw("a"), sw("b"), lo("b")])
+        @test [(f.code, f.component_id) for f in out] ==
+              [("I.PROV.LINE_SWITCH_LIKE", "a"), ("W.DOM.LINE_LOW_IMPEDANCE", "b")]
+        @test summary["subsumed"][1]["components"] == ["b"]
+
+        ops(n) = Finding(WARNING, "W.OPS.LINE_UNCONSTRAINED", :operational, :line, nothing,
+            "o", Dict{String,Any}("n_unconstrained" => n))
+        prov(ids) = Finding(WARNING, "W.PROV.I_MAX_ABSENT", :provenance, :line, nothing,
+            "p", Dict{String,Any}("lines" => ids))
+        same, _ = BMOPFTools._consolidate_findings(Finding[ops(2), prov(["x","y"])])
+        @test [f.code for f in same] == ["W.PROV.I_MAX_ABSENT"]
+        # Different counts are different facts: both stay.
+        differ, _ = BMOPFTools._consolidate_findings(Finding[ops(3), prov(["x","y"])])
+        @test length(differ) == 2
+        alone, _ = BMOPFTools._consolidate_findings(Finding[ops(3)])
+        @test length(alone) == 1
+    end
+
+    @testset "analyze reports a segmented feeder in proportion to its problems" begin
+        # 40 sub-meter segments: one root cause, formerly 80 findings.
+        net = _pg_feeder(; n_lines=40, len=0.1)
+        report = _pg_analyze(net)
+        low = [f for f in report.findings if f.code == "W.DOM.LINE_LOW_IMPEDANCE"]
+        @test length(low) == 1 && is_rolled_up(low[1]) && low[1].detail["count"] == 40
+        @test !any(f -> f.code == "I.PROV.LINE_SWITCH_LIKE", report.findings)
+        @test report.results[:consolidation]["n_findings_after"] == length(report.findings)
+        @test length(expand_findings(report)) > length(report.findings)
+        # Rendering a roll-up works in every format.
+        for ext in (".md", ".json", ".txt")
+            path = tempname() * ext
+            render(report, path)
+            @test filesize(path) > 0
+        end
+        # Opting out restores the per-line findings.
+        cfg = load_config(); cfg["report"]["rollup_threshold"] = 0
+        flat = redirect_stderr(devnull) do; analyze(net; config=cfg); end
+        @test count(f -> f.code == "W.DOM.LINE_LOW_IMPEDANCE", flat.findings) == 40
+    end
 end

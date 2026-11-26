@@ -3216,11 +3216,22 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     end
 
     @testset "Operational — W.OPS.IMPORT_DEPENDENT counts ibr capacity" begin
-        # Baseline _spec_net: 10 kW load, no local generation → import-dependent.
+        # Baseline _spec_net: 10 kW load and no generator or IBR at all. A
+        # passive feeder imports everything by construction: the fact is in the
+        # result, and no warning is raised.
         base = _spec_net()
         fb = Finding[]
         rb = operational_analysis(base, fb)
-        @test any(f -> f.code == "W.OPS.IMPORT_DEPENDENT", fb)
+        @test rb["import_dependent"] && rb["passive_feeder"]
+        @test !any(f -> f.code == "W.OPS.IMPORT_DEPENDENT", fb)
+
+        # A declared generator with negligible capacity is the warned case.
+        net_small = _spec_net(""","generator":{"g":{"bus":"b1","terminal_map":["a","n"],
+            "configuration":"SINGLE_PHASE","p_max":[100.0],"q_max":[0.0]}}""")
+        fg = Finding[]
+        rg = operational_analysis(net_small, fg)
+        @test rg["import_dependent"] && !rg["passive_feeder"]
+        @test any(f -> f.code == "W.OPS.IMPORT_DEPENDENT", fg)
 
         # Feeder with only a PV IBR (no `generator`) sized well above the load:
         # its active capacity must clear the import-dependent warning.
