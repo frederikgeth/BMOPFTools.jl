@@ -45,15 +45,26 @@ Initial General release candidate. Registration has not yet been requested.
     warning. A shared-DC-link balance with `p_dc_min == p_dc_max` is one
     equality row, `:ibr_dc_power_equality`. Apparent-power auxiliaries start
     on their defining equalities.
-  - **Open-delta regulators pass the neutral through.** When both terminal
-    maps include a neutral, the bank now bonds the two neutral terminals like
-    its shared phase, in the OPF and in `ybus_passive`/`ybus_augmented`.
-    Previously the downstream neutral was an island: a phase-to-neutral load
-    behind the bank had no return path unless both neutrals were earthed, and
-    the solve diverged. Checked against OpenDSS.
   - A **minimum power factor of exactly one** stamps the single equality
     `:ibr_minimum_pf_equality` (`Q = 0`) instead of the opposing pair
-    `Q <= 0`, `-Q <= 0`. Limits below one keep their two wedge rows.
+    `Q <= 0`, `-Q <= 0`, unless a pinned reactive box or a unity constant
+    power factor already states `Q = 0` for that coil. Limits below one keep
+    their two wedge rows. Likewise a shared-DC-link balance is not restated
+    when every coil's active power is pinned and already sums to it.
+  - A **two-terminal DELTA generator** applies the tighter of its
+    per-conductor `i_max` entries to its one coil current, whichever terminal
+    it is listed against.
+  - **IBR `p_min`/`p_max`/`q_min`/`q_max` vectors** must have one entry per
+    coil, as for generators; a short vector used to leave coils unbounded.
+    `solve_pf` checks determinacy coil by coil and counts a reactive control
+    law only where the engine stamps it (not Volt-var on `THREE_LEG`, not a
+    malformed curve). A multi-coil DC-coupled unit needs each coil's active
+    power fixed, since its DC side determines only their sum.
+  - **Open switches** no longer join voltage-base zones, and no longer trip
+    the same-base check of a custom scaling policy.
+  - Open-delta regulators are unchanged: the bank does not connect its neutral
+    terminals, and neutral continuity past it stays an explicit line or
+    switch. Two OpenDSS cases (ideal and 0.5 ohm jumper) now pin this.
 
 - Add network-reduction tools: explicit-neutral Kron reduction
   (`kron_reduce_neutrals`, ported from PowerOptLab with its tests and

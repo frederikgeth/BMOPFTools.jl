@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "74a9f6f0abdaf7eeadb098993add756897ea020e6ecb5ad317ceffc717ce895d",
+  "corpus_sha256": "68dcde42f4edd056cdf362bb31e840db4fda4eb06e7a3d7dea2356c6d9c9c1a9",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -150,11 +150,11 @@
     },
     {
       "path": "docs/src/opf.md",
-      "sha256": "b3dedcd8c31e425b0935c53a8f76b79fc115e77d7c269a17b707f8772c6027c3"
+      "sha256": "951120ea9377d793a8bd6a79d14b6efb245b92b2d2b3cd4d9e02ebb309606f4b"
     },
     {
       "path": "docs/src/opf_transformers.md",
-      "sha256": "4258f20f680d4da3275d6031e7e740e5fae3665c2b7632d64ecddd24ef35854c"
+      "sha256": "f380d4dedb247ddbe802c0eb1dde83415bba65b10f6b077a850aae3d09c200fd"
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
@@ -234,7 +234,7 @@
     },
     {
       "path": "docs/src/validation.md",
-      "sha256": "ef9cd1127fa02b6c6857229a48ba060a74b5983e5eab18b10046ea627c4efa22"
+      "sha256": "ab8c3be302a0baa8ceaaa0cf2926bfb26eed9dd23ce4fe5b3a53907c32b88c02"
     },
     {
       "path": "examples/case_development.jl",
@@ -270,11 +270,11 @@
     },
     {
       "path": "ext/BMOPFOpfExt/generator.jl",
-      "sha256": "6849068707d63a9f6d71030e813b77669f2c25d1eaee823c046c8b08f91e1767"
+      "sha256": "534c48d39c89c043ba59c07ee6e4e47b36f466c0bb0a9aa33833422798414e5a"
     },
     {
       "path": "ext/BMOPFOpfExt/ibr.jl",
-      "sha256": "0de1c4c1335822be84eb7575e475460af4cb245fbbbdaf464404a4357be47b1e"
+      "sha256": "a2719bd620011e02621c6bc1d1078c3b940e1c39b2f3d02e0f5c815fc29b8396"
     },
     {
       "path": "ext/BMOPFOpfExt/load.jl",
@@ -290,11 +290,11 @@
     },
     {
       "path": "ext/BMOPFOpfExt/per_unit.jl",
-      "sha256": "1cbeee9284411ac3773e5a58fc228d00e177dc31058031dc57d15a19b8be8232"
+      "sha256": "2c6a809fd45cdf90f2a55d7c0a1f7b74b6e9fa294fc6b90dc9eb2b8f884f9947"
     },
     {
       "path": "ext/BMOPFOpfExt/pf.jl",
-      "sha256": "dbbed0d0aabf08af82de85ba34f6206584cb02486a3c346759c2a62dfeb91544"
+      "sha256": "7cc3b90c6d4de04acc6ba0db3c259a5c2b1698e76756f0b1db504553335da012"
     },
     {
       "path": "ext/BMOPFOpfExt/profile.jl",
@@ -310,11 +310,11 @@
     },
     {
       "path": "ext/BMOPFOpfExt/transformer.jl",
-      "sha256": "e815cf221f415ad0294f1bcc2ad60975743e3ebb2836c1c4cb5ff9f08cdb77ad"
+      "sha256": "269d4ef2a1b121a5e056762bc42c379f062031f11fe757dd0048437815d77130"
     },
     {
       "path": "ext/BMOPFOpfExt/variables.jl",
-      "sha256": "c1db531581a70c5049c10da49e7d9584a44c0f0a351f97762962365db3200afc"
+      "sha256": "84d2490b0298de0b1813224899708ffa978cc0af27c6ccaaf7392b7082fefecc"
     },
     {
       "path": "generated/finding-registry.json",
@@ -322,7 +322,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "fa7984f36e8da8162ab86c7b760ab64c6eb30df933c100308c3a923710f68119"
+      "sha256": "4c2148f0f05f492be2a655b0bc59e0769225c3b310e943aaba842253b8f8ba4c"
     },
     {
       "path": "recipes/README.md",
@@ -642,7 +642,7 @@
     },
     {
       "path": "src/io/ybus.jl",
-      "sha256": "4b6a55c9db553500ba38348d145c9576ef5003b4b57c263573b35fcc7b27e93a"
+      "sha256": "8cc2fa11dc6368b8961fdc6b311e5593ee1a9c0c2525f0dd2fa019edbe464ca1"
     },
     {
       "path": "src/io/ybus_augmented.jl",
@@ -874,7 +874,7 @@
     },
     {
       "path": "test/data/opf_review_oracles/license.md",
-      "sha256": "7d30854ed432df00e9775e1d3520e7fdd4bf8c9e358d87c91601d18ca4b191e1"
+      "sha256": "d3c10275e204843da68363d9ade884cb5c5dd04b18a78919e377737ca4c99a6e"
     },
     {
       "path": "test/data/opf_review_oracles/pf_4w_two_section.dss",
@@ -890,7 +890,11 @@
     },
     {
       "path": "test/data/opf_review_oracles/pf_open_delta_neutral.dss",
-      "sha256": "b4b5c2187e04b71063ce6151ec271ad2650e4f1b36701de7ab1027e1d8536727"
+      "sha256": "b3aaad66a84e54c2dd8391aef2ce55c99d210ab118548d035edf3a01c08c3e1c"
+    },
+    {
+      "path": "test/data/opf_review_oracles/pf_open_delta_neutral_jumper.dss",
+      "sha256": "b79fb5614b8819bc5c140889ff3a8531ab078061e07eb37cefa60b201ce71026"
     },
     {
       "path": "test/data/parameter_updates/stale_evaluation.jl",
@@ -1530,7 +1534,7 @@
     },
     {
       "path": "test/open_delta_bond_tests.jl",
-      "sha256": "5e8b87d889e4ec538439f92c35a1db764961158b4f5f54414f91d0ed8d491b79"
+      "sha256": "a344d3974eab18b07243aa8c39ba1d44aec991a1c238761f1fcbbe7ba1cd6c96"
     },
     {
       "path": "test/opendss_semantics_tests.jl",
@@ -1562,11 +1566,11 @@
     },
     {
       "path": "test/opf_review_opendss_tests.jl",
-      "sha256": "3ee872339107af418c4972b6016b753e3767fda33898a2884e324f148efd90ec"
+      "sha256": "29af063593c5707f9e7926037d139b4ff780aacf82d89bdfa3769883a9067d91"
     },
     {
       "path": "test/opf_review_regression_tests.jl",
-      "sha256": "21489f486c3cac40f512b5bf690dc9945d5c7c8a69ef3a0f7e5b37af7bc75763"
+      "sha256": "d4cdbcc2dd897c7bb4d4ff70a74b7968e5ea548a3ec0f0394237d69d6aee9cdc"
     },
     {
       "path": "test/opf_tests.jl",

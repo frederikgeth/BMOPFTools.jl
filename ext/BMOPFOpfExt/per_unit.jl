@@ -81,6 +81,12 @@ function _compute_classic_bases(net::Dict{String,Any}, s_base::Float64)
     end
     for family in ("line", "switch")
         for (_, branch) in get(net, family, Dict())
+            # An OPEN switch joins nothing: its current is fixed to zero and no
+            # voltage row couples its two sides. Counting it as copper would,
+            # for example, pull the low-voltage side of an isolating
+            # transformer onto the high-voltage base when a normally-open
+            # bypass switch spans the unit.
+            family == "switch" && get(branch, "open_switch", false) === true && continue
             bond!(String(get(branch, "bus_from", "")), String(get(branch, "bus_to", "")))
         end
     end
@@ -230,6 +236,8 @@ function _validate_custom_voltage_bases!(net, v_base)
 
     for family in ("line", "switch")
         for (id, component) in get(net, family, Dict())
+            # An open switch couples nothing, so it may span two bases.
+            family == "switch" && get(component, "open_switch", false) === true && continue
             from_bus = String(get(component, "bus_from", ""))
             to_bus = String(get(component, "bus_to", ""))
             (isempty(from_bus) || isempty(to_bus)) && continue

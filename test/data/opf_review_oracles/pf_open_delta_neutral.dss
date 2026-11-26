@@ -6,12 +6,13 @@
 !   phase 2 and the neutral pass straight through the bank
 !   unbalanced phase-to-neutral loads at lb; neutral earthed at the source ONLY
 !
-! No winding of an open-delta bank touches the neutral, so the neutral
-! conductor passes it unbroken. Here that through-connection is the ONLY
-! return path for the load unbalance: the downstream neutral is not earthed.
-! This is the oracle for the regulator's neutral bond. Without the bond the
-! downstream neutral is an island and the phase-to-neutral loads cannot be
-! supplied at all.
+! No winding of an open-delta bank touches the neutral, and the BMOPF
+! open_delta_regulator does not connect its two neutral terminals. Neutral
+! continuity across the bank is a separate, explicit element. Here it is an
+! ideal jumper, and it is the ONLY return path for the load unbalance: the
+! downstream neutral is not earthed. The companion deck
+! pf_open_delta_neutral_jumper.dss gives the same jumper 0.5 ohm, which an
+! implicit ideal bond inside the regulator model would wrongly short out.
 !
 ! OpenDSS has no monolithic open-delta device, so the bank is two single-phase
 ! line-to-line transformers and the two copper through-connections are

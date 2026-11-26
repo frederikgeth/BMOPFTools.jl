@@ -198,11 +198,7 @@ function _add_transformer_variables!(model, net)
                 # the galvanic straight-through wire on the shared phase (the
                 # common-neutral connection, V_shared_fr = V_shared_to). The "to"
                 # side needs only the two regulator currents.
-                # A 4th "fr" current carries the neutral straight through the
-                # bank when both sides expose a neutral terminal.
-                has_neutral_bond = BMOPFTools._open_delta_neutral_bond(
-                    xfmr; neutral_labels=nlabels) !== nothing
-                n_fr = has_neutral_bond ? 4 : 3
+                n_fr = 3
                 n_to = 2
             else
                 n_fr = length(tmfr)
@@ -689,10 +685,6 @@ function _set_topology_aware_voltage_start_values!(
                 (bus_to, map_to[phases_to[p]]) => -1.0,
             ], 0.0, :galvanic)
         end
-        neutral_bond = BMOPFTools._open_delta_neutral_bond(
-            transformer; neutral_labels=nlabels)
-        neutral_bond === nothing || add_equation!([
-            neutral_bond[1] => 1.0, neutral_bond[2] => -1.0], 0.0, :galvanic)
     end
 
     # General n-winding WYE/DELTA units, including delta_roll vector groups.

@@ -1105,6 +1105,7 @@ source_paths = [
   "test/data/opf_review_oracles/pf_4w_two_section.dss",
   "test/data/opf_review_oracles/pf_delta_gen_1ph.dss",
   "test/data/opf_review_oracles/pf_open_delta_neutral.dss",
+  "test/data/opf_review_oracles/pf_open_delta_neutral_jumper.dss",
   "test/data/opf_review_oracles/license.md",
   "docs/src/dev/opf_engine.md",
   "docs/src/opf.md",

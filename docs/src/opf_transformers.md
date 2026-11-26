@@ -400,25 +400,27 @@ still correct but the per-phase reference floats (the unphysical
 "unspecified neutral" model). See
 [Transformer primitive admittance](spec/transformer-admittance.md) for the matching bus-admittance form.
 
-**The neutral passes straight through.** No winding of an open-delta bank
-touches the neutral, so on a four-wire feeder the neutral conductor runs past
-the bank unbroken. When both terminal maps include a neutral, the model bonds
-the two neutral terminals exactly as it bonds the shared phase — equal voltage
-and a free bond current:
+**The neutral is not part of the bank.** No winding of an open-delta bank
+touches the neutral, and the model does **not** connect the neutral terminals
+of its two buses: only the shared phase is bonded. On a four-wire feeder the
+neutral conductor physically runs past the bank, and that continuity is a
+separate, explicit element in the case:
 
-```math
-v_{b^\text{fr},n} = v_{b^\text{to},n}
-```
+- a neutral-only `line` with exact zero impedance, or a closed `switch`, for an
+  ideal through-connection;
+- a neutral-only `line` with its real impedance when the jumper resistance
+  matters.
 
-The bond matters most when the downstream neutral is *not* earthed: it is then
-the only return path for phase-to-neutral load current, and without it those
-loads could not be supplied at all. When both neutral terminals are already
-held at a fixed potential (perfectly grounded, or on a voltage-source bus) the
-bond is redundant and carries no current. The system admittance builders
-([`ybus_passive`](@ref), [`ybus_augmented`](@ref)) fuse the same two nodes, so
-the OPF and the admittance view agree. A dedicated OpenDSS case
-(`pf_open_delta_neutral`, see [Validating the OPF engine](validation.md))
-pins this behavior.
+Keeping the path explicit is deliberate. A bond built into the regulator would
+silently short out a finite-impedance neutral path that the case does model,
+and every tool reading the case has to agree on connectivity: the OPF, the
+admittance builders, and the provenance analysis all treat the bank's neutral
+terminals as unconnected. If no explicit path is given, the downstream neutral
+is a separate island; provenance reports it as `E.PROV.FLOATING_NEUTRAL`, and a
+phase-to-neutral load there has no return path unless that neutral is earthed.
+Two OpenDSS cases pin the behavior, one with an ideal and one with a 0.5 Ω
+neutral jumper (`pf_open_delta_neutral`, `pf_open_delta_neutral_jumper`; see
+[Validating the OPF engine](validation.md)).
 
 ## `n_winding` — general n-winding (ZB model, WYE and/or DELTA)
 

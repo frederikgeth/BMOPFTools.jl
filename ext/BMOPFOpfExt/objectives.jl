@@ -991,12 +991,6 @@ conductor current a neutral-heating or sequence-current penalty is about.
 """
 function BMOPFTools.opf_branch_currents(ctx::OpfContext, block::AbstractString,
                                         id::AbstractString; side::Symbol = :from)
-    if block == "dc_branch"
-        loss = _dc_branch_loss_expr(ctx, id)
-        loss === nothing && throw(ArgumentError(
-            "no DC branch '$id' in the model."))
-        return loss
-    end
     recs = get(get(ctx.branch_inj, block, Dict{String,Any}()), id, nothing)
     recs === nothing && throw(ArgumentError(
         "no terminal-injection records for $block '$id'"))

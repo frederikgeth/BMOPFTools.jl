@@ -10,7 +10,8 @@ itself (see `test/opf_review_opendss_tests.jl`):
 | `pf_mesh_unequal_ratio.dss` | the circulating current in a mesh closed across transformers of unequal ratio |
 | `pf_4w_two_section.dss` | neutral-voltage phasors along a two-section four-wire feeder |
 | `pf_delta_gen_1ph.dss` | a single line-to-line generator delivering its setpoint once |
-| `pf_open_delta_neutral.dss` | an open-delta regulator bank passing the neutral through to an unearthed downstream neutral |
+| `pf_open_delta_neutral.dss` | an explicit ideal neutral jumper past an open-delta regulator bank, feeding an unearthed downstream neutral |
+| `pf_open_delta_neutral_jumper.dss` | the same with a 0.5 Ω jumper, which the regulator model must not short out |
 
 Not derived from utility data. They are kept apart from
 `test/data/pf_comparison/`, whose decks are also swept by the `from_dss`

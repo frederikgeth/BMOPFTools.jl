@@ -199,17 +199,17 @@ Throw an `ArgumentError` if any generator has a non-degenerate active or reactiv
 power range (`p_min != p_max` or `q_min != q_max`). A power flow has no objective
 to select a point within a range, so generators must be fixed setpoints.
 """
-# One side of a fixed setpoint: both bounds present, equal length, and equal.
-# A missing or one-sided bound leaves the coil's power free, which a power
-# flow (no objective) cannot resolve — it would return wherever the start
-# point happened to lead.
-function _require_fixed_setpoint(owner, label, lo, hi)
-    (isempty(lo) || isempty(hi) || length(lo) != length(hi)) && throw(ArgumentError(
-        "$owner: solve_pf requires $(label)_min and $(label)_max, one entry " *
-        "per coil, with $(label)_min == $(label)_max. A power flow has no " *
-        "objective to choose a dispatch, so a missing or one-sided bound " *
-        "leaves the operating point undetermined. Use solve_opf for " *
-        "range-bounded devices."))
+# One side of a fixed setpoint: both bounds present, ONE ENTRY PER COIL, and
+# equal. A missing, short, or one-sided bound leaves a coil's power free, which
+# a power flow (no objective) cannot resolve — it would return wherever the
+# start point happened to lead.
+function _require_fixed_setpoint(owner, label, lo, hi, ncoils::Int)
+    (length(lo) == ncoils && length(hi) == ncoils && ncoils > 0) || throw(ArgumentError(
+        "$owner: solve_pf requires $(label)_min and $(label)_max with one " *
+        "entry for each of its $ncoils coil(s) and $(label)_min == $(label)_max. " *
+        "A power flow has no objective to choose a dispatch, so a missing, " *
+        "short, or one-sided bound leaves the operating point undetermined. " *
+        "Use solve_opf for range-bounded devices."))
     for k in eachindex(lo)
         # Relative comparison: the working values may be per-unit or SI.
         isapprox(lo[k], hi[k]; rtol=1e-9, atol=1e-12 * max(1.0, abs(lo[k]))) ||
@@ -223,12 +223,16 @@ function _require_fixed_setpoint(owner, label, lo, hi)
 end
 
 function _validate_pf_generators(net::Dict{String,Any})
+    nlabels = BMOPFTools._neutral_labels(net)
     for (gid, gen) in get(net, "generator", Dict())
         gen isa Dict || continue
+        ncoils = length(first(_generator_positions(
+            Vector{String}(get(gen, "terminal_map", String[])),
+            get(gen, "configuration", "WYE"), nlabels)))
         for label in ("p", "q")
             _require_fixed_setpoint("Generator '$gid'", label,
                 Float64.(get(gen, "$(label)_min", Float64[])),
-                Float64.(get(gen, "$(label)_max", Float64[])))
+                Float64.(get(gen, "$(label)_max", Float64[])), ncoils)
         end
     end
     return nothing
@@ -237,32 +241,36 @@ end
 """
     _validate_pf_ibrs(net)
 
-Require every AC-only IBR to be a determined device, coil by coil:
+Require every IBR to be a determined device, **coil by coil**:
 
-- **Active power** must be a fixed setpoint (`p_min == p_max`). A Volt-watt
-  curve only *caps* P, so it does not determine it.
-- **Reactive power** must be fixed (`q_min == q_max`) or set by a control law
-  that determines it: a constant power factor or a Volt-var curve.
-
-IBRs with a DC side (`dc_bus`) or a shared DC link (`dc_link_coupled`) are not
-checked here: their active power is set by the DC-side control law and balance.
+- **Active power** must be a fixed setpoint per coil (`p_min == p_max`). A
+  Volt-watt curve only *caps* P, so it does not determine it. The one
+  exception is a **single-coil** unit with a DC side (`dc_bus`) or a shared DC
+  link (`dc_link_coupled`): its one active power is set by the DC-side control
+  law or balance. A multi-coil DC-coupled unit is not exempt, because the DC
+  side fixes only the *sum* of its coil powers and leaves the split free.
+- **Reactive power** must be fixed per coil (`q_min == q_max`) or set by a
+  control equality the builder actually stamps for this device
+  ([`_ibr_reactive_law`](@ref)): a constant power factor, or a Volt-var curve
+  on a topology that supports one. A declared but unapplied law — Volt-var on
+  `THREE_LEG`, or a malformed curve — does not count.
 """
 function _validate_pf_ibrs(net::Dict{String,Any})
     profiles = get(net, "control_profile", Dict())
+    nlabels = BMOPFTools._neutral_labels(net)
     for (id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
-        (haskey(inv, "dc_bus") || get(inv, "dc_link_coupled", false) === true) && continue
         owner = "IBR '$id'"
-        _require_fixed_setpoint(owner, "p",
+        ncoils = _ibr_coil_count(inv, nlabels)
+        dc_sets_p = ncoils == 1 &&
+            (haskey(inv, "dc_bus") || get(inv, "dc_link_coupled", false) === true)
+        dc_sets_p || _require_fixed_setpoint(owner, "p",
             Float64.(get(inv, "p_min", Float64[])),
-            Float64.(get(inv, "p_max", Float64[])))
-        profile = get(profiles, get(inv, "control_profile", nothing), nothing)
-        q_law = profile isa AbstractDict &&
-            (BMOPFTools._constant_pf_value(profile) !== nothing ||
-             get(profile, "volt_var", nothing) !== nothing)
-        q_law || _require_fixed_setpoint(owner, "q",
-            Float64.(get(inv, "q_min", Float64[])),
-            Float64.(get(inv, "q_max", Float64[])))
+            Float64.(get(inv, "p_max", Float64[])), ncoils)
+        _ibr_reactive_law(inv, profiles) === nothing &&
+            _require_fixed_setpoint(owner, "q",
+                Float64.(get(inv, "q_min", Float64[])),
+                Float64.(get(inv, "q_max", Float64[])), ncoils)
     end
     return nothing
 end

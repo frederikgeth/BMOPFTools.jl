@@ -403,6 +403,165 @@
         end
     end
 
+    # ── 12. Findings from the review of this change set ──────────────────────
+    @testset "unity power factor never duplicates an existing Q = 0 row" begin
+        function unity_net(; count=1, fields=D())
+            path = joinpath(@__DIR__, "data", "ibr_minimum_pf", "curtailed.json")
+            net = JSON3.read(read(path, String), Dict{String,Any})
+            template = merge(net["ibr"]["pv"], fields)
+            policy = net["extras"]["bmopftools"]["minimum_power_factor"]["ibr"]
+            request = merge(policy["pv"], D("pf_min" => 1.0))
+            empty!(net["ibr"]); empty!(policy)
+            for k in 1:count
+                net["ibr"]["pv$k"] = deepcopy(template)
+                policy["pv$k"] = deepcopy(request)
+            end
+            net
+        end
+        rows(ctx, family) = count(k -> k.family == family,
+                                  opf_object_keys(ctx; kind=:constraint))
+        pinned = D("p_min" => [400.0], "p_max" => [400.0],
+                   "q_min" => [0.0], "q_max" => [0.0])
+        # A reactive box pinned at zero already says Q = 0: one row, not two.
+        ctx = build_opf_model(unity_net(; fields=pinned); per_unit=false)
+        @test rows(ctx, :ibr_q_equality) == 1
+        @test rows(ctx, :ibr_minimum_pf_equality) == 0
+        # A free reactive box leaves the policy row as the only Q = 0.
+        ctx = build_opf_model(unity_net(); per_unit=false)
+        @test rows(ctx, :ibr_minimum_pf_equality) == 1
+        # Many fully pinned units: equalities must not outnumber the unknowns.
+        for pu in (true, false)
+            result = solve_opf(unity_net(; count=16, fields=pinned); per_unit=pu)
+            @test solved(result)
+            @test all(abs(only(values(unit))["qg"]) < 1e-3 for unit in values(result["ibr"]))
+        end
+    end
+
+    @testset "shared DC-link balance is not restated when every coil is pinned" begin
+        function statcom(p)
+            buses = D(b => D("terminal_names" => ["a", "b", "c", "n"],
+                             "perfectly_grounded_terminals" => ["n"]) for b in ("s", "e"))
+            line = merge(D("bus_from" => "s", "bus_to" => "e",
+                "terminal_map_from" => ["a", "b", "c", "n"],
+                "terminal_map_to" => ["a", "b", "c", "n"]),
+                D("R_series_$(k)_$(k)" => 0.05 for k in 1:4))
+            D("bus" => buses, "line" => D("l" => line),
+              "voltage_source" => D("vs" => D("bus" => "s", "terminal_map" => ["a", "b", "c"],
+                  "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2pi/3, 2pi/3],
+                  "cost" => fill(0.2, 3))),
+              "ibr" => D("sc" => D("bus" => "e", "terminal_map" => ["a", "b", "c", "n"],
+                  "topology" => "FOUR_LEG", "prime_mover" => "STATCOM",
+                  "dc_link_coupled" => true, "s_max" => fill(5000.0, 3),
+                  "p_min" => p, "p_max" => p,
+                  "q_min" => fill(0.0, 3), "q_max" => fill(0.0, 3))))
+        end
+        balance(ctx) = count(k -> startswith(string(k.family), "ibr_dc_power"),
+                             opf_object_keys(ctx; kind=:constraint))
+        # Pinned coil powers that already sum to the balance imply it.
+        @test balance(build_opf_model(statcom([300.0, -100.0, -200.0]); per_unit=false)) == 0
+        @test solved(solve_opf(statcom([300.0, -100.0, -200.0])))
+        # Pinned powers that violate the balance keep the row: a real conflict.
+        @test balance(build_opf_model(statcom([300.0, 0.0, 0.0]); per_unit=false)) == 1
+    end
+
+    @testset "solve_pf determinacy is checked coil by coil" begin
+        ext = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
+        function ibr_net(fields; profile=nothing)
+            buses = D(b => D("terminal_names" => ["a", "b", "c", "n"],
+                             "perfectly_grounded_terminals" => ["n"]) for b in ("s", "e"))
+            line = merge(D("bus_from" => "s", "bus_to" => "e",
+                "terminal_map_from" => ["a", "b", "c", "n"],
+                "terminal_map_to" => ["a", "b", "c", "n"]),
+                D("R_series_$(k)_$(k)" => 0.05 for k in 1:4))
+            net = D("bus" => buses, "line" => D("l" => line),
+              "voltage_source" => D("vs" => D("bus" => "s", "terminal_map" => ["a", "b", "c"],
+                  "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2pi/3, 2pi/3])),
+              "ibr" => D("x" => merge(D("bus" => "e", "prime_mover" => "PV",
+                  "s_max" => fill(8000.0, 3)), fields)))
+            if profile !== nothing
+                net["control_profile"] = D("cp" => profile)
+                net["ibr"]["x"]["control_profile"] = "cp"
+            end
+            net
+        end
+        four(fields) = merge(D("terminal_map" => ["a", "b", "c", "n"], "topology" => "FOUR_LEG"), fields)
+        three(fields) = merge(D("terminal_map" => ["a", "b", "c"], "topology" => "THREE_LEG"), fields)
+        fixed3 = D("p_min" => fill(500.0, 3), "p_max" => fill(500.0, 3),
+                   "q_min" => fill(0.0, 3), "q_max" => fill(0.0, 3))
+        volt_var = D("volt_var" => D("voltage_reference" => "PN_PER_PHASE",
+            "breakpoints" => [207.0, 220.0, 240.0, 253.0], "q_limits" => [-0.44, 0.44],
+            "q_unit" => "VA_FRACTION", "q_ref" => "VAR_MAX"))
+        ranged_q = D("p_min" => fill(500.0, 3), "p_max" => fill(500.0, 3),
+                     "q_min" => fill(-4000.0, 3), "q_max" => fill(4000.0, 3))
+
+        @test solved(solve_pf(ibr_net(four(fixed3))))
+        # One-entry vectors on a three-coil device leave two coils free.
+        short = D("p_min" => [500.0], "p_max" => [500.0], "q_min" => [0.0], "q_max" => [0.0])
+        @test_throws ArgumentError solve_pf(ibr_net(four(short)))
+        @test_throws ArgumentError solve_opf(ibr_net(four(short)))   # same rule in the OPF
+        # Volt-var determines Q where the builder stamps it, and only there.
+        @test solved(solve_pf(ibr_net(four(ranged_q); profile=volt_var)))
+        @test_throws ArgumentError solve_pf(ibr_net(three(ranged_q); profile=volt_var))
+        malformed = D("volt_var" => merge(volt_var["volt_var"], D("breakpoints" => [207.0, 253.0])))
+        @test_throws ArgumentError solve_pf(ibr_net(four(ranged_q); profile=malformed))
+        # A shared DC link fixes only the SUM of the coil powers.
+        coupled = D("dc_link_coupled" => true, "prime_mover" => "STATCOM",
+                    "p_min" => fill(-2000.0, 3), "p_max" => fill(2000.0, 3),
+                    "q_min" => fill(0.0, 3), "q_max" => fill(0.0, 3))
+        @test_throws ArgumentError solve_pf(ibr_net(four(coupled)))
+
+        # The validator's notion of "a reactive law applies" is the builder's.
+        for (device, profile) in ((four(ranged_q), volt_var), (three(ranged_q), volt_var),
+                                  (four(ranged_q), malformed), (four(ranged_q), nothing),
+                                  (four(ranged_q), D("power_factor" => D("pf" => 0.95))),
+                                  (three(ranged_q), D("power_factor" => D("pf" => 0.95))))
+            net = ibr_net(device; profile)
+            ctx = Base.CoreLogging.with_logger(Base.CoreLogging.NullLogger()) do
+                build_opf_model(net; per_unit=false)
+            end
+            stamped = any(k -> k.family in (:ibr_q_volt_var, :ibr_power_factor),
+                          opf_object_keys(ctx; kind=:constraint))
+            law = ext._ibr_reactive_law(net["ibr"]["x"], get(net, "control_profile", D()))
+            @test stamped == (law !== nothing)
+        end
+    end
+
+    @testset "an open switch does not join voltage-base zones" begin
+        function bypass(open)
+            net = D("bus" => D("hv" => bus2(), "lv" => bus2()),
+                "voltage_source" => D("s" => src2("hv"; v=230.0)),
+                "transformer" => D("single_phase" => D("t" => xfmr2("hv", "lv", 230.0, 12.0))),
+                "load" => D("l" => load2("lv"; p=20.0, q=5.0)))
+            open === nothing || (net["switch"] = D("sw" => D("bus_from" => "hv", "bus_to" => "lv",
+                "terminal_map_from" => ["p", "n"], "terminal_map_to" => ["p", "n"],
+                "open_switch" => open)))
+            net
+        end
+        base(net) = opf_bases(build_opf_model(net; per_unit=true)).v_base["lv"]
+        @test base(bypass(nothing)) ≈ 12.0
+        @test base(bypass(true)) ≈ 12.0      # open: still an isolated 12 V zone
+        @test base(bypass(false)) ≈ 230.0    # closed: one copper zone with the source
+        pu = solve_pf(bypass(true); per_unit=true, solver_options=tight)
+        si = solve_pf(bypass(true); per_unit=false, solver_options=tight)
+        @test solved(pu) && solved(si)
+        @test pu["bus"]["lv"]["p"]["vm"] ≈ si["bus"]["lv"]["p"]["vm"] rtol=1e-6
+    end
+
+    @testset "branch-current and loss accessors stay separate" begin
+        ctx = build_opf_model(mvdc_tie(); per_unit=true)
+        # A DC branch has an ohmic loss but no AC conductor-current ledger.
+        @test BMOPFTools.opf_element_loss(ctx, "dc_branch", "line") isa JuMP.AbstractJuMPScalar
+        @test_throws ArgumentError BMOPFTools.opf_branch_currents(ctx, "dc_branch", "line")
+        @test_throws ArgumentError BMOPFTools.opf_neutral_current(ctx, "dc_branch", "line")
+        net = D("bus" => D("f" => bus2(), "t" => bus2()),
+            "voltage_source" => D("s" => src2("f")),
+            "line" => D("m" => line2("f", "t")), "load" => D("l" => load2("t")))
+        ac = build_opf_model(net; per_unit=false)
+        currents = BMOPFTools.opf_branch_currents(ac, "line", "m")
+        @test currents isa Vector && all(c -> c isa Tuple && length(c) == 3, currents)
+        @test BMOPFTools.opf_neutral_current(ac, "line", "m") isa Tuple
+    end
+
     @testset "unsupported IBR records are rejected, not skipped" begin
         net = D("bus" => D("f" => bus2(), "t" => bus2()),
             "voltage_source" => D("s" => src2("f")),

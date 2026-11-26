@@ -1037,7 +1037,16 @@ unbalance. A **single-phase** generator has a single current (phase and return
 are the same), so its `i_max` is length 1 or 2 — the two entries describe one
 conductor pair and collapse to a **single** circle at the tighter limit (never
 constraining the variable twice); a length-1 vector is standardized to 2 by the
-augmentation pass. `DELTA` has no neutral and takes exactly one entry per conductor.
+augmentation pass.
+
+A `DELTA` generator has no neutral, and its `i_max` entries cap the **coil**
+currents, as for a `THREE_LEG` IBR below. A three-terminal delta has three
+coils and takes three entries; entry $k$ caps the current of the coil between
+`terminal_map[k]` and the next terminal, and the conductor current (the
+difference of two coil currents) can exceed it. A **two-terminal** delta is one
+coil whose current flows through both of its conductors, so its one or two
+entries collapse to a single circle at the tighter limit, whichever terminal
+that limit is listed against.
 
 #### IBRs
 
@@ -1606,13 +1615,28 @@ be **determined**, coil by coil, and rejects a case that is not:
 | Device | Active power | Reactive power |
 |---|---|---|
 | Generator | `p_min == p_max` | `q_min == q_max` |
-| IBR without a DC side | `p_min == p_max` | `q_min == q_max`, **or** a control law that fixes it: constant power factor or Volt-var |
+| IBR | `p_min == p_max` | `q_min == q_max`, **or** a control equality the engine actually stamps for that device: constant power factor, or Volt-var |
 
-Both bounds must be present, with one entry per coil. A missing or one-sided
-bound is rejected just like a range, because the solver would otherwise return
-whatever point its starting guess led to and report success. IBRs with a
-`dc_bus` or a shared DC link (`dc_link_coupled`) are exempt from this check:
-their active power is set by the DC-side control law and power balance.
+Both bounds must be present, with **one entry per coil** (one for
+`SINGLE_PHASE`, one per phase for `FOUR_LEG`, one per phase pair for
+`THREE_LEG`). A missing, short, or one-sided bound is rejected just like a
+range, because the solver would otherwise return whatever point its starting
+guess led to and report success.
+
+Two refinements follow from asking what is *stamped* rather than what is
+*declared*:
+
+- **A control law counts only where it is applied.** `THREE_LEG` carries no
+  droop, a malformed Volt-var curve falls back to the reactive box, and a
+  constant power factor takes precedence over a droop in the same profile. A
+  `THREE_LEG` unit with a Volt-var profile and a reactive range is therefore
+  undetermined, and is rejected.
+- **A DC side determines one number.** A `dc_bus` converter or a shared DC link
+  (`dc_link_coupled`) fixes the *sum* of the coil active powers through the
+  DC-side control law or balance. That determines a **single-coil** unit, which
+  is exempt from the active-power requirement. A multi-coil unit still needs
+  each coil's active power fixed, because the split between coils is otherwise
+  free.
 
 Volt-var specifies a reactive-power equality. Volt-watt specifies only an
 active-power **upper bound**, which is why a Volt-watt profile does not
@@ -1866,6 +1890,10 @@ $\lvert Q\rvert \le \tan\varphi\, P$ closes to the half-line $Q = 0$, $P \ge 0$.
 The two wedge rows would then read $Q \le 0$ and $-Q \le 0$, a pair with no
 interior and no unique multipliers, so the engine stamps the single equality
 `ibr_minimum_pf_equality` in their place (`ibr_minimum_pf_generation` is kept).
+That equality is omitted when another row already states $Q = 0$ for the coil —
+a reactive box pinned at zero (`ibr_q_equality`) or a unity constant power
+factor (`ibr_power_factor`) — since a second identical equality would leave the
+coil with more equalities than unknowns.
 The policy itself is fixed at model construction, not a live coefficient knob;
 rebuild to change it. Existing live P/Q/capability coefficients remain live.
 

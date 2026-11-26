@@ -22,7 +22,46 @@
 # Declared q_min/q_max bounds always apply, including with PF or Volt-var.
 # A control law adds an equality; it does not replace reactive capability.
 
-"Declare `cri`/`cii` IBR current variables (one per phase conductor)."
+"""
+    _ibr_coil_count(inv, nlabels) -> Int
+
+Number of independently controlled coils of an IBR, which is also the number of
+current variable pairs and of P/Q bound entries: one for `SINGLE_PHASE`, one
+per cyclic phase pair for `THREE_LEG`, one per phase conductor for `FOUR_LEG`.
+"""
+function _ibr_coil_count(inv, nlabels)
+    tm   = Vector{String}(get(inv, "terminal_map", String[]))
+    topo = get(inv, "topology", "FOUR_LEG")
+    topo == "THREE_LEG" && return length(tm)
+    topo == "SINGLE_PHASE" && return 1
+    return length(_phase_positions(tm, nlabels))   # FOUR_LEG
+end
+
+"""
+    _ibr_reactive_law(inv, profiles) -> Union{Symbol,Nothing}
+
+The reactive-power control equality the builder stamps for this IBR:
+`:constant_pf`, `:volt_var`, or `nothing` when reactive power is left to its box.
+
+This mirrors `_add_ibr_constraints!` rather than the declared profile, because
+a declaration is not always honored: a constant power factor takes precedence
+over a droop, `THREE_LEG` carries no droop at all, and a malformed or
+unsupported Volt-var object falls back to the box. `solve_pf` relies on it to
+decide whether reactive power is determined; a test holds the two in step.
+"""
+function _ibr_reactive_law(inv, profiles)
+    profile = get(profiles, get(inv, "control_profile", nothing), nothing)
+    profile isa AbstractDict || return nothing
+    BMOPFTools._constant_pf_value(profile) === nothing || return :constant_pf
+    vv = get(profile, "volt_var", nothing)
+    (vv === nothing || get(inv, "topology", "FOUR_LEG") == "THREE_LEG") && return nothing
+    resolved = Base.CoreLogging.with_logger(Base.CoreLogging.NullLogger()) do
+        _resolve_volt_var(vv, 1.0, 2e-3)
+    end
+    return resolved === nothing ? nothing : :volt_var
+end
+
+"Declare `cri`/`cii` IBR current variables (one pair per coil)."
 function _add_ibr_variables!(model, net)
     cri = Dict{Tuple{String,Int}, JuMP.VariableRef}()
     cii = Dict{Tuple{String,Int}, JuMP.VariableRef}()
@@ -32,9 +71,7 @@ function _add_ibr_variables!(model, net)
         inv isa Dict || continue
         tm   = Vector{String}(get(inv, "terminal_map", String[]))
         topo = get(inv, "topology", "FOUR_LEG")
-        n_ph = topo == "THREE_LEG" ? length(tm) :
-               topo == "SINGLE_PHASE" ? 1 :
-               length(_phase_positions(tm, nlabels))   # FOUR_LEG
+        n_ph = _ibr_coil_count(inv, nlabels)
         for k in 1:n_ph
             cri[(inv_id, k)] = @variable(model, base_name = "cri_$(inv_id)_$(k)")
             cii[(inv_id, k)] = @variable(model, base_name = "cii_$(inv_id)_$(k)")
@@ -413,6 +450,16 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
         p_max = Float64.(get(inv, "p_max",  Float64[]))
         q_min = Float64.(get(inv, "q_min",  Float64[]))
         q_max = Float64.(get(inv, "q_max",  Float64[]))
+        # A supplied P/Q bound vector has one entry per coil. A shorter one
+        # would leave the remaining coils as free, unbounded injections.
+        let ncoils = _ibr_coil_count(inv, nlabels)
+            for (field, values) in (("p_min", p_min), ("p_max", p_max),
+                                    ("q_min", q_min), ("q_max", q_max))
+                (isempty(values) || length(values) == ncoils) || throw(ArgumentError(
+                    "IBR '$inv_id': $field has $(length(values)) entries but the " *
+                    "device has $ncoils coil(s); supply one entry per coil."))
+            end
+        end
         p_min_model = coefficient === nothing ? p_min : Any[
             coefficient(:limit, :ibr, inv_id, :p_min, i, value)
             for (i, value) in enumerate(p_min)]
@@ -699,10 +746,22 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             # range. `_box_constraints!` stamps it as ONE equality
             # (:ibr_dc_power_equality); two opposing inequalities would have no
             # interior and non-unique multipliers.
-            for (side, cref) in pairs(_box_constraints!(
-                    model, p_net, Float64(p_dc_min), Float64(p_dc_max)))
-                _register_semantic_constraint!(ctx,
-                    Symbol(:ibr_dc_power_, side), String(inv_id), cref)
+            #
+            # When every coil's active power is itself pinned by a static
+            # equality that already sums to the balance, the balance row would
+            # be a linear combination of those rows — more equalities than
+            # degrees of freedom. It is then implied and is not stamped.
+            pinned = length(p_min) == length(p_exprs) == length(p_max) &&
+                     all(k -> p_min[k] == p_max[k], eachindex(p_min))
+            implied = pinned && Float64(p_dc_min) == Float64(p_dc_max) &&
+                      isapprox(sum(p_min), Float64(p_dc_min);
+                               atol=1e-12 * max(1.0, sum(abs, p_min)))
+            if !implied
+                for (side, cref) in pairs(_box_constraints!(
+                        model, p_net, Float64(p_dc_min), Float64(p_dc_max)))
+                    _register_semantic_constraint!(ctx,
+                        Symbol(:ibr_dc_power_, side), String(inv_id), cref)
+                end
             end
         end
     end
@@ -755,7 +814,19 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
             # the half-line Q = 0. Stamp it as ONE equality; the two wedge rows
             # would read Q <= 0 and -Q <= 0, a pair with no interior and
             # non-unique multipliers. `min_pf` is static policy data.
-            register_constraint(:ibr_minimum_pf_equality, @constraint(model, q_expr == 0))
+            #
+            # Another row may already say Q = 0 for this coil: a reactive box
+            # pinned at zero (:ibr_q_equality) or a unity constant power
+            # factor (:ibr_power_factor). A second identical equality would
+            # leave the coil with more equalities than degrees of freedom, so
+            # the envelope is then implied and is not stamped again.
+            box_pins_zero = length(q_min) >= idx && length(q_max) >= idx &&
+                q_min[idx] isa Real && q_max[idx] isa Real &&
+                iszero(q_min[idx]) && iszero(q_max[idx])
+            pf_pins_zero = pf_coeffs !== nothing && pf_coeffs[2] isa Real &&
+                iszero(pf_coeffs[2])
+            (box_pins_zero || pf_pins_zero) ||
+                register_constraint(:ibr_minimum_pf_equality, @constraint(model, q_expr == 0))
         else
             register_constraint(:ibr_minimum_pf_upper, @constraint(model, min_pf*q_expr <= sine*p_expr))
             register_constraint(:ibr_minimum_pf_lower, @constraint(model, -min_pf*q_expr <= sine*p_expr))

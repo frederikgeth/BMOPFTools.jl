@@ -160,10 +160,16 @@ function _add_generator_constraints!(model, net, vars, kcl_r, kcl_i;
 
                 stamp_power_bounds!(p_expr, q_expr, k)
 
-                # Current magnitude limit
-                if length(i_max_g) >= k
-                    _soc_norm!(model, crg[(gid,k)], cig[(gid,k)], i_max_g[k])
-                    _limit_current_box!(crg[(gid,k)], cig[(gid,k)], i_max_g[k])
+                # Current magnitude limit. `i_max` is per conductor. A
+                # two-terminal unit is one coil whose current flows through
+                # BOTH of its conductors, so the tighter rating governs (as for
+                # a single-phase WYE unit above); using only the first entry
+                # would make the answer depend on terminal order.
+                coil_ilim = n_c == 2 ? (isempty(i_max_g) ? nothing : minimum(i_max_g)) :
+                            (length(i_max_g) >= k ? i_max_g[k] : nothing)
+                if coil_ilim !== nothing
+                    _soc_norm!(model, crg[(gid,k)], cig[(gid,k)], coil_ilim)
+                    _limit_current_box!(crg[(gid,k)], cig[(gid,k)], coil_ilim)
                 end
 
                 # Apparent power limit (via auxiliary variables to keep quadratic)
