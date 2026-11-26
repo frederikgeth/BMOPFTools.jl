@@ -62,6 +62,16 @@ Initial General release candidate. Registration has not yet been requested.
     power fixed, since its DC side determines only their sum.
   - **Open switches** no longer join voltage-base zones, and no longer trip
     the same-base check of a custom scaling policy.
+  - **Dependent equality rows** are omitted only when static rows already
+    in the model imply them: a constant-power-factor equality over boxes that
+    pin it, and repeated DC voltage masters on one port (one reference row;
+    masters that disagree raise). Bounds supplied as live parameters never
+    count as pins, so a shared-DC-link balance stays in force when `p_max`
+    is a parameter. An ideal DC conductor between terminals fixed at
+    different voltages is rejected instead of carrying a spurious current.
+    `solve_pf` waives the active-power setpoint of a single-coil DC-coupled
+    unit only when its DC side supplies the determining equation (zero-width
+    private balance, droop, or one voltage master per port).
   - Open-delta regulators are unchanged: the bank does not connect its neutral
     terminals, and neutral continuity past it stays an explicit line or
     switch. Two OpenDSS cases (ideal and 0.5 ohm jumper) now pin this.

@@ -1631,12 +1631,23 @@ Two refinements follow from asking what is *stamped* rather than what is
   constant power factor takes precedence over a droop in the same profile. A
   `THREE_LEG` unit with a Volt-var profile and a reactive range is therefore
   undetermined, and is rejected.
-- **A DC side determines one number.** A `dc_bus` converter or a shared DC link
-  (`dc_link_coupled`) fixes the *sum* of the coil active powers through the
-  DC-side control law or balance. That determines a **single-coil** unit, which
-  is exempt from the active-power requirement. A multi-coil unit still needs
-  each coil's active power fixed, because the split between coils is otherwise
-  free.
+- **A DC side determines one number, and only if it supplies an equation.**
+  For a **single-coil** unit the active-power requirement is waived when the DC
+  side fixes that power:
+  - a private DC link (`dc_link_coupled`) with a zero-width balance
+    (`p_dc_min == p_dc_max`); a balance *range* determines nothing;
+  - a `dc_bus` converter in `"droop"` mode (its V–P law) or `"V"` mode (it
+    balances the DC network at its voltage reference).
+
+  A `"P"`-mode converter is a dispatched injection and needs a fixed setpoint
+  like any other device: with two ranged `"P"`-mode units on one DC bus, DC KCL
+  fixes their sum and leaves the split free. Voltage masters sharing a DC port
+  assert one voltage equation between them, so at most **one** master per port
+  may be left without a fixed setpoint. A multi-coil unit always needs each
+  coil's active power fixed, because the DC side fixes only their sum.
+
+The engine avoids stamping the same equation twice when static data already
+implies it; see [Dependent equality rows](@ref opf-dependent-rows).
 
 Volt-var specifies a reactive-power equality. Volt-watt specifies only an
 active-power **upper bound**, which is why a Volt-watt profile does not

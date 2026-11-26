@@ -562,6 +562,159 @@
         @test BMOPFTools.opf_neutral_current(ac, "line", "m") isa Tuple
     end
 
+    # ── 13. Dependent rows are removed only when a static equality implies them ──
+    # Each test is paired: the consistent case drops the dependent row and
+    # solves; the conflicting or live case keeps the hard constraint.
+    one_coil_net(fields; count=1, profile=nothing) = begin
+        net = D("bus" => D("f" => bus2(), "t" => bus2()),
+            "voltage_source" => D("s" => src2("f")),
+            "line" => D("m" => line2("f", "t")),
+            "ibr" => D("u$k" => merge(D("bus" => "t", "terminal_map" => ["p", "n"],
+                "topology" => "SINGLE_PHASE", "prime_mover" => "PV",
+                "s_max" => [8000.0]), fields) for k in 1:count))
+        if profile !== nothing
+            net["control_profile"] = D("cp" => profile)
+            foreach(u -> u["control_profile"] = "cp", values(net["ibr"]))
+        end
+        net
+    end
+    family_rows(ctx, family) = count(k -> k.family == family,
+                                     opf_object_keys(ctx; kind=:constraint))
+
+    @testset "a live coefficient never makes the DC-link balance redundant" begin
+        link = D("dc_link_coupled" => true, "prime_mover" => "STATCOM",
+                 "p_min" => [0.0], "p_max" => [0.0],
+                 "q_min" => [0.0], "q_max" => [0.0], "cost" => [-1.0])
+        # Static: P pinned at zero already implies the zero balance.
+        @test family_rows(build_opf_model(one_coil_net(link); per_unit=false),
+                          :ibr_dc_power_equality) == 0
+        # Live: the same defaults, but p_max is a parameter. The balance stays.
+        for pu in (true, false)
+            model = JuMP.Model(Ipopt.Optimizer); JuMP.set_silent(model)
+            available = JuMP.@variable(model, set = JuMP.Parameter(0.0))
+            spec = OpfBuildSpec(coefficient_providers=Dict(
+                OpfCoefficientKey(:availability, :ibr, "u1", :p_max, 1) =>
+                    OpfCoefficientProvider(:ReviewTest, (ctx, key, default) -> available)))
+            ctx = build_opf_model(one_coil_net(link); model, build_spec=spec, per_unit=pu)
+            @test family_rows(ctx, :ibr_dc_power_equality) == 1
+            scale = pu ? opf_bases(ctx).s_base : 1.0
+            optimize_opf!(ctx)
+            JuMP.set_parameter_value(available, 500.0 / scale)
+            resolve_opf!(ctx)
+            result = extract_result(ctx)
+            @test solved(result)
+            # The link carries no net active power, whatever the availability.
+            @test abs(only(values(result["ibr"]["u1"]))["pg"]) < 1e-3
+        end
+    end
+
+    @testset "constant power factor is not restated when the boxes imply it" begin
+        unity = D("power_factor" => D("pf" => 1.0))
+        lagging = D("power_factor" => D("pf" => 0.8))
+        pinned(p, q) = D("p_min" => [p], "p_max" => [p], "q_min" => [q], "q_max" => [q])
+        rows(net) = family_rows(build_opf_model(net; per_unit=false), :ibr_power_factor)
+        # Q pinned at zero under a unity power factor: implied.
+        @test rows(one_coil_net(pinned(400.0, 0.0); profile=unity)) == 0
+        # P and Q pinned on the 0.8 lagging line (Q = −0.75 P): implied.
+        @test rows(one_coil_net(pinned(400.0, -300.0); profile=lagging)) == 0
+        # Pinned off the line, or not pinned at all: the law stays and binds.
+        @test rows(one_coil_net(pinned(400.0, 300.0); profile=lagging)) == 1
+        @test rows(one_coil_net(D("p_min" => [400.0], "p_max" => [400.0],
+            "q_min" => [-4000.0], "q_max" => [4000.0]); profile=lagging)) == 1
+        conflict = solve_opf(one_coil_net(pinned(400.0, 300.0); profile=lagging))
+        @test !solved(conflict)
+        # Many fully pinned units under an ordinary unity profile solve.
+        for pu in (true, false)
+            @test solved(solve_opf(one_coil_net(pinned(400.0, 0.0); count=12, profile=unity);
+                                   per_unit=pu))
+        end
+    end
+
+    dc_station(units; branch=nothing, bus_fields=D()) = begin
+        net = D("bus" => D("f" => D("terminal_names" => ["a", "n"],
+                    "perfectly_grounded_terminals" => ["n"])),
+            "voltage_source" => D("s" => D("bus" => "f", "terminal_map" => ["a", "n"],
+                "v_magnitude" => [230.0, 0.0], "v_angle" => [0.0, 0.0], "cost" => [1.0])),
+            "ibr" => D(id => merge(D("bus" => "f", "terminal_map" => ["a", "n"],
+                "topology" => "SINGLE_PHASE", "prime_mover" => "GENERIC",
+                "s_max" => [8000.0], "q_min" => [0.0], "q_max" => [0.0],
+                "dc_bus" => "dcA", "dc_terminal_map" => ["p", "m"]), fields)
+                for (id, fields) in units),
+            "dc_bus" => D("dcA" => merge(D("terminal_names" => ["p", "m"],
+                "pole" => D("p" => "POSITIVE", "m" => "METALLIC_RETURN"),
+                "v_dc_min" => [600.0, 0.0], "v_dc_max" => [1000.0, 0.0]), bus_fields)),
+            "dc_grounding" => D("g" => D("dc_bus" => "dcA", "terminal" => "m", "r" => 0.0)))
+        branch === nothing || (net["dc_branch"] = D("tie" => branch))
+        net
+    end
+    master(v) = D("dc_control" => "V", "dc_v_set" => v)
+    fixed_p(p) = D("p_min" => [p], "p_max" => [p])
+
+    @testset "one voltage reference per DC port" begin
+        # Twelve masters agreeing on 800 V: one row, and the build solves with
+        # eleven of them dispatched and one balancing.
+        units = [("m$k", k == 1 ? master(800.0) : merge(master(800.0), fixed_p(100.0)))
+                 for k in 1:12]
+        for pu in (true, false)
+            ctx = build_opf_model(dc_station(units); per_unit=pu)
+            @test family_rows(ctx, :dc_converter_voltage_control) == 1
+            result = solve_opf(dc_station(units); per_unit=pu)
+            @test solved(result)
+            @test result["dc_bus"]["dcA"]["p"]["v_dc"] ≈ 800.0 atol=1e-2
+        end
+        # Masters that disagree are a data error, not a solver failure.
+        @test_throws ArgumentError build_opf_model(
+            dc_station([("m1", master(800.0)), ("m2", master(790.0))]))
+    end
+
+    @testset "an ideal DC conductor cannot join two different fixed voltages" begin
+        # A DC terminal whose v_dc_min equals v_dc_max is a fixed potential.
+        function two_bus(v_to)
+            net = dc_station([("p1", fixed_p(500.0))];
+                bus_fields=D("v_dc_min" => [800.0, 0.0], "v_dc_max" => [800.0, 0.0]))
+            net["dc_bus"]["dcB"] = merge(deepcopy(net["dc_bus"]["dcA"]),
+                D("v_dc_min" => [v_to, 0.0], "v_dc_max" => [v_to, 0.0]))
+            net["dc_grounding"]["gB"] = D("dc_bus" => "dcB", "terminal" => "m", "r" => 0.0)
+            net["dc_branch"] = D("tie" => D("dc_bus_from" => "dcA", "dc_bus_to" => "dcB",
+                "terminal_map_from" => ["p", "m"], "terminal_map_to" => ["p", "m"],
+                "r" => [0.0, 0.0]))
+            net
+        end
+        for pu in (true, false)
+            # Equal fixed potentials: the equality holds, so it is omitted.
+            ctx = build_opf_model(two_bus(800.0); per_unit=pu)
+            @test family_rows(ctx, :dc_branch_voltage_drop) == 0
+            # 800 V against 700 V across zero ohms is a contradiction, not a
+            # 1 A branch with 100 W of loss.
+            @test_throws ArgumentError build_opf_model(two_bus(700.0); per_unit=pu)
+        end
+    end
+
+    @testset "solve_pf: the DC side must supply the determining equation" begin
+        ac(fields) = merge(D("q_min" => [0.0], "q_max" => [0.0]), fields)
+        link(lo, hi) = one_coil_net(ac(D("dc_link_coupled" => true,
+            "prime_mover" => "STATCOM", "p_dc_min" => lo, "p_dc_max" => hi,
+            "p_min" => [-2000.0], "p_max" => [2000.0])))
+        # A zero-width private balance determines the one active power.
+        @test solved(solve_pf(link(0.0, 0.0)))
+        # A balance RANGE determines nothing.
+        @test_throws ArgumentError solve_pf(link(-500.0, 500.0))
+        ranged = D("p_min" => [-4000.0], "p_max" => [4000.0])
+        # One master balances the DC bus; a P-mode unit needs a setpoint.
+        @test solved(solve_pf(dc_station([("m1", master(800.0)),
+                                          ("p1", fixed_p(500.0))])))
+        @test_throws ArgumentError solve_pf(dc_station([("m1", master(800.0)),
+                                                        ("p1", ranged)]))
+        # Two ranged P-mode units: DC KCL fixes their sum, the split is free.
+        @test_throws ArgumentError solve_pf(dc_station([("m1", master(800.0)),
+            ("p1", ranged), ("p2", ranged)]))
+        # Two free masters on one port share one equation.
+        @test_throws ArgumentError solve_pf(dc_station([("m1", master(800.0)),
+                                                        ("m2", master(800.0))]))
+        @test solved(solve_pf(dc_station([("m1", master(800.0)),
+            ("m2", merge(master(800.0), fixed_p(300.0)))])))
+    end
+
     @testset "unsupported IBR records are rejected, not skipped" begin
         net = D("bus" => D("f" => bus2(), "t" => bus2()),
             "voltage_source" => D("s" => src2("f")),

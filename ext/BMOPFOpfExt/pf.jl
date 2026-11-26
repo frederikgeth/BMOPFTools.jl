@@ -239,16 +239,40 @@ function _validate_pf_generators(net::Dict{String,Any})
 end
 
 """
+    _dc_side_fixes_active_power(inv) -> Bool
+
+Whether the DC side supplies the ONE equation that determines a single-coil
+IBR's active power, so that no fixed AC setpoint is needed:
+
+- a private DC link (`dc_link_coupled`) with a zero-width balance
+  (`p_dc_min == p_dc_max`); a balance *range* determines nothing;
+- a `dc_bus` converter in `"droop"` mode (its V–P law) or `"V"` mode (it
+  balances the DC network at its voltage reference). A `"P"`-mode converter is
+  a dispatched injection, so the DC side determines nothing for it.
+"""
+function _dc_side_fixes_active_power(inv)
+    if haskey(inv, "dc_bus")
+        return String(get(inv, "dc_control", "P")) in ("V", "droop")
+    elseif get(inv, "dc_link_coupled", false) === true
+        return Float64(get(inv, "p_dc_min", 0.0)) == Float64(get(inv, "p_dc_max", 0.0))
+    end
+    return false
+end
+
+"""
     _validate_pf_ibrs(net)
 
-Require every IBR to be a determined device, **coil by coil**:
+Require every IBR to be a determined device, **coil by coil**. The test is
+which equations fix the dispatch, not which fields are present.
 
 - **Active power** must be a fixed setpoint per coil (`p_min == p_max`). A
-  Volt-watt curve only *caps* P, so it does not determine it. The one
-  exception is a **single-coil** unit with a DC side (`dc_bus`) or a shared DC
-  link (`dc_link_coupled`): its one active power is set by the DC-side control
-  law or balance. A multi-coil DC-coupled unit is not exempt, because the DC
-  side fixes only the *sum* of its coil powers and leaves the split free.
+  Volt-watt curve only *caps* P, so it does not determine it. The exception is
+  a **single-coil** unit whose DC side supplies the determining equation
+  ([`_dc_side_fixes_active_power`](@ref)). A multi-coil DC-coupled unit is not
+  exempt, because the DC side fixes only the *sum* of its coil powers.
+- **One free voltage master per DC port.** Voltage masters sharing a port
+  assert one voltage equation between them, which determines one active power.
+  A second master without a fixed setpoint leaves the split between them free.
 - **Reactive power** must be fixed per coil (`q_min == q_max`) or set by a
   control equality the builder actually stamps for this device
   ([`_ibr_reactive_law`](@ref)): a constant power factor, or a Volt-var curve
@@ -258,19 +282,34 @@ Require every IBR to be a determined device, **coil by coil**:
 function _validate_pf_ibrs(net::Dict{String,Any})
     profiles = get(net, "control_profile", Dict())
     nlabels = BMOPFTools._neutral_labels(net)
+    free_masters = Dict{Any,Vector{String}}()   # DC port => masters without fixed P
     for (id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         owner = "IBR '$id'"
         ncoils = _ibr_coil_count(inv, nlabels)
-        dc_sets_p = ncoils == 1 &&
-            (haskey(inv, "dc_bus") || get(inv, "dc_link_coupled", false) === true)
-        dc_sets_p || _require_fixed_setpoint(owner, "p",
-            Float64.(get(inv, "p_min", Float64[])),
-            Float64.(get(inv, "p_max", Float64[])), ncoils)
+        p_lo = Float64.(get(inv, "p_min", Float64[]))
+        p_hi = Float64.(get(inv, "p_max", Float64[]))
+        dc_sets_p = ncoils == 1 && _dc_side_fixes_active_power(inv)
+        dc_sets_p || _require_fixed_setpoint(owner, "p", p_lo, p_hi, ncoils)
+        if dc_sets_p && haskey(inv, "dc_bus") &&
+                String(get(inv, "dc_control", "P")) == "V" &&
+                !(length(p_lo) == length(p_hi) == 1 && p_lo[1] == p_hi[1])
+            port = (String(inv["dc_bus"]),
+                    sort!(string.(get(inv, "dc_terminal_map", String[])))...)
+            push!(get!(free_masters, port, String[]), String(id))
+        end
         _ibr_reactive_law(inv, profiles) === nothing &&
             _require_fixed_setpoint(owner, "q",
                 Float64.(get(inv, "q_min", Float64[])),
                 Float64.(get(inv, "q_max", Float64[])), ncoils)
+    end
+    for (port, masters) in free_masters
+        length(masters) <= 1 || throw(ArgumentError(
+            "solve_pf: DC port $(port) has $(length(masters)) voltage-master " *
+            "converters without a fixed active-power setpoint (" *
+            join(sort!(masters), ", ") * "). Their shared voltage equation " *
+            "determines one active power, so the split between them is free. " *
+            "Fix p_min == p_max on all but one, or use solve_opf."))
     end
     return nothing
 end

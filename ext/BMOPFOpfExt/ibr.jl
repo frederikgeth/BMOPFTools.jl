@@ -751,11 +751,15 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             # equality that already sums to the balance, the balance row would
             # be a linear combination of those rows — more equalities than
             # degrees of freedom. It is then implied and is not stamped.
-            pinned = length(p_min) == length(p_exprs) == length(p_max) &&
-                     all(k -> p_min[k] == p_max[k], eachindex(p_min))
-            implied = pinned && Float64(p_dc_min) == Float64(p_dc_max) &&
-                      isapprox(sum(p_min), Float64(p_dc_min);
-                               atol=1e-12 * max(1.0, sum(abs, p_min)))
+            #
+            # "Pinned" is read from the RESOLVED coefficients, never from the
+            # input defaults: a coefficient provider can turn a bound into a
+            # live parameter, and a bound that may move on a re-solve implies
+            # nothing. Only plain numbers count.
+            pins = [_static_pin(p_min_model, p_max_model, k) for k in eachindex(p_exprs)]
+            implied = all(!isnothing, pins) && Float64(p_dc_min) == Float64(p_dc_max) &&
+                      isapprox(sum(pins), Float64(p_dc_min);
+                               atol=1e-12 * max(1.0, sum(abs, pins)))
             if !implied
                 for (side, cref) in pairs(_box_constraints!(
                         model, p_net, Float64(p_dc_min), Float64(p_dc_max)))
@@ -765,6 +769,16 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             end
         end
     end
+end
+
+# The value a coil's power is pinned to by a STATIC box equality, or `nothing`.
+# `lo`/`hi` are the resolved bound vectors: an entry that is a JuMP parameter or
+# expression is live and may change on a re-solve, so it never counts as a pin.
+function _static_pin(lo, hi, idx)
+    (length(lo) >= idx && length(hi) >= idx) || return nothing
+    a, b = lo[idx], hi[idx]
+    (a isa Real && b isa Real && isfinite(a) && a == b) || return nothing
+    return Float64(a)
 end
 
 # Stamp the per-phase active/reactive constraints and apparent-power circle for a
@@ -820,9 +834,7 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
             # factor (:ibr_power_factor). A second identical equality would
             # leave the coil with more equalities than degrees of freedom, so
             # the envelope is then implied and is not stamped again.
-            box_pins_zero = length(q_min) >= idx && length(q_max) >= idx &&
-                q_min[idx] isa Real && q_max[idx] isa Real &&
-                iszero(q_min[idx]) && iszero(q_max[idx])
+            box_pins_zero = _static_pin(q_min, q_max, idx) == 0
             pf_pins_zero = pf_coeffs !== nothing && pf_coeffs[2] isa Real &&
                 iszero(pf_coeffs[2])
             (box_pins_zero || pf_pins_zero) ||
@@ -843,7 +855,23 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
     end
     # Reactive control: constant-PF or Volt-var equality, in addition to capability.
     if pf_coeffs !== nothing
-        register_constraint(:ibr_power_factor, @constraint(model,
+        # The constant-power-factor law is one linear relation between P and Q.
+        # If static box equalities already fix what it relates, and the fixed
+        # values satisfy it, the row is a combination of rows already present:
+        # a coil pinned at Q = 0 under a unity power factor, or a coil with both
+        # P and Q pinned on the power-factor line. Stamping it again would
+        # leave more equalities than unknowns. Values that do NOT satisfy the
+        # law keep the row, so the conflict stays visible.
+        q_pin = _static_pin(q_min, q_max, idx)
+        p_pin = _static_pin(p_min, p_max, idx)
+        implied = q_pin !== nothing && if iszero(pf_coeffs[2])
+            iszero(q_pin)
+        else
+            p_pin !== nothing && isapprox(
+                pf_sign * pf_coeffs[1] * q_pin + pf_coeffs[2] * p_pin, 0.0;
+                atol=1e-12 * max(1.0, abs(q_pin), abs(p_pin)))
+        end
+        implied || register_constraint(:ibr_power_factor, @constraint(model,
             pf_sign * pf_coeffs[1] * q_expr + pf_coeffs[2] * p_expr == 0))
     elseif vv !== nothing
         op   = relu_operator_for!(relu_ops, model, vv.eps; mode=softplus)

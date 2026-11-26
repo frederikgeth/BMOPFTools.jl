@@ -314,6 +314,63 @@ start magnitude squared. Changing a start later does not change that scale.
 The [load-domain warning](../opf.md#squared-voltage-drop-variable) explains when
 changing physical bounds requires rebuilding.
 
+### [Dependent equality rows](@id opf-dependent-rows)
+
+Several device rules can state the same equation. A reactive box pinned at zero
+and a unity power factor both say $Q = 0$; twelve voltage masters on one DC
+port all say $U = U^\text{set}$; a shared-DC-link balance restates the sum of
+coil powers that are each already pinned. Stamped naively, the model then has
+more equalities than unknowns for those coordinates. Ipopt counts before it
+solves and rejects such a model as `Not_Enough_Degrees_Of_Freedom`
+(`INVALID_MODEL` through JuMP), even though a perfectly good operating point
+exists.
+
+The engine removes a dependent row under one rule only:
+
+> A hard constraint is omitted when rows already in the model **imply it
+> algebraically from static data**. Otherwise it stays.
+
+Three consequences follow, and each is tested as a pair (the consistent case
+drops the row and solves; the conflicting or live case keeps it):
+
+- **Static means a plain number in the resolved model.** A bound supplied
+  through a coefficient provider is a live JuMP parameter. It may change on a
+  re-solve, so it implies nothing, and the row it might have made redundant is
+  kept. The check reads the resolved coefficients, never the input defaults.
+- **Conflicting data keeps the row or raises.** A coil pinned off its
+  power-factor line keeps the power-factor equality, so the conflict surfaces
+  as infeasibility. Two voltage masters that disagree on one port, or an ideal
+  DC conductor between terminals fixed at different potentials, raise an
+  `ArgumentError`: those are contradictions in the data, not operating points.
+- **Rank evidence is a diagnostic, not a license.** A Jacobian rank deficit at
+  one point shows that rows are dependent *there*. It does not show which row
+  is implied everywhere, so it never justifies deleting a constraint by itself.
+
+Where the rule is applied today:
+
+| Row | Omitted when |
+|---|---|
+| `ibr_minimum_pf_equality` ($Q=0$ at unity) | the reactive box is pinned at zero, or a unity constant power factor applies |
+| `ibr_power_factor` | the reactive box is pinned at zero under a unity law, or both boxes are pinned on the power-factor line |
+| `ibr_dc_power_equality` | every coil's active power is pinned and the pins sum to the balance |
+| `dc_converter_voltage_control` | another master already references the same DC port at the same voltage |
+| `dc_branch_voltage_drop` (ideal conductor) | both terminals are fixed at the same potential |
+
+Two known cases are **not** reduced, because no reduction preserves the model
+everywhere:
+
+- **Exact angle windows on all three phase pairs of a bus**
+  (`va_diff_min == va_diff_max`). At nonzero voltage the three pairwise
+  equalities carry only two independent angle differences. But the rows are
+  homogeneous in voltage: with one phase at zero volts two of them hold
+  trivially and the third still constrains the other two phases. Dropping any
+  one would change the feasible set there.
+- **Zero ampacity on every terminal of a `center_tap` transformer.** The five
+  zero caps are current equalities, two of which the winding equations already
+  imply. The no-load point is feasible and is checked directly in
+  `test/transformer_current_rating_tests.jl`; sending the model to Ipopt fails
+  on the equation count.
+
 ### Smoothing, substitutions, and performance expectations
 
 `smooth_norm` is a public expression helper for a declared approximation:

@@ -202,8 +202,19 @@ function _add_dc_network_constraints!(model, net, vars;
             elseif !(JuMP.is_fixed(v_dc[kf]) && JuMP.is_fixed(v_dc[kt]))
                 register(:dc_branch_voltage_drop, (id, k),
                     @constraint(model, v_dc[kf] == v_dc[kt]))   # ideal conductor
+            else
+                # Both ends already fixed: the equality has no unknown left, so
+                # it is omitted — but only because it HOLDS. An ideal conductor
+                # between two different fixed potentials is a short circuit
+                # across a voltage difference; omitting the row there would
+                # report a finite current and a loss that no physics supports.
+                vf = JuMP.fix_value(v_dc[kf]); vt = JuMP.fix_value(v_dc[kt])
+                isapprox(vf, vt; atol=1e-9 * max(1.0, abs(vf), abs(vt))) ||
+                    throw(ArgumentError("dc_branch '$id' conductor $k: an ideal " *
+                        "(zero-resistance) conductor joins two terminals fixed at " *
+                        "different voltages ($vf and $vt in working units). Give " *
+                        "the conductor its resistance or reconcile the references."))
             end
-            # (both ends already fixed → equality is redundant; current stays free)
             # current flows from→to: leaves "from" (−i into node), enters "to" (+i)
             _dc_kcl_add!(kcl, bf, tmf[k], -i)
             _dc_kcl_add!(kcl, bt, tmt[k],  i)
@@ -436,8 +447,25 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
     if mode == "V"
         v_set === nothing &&
             error("IBR '$inv_id': dc_control=\"V\" needs dc_v_set (or dc_bus v_dc_nom).")
-        register(:dc_converter_voltage_control,
-            @constraint(model, Uport == v_set))
+        # One independent voltage reference per DC port. Several masters on the
+        # same port all assert the same equation; stamping it more than once
+        # adds dependent rows (more equalities than unknowns), so only the
+        # first is stamped. Masters that disagree are a data error.
+        references = get!(vars, :dc_voltage_references, Dict{Any,Any}())
+        port, sign = length(tm) >= 2 && tm[2] < tm[1] ?
+            ((b, tm[2], tm[1]), -1.0) : ((b, tm...), 1.0)
+        target = sign * v_set
+        if haskey(references, port)
+            owner, existing = references[port]
+            isapprox(existing, target; atol=1e-9 * max(1.0, abs(existing))) ||
+                throw(ArgumentError("IBR '$inv_id': dc_control=\"V\" sets a " *
+                    "different voltage on DC port $(port) than IBR '$owner' " *
+                    "does. One port has one voltage reference."))
+        else
+            references[port] = (String(inv_id), target)
+            register(:dc_converter_voltage_control,
+                @constraint(model, Uport == v_set))
+        end
 
     elseif mode == "droop"
         v_set === nothing &&
