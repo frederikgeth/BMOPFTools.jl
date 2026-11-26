@@ -119,9 +119,8 @@ function _canonical_solution_voltages(net, result, findings)
     for (b, dcbus) in get(net, "dc_bus", Dict())
         dcbus isa AbstractDict || continue
         for t in string.(get(dcbus, "terminal_names", String[]))
-            value = get(get(get(get(result, "dc_bus", Dict()), b, Dict()), t, Dict()), "v_dc", nothing)
-            (value isa Real && !(value isa Bool) && isfinite(value)) ||
-                push!(missing, "dc_bus.$b.$t.v_dc")
+            value = get(_record(_record(_record(result, "dc_bus"), b), t), "v_dc", nothing)
+            isnan(_evidence(value)) && push!(missing, "dc_bus.$b.$t.v_dc")
         end
     end
     for (id, br) in get(net, "dc_branch", Dict())
@@ -129,10 +128,9 @@ function _canonical_solution_voltages(net, result, findings)
         n = min(length(get(br, "terminal_map_from", String[])),
                 length(get(br, "terminal_map_to", String[])))
         for k in 1:n
-            value = get(get(get(get(result, "dc_branch", Dict()), id, Dict()), string(k), Dict()),
+            value = get(_record(_record(_record(result, "dc_branch"), id), string(k)),
                         "i_dc", nothing)
-            (value isa Real && !(value isa Bool) && isfinite(value)) ||
-                push!(missing, "dc_branch.$id.$k.i_dc")
+            isnan(_evidence(value)) && push!(missing, "dc_branch.$id.$k.i_dc")
         end
     end
     coil_labels = _neutral_labels(net)
@@ -1624,9 +1622,24 @@ function solution_check(net::Dict{String,Any},
     # currents. A reported `losses.p_loss_dc` is only cross-checked against it,
     # so a result cannot adjust its own balance by declaring a DC loss, least
     # of all on a case with no DC branch.
-    p_loss_dc = _derived_dc_branch_loss(net, result)
+    p_loss_dc, dc_residuals = _derived_dc_branch_loss(net, result)
+    for (id, k, drop, expected) in dc_residuals
+        push!(findings, Finding(WARNING, "W.SOL.POWER_BALANCE", :solution, :dc_branch, id,
+            "dc_branch '$id' conductor $k: reported voltage drop " *
+            "$(round(drop; digits=3)) V does not match r·i = " *
+            "$(round(expected; digits=3)) V for the case resistance and the reported current.",
+            Dict{String,Any}("reason"=>"dc_branch_ohm_residual", "conductor"=>k,
+                             "reported_drop_V"=>drop, "expected_drop_V"=>expected)))
+    end
     reported_dc = losses isa Dict ? get(losses, "p_loss_dc", nothing) : nothing
-    if reported_dc isa Real &&
+    # Without complete DC evidence the DC share is unknown, and with it the AC
+    # balance: an omitted branch current is not a zero contribution. The
+    # missing fields already make the verification indeterminate; the checks
+    # that depend on the share are then not assessed rather than failed on a
+    # guess.
+    dc_evidence_complete = !any(startswith(m, "dc_bus.") || startswith(m, "dc_branch.")
+                                for m in missing)
+    if dc_evidence_complete && reported_dc isa Real &&
             abs(Float64(reported_dc) - p_loss_dc) > max(0.01 * abs(p_loss_dc), 1.0)
         push!(findings, Finding(WARNING, "W.SOL.POWER_BALANCE", :solution, :network, "",
             "Reported DC-branch loss share losses.p_loss_dc = " *
@@ -1677,7 +1690,8 @@ function solution_check(net::Dict{String,Any},
     out["power_balance_err"]  = balance_err
     out["q_power_balance_err"] = q_balance_err
 
-    if balance_err > balance_tol
+    out["power_balance_assessed"] = dc_evidence_complete
+    if dc_evidence_complete && balance_err > balance_tol
         push!(findings, Finding(WARNING, "W.SOL.POWER_BALANCE", :solution, :network, nothing,
             "Network active-power balance error: |pg − pd − p_shunt − p_loss| = " *
             "$(_fmt_mw(balance_err)) (>1 % of load). " *
@@ -1859,10 +1873,10 @@ function _check_dc_solution(net, result, findings)
         terms = string.(get(dcbus, "terminal_names", String[]))
         vmin  = Float64.(get(dcbus, "v_dc_min", Float64[]))
         vmax  = Float64.(get(dcbus, "v_dc_max", Float64[]))
-        tres  = get(dc_bus_res, b, Dict())
+        tres  = _record(dc_bus_res, b)
         for (k, t) in enumerate(terms)
-            r = get(tres, t, nothing); r isa Dict || continue
-            v = get(r, "v_dc", NaN); isnan(v) && continue
+            r = get(tres, t, nothing); r isa AbstractDict || continue
+            v = _evidence(get(r, "v_dc", nothing)); isnan(v) && continue
             if k <= length(vmin) && v < vmin[k] - 1e-6
                 push!(findings, Finding(ERROR, "E.SOL.DC_VOLT_VIOLATION", :solution,
                     :dc_bus, b,
@@ -1882,10 +1896,10 @@ function _check_dc_solution(net, result, findings)
         br isa Dict || continue
         imax = Float64.(get(br, "i_max", Float64[]))
         isempty(imax) && continue
-        cres = get(dc_br_res, id, Dict())
+        cres = _record(dc_br_res, id)
         for (k, im) in enumerate(imax)
-            r = get(cres, string(k), nothing); r isa Dict || continue
-            i = get(r, "i_dc", NaN); isnan(i) && continue
+            r = get(cres, string(k), nothing); r isa AbstractDict || continue
+            i = _evidence(get(r, "i_dc", nothing)); isnan(i) && continue
             if abs(i) > im + 1e-6
                 push!(findings, Finding(ERROR, "E.SOL.DC_THERMAL_VIOLATION", :solution,
                     :dc_branch, id,
@@ -1896,26 +1910,60 @@ function _check_dc_solution(net, result, findings)
     end
 end
 
-# Ohmic loss of the DC branches OF THE CASE, recomputed from the solved DC
-# terminal voltages and conductor currents. Zero when the case has none.
+# A reported scalar as evidence: a finite real number, or NaN for anything else
+# (absent, JSON null, a string, a Bool, a non-finite value). Checks read their
+# inputs through this, so malformed evidence is "unavailable", never an error
+# and never a zero.
+_evidence(x) = (x isa Real && !(x isa Bool) && isfinite(x)) ? Float64(x) : NaN
+
+# A nested result record, or an empty one when it is absent or not a record
+# (a JSON null, for instance). Lets evidence be read without a chain of guards.
+_record(d, key) = (r = d isa AbstractDict ? get(d, key, nothing) : nothing;
+                   r isa AbstractDict ? r : Dict{String,Any}())
+
+"""
+    _derived_dc_branch_loss(net, result) -> (loss, residuals)
+
+Ohmic loss of the DC branches OF THE CASE, as Σ r_k·i_k² over their resistive
+conductors, from the case resistances and the solved conductor currents. Zero
+when the case has none.
+
+The loss is deliberately NOT taken as Σ (v_from − v_to)·i. That product is the
+loss only if the reported voltage drop obeys Ohm's law, and a result is free to
+claim otherwise: 50 V and 10 A across a zero-ohm conductor would read as 500 W
+of "loss" that no resistance dissipates. So the resistance of the case decides
+the loss, and each conductor's reported drop is checked against r·i separately.
+`residuals` lists the conductors that fail that check as
+`(branch, conductor, reported_drop, expected_drop)`.
+"""
 function _derived_dc_branch_loss(net, result)
     dc_bus_res = get(result, "dc_bus", Dict())
     dc_br_res  = get(result, "dc_branch", Dict())
-    v(b, t) = get(get(get(dc_bus_res, b, Dict()), t, Dict()), "v_dc", NaN)
+    v(b, t) = _evidence(get(_record(_record(dc_bus_res, b), t), "v_dc", nothing))
     total = 0.0
+    residuals = Tuple{String,Int,Float64,Float64}[]
     for (id, br) in get(net, "dc_branch", Dict())
         br isa AbstractDict || continue
         bf = string(get(br, "dc_bus_from", "")); bt = string(get(br, "dc_bus_to", ""))
         tmf = string.(get(br, "terminal_map_from", String[]))
         tmt = string.(get(br, "terminal_map_to", String[]))
-        cres = get(dc_br_res, id, Dict())
+        rv = get(br, "r", Float64[])
+        cres = _record(dc_br_res, id)
         for k in 1:min(length(tmf), length(tmt))
-            i = get(get(cres, string(k), Dict()), "i_dc", NaN)
-            loss = (v(bf, tmf[k]) - v(bt, tmt[k])) * i
-            isfinite(loss) && (total += loss)
+            i = _evidence(get(_record(cres, string(k)), "i_dc", nothing))
+            r = k <= length(rv) ? max(_evidence(rv[k]), 0.0) : 0.0
+            isnan(i) && continue
+            isnan(r) && (r = 0.0)
+            total += r * i^2
+            drop = v(bf, tmf[k]) - v(bt, tmt[k])
+            isnan(drop) && continue
+            expected = r * i
+            scale = max(abs(v(bf, tmf[k])), abs(v(bt, tmt[k])), abs(expected), 1.0)
+            abs(drop - expected) > 1e-3 * scale &&
+                push!(residuals, (string(id), k, drop, expected))
         end
     end
-    return total
+    return total, residuals
 end
 
 # Active power dissipated by a passive branch is ≥ 0 by construction (series

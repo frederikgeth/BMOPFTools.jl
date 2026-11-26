@@ -511,7 +511,11 @@ unbounded by default; optional per-phase bounds make it a bounded grid
 connection, and an optional `cost` prices imported power (see
 [Voltage source as current slack](@ref source-slack) below).
 
-**The source-bus neutral is solidly grounded.** The neutral terminal of every
+**The source-bus neutral is solidly grounded.** Which terminal is the neutral
+follows the bus's explicit `neutral_terminal` field, then the case's declared
+`terminal_conventions`, and only for cases that declare no roles the naming
+convention (`n`, `N`); a conductor declared as a phase is never grounded
+because of its name. The neutral terminal of every
 bus that hosts a voltage source is fixed to zero
 ($v^r_{b,n} = v^i_{b,n} = 0$) and added to $\mathcal{G}_\text{nd}$, whether or
 not the source's own `terminal_map` lists it. Source magnitudes `v_magnitude`

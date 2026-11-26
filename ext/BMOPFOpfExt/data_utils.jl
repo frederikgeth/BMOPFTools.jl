@@ -42,10 +42,15 @@ function _grounded_terminals(net::Dict{String,Any})
     end
     # Source-bus neutrals are pinned to 0 by the source; treat them as grounded
     # so they receive a ground-injection current and KCL like any other ground.
+    #
+    # "The neutral" follows the case's declared terminal roles: a conductor that
+    # `terminal_conventions` declares a phase is never grounded here because of
+    # its name (`_declared_bus_neutral`).
     buses = get(net, "bus", Dict())
+    roles = BMOPFTools._terminal_roles(net)
     for (_, vs) in get(net, "voltage_source", Dict())
         bus = get(vs, "bus", "")
-        nt  = BMOPFTools._neutral_terminal(get(buses, bus, Dict()))
+        nt  = BMOPFTools._declared_bus_neutral(roles, get(buses, bus, nothing))
         nt === nothing || push!(grounded, (bus, string(nt)))
     end
     grounded

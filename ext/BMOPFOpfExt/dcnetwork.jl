@@ -184,6 +184,15 @@ function _add_dc_network_constraints!(model, net, vars;
 
     # ── DC branches: Ohm's law per conductor + thermal limits ───────────────
     idc_br = vars[:idc_br]
+    ideal_parent = Dict{Tuple{String,String},Tuple{String,String}}()   # forest of ideal conductors
+    function ideal_root(x)
+        get!(ideal_parent, x, x)
+        while ideal_parent[x] != x
+            ideal_parent[x] = ideal_parent[ideal_parent[x]]
+            x = ideal_parent[x]
+        end
+        return x
+    end
     for (id, br) in get(net, "dc_branch", Dict())
         br isa Dict || continue
         bf = String(get(br, "dc_bus_from", "")); bt = String(get(br, "dc_bus_to", ""))
@@ -200,6 +209,22 @@ function _add_dc_network_constraints!(model, net, vars;
                 register(:dc_branch_voltage_drop, (id, k),
                     @constraint(model, i == (v_dc[kf] - v_dc[kt]) / rv[k]))
             elseif !(JuMP.is_fixed(v_dc[kf]) && JuMP.is_fixed(v_dc[kt]))
+                # An ideal conductor contributes a voltage equality and a free
+                # current. A LOOP of ideal conductors is degenerate twice over:
+                # one of its equalities is implied by the others, and a current
+                # can circulate around it at no cost, so the branch currents
+                # are not determined. Every terminal already fixed at a
+                # potential counts as one node, since a path of ideal
+                # conductors between two fixed terminals closes the same kind
+                # of loop through their references.
+                a = ideal_root(JuMP.is_fixed(v_dc[kf]) ? _DC_EARTH : kf)
+                b = ideal_root(JuMP.is_fixed(v_dc[kt]) ? _DC_EARTH : kt)
+                a == b && throw(ArgumentError("dc_branch '$id' conductor $k closes " *
+                    "a loop of ideal (zero-resistance) DC conductors between " *
+                    "$kf and $kt. Its voltage row is implied by the others and a " *
+                    "current could circulate around the loop undetermined. " *
+                    "Remove the redundant conductor or give it its resistance."))
+                ideal_parent[a] = b
                 register(:dc_branch_voltage_drop, (id, k),
                     @constraint(model, v_dc[kf] == v_dc[kt]))   # ideal conductor
             else
@@ -469,6 +494,26 @@ function _dc_reference_find!(g::_DCReferenceGraph, x)
 end
 
 """
+    _dc_seeded_reference_graph(vars, classes) -> _DCReferenceGraph
+
+The reference graph, seeded with every DC terminal whose voltage is already
+FIXED in the model (a perfect ground, or equal `v_dc_min`/`v_dc_max`). Those
+are voltage references too: a master that restates one is dependent and is not
+stamped, and a master that contradicts one is reported when the model is built
+rather than left for the solver to find infeasible.
+"""
+function _dc_seeded_reference_graph(vars, classes)
+    graph = _DCReferenceGraph()
+    v_dc = get(vars, :v_dc, Dict())
+    for key in sort!(collect(keys(v_dc)))
+        JuMP.is_fixed(v_dc[key]) || continue
+        _dc_reference_add!(graph, classes(key[1], key[2]), _DC_EARTH,
+            JuMP.fix_value(v_dc[key]), "The fixed voltage of DC terminal $key")
+    end
+    return graph
+end
+
+"""
     _dc_reference_add!(graph, a, b, U, owner) -> Bool
 
 Record the reference V(a) − V(b) = U. Returns `true` when it is independent of
@@ -481,9 +526,10 @@ function _dc_reference_add!(g::_DCReferenceGraph, a, b, U::Real, owner)
     if ra == rb
         implied = va - vb
         isapprox(implied, U; atol=1e-9 * max(1.0, abs(implied), abs(U))) ||
-            throw(ArgumentError("IBR '$owner': dc_control=\"V\" sets $U (working " *
-                "units) between DC nodes $a and $b, but the other voltage masters " *
-                "already fix that difference at $implied. The references " *
+            throw(ArgumentError("$owner sets $U (working units) between DC " *
+                "nodes $a and $b, but the voltage references already recorded " *
+                "(other voltage masters, or terminals fixed by equal voltage " *
+                "bounds) fix that difference at $implied. The references " *
                 "contradict each other."))
         return false
     end
@@ -551,10 +597,12 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
         # reference is checked for consistency and not stamped; an inconsistent
         # one is a data error. `_dc_reference_add!` does the bookkeeping.
         classes = get!(() -> _dc_node_classes(net), vars, :dc_node_classes)
-        graph = get!(() -> _DCReferenceGraph(), vars, :dc_voltage_references)
+        graph = get!(() -> _dc_seeded_reference_graph(vars, classes), vars,
+                     :dc_voltage_references)
         a = classes(b, tm[1])
         c = length(tm) >= 2 ? classes(b, tm[2]) : _DC_EARTH
-        independent = _dc_reference_add!(graph, a, c, v_set, String(inv_id))
+        independent = _dc_reference_add!(graph, a, c, v_set,
+            "IBR '$inv_id' (dc_control=\"V\")")
         independent && register(:dc_converter_voltage_control,
             @constraint(model, Uport == v_set))
 

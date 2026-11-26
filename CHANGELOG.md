@@ -102,6 +102,18 @@ Initial General release candidate. Registration has not yet been requested.
     the naming convention applies only to cases that declare no roles.
   - `solution_check` reports missing DC voltages or branch currents as
     `W.SOL.INCOMPLETE_RESULT` instead of passing the DC checks vacuously.
+  - A loop of ideal (zero-resistance) `dc_branch` conductors is rejected, as
+    ideal AC loops already are: its current could circulate undetermined.
+    Fixed DC terminal voltages seed the voltage-reference graph, so a master
+    that restates one is not stamped and one that contradicts it raises.
+  - Source-bus neutral grounding follows declared terminal roles: a source
+    phase named `n` is no longer grounded when `terminal_conventions`
+    declares it a phase.
+  - `solution_check` computes DC-branch loss as r·i² from the case
+    resistance and checks each reported drop against r·i, so a claimed drop
+    across a zero-ohm conductor cannot offset an AC imbalance. Malformed DC
+    evidence (absent or JSON null) is read as unavailable; the active-power
+    balance is then not assessed and the verification is indeterminate.
   - Open-delta regulators are unchanged: the bank does not connect its neutral
     terminals, and neutral continuity past it stays an explicit line or
     switch. Two OpenDSS cases (ideal and 0.5 ohm jumper) now pin this.

@@ -387,6 +387,30 @@ function _terminal_roles(net::Dict{String,Any})::TerminalRoles
 end
 
 """
+    _declared_bus_neutral(roles, bus) -> Union{String,Nothing}
+
+The neutral terminal of `bus` under the case's resolved terminal `roles`:
+
+1. the bus's explicit `neutral_terminal` field, when it has one;
+2. otherwise, when the case **declares** `terminal_conventions`, the bus
+   terminal carrying a declared neutral label — and none if it has none. The
+   declaration is authoritative: a conductor declared as a phase is not a
+   neutral because of its name;
+3. otherwise (roles inferred), the naming convention of
+   [`_neutral_terminal`](@ref).
+"""
+function _declared_bus_neutral(roles::TerminalRoles, bus)
+    bus isa Dict{String,Any} || return nothing
+    explicit = get(bus, "neutral_terminal", nothing)
+    explicit isa String && return explicit
+    roles.inferred && return _neutral_terminal(bus)
+    for t in get(bus, "terminal_names", String[])
+        string(t) in roles.neutral && return string(t)
+    end
+    return nothing
+end
+
+"""
     _line_angle_phase_test(net) -> (bus, terminal) -> Bool
 
 A predicate, built once per case, for whether a line conductor's terminal is a
@@ -405,15 +429,7 @@ function _line_angle_phase_test(net)
         t = string(terminal)
         (t in roles.neutral || t in roles.earth) && return false
         nt = get!(bus_neutral, string(bus)) do
-            b = get(buses, bus, nothing)
-            b isa Dict{String,Any} || return nothing
-            explicit = get(b, "neutral_terminal", nothing)
-            explicit isa String && return explicit
-            # The naming convention ("n", "N", ...) is a FALLBACK for cases
-            # that declare no roles. When `terminal_conventions` is present the
-            # declaration is authoritative: a conductor it calls a phase is a
-            # phase whatever its name, and its angle window is enforced.
-            roles.inferred ? _neutral_terminal(b) : nothing
+            _declared_bus_neutral(roles, get(buses, bus, nothing))
         end
         return t != nt
     end

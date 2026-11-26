@@ -365,7 +365,7 @@ transformers, and **DC branches**:
 | Field | Unit | Description |
 |---|---|---|
 | `p_loss` | W | Total active power dissipated (≥ 0 for a passive network) |
-| `p_loss_dc` | W | The share of `p_loss` dissipated in DC branches (zero without a DC network). `p_loss − p_loss_dc` is the AC-network loss, which is what closes the AC power balance: a converter enters that balance through its AC injection, which already nets out its DC side |
+| `p_loss_dc` | W | The share of `p_loss` dissipated in DC branches (zero without a DC network). `p_loss − p_loss_dc` is the AC-network loss, which is what closes the AC power balance: a converter enters that balance through its AC injection, which already nets out its DC side. The post-solve validator does not trust this field: it recomputes the share as Σ r·i² from the case resistances and the solved branch currents, and checks each reported voltage drop against r·i |
 | `q_loss` | var | Net reactive absorption; **negative** when the network is net-capacitive (line charging, capacitor shunts) |
 
 The same identity is attached **per element** under each line and transformer as

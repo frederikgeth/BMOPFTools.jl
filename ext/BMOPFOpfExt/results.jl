@@ -728,8 +728,8 @@ function _extract_results(model, net, bus_terminals, grounded, vars,
         t_n = if n_pos_idx !== nothing
             tm[n_pos_idx]
         else
-            bt = get(get(net, "bus", Dict()), bus, Dict())
-            BMOPFTools._neutral_terminal(bt)
+            BMOPFTools._declared_bus_neutral(BMOPFTools._terminal_roles(net),
+                get(get(net, "bus", Dict()), bus, nothing))
         end
 
         ph_results = Dict{String,Any}()

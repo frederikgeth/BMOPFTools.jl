@@ -1111,6 +1111,111 @@
         @test "dc_bus.dcA.p.v_dc" in only(incomplete).detail["missing_fields"]
     end
 
+    # ── 17. Fifth review ──────────────────────────────────────────────────────
+    @testset "a loop of ideal DC conductors is rejected" begin
+        # Three DC buses whose poles are joined by zero-ohm conductors.
+        function poles(edges; r=0.0)
+            net = dc_station([("m1", master(800.0))])
+            for b in ("dcB", "dcC")
+                net["dc_bus"][b] = deepcopy(net["dc_bus"]["dcA"])
+                net["dc_grounding"]["g$b"] = D("dc_bus" => b, "terminal" => "m", "r" => 0.0)
+            end
+            net["dc_branch"] = D("t$k" => D("dc_bus_from" => a, "dc_bus_to" => b,
+                "terminal_map_from" => ["p"], "terminal_map_to" => ["p"], "r" => [r])
+                for (k, (a, b)) in enumerate(edges))
+            net
+        end
+        tree = [("dcA", "dcB"), ("dcB", "dcC")]
+        ring = vcat(tree, [("dcC", "dcA")])
+        @test solved(solve_opf(poles(tree)))                       # a tree is fine
+        @test_throws ArgumentError build_opf_model(poles(ring))     # a loop is not
+        @test solved(solve_opf(poles(ring; r=0.1)))                 # resistive loop: fine
+        # An ideal path between two terminals fixed at one potential closes the
+        # same kind of loop through their references.
+        pinned = poles(tree)
+        for b in ("dcA", "dcC")
+            pinned["dc_bus"][b]["v_dc_min"] = [800.0, 0.0]
+            pinned["dc_bus"][b]["v_dc_max"] = [800.0, 0.0]
+        end
+        @test_throws ArgumentError build_opf_model(pinned)
+    end
+
+    @testset "fixed DC terminal voltages seed the reference graph" begin
+        pin(net, v) = (net["dc_bus"]["dcA"]["v_dc_min"] = [v, 0.0];
+                       net["dc_bus"]["dcA"]["v_dc_max"] = [v, 0.0]; net)
+        masters = [("m$k", k == 1 ? master(800.0) : merge(master(800.0), fixed_p(100.0)))
+                   for k in 1:12]
+        for pu in (true, false)
+            # The pole is already fixed at 800 V: every master row is implied.
+            ctx = build_opf_model(pin(dc_station(masters), 800.0); per_unit=pu)
+            @test family_rows(ctx, :dc_converter_voltage_control) == 0
+            @test solved(solve_opf(pin(dc_station(masters), 800.0); per_unit=pu))
+        end
+        # A master that contradicts the fixed pole is reported at build time.
+        @test_throws ArgumentError build_opf_model(pin(dc_station(masters), 790.0))
+    end
+
+    @testset "declared terminal roles govern source-bus grounding" begin
+        # A two-phase source whose second phase is called "n".
+        function source_case(second)
+            D("terminal_conventions" => D("phase" => unique(["a", second]),
+                                          "neutral" => String[], "earth" => String[]),
+              "bus" => D(b => D("terminal_names" => ["a", second]) for b in ("src", "e")),
+              "line" => D("l" => merge(D("bus_from" => "src", "bus_to" => "e",
+                  "terminal_map_from" => ["a", second], "terminal_map_to" => ["a", second]),
+                  D("R_series_$(k)_$(k)" => 0.05 for k in 1:2))),
+              "voltage_source" => D("s" => D("bus" => "src", "terminal_map" => ["a", second],
+                  "v_magnitude" => [230.0, 230.0], "v_angle" => [0.0, Float64(pi)])),
+              "load" => D("l" => D("bus" => "e", "terminal_map" => ["a", second],
+                  "configuration" => "SINGLE_PHASE", "p_nom" => [1000.0], "q_nom" => [0.0])))
+        end
+        reference = solve_opf(source_case("b"); per_unit=false)
+        named = solve_opf(source_case("n"); per_unit=false)
+        @test solved(reference) && solved(named)
+        @test named["bus"]["src"]["n"]["vm"] ≈ 230.0 atol=1e-6      # a phase, not a ground
+        @test named["bus"]["e"]["n"]["vm"] ≈ reference["bus"]["e"]["b"]["vm"] rtol=1e-8
+        @test isempty(named["ground"])
+        # Without a declaration the naming convention still applies.
+        inferred = source_case("n"); delete!(inferred, "terminal_conventions")
+        @test_throws ArgumentError build_opf_model(inferred)
+    end
+
+    @testset "solution_check: DC loss from resistance, typed evidence" begin
+        report(net, candidate) = (found = Finding[]; out = solution_check(net, candidate, found);
+                                  (found=found, out=out, codes=Set(f.code for f in found)))
+        # An AC imbalance cannot be cancelled by a claimed drop across a
+        # zero-ohm DC conductor.
+        net = mvdc_tie(); net["dc_branch"]["line"]["r"] = [0.0, 0.0]
+        result = solve_opf(deepcopy(net))
+        @test solved(result)
+        @test !("W.SOL.POWER_BALANCE" in report(net, result).codes)
+        forged = deepcopy(result)
+        forged["voltage_source"]["s1"]["a"]["ps"] -= 500.0
+        @test "W.SOL.POWER_BALANCE" in report(net, forged).codes
+        forged["dc_bus"]["dcB"]["p"]["v_dc"] = forged["dc_bus"]["dcA"]["p"]["v_dc"] - 50.0
+        forged["dc_branch"]["line"]["1"]["i_dc"] = 10.0
+        checked = report(net, forged)
+        @test checked.out["verification_status"] == "failed"
+        @test any(f -> get(f.detail, "reason", "") == "dc_branch_ohm_residual", checked.found)
+
+        # Missing or malformed DC evidence: indeterminate, never an error and
+        # never a failed balance on a guessed zero.
+        lossy = mvdc_tie()
+        good = solve_opf(deepcopy(lossy))
+        @test report(lossy, good).out["verification_status"] == "checks_passed"
+        for damage! in (r -> delete!(r["dc_branch"]["line"]["1"], "i_dc"),
+                        r -> (r["dc_branch"]["line"]["1"]["i_dc"] = nothing),
+                        r -> (r["dc_branch"]["line"]["1"] = nothing),
+                        r -> (r["dc_bus"]["dcA"]["p"]["v_dc"] = nothing),
+                        r -> (r["dc_bus"]["dcA"] = nothing))
+            hollow = deepcopy(good); damage!(hollow)
+            checked = report(lossy, hollow)
+            @test checked.out["verification_status"] == "indeterminate"
+            @test !("W.SOL.POWER_BALANCE" in checked.codes)
+            @test checked.out["power_balance_assessed"] == false
+        end
+    end
+
     @testset "unsupported IBR records are rejected, not skipped" begin
         net = D("bus" => D("f" => bus2(), "t" => bus2()),
             "voltage_source" => D("s" => src2("f")),

@@ -354,8 +354,16 @@ Where the rule is applied today:
 | `ibr_power_factor` | the reactive box is pinned at zero under a unity law, or both boxes are pinned on the power-factor line |
 | `ibr_dc_power_equality` | every coil's active power is pinned and the pins sum to the balance |
 | `ibr_q_volt_var` | the curve is flat (all slopes zero) and the reactive box is pinned at its constant value |
-| `dc_converter_voltage_control` | the voltage references already recorded imply it. References form a graph over **electrical** DC nodes (terminals joined by zero-resistance conductors, or perfectly grounded, are one node), and only a spanning forest is independent: a second master on a port, a master across an ideal tie, and the third side of a triangle of ports (p−m, m−n, p−n) are all dependent. A dependent reference that contradicts the others raises |
+| `dc_converter_voltage_control` | the voltage references already recorded imply it. References form a graph over **electrical** DC nodes (terminals joined by zero-resistance conductors, or perfectly grounded, are one node), and only a spanning forest is independent: a second master on a port, a master across an ideal tie, and the third side of a triangle of ports (p−m, m−n, p−n) are all dependent. Terminals already fixed in the model (a perfect ground, equal voltage bounds) seed the graph, so a master that restates one is not stamped. A dependent reference that contradicts the others raises |
 | `dc_branch_voltage_drop` (ideal conductor) | both terminals are fixed at the same potential |
+
+Loops of **ideal conductors** are a different matter and are rejected rather
+than reduced. A zero-impedance loop has one implied voltage row *and* a current
+that can circulate around it at no cost, so dropping the row would still leave
+the branch currents undetermined. This holds on the AC side (lines and closed
+switches, see [zero impedance](@ref zero-impedance)) and on the DC side
+(`dc_branch` conductors with zero resistance), where every terminal already
+fixed at a potential counts as one node.
 
 Two known cases are **not** reduced, for different reasons.
 
