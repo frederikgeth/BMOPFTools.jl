@@ -701,13 +701,15 @@ end
 # conductor. Flag a per-conductor s_max whose entry lines up with a neutral
 # terminal — a current limit (i_max) is the correct tool for the neutral.
 function _check_power_limit_neutral(net, findings, n_checks)
+    neutral_labels = _case_neutral_labels(net)
     for (comp_type, csym) in (("line", :line), ("switch", :switch))
         for (id, c) in get(net, comp_type, Dict())
             c isa Dict || continue
             s = get(c, "s_max", nothing)
             (s isa AbstractVector && !isempty(s)) || continue
             tm = get(c, "terminal_map_from", String[])
-            np = _neutral_pos(tm)
+            tm isa AbstractVector || continue
+            np = _case_neutral_pos(neutral_labels, tm)
             n_checks[] += 1
             if np !== nothing && np <= length(s) && Float64(s[np]) > 0.0
                 push!(findings, Finding(WARNING, "W.DOM.POWER_LIMIT_NEUTRAL",

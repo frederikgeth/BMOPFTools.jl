@@ -1,0 +1,247 @@
+{
+ "name": "eu_tn_four_wire",
+ "meta": {
+  "source": "Original synthetic teaching fixture; not calibrated to a utility population",
+  "license": "CC-BY-4.0",
+  "description": "10 kV / 400 V Dyn substation, neutral earthed at the transformer only, four-wire LV feeder"
+ },
+ "terminal_conventions": {
+  "phase": [
+   "a",
+   "b",
+   "c"
+  ],
+  "neutral": [
+   "n"
+  ],
+  "earth": []
+ },
+ "bus": {
+  "mv": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c"
+   ]
+  },
+  "lv0": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "perfectly_grounded_terminals": [
+    "n"
+   ]
+  },
+  "lv1": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ]
+  },
+  "lv2": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ]
+  }
+ },
+ "voltage_source": {
+  "grid": {
+   "bus": "mv",
+   "terminal_map": [
+    "a",
+    "b",
+    "c"
+   ],
+   "v_magnitude": [
+    5773.502691896258,
+    5773.502691896258,
+    5773.502691896258
+   ],
+   "v_angle": [
+    0.0,
+    -2.0943951023931953,
+    2.0943951023931953
+   ]
+  }
+ },
+ "linecode": {
+  "cable": {
+   "R_series_1_1": 0.0003,
+   "X_series_1_1": 0.00030000000000000003,
+   "R_series_1_2": 4.9999999999999996e-05,
+   "X_series_1_2": 0.0001,
+   "R_series_1_3": 4.9999999999999996e-05,
+   "X_series_1_3": 0.0001,
+   "R_series_1_4": 4.9999999999999996e-05,
+   "X_series_1_4": 0.0001,
+   "R_series_2_2": 0.0003,
+   "X_series_2_2": 0.00030000000000000003,
+   "R_series_2_3": 4.9999999999999996e-05,
+   "X_series_2_3": 0.0001,
+   "R_series_2_4": 4.9999999999999996e-05,
+   "X_series_2_4": 0.0001,
+   "R_series_3_3": 0.0003,
+   "X_series_3_3": 0.00030000000000000003,
+   "R_series_3_4": 4.9999999999999996e-05,
+   "X_series_3_4": 0.0001,
+   "R_series_4_4": 0.0003,
+   "X_series_4_4": 0.00030000000000000003,
+   "i_max": [
+    250.0,
+    250.0,
+    250.0,
+    250.0
+   ]
+  }
+ },
+ "line": {
+  "f1": {
+   "bus_from": "lv0",
+   "bus_to": "lv1",
+   "terminal_map_from": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "terminal_map_to": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "linecode": "cable",
+   "length": 120.0
+  },
+  "f2": {
+   "bus_from": "lv1",
+   "bus_to": "lv2",
+   "terminal_map_from": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "terminal_map_to": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "linecode": "cable",
+   "length": 150.0
+  }
+ },
+ "transformer": {
+  "delta_wye": {
+   "sub": {
+    "bus_from": "mv",
+    "bus_to": "lv0",
+    "terminal_map_from": [
+     "a",
+     "b",
+     "c"
+    ],
+    "terminal_map_to": [
+     "a",
+     "b",
+     "c",
+     "n"
+    ],
+    "v_nom_from": 10000.0,
+    "v_nom_to": 400.0,
+    "s_rating": 400000.0,
+    "r_series_from": 1.25,
+    "x_series_from": 5.0,
+    "r_series_to": 0.002,
+    "x_series_to": 0.008
+   }
+  }
+ },
+ "load": {
+  "h1": {
+   "bus": "lv1",
+   "terminal_map": [
+    "a",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    3500.0
+   ],
+   "q_nom": [
+    1150.4
+   ],
+   "v_nom": [
+    230.0
+   ]
+  },
+  "h2": {
+   "bus": "lv1",
+   "terminal_map": [
+    "b",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    2500.0
+   ],
+   "q_nom": [
+    821.7
+   ],
+   "v_nom": [
+    230.0
+   ]
+  },
+  "h3": {
+   "bus": "lv2",
+   "terminal_map": [
+    "c",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    4000.0
+   ],
+   "q_nom": [
+    1314.7
+   ],
+   "v_nom": [
+    230.0
+   ]
+  },
+  "shop": {
+   "bus": "lv2",
+   "terminal_map": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "configuration": "WYE",
+   "p_nom": [
+    5000.0,
+    5200.0,
+    4800.0
+   ],
+   "q_nom": [
+    1643.4,
+    1709.2,
+    1577.7
+   ],
+   "v_nom": [
+    230.0,
+    230.0,
+    230.0
+   ]
+  }
+ }
+}

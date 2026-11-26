@@ -3844,6 +3844,7 @@ include("mcp_execution_tests.jl")
     include("profiler_interpretation_tests.jl")
     include("profiler_physics_guidance_tests.jl")
     include("profiler_generalization_tests.jl")
+    _HAS_JUMP_IPOPT && include("profiler_generalization_pf_tests.jl")
 
     # -----------------------------------------------------------------------
     # Infeasibility diagnosis — deterministic dict paths plus a gated solve

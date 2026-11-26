@@ -17,7 +17,7 @@ function _wires_by_level(net::Dict{String,Any},
 
     levels = get(vl, "levels", Dict())
 
-    neutral_of = _bus_neutral_map(buses)
+    neutral_of = _bus_neutral_map(buses, _case_neutral_labels(net))
     carried = _neutral_branch_buses(net)
 
     for (label, info) in levels
@@ -50,7 +50,16 @@ function _wires_by_level(net::Dict{String,Any},
             "n_implicit_ground_loads" => length(implicit_loads)
         )
 
-        if is_lv && n_with_n == 0 && length(ids) > 1
+        # The suspicion needs a branch to be about: service buses that merely
+        # share a nominal voltage carry no conductors between them. And a level
+        # supplied by a delta secondary winding is three-wire by construction:
+        # the transformer brings out no neutral that could have been removed.
+        has_branch = wires != "no branch conductors represented"
+        delta_fed = any(get(get(net, "transformer", Dict()), "wye_delta", Dict())) do (_, t)
+            t isa AbstractDict && get(t, "bus_to", nothing) in level_set
+        end
+        out[label]["delta_fed"] = delta_fed
+        if is_lv && n_with_n == 0 && length(ids) > 1 && has_branch && !delta_fed
             extra = isempty(implicit_loads) ? "" :
                 " $(length(implicit_loads)) load(s) connect phase-to-ground, " *
                 "corroborating an implicit neutral."
@@ -81,7 +90,7 @@ end
 function _grounding_analysis(net::Dict{String,Any},
                               findings::Vector{Finding})::Dict{String,Any}
     buses = get(net, "bus", Dict())
-    neutral_of = _bus_neutral_map(buses)
+    neutral_of = _bus_neutral_map(buses, _case_neutral_labels(net))
     nbuses = sort([id for (id, nn) in neutral_of if nn !== nothing])
     res = Dict{String,Any}("n_buses_with_neutral" => length(nbuses))
     if isempty(nbuses)
@@ -253,10 +262,11 @@ function _check_ungrounded_wye_neutrals(net::Dict{String,Any},
     xfmr = get(net, "transformer", Dict())
     isempty(xfmr) && return
     buses = get(net, "bus", Dict())
-    neutral_of = _bus_neutral_map(buses)
+    neutral_of = _bus_neutral_map(buses, _case_neutral_labels(net))
     # Buses with any neutral-earthing path — perfect ground (|Z|=0), source
     # neutral bond, or a grounding shunt (finite |Z|). Membership = "grounded".
     earth = _terminal_earthing(net)
+    neutral_labels = _case_neutral_labels(net)
 
     for subtype in TRANSFORMER_SUBTYPES
         sub = get(xfmr, subtype, nothing)
@@ -270,9 +280,9 @@ function _check_ungrounded_wye_neutrals(net::Dict{String,Any},
                 tm = Vector{String}(get(t, mk, String[]))
                 # Three-phase wye winding with the star point brought out: the
                 # neutral is accessible and there are ≥3 phase conductors.
-                (_neutral_terminal(tm) !== nothing &&
-                 length(_phase_positions(tm)) >= 3) || continue
-                haskey(earth, (b,_neutral_terminal(tm))) && continue
+                star = _case_neutral_terminal(neutral_labels, tm)
+                (star !== nothing && count(!=(star), tm) >= 3) || continue
+                haskey(earth, (b, star)) && continue
                 push!(findings, Finding(INFO, "I.PROV.WYE_NEUTRAL_UNGROUNDED",
                     :provenance, :transformer, id,
                     "Transformer '$id' ($subtype) brings out a three-phase wye " *
@@ -289,11 +299,29 @@ function _check_ungrounded_wye_neutrals(net::Dict{String,Any},
     end
 end
 
-# Per-bus neutral terminal name (or nothing), via the convention helper
-function _bus_neutral_map(buses)::Dict{String,Union{String,Nothing}}
-    Dict{String,Union{String,Nothing}}(
-        id => _neutral_terminal(b)
-        for (id, b) in buses)
+# Neutral-role labels of the case: the declared `terminal_conventions` when
+# present, otherwise the naming convention. `nothing` when roles cannot be
+# resolved (malformed declarations); callers then fall back to the convention.
+_case_neutral_labels(net) = (r = _index_roles(net); r === nothing ? nothing : r.neutral)
+
+# Position of the neutral in `tm` under the case's roles (see above).
+_case_neutral_pos(labels, tm) = labels === nothing ? _neutral_pos(tm) : _neutral_pos(tm, labels)
+_case_neutral_terminal(labels, tm) =
+    labels === nothing ? _neutral_terminal(tm) : _neutral_terminal(tm, labels)
+
+# Per-bus neutral terminal name (or nothing). The bus's explicit
+# `neutral_terminal` wins; otherwise the case's neutral-role `labels` decide, so
+# a hand-built case that declares `terminal_conventions.neutral = ["4"]` is read
+# the same way as one that went through `parse_bmopf`. Without labels the
+# naming convention applies.
+function _bus_neutral_map(buses, labels=nothing)::Dict{String,Union{String,Nothing}}
+    out = Dict{String,Union{String,Nothing}}()
+    for (id, b) in buses
+        nt = b isa AbstractDict ? get(b, "neutral_terminal", nothing) : nothing
+        out[id] = nt isa String ? nt :
+            b isa AbstractDict ? _case_neutral_terminal(labels, get(b, "terminal_names", String[])) : nothing
+    end
+    out
 end
 
 # ---------------------------------------------------------------------------
@@ -505,7 +533,7 @@ end
 """Describe represented earthing per galvanic zone; protective-system identity is indeterminate."""
 function _earthing_zones(net::Dict{String,Any},vl::Dict{String,Any})::Vector{Dict{String,Any}}
     buses=get(net,"bus",Dict()); isempty(buses) && return Dict{String,Any}[]
-    neutral_of=_bus_neutral_map(buses); earth=_terminal_earthing(net)
+    neutral_of=_bus_neutral_map(buses, _case_neutral_labels(net)); earth=_terminal_earthing(net)
     neutral_earth=Dict(b=>z for (b,z) in _bus_neutral_earthing(net,neutral_of)
         if !_is_grounded_reference(buses[b],neutral_of[b]))
     carried=_neutral_branch_buses(net)

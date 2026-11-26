@@ -137,6 +137,18 @@ function connectivity_analysis(net::Dict{String,Any},
         end
     end
 
+    # DC links: AC buses whose converters (IBRs with a `dc_bus`) sit on one DC
+    # island are joined through it. An AC section fed only over DC is part of
+    # the network, not a disconnected component, and a DC link between two
+    # buses of one AC network closes a loop like any other branch.
+    dc_links = _dc_link_ac_groups(net)
+    for group in dc_links
+        for k in 2:length(group)
+            add_edge_safe!(group[k-1], group[k])
+        end
+    end
+    result["dc_links"] = dc_links
+
     # Voltage source buses (connected to their bus)
     vsrc_buses = String[]
     for (_, vs) in get(net, "voltage_source", Dict())
@@ -273,13 +285,26 @@ function connectivity_analysis(net::Dict{String,Any},
         if z.topology == :split_phase
             ct = something(findfirst(f -> f[1] == "center_tap", z.feed), nothing)
             ct_id = ct === nothing ? "?" : z.feed[ct][2]
+            # The anti-phase legs are the center-tapped winding's two outer
+            # terminals. Any further phase conductor in the zone comes from a
+            # banked power unit: the high leg of a four-wire delta.
+            ct_rec = ct === nothing ? nothing :
+                get(get(get(net, "transformer", Dict()), "center_tap", Dict()), ct_id, nothing)
+            tm_to = ct_rec isa AbstractDict ? get(ct_rec, "terminal_map_to", nothing) : nothing
+            legs = tm_to isa AbstractVector && length(tm_to) == 3 ?
+                sort!([string(tm_to[1]), string(tm_to[3])]) : sort(collect(z.phases))
+            high = sort!(collect(setdiff(z.phases, legs)))
             push!(findings, Finding(INFO, "I.PROV.SPLIT_PHASE_ZONE", :connectivity,
                 :network, nothing,
                 "Galvanic zone anchored at bus '$(z.label)' is split-phase " *
-                "(fed by center_tap transformer '$(ct_id)'): legs $(sort(collect(z.phases))) " *
-                "are anti-phase about the center-tap neutral.",
+                "(fed by center_tap transformer '$(ct_id)'): legs $(legs) " *
+                "are anti-phase about the center-tap neutral." *
+                (isempty(high) ? "" : " Phase conductor(s) $(high) are supplied by a " *
+                    "banked power unit — a high-leg (four-wire) delta, whose " *
+                    "phase-to-neutral voltage differs from the legs'."),
                 Dict{String,Any}("zone_anchor" => z.label, "center_tap" => ct_id,
-                                 "phases" => sort(collect(z.phases)))))
+                                 "phases" => sort(collect(z.phases)),
+                                 "legs" => legs, "high_leg" => high)))
         elseif z.topology == :swer
             push!(findings, Finding(INFO, "I.PROV.SWER_ZONE", :connectivity,
                 :network, nothing,
@@ -720,6 +745,32 @@ function _galvanic_zones(net::Dict{String,Any};
         push!(zones, zone)
     end
     zones
+end
+
+# AC buses coupled through each DC island: sorted groups of two or more AC bus
+# ids whose converters share a DC island (dc_buses joined by dc_branches).
+function _dc_link_ac_groups(net)::Vector{Vector{String}}
+    dc_buses = get(net, "dc_bus", Dict())
+    dc_buses isa AbstractDict && !isempty(dc_buses) || return Vector{String}[]
+    parent = Dict{String,String}(string(b) => string(b) for b in keys(dc_buses))
+    find(x) = (parent[x] == x ? x : (parent[x] = find(parent[x])))
+    for (_, br) in get(net, "dc_branch", Dict())
+        br isa AbstractDict || continue
+        a = get(br, "dc_bus_from", nothing); c = get(br, "dc_bus_to", nothing)
+        a isa AbstractString && c isa AbstractString &&
+            haskey(parent, a) && haskey(parent, c) || continue
+        parent[find(a)] = find(c)
+    end
+    ac_buses = get(net, "bus", Dict())
+    groups = Dict{String,Set{String}}()
+    for (_, inv) in get(net, "ibr", Dict())
+        inv isa AbstractDict || continue
+        d = get(inv, "dc_bus", nothing); b = get(inv, "bus", nothing)
+        d isa AbstractString && b isa AbstractString &&
+            haskey(parent, d) && haskey(ac_buses, b) || continue
+        push!(get!(groups, find(d), Set{String}()), b)
+    end
+    sort!([sort!(collect(g)) for g in values(groups) if length(g) >= 2])
 end
 
 # Single-phase unit subtypes that are banked in practice.

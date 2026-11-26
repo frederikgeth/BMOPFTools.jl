@@ -1,0 +1,309 @@
+{
+ "name": "jp_three_wire_v_connection",
+ "meta": {
+  "source": "Original synthetic teaching fixture; not calibrated to a utility population",
+  "license": "CC-BY-4.0",
+  "description": "6.6 kV three-wire primary, 100/200 V single-phase three-wire service, V-connected 200 V service"
+ },
+ "terminal_conventions": {
+  "phase": [
+   "a",
+   "b",
+   "c"
+  ],
+  "neutral": [
+   "n"
+  ],
+  "earth": []
+ },
+ "bus": {
+  "sub": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c"
+   ]
+  },
+  "p1": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c"
+   ]
+  },
+  "p2": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c"
+   ]
+  },
+  "home": {
+   "terminal_names": [
+    "a",
+    "b",
+    "n"
+   ]
+  },
+  "shop": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ]
+  }
+ },
+ "voltage_source": {
+  "grid": {
+   "bus": "sub",
+   "terminal_map": [
+    "a",
+    "b",
+    "c"
+   ],
+   "v_magnitude": [
+    3810.5117766515305,
+    3810.5117766515305,
+    3810.5117766515305
+   ],
+   "v_angle": [
+    0.0,
+    -2.0943951023931953,
+    2.0943951023931953
+   ]
+  }
+ },
+ "linecode": {
+  "primary": {
+   "R_series_1_1": 0.0003,
+   "X_series_1_1": 0.00030000000000000003,
+   "R_series_1_2": 4.9999999999999996e-05,
+   "X_series_1_2": 0.0001,
+   "R_series_1_3": 4.9999999999999996e-05,
+   "X_series_1_3": 0.0001,
+   "R_series_2_2": 0.0003,
+   "X_series_2_2": 0.00030000000000000003,
+   "R_series_2_3": 4.9999999999999996e-05,
+   "X_series_2_3": 0.0001,
+   "R_series_3_3": 0.0003,
+   "X_series_3_3": 0.00030000000000000003,
+   "i_max": [
+    200.0,
+    200.0,
+    200.0
+   ]
+  }
+ },
+ "line": {
+  "main1": {
+   "bus_from": "sub",
+   "bus_to": "p1",
+   "terminal_map_from": [
+    "a",
+    "b",
+    "c"
+   ],
+   "terminal_map_to": [
+    "a",
+    "b",
+    "c"
+   ],
+   "linecode": "primary",
+   "length": 300.0
+  },
+  "main2": {
+   "bus_from": "p1",
+   "bus_to": "p2",
+   "terminal_map_from": [
+    "a",
+    "b",
+    "c"
+   ],
+   "terminal_map_to": [
+    "a",
+    "b",
+    "c"
+   ],
+   "linecode": "primary",
+   "length": 300.0
+  }
+ },
+ "shunt": {
+  "gnd_home": {
+   "bus": "home",
+   "terminal_map": [
+    "n"
+   ],
+   "G_1_1": 0.02,
+   "B_1_1": 0.0
+  },
+  "gnd_shop": {
+   "bus": "shop",
+   "terminal_map": [
+    "n"
+   ],
+   "G_1_1": 0.02,
+   "B_1_1": 0.0
+  }
+ },
+ "transformer": {
+  "center_tap": {
+   "pole_home": {
+    "bus_from": "p1",
+    "bus_to": "home",
+    "terminal_map_from": [
+     "a",
+     "b"
+    ],
+    "terminal_map_to": [
+     "a",
+     "n",
+     "b"
+    ],
+    "v_nom_from": 6600.0,
+    "v_nom_to": 100.0,
+    "s_rating": 20000.0,
+    "r_series_from": 10.89,
+    "x_series_from": 32.67,
+    "r_series_to": 0.0025,
+    "x_series_to": 0.0075
+   },
+   "pole_shop_lighting": {
+    "bus_from": "p2",
+    "bus_to": "shop",
+    "terminal_map_from": [
+     "a",
+     "b"
+    ],
+    "terminal_map_to": [
+     "a",
+     "n",
+     "b"
+    ],
+    "v_nom_from": 6600.0,
+    "v_nom_to": 100.0,
+    "s_rating": 30000.0,
+    "r_series_from": 7.26,
+    "x_series_from": 21.78,
+    "r_series_to": 0.00166667,
+    "x_series_to": 0.005
+   }
+  },
+  "single_phase": {
+   "pole_shop_power": {
+    "bus_from": "p2",
+    "bus_to": "shop",
+    "terminal_map_from": [
+     "b",
+     "c"
+    ],
+    "terminal_map_to": [
+     "b",
+     "c"
+    ],
+    "v_nom_from": 6600.0,
+    "v_nom_to": 200.0,
+    "s_rating": 20000.0,
+    "r_series_from": 10.89,
+    "x_series_from": 32.67,
+    "r_series_to": 0.01,
+    "x_series_to": 0.03
+   }
+  }
+ },
+ "load": {
+  "home_a": {
+   "bus": "home",
+   "terminal_map": [
+    "a",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    1500.0
+   ],
+   "q_nom": [
+    493.0
+   ],
+   "v_nom": [
+    100.0
+   ]
+  },
+  "home_b": {
+   "bus": "home",
+   "terminal_map": [
+    "b",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    1200.0
+   ],
+   "q_nom": [
+    394.4
+   ],
+   "v_nom": [
+    100.0
+   ]
+  },
+  "home_ih": {
+   "bus": "home",
+   "terminal_map": [
+    "a",
+    "b"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    2500.0
+   ],
+   "q_nom": [
+    821.7
+   ],
+   "v_nom": [
+    200.0
+   ]
+  },
+  "shop_lights": {
+   "bus": "shop",
+   "terminal_map": [
+    "a",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    2000.0
+   ],
+   "q_nom": [
+    657.4
+   ],
+   "v_nom": [
+    100.0
+   ]
+  },
+  "shop_motor": {
+   "bus": "shop",
+   "terminal_map": [
+    "a",
+    "b",
+    "c"
+   ],
+   "configuration": "DELTA",
+   "p_nom": [
+    2500.0,
+    2500.0,
+    2500.0
+   ],
+   "q_nom": [
+    821.7,
+    821.7,
+    821.7
+   ],
+   "v_nom": [
+    200.0,
+    200.0,
+    200.0
+   ]
+  }
+ }
+}

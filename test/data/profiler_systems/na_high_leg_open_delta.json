@@ -1,0 +1,241 @@
+{
+ "name": "na_high_leg_open_delta",
+ "meta": {
+  "source": "Original synthetic teaching fixture; not calibrated to a utility population",
+  "license": "CC-BY-4.0",
+  "description": "Open-wye/open-delta bank: center-tapped lighting unit plus power unit, 240/120 V high-leg service"
+ },
+ "terminal_conventions": {
+  "phase": [
+   "a",
+   "b",
+   "c"
+  ],
+  "neutral": [
+   "n"
+  ],
+  "earth": []
+ },
+ "bus": {
+  "sub": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "perfectly_grounded_terminals": [
+    "n"
+   ]
+  },
+  "pole": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ]
+  },
+  "svc": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ]
+  }
+ },
+ "voltage_source": {
+  "grid": {
+   "bus": "sub",
+   "terminal_map": [
+    "a",
+    "b",
+    "c"
+   ],
+   "v_magnitude": [
+    7200.0,
+    7200.0,
+    7200.0
+   ],
+   "v_angle": [
+    0.0,
+    -2.0943951023931953,
+    2.0943951023931953
+   ]
+  }
+ },
+ "linecode": {
+  "primary": {
+   "R_series_1_1": 0.0003,
+   "X_series_1_1": 0.00030000000000000003,
+   "R_series_1_2": 4.9999999999999996e-05,
+   "X_series_1_2": 0.0001,
+   "R_series_1_3": 4.9999999999999996e-05,
+   "X_series_1_3": 0.0001,
+   "R_series_1_4": 4.9999999999999996e-05,
+   "X_series_1_4": 0.0001,
+   "R_series_2_2": 0.0003,
+   "X_series_2_2": 0.00030000000000000003,
+   "R_series_2_3": 4.9999999999999996e-05,
+   "X_series_2_3": 0.0001,
+   "R_series_2_4": 4.9999999999999996e-05,
+   "X_series_2_4": 0.0001,
+   "R_series_3_3": 0.0003,
+   "X_series_3_3": 0.00030000000000000003,
+   "R_series_3_4": 4.9999999999999996e-05,
+   "X_series_3_4": 0.0001,
+   "R_series_4_4": 0.0003,
+   "X_series_4_4": 0.00030000000000000003,
+   "i_max": [
+    300.0,
+    300.0,
+    300.0,
+    300.0
+   ]
+  }
+ },
+ "line": {
+  "main": {
+   "bus_from": "sub",
+   "bus_to": "pole",
+   "terminal_map_from": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "terminal_map_to": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "linecode": "primary",
+   "length": 600.0
+  }
+ },
+ "shunt": {
+  "gnd_pole": {
+   "bus": "pole",
+   "terminal_map": [
+    "n"
+   ],
+   "G_1_1": 0.04,
+   "B_1_1": 0.0
+  },
+  "gnd_svc": {
+   "bus": "svc",
+   "terminal_map": [
+    "n"
+   ],
+   "G_1_1": 0.04,
+   "B_1_1": 0.0
+  }
+ },
+ "transformer": {
+  "center_tap": {
+   "lighting": {
+    "bus_from": "pole",
+    "bus_to": "svc",
+    "terminal_map_from": [
+     "a",
+     "n"
+    ],
+    "terminal_map_to": [
+     "a",
+     "n",
+     "b"
+    ],
+    "v_nom_from": 7200.0,
+    "v_nom_to": 120.0,
+    "s_rating": 50000.0,
+    "r_series_from": 5.184,
+    "x_series_from": 15.552,
+    "r_series_to": 0.00144,
+    "x_series_to": 0.00432
+   }
+  },
+  "single_phase": {
+   "power": {
+    "bus_from": "pole",
+    "bus_to": "svc",
+    "terminal_map_from": [
+     "b",
+     "n"
+    ],
+    "terminal_map_to": [
+     "b",
+     "c"
+    ],
+    "v_nom_from": 7200.0,
+    "v_nom_to": 240.0,
+    "s_rating": 25000.0,
+    "r_series_from": 10.368,
+    "x_series_from": 31.104,
+    "r_series_to": 0.01152,
+    "x_series_to": 0.03456
+   }
+  }
+ },
+ "load": {
+  "lights_a": {
+   "bus": "svc",
+   "terminal_map": [
+    "a",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    4000.0
+   ],
+   "q_nom": [
+    1314.7
+   ],
+   "v_nom": [
+    120.0
+   ]
+  },
+  "lights_b": {
+   "bus": "svc",
+   "terminal_map": [
+    "b",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    4000.0
+   ],
+   "q_nom": [
+    1314.7
+   ],
+   "v_nom": [
+    120.0
+   ]
+  },
+  "motor": {
+   "bus": "svc",
+   "terminal_map": [
+    "a",
+    "b",
+    "c"
+   ],
+   "configuration": "DELTA",
+   "p_nom": [
+    3000.0,
+    3000.0,
+    3000.0
+   ],
+   "q_nom": [
+    986.1,
+    986.1,
+    986.1
+   ],
+   "v_nom": [
+    240.0,
+    240.0,
+    240.0
+   ]
+  }
+ }
+}

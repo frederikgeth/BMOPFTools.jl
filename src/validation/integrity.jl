@@ -450,6 +450,33 @@ function integrity_check(net::Dict{String,Any},
             push!(grounded_buses, b)
     end
 
+    # A line's shunt admittance to earth (its capacitance, G/B_from/to on the
+    # line or its linecode) is a finite path to the reference at both ends: an
+    # unearthed delta or IT island with modeled line capacitance is referenced
+    # through it, exactly as the admittance builders stamp it. A matrix whose
+    # rows sum to zero is purely phase-to-phase and anchors nothing.
+    linecodes_ref = get(net, "linecode", Dict())
+    function _shunts_to_earth(obj)
+        obj isa AbstractDict || return false
+        for prefix in ("G_from_", "B_from_", "G_to_", "B_to_")
+            M = _pattern_keys_to_matrix(obj, prefix)
+            M isa AbstractMatrix && !isempty(M) || continue
+            scale = maximum(abs, M)
+            scale > 0 || continue
+            any(abs(sum(M[i, :])) > 1e-9 * scale for i in 1:size(M, 1)) && return true
+        end
+        false
+    end
+    for (_, l) in get(net, "line", Dict())
+        l isa AbstractDict || continue
+        f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
+        f isa AbstractString && t isa AbstractString || continue
+        lc = get(l, "linecode", nothing)
+        (_shunts_to_earth(l) ||
+         (lc isa AbstractString && _shunts_to_earth(get(linecodes_ref, lc, nothing)))) || continue
+        push!(grounded_buses, f); push!(grounded_buses, t)
+    end
+
     # a transformer's internal neutral impedance (r/x_neutral_*) is a finite
     # branch from the winding neutral to earth: impedance and resonant earthing
     for ((b, _), _) in _transformer_neutral_earthing(net)
@@ -468,8 +495,8 @@ function integrity_check(net::Dict{String,Any},
         push!(findings, Finding(ERROR, "E.INT.NO_VOLTAGE_REFERENCE", :integrity,
             :network, nothing,
             "Galvanic island of $(length(comp)) bus(es) has no voltage " *
-            "reference (no source, perfect grounding, grounding shunt, or " *
-            "transformer neutral impedance) — " *
+            "reference (no source, perfect grounding, grounding shunt, line " *
+            "shunt admittance, or transformer neutral impedance) — " *
             "voltages are defined only up to a shift (rank-deficient): " *
             "$(join(comp, ", ")).",
             Dict{String,Any}("buses" => comp)))

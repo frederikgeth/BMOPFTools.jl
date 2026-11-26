@@ -360,4 +360,183 @@ end
         flat = redirect_stderr(devnull) do; analyze(net; config=cfg); end
         @test count(f -> f.code == "W.DOM.LINE_LOW_IMPEDANCE", flat.findings) == 40
     end
+
+    # ── Regional system types through analyze ───────────────────────────────
+
+    _pg_sys(name) = parse_bmopf(joinpath(@__DIR__, "data", "profiler_systems", name * ".json"))
+    _pg_zone(report, bus) = only(z for z in report.results[:connectivity]["zones"] if z["label"] == bus)
+
+    @testset "regional fixtures are current with their generator" begin
+        dir = joinpath(@__DIR__, "data", "profiler_systems")
+        names = sort!([f for f in readdir(dir) if endswith(f, ".json")])
+        @test names == ["au_men_four_wire.json", "eu_tn_four_wire.json",
+            "it_delta_island_capacitive.json", "it_delta_island_unreferenced.json",
+            "jp_three_wire_v_connection.json", "na_high_leg_open_delta.json",
+            "na_mgn_split_phase.json"]
+        for f in names
+            net = parse_bmopf(joinpath(dir, f))
+            @test haskey(net, "terminal_conventions")
+            @test net["meta"]["license"] == "CC-BY-4.0"
+        end
+    end
+
+    @testset "well-formed regional systems raise no error and no warning" begin
+        for name in ("na_mgn_split_phase", "na_high_leg_open_delta", "eu_tn_four_wire",
+                     "it_delta_island_capacitive", "jp_three_wire_v_connection",
+                     "au_men_four_wire")
+            report = _pg_analyze(_pg_sys(name))
+            @testset "$name" begin
+                @test isempty(errors(report))
+                @test isempty(warnings(report))
+                @test report.results[:connectivity]["is_radial"]
+                @test report.results[:integrity]["n_without_reference"] == 0
+            end
+        end
+    end
+
+    @testset "North American MGN primary with a split-phase service" begin
+        report = _pg_analyze(_pg_sys("na_mgn_split_phase"))
+        conn = report.results[:connectivity]
+        @test conn["n_split_phase_zones"] == 1 && conn["n_swer_zones"] == 0
+        @test _pg_zone(report, "svc")["topology"] == "split_phase"
+        # The single-phase lateral shares the three-phase feeder's zone.
+        @test _pg_zone(report, "sub")["topology"] == "three_phase"
+        vmap = report.results[:voltage_levels]["bus_voltage_map"]
+        @test vmap["svc"] ≈ 120.0 && vmap["lat"] ≈ 7200.0
+        split = only(f for f in report.findings if f.code == "I.PROV.SPLIT_PHASE_ZONE")
+        @test split.detail["legs"] == ["a", "b"] && isempty(split.detail["high_leg"])
+        g = report.results[:provenance]["grounding"]
+        @test g["n_floating"] == 0 && g["n_grounding_points"] >= 4
+    end
+
+    @testset "high-leg delta: one bank, mixed phase-to-neutral voltages" begin
+        for (name, leg_v) in (("na_high_leg_open_delta", 120.0), ("jp_three_wire_v_connection", 100.0))
+            net = _pg_sys(name)
+            report = _pg_analyze(net)
+            codes = _pg_codes(report.findings)
+            @test !("E.VOLT.LEVEL_MISMATCH" in codes)
+            @test !("W.VOLT.XFMR_RATIO" in codes)
+            @test !("W.CONN.MESHED" in codes)
+            @test !("W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY" in codes)
+            vl = report.results[:voltage_levels]
+            svc = only(vl["mixed_phase_to_neutral_buses"])
+            @test vl["bus_voltage_map"][svc] ≈ leg_v
+            @test length(vl["high_leg_units"]) == 1
+            split = only(f for f in report.findings if f.code == "I.PROV.SPLIT_PHASE_ZONE" &&
+                                                       f.detail["zone_anchor"] == svc)
+            @test split.detail["legs"] == ["a", "b"] && split.detail["high_leg"] == ["c"]
+            @test length(report.results[:connectivity]["transformer_banks"]) == 1
+        end
+        # Negative: without the lighting unit the power unit is an ordinary
+        # phase-to-phase transformer and propagates its own level.
+        net = _pg_sys("na_high_leg_open_delta")
+        delete!(net["transformer"], "center_tap")
+        @test isempty(BMOPFTools._high_leg_power_units(net))
+        vl = voltage_level_analysis(net, Finding[])
+        @test isempty(vl["mixed_phase_to_neutral_buses"])
+        @test vl["bus_voltage_map"]["svc"] ≈ 240.0 / sqrt(3)
+        # Boundary: a line-to-neutral unit beside a center tap is not a high leg.
+        net = _pg_sys("na_high_leg_open_delta")
+        net["transformer"]["single_phase"]["power"]["terminal_map_to"] = ["c", "n"]
+        @test isempty(BMOPFTools._high_leg_power_units(net))
+    end
+
+    @testset "unearthed delta island: referenced only through modeled capacitance" begin
+        bare = _pg_analyze(_pg_sys("it_delta_island_unreferenced"))
+        ref = only(f for f in bare.findings if f.code == "E.INT.NO_VOLTAGE_REFERENCE")
+        @test sort(ref.detail["buses"]) == ["it0", "it1"]
+        @test [f.code for f in errors(bare)] == ["E.INT.NO_VOLTAGE_REFERENCE"]
+        cap = _pg_analyze(_pg_sys("it_delta_island_capacitive"))
+        @test isempty(errors(cap))
+        # A delta-fed level is three-wire by construction: no Kron suspicion.
+        @test !("I.PROV.KRON_LIKELY" in _pg_codes(bare.findings))
+        @test bare.results[:provenance]["wires_by_level"]["LV_231V"]["delta_fed"]
+
+        # Boundary: purely phase-to-phase line admittance (zero row sums) is not
+        # a path to earth; inline matrices on the line count like a linecode's.
+        net = _pg_sys("it_delta_island_unreferenced")
+        lc = net["linecode"]["cable"]
+        for i in 1:3, j in 1:3
+            lc["B_from_$(i)_$(j)"] = i == j ? 2e-7 : -1e-7
+        end
+        f = Finding[]; integrity_check(net, f)
+        @test "E.INT.NO_VOLTAGE_REFERENCE" in _pg_codes(f)
+        net = _pg_sys("it_delta_island_unreferenced")
+        for i in 1:3; net["line"]["run"]["B_to_$(i)_$(i)"] = 1e-6; end
+        f = Finding[]; integrity_check(net, f)
+        @test !("E.INT.NO_VOLTAGE_REFERENCE" in _pg_codes(f))
+    end
+
+    @testset "Kron suspicion needs branches at the level" begin
+        # Two service buses that merely share a nominal voltage carry no wires.
+        report = _pg_analyze(_pg_sys("jp_three_wire_v_connection"))
+        @test !("I.PROV.KRON_LIKELY" in _pg_codes(report.findings))
+        # A three-wire LV feeder behind a wye secondary is still a candidate.
+        net = _pg_sys("eu_tn_four_wire")
+        for l in values(net["line"])
+            l["terminal_map_from"] = ["a","b","c"]; l["terminal_map_to"] = ["a","b","c"]
+        end
+        net["linecode"]["cable"] = Dict{String,Any}(k => v for (k, v) in net["linecode"]["cable"]
+            if !occursin("4", k)); net["linecode"]["cable"]["i_max"] = fill(250.0, 3)
+        f = Finding[]; provenance_analysis(net, f)
+        @test "I.PROV.KRON_LIKELY" in _pg_codes(f)
+    end
+
+    @testset "declared neutral roles are honored on a hand-built case" begin
+        # Neutral labeled "4", declared by terminal_conventions, never parsed
+        # (so no bus carries a stamped neutral_terminal).
+        relabel(x) = x isa AbstractString ? (x == "n" ? "4" : x) :
+                     x isa AbstractVector ? Any[relabel(v) for v in x] :
+                     x isa AbstractDict ? Dict{String,Any}(k => (k in ("name",) ? v : relabel(v)) for (k, v) in x) : x
+        net = relabel(_pg_sys("au_men_four_wire"))
+        net["terminal_conventions"] = Dict{String,Any}("phase" => ["a","b","c"], "neutral" => ["4"], "earth" => String[])
+        foreach(b -> delete!(b, "neutral_terminal"), values(net["bus"]))
+        report = _pg_analyze(net)
+        g = report.results[:provenance]["grounding"]
+        @test g["n_buses_with_neutral"] == 3
+        @test g["n_grounding_points"] == 3 && g["n_floating"] == 0
+        @test isempty(errors(report))
+        # Negative: drop the earths and the "4" neutral is recognized as floating.
+        delete!(net, "shunt")
+        @test "E.PROV.FLOATING_NEUTRAL" in _pg_codes(_pg_analyze(net).findings)
+        # The neutral power-limit check follows the declared role too.
+        net["line"]["f1"]["s_max"] = [1e5, 1e5, 1e5, 1e5]
+        f = Finding[]; n = Ref(0)
+        BMOPFTools._check_power_limit_neutral(net, f, n)
+        @test only(f).detail["neutral_index"] == 4
+    end
+
+    @testset "AC sections joined over a DC link are one network" begin
+        net = _pg_sys("eu_tn_four_wire")
+        net["bus"]["isl"] = Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+            "perfectly_grounded_terminals" => ["n"])
+        net["load"]["isl_load"] = Dict{String,Any}("bus" => "isl", "terminal_map" => ["a","n"],
+            "configuration" => "SINGLE_PHASE", "p_nom" => [1000.0], "q_nom" => [0.0])
+        f = Finding[]
+        r = connectivity_analysis(net, f)
+        @test "E.CONN.DISCONNECTED" in _pg_codes(f) && isempty(r["dc_links"])
+        net["dc_bus"] = Dict{String,Any}("d1" => Dict{String,Any}("terminal_names" => ["p","n"]),
+                                         "d2" => Dict{String,Any}("terminal_names" => ["p","n"]))
+        net["dc_branch"] = Dict{String,Any}("cable" => Dict{String,Any}("dc_bus_from" => "d1",
+            "dc_bus_to" => "d2", "terminal_map_from" => ["p","n"], "terminal_map_to" => ["p","n"], "r" => 0.1))
+        conv(bus, dc) = Dict{String,Any}("bus" => bus, "dc_bus" => dc, "terminal_map" => ["a","b","c"],
+            "topology" => "THREE_LEG", "prime_mover" => "CONVERTER", "s_max" => [1e4])
+        net["ibr"] = Dict{String,Any}("c1" => conv("lv2", "d1"), "c2" => conv("isl", "d2"))
+        f = Finding[]
+        r = connectivity_analysis(net, f)
+        @test !("E.CONN.DISCONNECTED" in _pg_codes(f))
+        @test r["dc_links"] == [["isl", "lv2"]] && r["is_radial"]
+        # Boundary: converters on separate DC islands do not join anything.
+        delete!(net, "dc_branch")
+        f = Finding[]
+        r = connectivity_analysis(net, f)
+        @test "E.CONN.DISCONNECTED" in _pg_codes(f) && isempty(r["dc_links"])
+        # A DC link between two buses of one AC network closes a loop.
+        net["dc_branch"] = Dict{String,Any}("cable" => Dict{String,Any}("dc_bus_from" => "d1",
+            "dc_bus_to" => "d2", "terminal_map_from" => ["p","n"], "terminal_map_to" => ["p","n"], "r" => 0.1))
+        net["ibr"]["c2"]["bus"] = "lv1"; delete!(net["bus"], "isl"); delete!(net["load"], "isl_load")
+        f = Finding[]
+        r = connectivity_analysis(net, f)
+        @test !r["is_radial"] && "W.CONN.MESHED" in _pg_codes(f)
+    end
 end

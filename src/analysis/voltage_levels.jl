@@ -129,6 +129,13 @@ function voltage_level_analysis(net::Dict{String,Any},
     # Transformer transition summary
     transitions = _transformer_transitions(net, assigned_level; phase_order)
     result["transformer_transitions"] = transitions
+    # Buses whose phase-to-neutral voltage is not uniform across conductors
+    # (high-leg delta); the reported level is the center-tapped leg voltage.
+    high_leg = _high_leg_power_units(net)
+    sp_units = get(get(net, "transformer", Dict()), "single_phase", Dict())
+    result["high_leg_units"] = sort!([id for (_, id) in high_leg])
+    result["mixed_phase_to_neutral_buses"] = sort!(unique!(String[
+        string(sp_units[id]["bus_to"]) for (_, id) in high_leg]))
 
     # Check: non-transformer edges crossing voltage levels
     _check_level_crossing_lines(net, assigned_level, findings)
@@ -152,6 +159,33 @@ function _winding_phase_to_phase(net, t::Dict{String,Any}, key::String)::Bool
     ctx.evidence["reason"]===nothing && ctx.evidence["resolved_roles"]==["phase","phase"]
 end
 
+# High-leg (four-wire) delta: a center-tapped lighting unit and one or two
+# phase-to-phase power units land on the same secondary bus. The center tap
+# fixes the per-conductor reference (the two legs), while the high leg sits at
+# √3 times that to neutral, so no single per-conductor nominal describes the
+# bus through the power units. They are identified here so level propagation
+# follows the center-tapped unit and the power units are not read as a
+# conflicting second level. Returns `(subtype, id)` of the power units.
+function _high_leg_power_units(net::Dict{String,Any})::Set{Tuple{String,String}}
+    out = Set{Tuple{String,String}}()
+    xfmr = get(net, "transformer", Dict())
+    ct = get(xfmr, "center_tap", nothing); sp = get(xfmr, "single_phase", nothing)
+    ct isa AbstractDict && sp isa AbstractDict || return out
+    lighting = Set{Tuple{String,String}}()
+    for (_, t) in ct
+        t isa AbstractDict || continue
+        f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
+        f isa AbstractString && b isa AbstractString && push!(lighting, (f, b))
+    end
+    isempty(lighting) && return out
+    for (id, t) in sp
+        t isa AbstractDict || continue
+        (get(t, "bus_from", nothing), get(t, "bus_to", nothing)) in lighting || continue
+        _winding_phase_to_phase(net, t, "terminal_map_to") && push!(out, ("single_phase", string(id)))
+    end
+    out
+end
+
 function _build_voltage_adjacency(net::Dict{String,Any})
     # adjacency: bus => [(neighbor, edge_type, edge_id, ratio)]
     adj = Dict{String,Vector{Tuple{String,Symbol,String,Float64}}}()
@@ -166,11 +200,13 @@ function _build_voltage_adjacency(net::Dict{String,Any})
     # over line edges. When both a transformer and a line connect the same two
     # buses, the transformer must win to detect line-crossing violations correctly.
     xfmr = get(net, "transformer", Dict())
+    high_leg = _high_leg_power_units(net)
     for subtype in TRANSFORMER_SUBTYPES
         subtype in WINDING_LIST_SUBTYPES && continue   # n_winding below
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
+            (subtype, string(id)) in high_leg && continue
             f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
             (f isa AbstractString && b isa AbstractString) || continue
             vf = get(t, "v_nom_from", nothing)
@@ -383,10 +419,12 @@ function _check_transformer_ratio_consistency(net::Dict{String,Any},
                                                assigned::Dict{String,Float64},
                                                findings::Vector{Finding})
     xfmr = get(net, "transformer", Dict())
+    high_leg = _high_leg_power_units(net)
     for subtype in TRANSFORMER_SUBTYPES
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
+            (subtype, string(id)) in high_leg && continue
             f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
             vf_bus = get(assigned, f, nothing)
             vt_bus = get(assigned, b, nothing)
