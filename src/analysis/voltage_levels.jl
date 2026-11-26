@@ -196,10 +196,16 @@ function _build_voltage_adjacency(net::Dict{String,Any})
     for (id, t) in get(xfmr, "n_winding", Dict())
         ws = _nw_windings(t)
         isempty(ws) && continue
-        b1, v1 = ws[1].bus, ws[1].v_nom
+        # Bus nominals are per conductor (phase-to-reference). A WYE winding's
+        # v_nom is already its line-to-neutral coil voltage, but a three-phase
+        # DELTA winding's v_nom is the line-to-line coil voltage: √3 above the
+        # per-conductor nominal of the bus it lands on.
+        _per_conductor(w) = w.connection == "DELTA" && length(w.terminal_map) == 3 ?
+            w.v_nom / sqrt(3.0) : w.v_nom
+        b1, v1 = ws[1].bus, _per_conductor(ws[1])
         isempty(b1) && continue
         for j in 2:length(ws)
-            bj, vj = ws[j].bus, ws[j].v_nom
+            bj, vj = ws[j].bus, _per_conductor(ws[j])
             (isempty(bj) || bj == b1) && continue
             ratio = v1 > 0 ? vj / v1 : 1.0
             add_adj!(b1, bj, :transformer, id, ratio)

@@ -88,18 +88,42 @@ function connectivity_analysis(net::Dict{String,Any},
         add_edge_safe!(bf, bt; neutral_only=_neutral_only_branch(sw, roles))
     end
 
-    # Transformers (each winding pair is an edge)
+    # Transformers (each winding pair is an edge). Single-phase units that join
+    # the same two buses on DIFFERENT conductor sets are one bank (three L-N
+    # units, an open-wye/open-delta pair, a high-leg lighting + power pair):
+    # the bank is a single branch of the bus graph, not a cycle. Units on the
+    # SAME conductors are genuinely parallel and still close a loop.
     xfmr = get(net, "transformer", Dict())
+    bank_maps = Dict{Tuple{String,String},Vector{Vector{String}}}()
+    bank_units = Dict{Tuple{String,String},Vector{String}}()
     for subtype in TRANSFORMER_SUBTYPES
         subtype in WINDING_LIST_SUBTYPES && continue   # n_winding below
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
-        for (id, t) in sub
+        for id in sort!(collect(keys(sub)))
+            t = sub[id]
+            t isa AbstractDict || continue
             bf = get(t, "bus_from", nothing); bt = get(t, "bus_to", nothing)
             check_self_loop!("transformer ($subtype)", id, bf, bt)
+            if subtype in _BANKABLE_SUBTYPES && bf isa AbstractString &&
+                    bt isa AbstractString && bf != bt
+                key = (String(bf), String(bt))
+                sig = _bank_unit_signature(t)
+                seen = get!(bank_maps, key, Vector{String}[])
+                units = get!(bank_units, key, String[])
+                if sig !== nothing && !isempty(seen) && !(sig in seen)
+                    push!(seen, sig); push!(units, string(id))
+                    continue                     # another leg of the same bank
+                end
+                sig === nothing || sig in seen || push!(seen, sig)
+                push!(units, string(id))
+            end
             add_edge_safe!(bf, bt)
         end
     end
+    result["transformer_banks"] = [Dict{String,Any}("bus_from" => k[1], "bus_to" => k[2],
+            "units" => sort(bank_units[k]))
+        for k in sort!(collect(keys(bank_units))) if length(bank_maps[k]) > 1]
 
     # n-winding transformers: connect winding 1's bus to every other winding's.
     for (id, t) in get(xfmr, "n_winding", Dict())
@@ -506,19 +530,23 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
         b = get(buses, bid, nothing)
         b isa Dict ? _nphase(get(b, "terminal_names", String[])) : 0
     end
-    function _xfmr_to_nphase(subtype, id, zone_buses)
-        sub = get(xfmr, subtype, nothing); sub isa Dict || return 0
-        t = get(sub, id, nothing); t isa Dict || return 0
+    _phases(tm) = let v = Vector{String}(string.(tm)), nt = _neutral_terminal(v)
+        Set(t for t in v if !is_return(t, nt))
+    end
+    # Phase conductors one feeding transformer lands in this zone.
+    function _xfmr_to_phases(subtype, id, zone_buses)
+        out = Set{String}()
+        sub = get(xfmr, subtype, nothing); sub isa Dict || return out
+        t = get(sub, id, nothing); t isa Dict || return out
         if subtype in WINDING_LIST_SUBTYPES
-            # n_winding has no terminal_map_to; the winding that supplies THIS
-            # zone is the one whose bus falls inside it.
-            np = 0
+            # n_winding has no terminal_map_to; the windings that supply THIS
+            # zone are the ones whose bus falls inside it.
             for w in _nw_windings(t)
-                w.bus in zone_buses && (np = max(np, _nphase(w.terminal_map)))
+                w.bus in zone_buses && union!(out, _phases(w.terminal_map))
             end
-            return np
+            return out
         end
-        _nphase(get(t, "terminal_map_to", String[]))
+        union!(out, _phases(get(t, "terminal_map_to", String[])))
     end
 
     affected = String[]
@@ -545,9 +573,14 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
                            np == 1            ? :single_phase : :unknown
             end
         end
+        # A bank of single-phase units supplies the UNION of its legs: three
+        # L-N units, or two open-delta units on (a,b) and (b,c), establish all
+        # three phase conductors although each unit lands only one or two.
+        fed = Set{String}()
         for (subtype, id) in z.feed
-            supplied = max(supplied, _xfmr_to_nphase(subtype, id, z.buses))
+            union!(fed, _xfmr_to_phases(subtype, id, z.buses))
         end
+        supplied = max(supplied, length(fed))
         supplied == 0 && continue   # no identifiable supply — cannot judge
 
         offenders = sort([bid for bid in z.buses if _bus_nphase(bid) > supplied])
@@ -689,6 +722,17 @@ function _galvanic_zones(net::Dict{String,Any};
     zones
 end
 
+# Single-phase unit subtypes that are banked in practice.
+const _BANKABLE_SUBTYPES = ("single_phase", "center_tap")
+
+# Ordered conductor signature of one unit. Two units with different signatures
+# between the same bus pair occupy different conductors: legs of one bank.
+function _bank_unit_signature(t)
+    f = get(t, "terminal_map_from", nothing); to = get(t, "terminal_map_to", nothing)
+    f isa AbstractVector && to isa AbstractVector || return nothing
+    vcat(sort!(string.(f)), ["|"], sort!(string.(to)))
+end
+
 """
     _classify_zones(net) -> Vector{NamedTuple}
 
@@ -699,10 +743,18 @@ Returns one entry per zone: `(buses, label, phases, topology, feed)` where
 
 - `:split_phase` — a `center_tap` transformer's `bus_to` lies in the zone
   (the modeled cause of split-phase service; NA 120-0-120, AU 230-0-230);
-- `:swer` — the zone is single-wire (one distinct phase conductor across all its
-  buses) **and** transformer-isolated (contains no voltage-source bus), the
+- `:swer` — the zone has one distinct phase conductor across all its buses, is
+  transformer-isolated (contains no voltage-source bus), **and** a branch in it
+  witnesses the earth return: at least one line or closed switch carries that
+  phase alone, and none carries a neutral conductor. This is the
   Single-Wire-Earth-Return signature;
-- `:single_phase` / `:three_phase` / `:other` — by phase count otherwise.
+- `:single_phase` — one phase conductor otherwise. That includes a two-wire
+  (phase + metallic neutral) section and a branchless service bus behind a
+  single-phase transformer, where no branch establishes an earth return;
+- `:three_phase` / `:other` — by phase count otherwise.
+
+A perfectly grounded reference terminal (the `n_ref` an importer adds next to a
+transported neutral) is not counted as a phase.
 
 `feed` lists `(subtype, transformer_id)` for transformers whose `bus_to` ∈ zone.
 """
@@ -744,10 +796,36 @@ function _classify_zones(net::Dict{String,Any})
         for bid in zone
             b  = get(buses, bid, Dict{String,Any}())
             nt = _neutral_terminal(b)
+            pg = Set(string.(get(b, "perfectly_grounded_terminals", String[])))
             for t in get(b, "terminal_names", String[])
-                string(t) != nt && push!(phases, string(t))
+                st = string(t)
+                st == nt && continue
+                st in pg && _is_convention_neutral(st) && continue
+                push!(phases, st)
             end
         end
+
+        # Branch evidence for the return path: a branch that carries a neutral
+        # is a metallic return; a branch that carries one phase alone leaves
+        # the earth as the only return.
+        zoneset = Set(zone)
+        n_single_wire = 0; n_with_neutral = 0
+        for kind in ("line", "switch"), (_, c) in get(net, kind, Dict())
+            c isa AbstractDict || continue
+            kind == "switch" && get(c, "open_switch", false) === true && continue
+            f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
+            f in zoneset && t in zoneset || continue
+            tf = get(c, "terminal_map_from", nothing)
+            tf isa AbstractVector && !isempty(tf) || continue
+            nf = _neutral_terminal(get(buses, f, Dict{String,Any}()))
+            carries_n = any(x -> string(x) == nf || _is_convention_neutral(string(x)), tf)
+            if carries_n
+                n_with_neutral += 1
+            elseif length(tf) == 1
+                n_single_wire += 1
+            end
+        end
+        earth_return = n_single_wire > 0 && n_with_neutral == 0
 
         feed = Tuple{String,String}[]
         for bid in zone
@@ -759,7 +837,7 @@ function _classify_zones(net::Dict{String,Any})
 
         topology =
             is_ct_fed                            ? :split_phase  :
-            (length(phases) == 1 && !has_source) ? :swer         :
+            (length(phases) == 1 && !has_source && earth_return) ? :swer :
             length(phases) == 1                  ? :single_phase :
             length(phases) >= 3                  ? :three_phase  :
                                                    :other

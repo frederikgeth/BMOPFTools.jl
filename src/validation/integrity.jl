@@ -450,6 +450,12 @@ function integrity_check(net::Dict{String,Any},
             push!(grounded_buses, b)
     end
 
+    # a transformer's internal neutral impedance (r/x_neutral_*) is a finite
+    # branch from the winding neutral to earth: impedance and resonant earthing
+    for ((b, _), _) in _transformer_neutral_earthing(net)
+        push!(grounded_buses, b)
+    end
+
     islands = _galvanic_islands(net)
     unreferenced = Vector{Vector{String}}()
     for comp in islands
@@ -462,7 +468,8 @@ function integrity_check(net::Dict{String,Any},
         push!(findings, Finding(ERROR, "E.INT.NO_VOLTAGE_REFERENCE", :integrity,
             :network, nothing,
             "Galvanic island of $(length(comp)) bus(es) has no voltage " *
-            "reference (no source, perfect grounding, or grounding shunt) — " *
+            "reference (no source, perfect grounding, grounding shunt, or " *
+            "transformer neutral impedance) — " *
             "voltages are defined only up to a shift (rank-deficient): " *
             "$(join(comp, ", ")).",
             Dict{String,Any}("buses" => comp)))

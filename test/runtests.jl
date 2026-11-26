@@ -325,7 +325,12 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         net_swer = Dict{String,Any}(
             "bus" => Dict{String,Any}(
                 "mv" => Dict{String,Any}("terminal_names" => ["1","2","3","n"]),
-                "sw" => Dict{String,Any}("terminal_names" => ["1","n"])),
+                "sw" => Dict{String,Any}("terminal_names" => ["1","n"]),
+                "sw2" => Dict{String,Any}("terminal_names" => ["1","n"])),
+            # The single-wire span is the witness of the earth return.
+            "line" => Dict{String,Any}("span" => Dict{String,Any}(
+                "bus_from" => "sw", "bus_to" => "sw2",
+                "terminal_map_from" => ["1"], "terminal_map_to" => ["1"])),
             "voltage_source" => Dict{String,Any}("src" => Dict{String,Any}(
                 "bus" => "mv", "terminal_map" => ["1","2","3"],
                 "v_magnitude" => [6350.0,6350.0,6350.0], "v_angle" => [0.0,-2.094,2.094])),
@@ -3707,9 +3712,12 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             @test report isa SummaryReport
 
             conn = report.results[:connectivity]
-            # Two single-wire earth-return zones (the isolated MV backbone and the
-            # single-ended LV section) plus one split-phase (center-tap) zone.
-            @test conn["n_swer_zones"] == 2
+            # One single-wire earth-return zone (the isolated MV backbone, whose
+            # single-conductor spans witness the earth return) plus one
+            # split-phase (center-tap) zone. The single-ended 240 V service bus
+            # has no branch that establishes an earth return: single-phase.
+            @test conn["n_swer_zones"] == 1
+            @test count(z -> z["topology"] == "single_phase", conn["zones"]) == 1
             @test conn["n_split_phase_zones"] == 1
 
             fcodes = [f.code for f in report.findings]
@@ -3824,6 +3832,7 @@ include("mcp_execution_tests.jl")
     include("profiler_review_tests.jl")
     include("profiler_interpretation_tests.jl")
     include("profiler_physics_guidance_tests.jl")
+    include("profiler_generalization_tests.jl")
 
     # -----------------------------------------------------------------------
     # Infeasibility diagnosis — deterministic dict paths plus a gated solve

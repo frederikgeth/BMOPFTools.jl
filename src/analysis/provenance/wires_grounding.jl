@@ -388,7 +388,47 @@ function _terminal_earthing(net)
     for ((b,t),y) in admittance
         abs(y)>0 && upd!(b,t,abs(1/y))
     end
+    for ((b,t),z) in _transformer_neutral_earthing(net)
+        upd!(b,t,z)
+    end
     earth
+end
+
+# Winding neutral terminals earthed through a transformer's own internal
+# neutral impedance (`r/x_neutral_from`/`to`, OpenDSS rneut/xneut). The network
+# builders stamp y_n = 1/(R_n + jX_n) from that terminal to earth, so it is a
+# finite voltage reference for its galvanic island exactly like a one-terminal
+# grounding shunt. A side without a neutral terminal has no such branch (the
+# builders ignore the fields there), and n_winding grounding is an explicit
+# network shunt by contract.
+function _transformer_neutral_earthing(net)
+    out = Dict{Tuple{String,String},Float64}()
+    roles = _index_roles(net)
+    for record in _connection_records(net)
+        record.kind == "transformer" || continue
+        record.subtype in WINDING_LIST_SUBTYPES && continue
+        c = record.component
+        c isa AbstractDict || continue
+        for side in ("from", "to")
+            r = get(c, "r_neutral_$side", 0.0); x = get(c, "x_neutral_$side", 0.0)
+            r isa Real && x isa Real || continue
+            z = hypot(Float64(r), Float64(x))
+            isfinite(z) && z > 0 || continue
+            b = get(c, "bus_$side", nothing); tm = get(c, "terminal_map_$side", nothing)
+            b isa AbstractString && _index_strings(tm) || continue
+            pos = if record.subtype == "center_tap"
+                length(tm) >= 2 ? 2 : nothing
+            elseif roles === nothing
+                _neutral_pos(tm)
+            else
+                _neutral_pos(tm, roles.neutral)
+            end
+            pos === nothing && continue
+            key = (b, string(tm[pos]))
+            out[key] = min(get(out, key, Inf), z)
+        end
+    end
+    out
 end
 
 function _unassessed_earthing_terminals(net)
