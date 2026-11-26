@@ -397,6 +397,60 @@ function _droop_breakpoints(v_set, k, p_ref, deadband, P_lo, P_hi)
     length(xk) >= 2 ? (xk, yk) : nothing
 end
 
+const _DC_EARTH = ("", "")   # the common node of all perfectly grounded DC terminals
+
+"""
+    _dc_node_classes(net) -> (bus, terminal) -> representative
+
+Electrical equivalence of DC terminals under IDEAL connections: terminals
+joined by a zero-resistance `dc_branch` conductor are one node, and every
+perfectly grounded terminal is the earth node `_DC_EARTH`. Used wherever "the
+same DC port" must mean the same pair of nodes rather than the same record.
+"""
+function _dc_node_classes(net)
+    parent = Dict{Tuple{String,String},Tuple{String,String}}()
+    function find(x)
+        get!(parent, x, x)
+        while parent[x] != x
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        end
+        return x
+    end
+    # Earth, when present in a class, is always its representative.
+    function unite!(a, b)
+        ra = find(a); rb = find(b)
+        ra == rb && return nothing
+        rb == _DC_EARTH ? (parent[ra] = rb) : (parent[rb] = ra)
+        return nothing
+    end
+    net isa AbstractDict || return (bus, terminal) -> (String(bus), String(terminal))
+    for key in _dc_grounded_terminals(net)
+        unite!(_DC_EARTH, (String(key[1]), String(key[2])))
+    end
+    for (_, br) in get(net, "dc_branch", Dict())
+        br isa AbstractDict || continue
+        bf = String(get(br, "dc_bus_from", "")); bt = String(get(br, "dc_bus_to", ""))
+        tmf = string.(get(br, "terminal_map_from", String[]))
+        tmt = string.(get(br, "terminal_map_to", String[]))
+        rv = Float64.(get(br, "r", Float64[]))
+        for k in 1:min(length(tmf), length(tmt))
+            (k <= length(rv) && rv[k] > 0) && continue     # resistive: distinct nodes
+            unite!((bf, tmf[k]), (bt, tmt[k]))
+        end
+    end
+    return (bus, terminal) -> find((String(bus), String(terminal)))
+end
+
+# Orientation-free key of a converter's DC port under `classes`, and the sign
+# that maps its `first − second` voltage onto that key. A one-terminal port is
+# referenced to earth.
+function _dc_port_key(classes, bus, tm)
+    a = classes(bus, tm[1])
+    b = length(tm) >= 2 ? classes(bus, tm[2]) : _DC_EARTH
+    return a <= b ? ((a, b), 1.0) : ((b, a), -1.0)
+end
+
 """
     _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax; relu_eps, relu_ops)
 
@@ -451,9 +505,13 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
         # same port all assert the same equation; stamping it more than once
         # adds dependent rows (more equalities than unknowns), so only the
         # first is stamped. Masters that disagree are a data error.
+        #
+        # "Same port" means electrically the same pair of nodes, not the same
+        # record: terminals joined by ideal (zero-resistance) conductors, or
+        # perfectly grounded, are one node (`_dc_node_classes`). Two masters at
+        # opposite ends of a zero-ohm tie reference one port.
         references = get!(vars, :dc_voltage_references, Dict{Any,Any}())
-        port, sign = length(tm) >= 2 && tm[2] < tm[1] ?
-            ((b, tm[2], tm[1]), -1.0) : ((b, tm...), 1.0)
+        port, sign = _dc_port_key(_dc_node_classes(net), b, tm)
         target = sign * v_set
         if haskey(references, port)
             owner, existing = references[port]

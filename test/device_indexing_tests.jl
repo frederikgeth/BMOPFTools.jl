@@ -175,11 +175,17 @@ _idx_dim(f,kind,id,field)=[x for x in f if x.code=="W.INT.DIM_MISMATCH" &&
         end
         for kind in ("load","generator")
             net=_idx_net(); c=_idx_device!(net,kind,"DELTA",["a","b"])
-            n=kind=="load" ? 1 : 2
-            for field in (kind=="load" ? ("p_nom","q_nom") : ("p_max","i_max"))
-                c[field]=ones(n)
+            # A two-terminal DELTA device is ONE coil: one power entry. A
+            # generator's current rating may still list both conductors.
+            for field in (kind=="load" ? ("p_nom","q_nom") : ("p_max",))
+                c[field]=ones(1)
             end
+            kind=="generator" && (c["i_max"]=ones(2))
             @test !any(x -> x.code=="W.INT.DIM_MISMATCH",_idx_findings(net))
+            if kind=="generator"
+                c["p_max"]=ones(2)     # two entries would describe two coils
+                @test any(x -> x.code=="W.INT.DIM_MISMATCH",_idx_findings(net))
+            end
         end
         net=_idx_net(); c=_idx_device!(net,"ibr","FOUR_LEG",["a","b","c","n"])
         c["p_avail"]=100.; @test isempty(_idx_dim(_idx_findings(net),"ibr","d","p_avail"))

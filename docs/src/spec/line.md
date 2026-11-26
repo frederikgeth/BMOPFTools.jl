@@ -163,7 +163,7 @@ $\textcolor{blue}{\mathbf{S}_{\ell ij}} = \textcolor{blue}{\mathbf{U}_i}\circ(\t
 ```
 
 **Per-line angle difference** (optional `va_diff_min`/`va_diff_max`). For each
-**phase** conductor (BMOPFTools exempts the neutral, whose small residual
+**phase** conductor (BMOPFTools exempts neutral and protective-earth conductors; the neutral, whose small residual
 voltage has no operating angle to bound), with $\textcolor{blue}{z}=\textcolor{blue}{U_{i,\cdot}}\,(\textcolor{blue}{U_{j,\cdot}})^{*}=c+\textcolor{brown}{j}s$:
 
 ```math

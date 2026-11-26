@@ -806,6 +806,181 @@
         @test !any(startswith(code, "E.SOL") for code in codes(pv, result))
     end
 
+    # ── 15. Third review: equivalence, resolved coefficients, coil indexing ──
+    @testset "DC voltage masters are grouped by electrical equivalence" begin
+        # Twelve buses whose poles are joined by zero-ohm ties and whose
+        # returns are all grounded: one electrical port.
+        function ring(units; r=0.0)
+            net = D("bus" => D("f" => D("terminal_names" => ["a", "n"],
+                        "perfectly_grounded_terminals" => ["n"])),
+                "voltage_source" => D("s" => D("bus" => "f", "terminal_map" => ["a", "n"],
+                    "v_magnitude" => [230.0, 0.0], "v_angle" => [0.0, 0.0], "cost" => [1.0])),
+                "ibr" => D(), "dc_bus" => D(),
+                "dc_grounding" => D(), "dc_branch" => D())
+            for (k, fields) in enumerate(units)
+                net["dc_bus"]["d$k"] = D("terminal_names" => ["p", "m"],
+                    "pole" => D("p" => "POSITIVE", "m" => "METALLIC_RETURN"),
+                    "v_dc_min" => [600.0, 0.0], "v_dc_max" => [1000.0, 0.0])
+                net["dc_grounding"]["g$k"] = D("dc_bus" => "d$k", "terminal" => "m", "r" => 0.0)
+                net["ibr"]["m$k"] = merge(D("bus" => "f", "terminal_map" => ["a", "n"],
+                    "topology" => "SINGLE_PHASE", "prime_mover" => "GENERIC",
+                    "s_max" => [8000.0], "q_min" => [0.0], "q_max" => [0.0],
+                    "dc_bus" => "d$k", "dc_terminal_map" => ["p", "m"],
+                    "dc_control" => "V", "dc_v_set" => 800.0), fields)
+                k > 1 && (net["dc_branch"]["t$k"] = D("dc_bus_from" => "d$(k-1)",
+                    "dc_bus_to" => "d$k", "terminal_map_from" => ["p"],
+                    "terminal_map_to" => ["p"], "r" => [r]))
+            end
+            net
+        end
+        dispatched = [k == 1 ? D() : fixed_p(100.0) for k in 1:12]
+        for pu in (true, false)
+            ctx = build_opf_model(ring(dispatched); per_unit=pu)
+            @test family_rows(ctx, :dc_converter_voltage_control) == 1
+            @test solved(solve_opf(ring(dispatched); per_unit=pu))
+            @test solved(solve_pf(ring(dispatched); per_unit=pu))
+        end
+        # Two free masters at opposite ends of an ideal tie share one equation.
+        @test_throws ArgumentError solve_pf(ring([D(), D()]))
+        # A resistive tie separates the ports: each master fixes its own bus.
+        @test family_rows(build_opf_model(ring([D(), D()]; r=0.5); per_unit=false),
+                          :dc_converter_voltage_control) == 2
+        @test solved(solve_pf(ring([D(), D()]; r=0.5)))
+        # Masters that disagree across an ideal tie are a data error.
+        clash = ring([D(), D("dc_v_set" => 790.0)])
+        @test_throws ArgumentError build_opf_model(clash)
+    end
+
+    @testset "solve_pf validates the resolved dispatch" begin
+        fixed = D("p_min" => [0.0], "p_max" => [0.0], "q_min" => [0.0], "q_max" => [0.0])
+        widen(value) = OpfBuildSpec(coefficient_providers=Dict(
+            OpfCoefficientKey(:availability, :ibr, "u1", :p_max, 1) =>
+                OpfCoefficientProvider(:ReviewTest, (ctx, key, default) -> value(default))))
+        # The case says P is fixed at zero; a provider that widens it does not
+        # leave a power flow.
+        @test_throws ArgumentError solve_pf(one_coil_net(fixed);
+            build_spec=widen(default -> default + 500.0), per_unit=false)
+        # A provider that leaves the setpoint fixed is fine.
+        @test solved(solve_pf(one_coil_net(fixed); build_spec=widen(identity)))
+        @test solved(solve_pf(one_coil_net(fixed)))
+    end
+
+    @testset "flat Volt-var over a pinned reactive box is not restated" begin
+        flat = D("volt_var" => D("voltage_reference" => "PG_PER_PHASE",
+            "breakpoints" => [207.0, 220.0, 240.0, 253.0], "q_limits" => [0.0, 0.0],
+            "q_unit" => "VA_FRACTION", "q_ref" => "VAR_MAX"))
+        sloped = D("volt_var" => merge(flat["volt_var"], D("q_limits" => [-0.44, 0.44])))
+        pinned = D("p_min" => [400.0], "p_max" => [400.0], "q_min" => [0.0], "q_max" => [0.0])
+        rows(net) = family_rows(build_opf_model(net; per_unit=false), :ibr_q_volt_var)
+        @test rows(one_coil_net(pinned; profile=flat)) == 0
+        @test rows(one_coil_net(pinned; profile=sloped)) == 1      # a real law stays
+        @test rows(one_coil_net(D("p_min" => [400.0], "p_max" => [400.0],
+            "q_min" => [-100.0], "q_max" => [100.0]); profile=flat)) == 1
+        for pu in (true, false)
+            @test solved(solve_opf(one_coil_net(pinned; count=12, profile=flat); per_unit=pu))
+        end
+    end
+
+    @testset "solution_check: derived DC share, coil indexing, terminal roles" begin
+        report(net, result) = (found = Finding[]; out = solution_check(net, result, found);
+                               (codes=Set(f.code for f in found), findings=found, out=out))
+        unassessed(r) = any(f -> f.code == "W.SOL.LIMIT_UNASSESSED", r.findings)
+        incomplete(r) = any(f -> haskey(f.detail, "missing_fields"), r.findings)
+
+        # A result cannot repair its own balance by declaring a DC loss share.
+        ac = D("bus" => D("f" => bus2(), "t" => bus2()),
+            "voltage_source" => D("s" => src2("f")),
+            "line" => D("m" => line2("f", "t")), "load" => D("l" => load2("t")))
+        result = solve_opf(deepcopy(ac); per_unit=false)
+        @test !("W.SOL.POWER_BALANCE" in report(ac, result).codes)
+        broken = deepcopy(result); broken["voltage_source"]["s"]["p"]["ps"] -= 500.0
+        @test "W.SOL.POWER_BALANCE" in report(ac, broken).codes
+        broken["losses"]["p_loss_dc"] = 500.0
+        @test "W.SOL.POWER_BALANCE" in report(ac, broken).codes
+
+        # Line-to-line devices have ONE power record; the result is complete.
+        ll_bus() = D("terminal_names" => ["a", "b", "n"], "perfectly_grounded_terminals" => ["n"])
+        function ll_net(device_family, device)
+            D("bus" => D("src" => ll_bus(), "e" => ll_bus()),
+              "line" => D("l" => merge(D("bus_from" => "src", "bus_to" => "e",
+                  "terminal_map_from" => ["a", "b", "n"], "terminal_map_to" => ["a", "b", "n"]),
+                  D("R_series_$(k)_$(k)" => 0.01 for k in 1:3))),
+              "voltage_source" => D("s" => D("bus" => "src", "terminal_map" => ["a", "b"],
+                  "v_magnitude" => [120.0, 120.0], "v_angle" => [0.0, Float64(pi)],
+                  "cost" => [0.2, 0.2])),
+              device_family => D("x" => device))
+        end
+        pq = D("p_min" => [1000.0], "p_max" => [1000.0], "q_min" => [0.0], "q_max" => [0.0])
+        cases = (
+            ("generator", merge(D("bus" => "e", "terminal_map" => ["a", "b"],
+                                  "configuration" => "DELTA"), pq)),
+            ("load", D("bus" => "e", "terminal_map" => ["a", "b"], "configuration" => "DELTA",
+                       "p_nom" => [1000.0], "q_nom" => [0.0])),
+            ("load", D("bus" => "e", "terminal_map" => ["a", "b"],
+                       "configuration" => "SINGLE_PHASE", "p_nom" => [1000.0], "q_nom" => [0.0])),
+            ("ibr", merge(D("bus" => "e", "terminal_map" => ["a", "b"],
+                            "topology" => "SINGLE_PHASE", "prime_mover" => "PV",
+                            "s_max" => [8000.0]), pq)))
+        for (family, device) in cases
+            net = ll_net(family, device)
+            result = solve_opf(deepcopy(net); per_unit=false)
+            @test solved(result)
+            checked = report(net, result)
+            @test !incomplete(checked)
+            @test !any(startswith(code, "E.") for code in checked.codes)
+        end
+        # Integrity accepts the one-entry bounds of a two-terminal DELTA generator.
+        found = Finding[]; integrity_check(ll_net(cases[1]...), found)
+        @test !any(f -> f.code == "W.INT.DIM_MISMATCH" && f.id == "x", found)
+
+        # A declared neutral label that no naming guess would find.
+        named = D("terminal_conventions" => D("phase" => ["a", "b", "c"],
+                                             "neutral" => ["return"], "earth" => String[]),
+            "bus" => D(b => D("terminal_names" => ["a", "b", "c", "return"],
+                              "perfectly_grounded_terminals" => ["return"]) for b in ("src", "e")),
+            "line" => D("l" => merge(D("bus_from" => "src", "bus_to" => "e",
+                "terminal_map_from" => ["a", "b", "c", "return"],
+                "terminal_map_to" => ["a", "b", "c", "return"]),
+                D("R_series_$(k)_$(k)" => 0.01 for k in 1:4))),
+            "voltage_source" => D("s" => D("bus" => "src", "terminal_map" => ["a", "b", "c"],
+                "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2pi/3, 2pi/3],
+                "cost" => fill(0.2, 3))),
+            "ibr" => D("pv" => D("bus" => "e", "terminal_map" => ["a", "b", "c", "return"],
+                "topology" => "FOUR_LEG", "prime_mover" => "PV",
+                "p_min" => zeros(3), "p_max" => fill(6000.0, 3), "p_avail" => 6000.0,
+                "q_min" => zeros(3), "q_max" => zeros(3), "s_max" => fill(8000.0, 3),
+                "cost" => fill(-1.0, 3), "control_profile" => "cp")),
+            "control_profile" => D("cp" => D("volt_watt" => D(
+                "voltage_reference" => "PG_PER_PHASE",
+                "breakpoints" => [300.0, 310.0], "p_limits" => [0.2, 1.0],
+                "p_unit" => "VA_FRACTION", "p_ref" => "P_AVAILABLE"))))
+        result = solve_opf(deepcopy(named); per_unit=false)
+        @test solved(result)
+        # Three coils share the 6 kW: 2 kW each, in the engine and the validator.
+        @test all(coil -> isapprox(coil["pg"], 2000.0; rtol=2e-2), values(result["ibr"]["pv"]))
+        @test !any(startswith(code, "E.SOL") for code in report(named, result).codes)
+
+        # A protective-earth conductor is not angle-bounded, by either side.
+        pe = D("terminal_conventions" => D("phase" => ["a"], "neutral" => ["n"], "earth" => ["pe"]),
+            "bus" => D(b => D("terminal_names" => ["a", "n", "pe"],
+                              "perfectly_grounded_terminals" => ["pe"]) for b in ("src", "e")),
+            "line" => D("l" => merge(D("bus_from" => "src", "bus_to" => "e",
+                "terminal_map_from" => ["a", "n", "pe"], "terminal_map_to" => ["a", "n", "pe"],
+                "va_diff_min" => -0.2, "va_diff_max" => 0.2),
+                D("R_series_$(k)_$(k)" => 0.05 for k in 1:3))),
+            "voltage_source" => D("s" => D("bus" => "src", "terminal_map" => ["a"],
+                "v_magnitude" => [230.0], "v_angle" => [0.0])),
+            "load" => D("l" => D("bus" => "e", "terminal_map" => ["a", "n"],
+                "configuration" => "SINGLE_PHASE", "p_nom" => [2000.0], "q_nom" => [0.0])))
+        ctx = build_opf_model(deepcopy(pe); per_unit=false)
+        angle_rows = [k.index for k in opf_object_keys(ctx; kind=:constraint)
+                      if startswith(string(k.family), "line_angle_")]
+        @test Set(index[2] for index in angle_rows) == Set([1])    # the phase only
+        result = solve_opf(deepcopy(pe); per_unit=false)
+        @test solved(result)
+        @test !unassessed(report(pe, result))
+    end
+
     @testset "unsupported IBR records are rejected, not skipped" begin
         net = D("bus" => D("f" => bus2(), "t" => bus2()),
             "voltage_source" => D("s" => src2("f")),

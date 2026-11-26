@@ -78,6 +78,18 @@ Initial General release candidate. Registration has not yet been requested.
     reports that share as `losses.p_loss_dc`); a two-terminal DELTA
     generator is checked as one coil against its tighter rating; and the
     Volt-watt `P_AVAILABLE` cap is per coil.
+  - A flat Volt-var curve over a pinned reactive box is not restated. DC
+    voltage masters are grouped by electrical port, so masters joined by
+    zero-resistance conductors share one reference row.
+  - `solve_pf` confirms determinacy on the rows actually stamped, so a
+    coefficient provider that widens a fixed bound is rejected.
+  - `solution_check` derives the DC-branch loss share from the case and the
+    solved DC quantities (a reported `losses.p_loss_dc` is only
+    cross-checked), expects one power record per coil for line-to-line
+    devices, identifies neutrals by the case's declared labels, and skips
+    neutral and protective-earth conductors in line angle checks, resolving
+    terminal roles once per case. Integrity accepts one-entry bounds on a
+    two-terminal DELTA generator.
   - Open-delta regulators are unchanged: the bank does not connect its neutral
     terminals, and neutral continuity past it stays an explicit line or
     switch. Two OpenDSS cases (ideal and 0.5 ohm jumper) now pin this.

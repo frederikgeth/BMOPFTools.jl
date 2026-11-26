@@ -876,7 +876,16 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
     elseif vv !== nothing
         op   = relu_operator_for!(relu_ops, model, vv.eps; mode=softplus)
         base = _droop_base(vv, idx, smax, p_max, p_avail_per)
-        register_constraint(:ibr_q_volt_var, @constraint(model,
+        # A FLAT Volt-var curve (all slopes zero) is the constant equality
+        # Q = base·baseline. When the reactive box already pins Q at that
+        # value the law is implied; restating it would leave more equalities
+        # than unknowns. Live curve coefficients are never treated as flat.
+        flat = base isa Real && vv.baseline isa Real &&
+               all(t -> t[1] isa Real && iszero(t[1]), vv.triples)
+        q_pin = _static_pin(q_min, q_max, idx)
+        implied = flat && q_pin !== nothing && isapprox(q_pin, base * vv.baseline;
+            atol=1e-12 * max(1.0, abs(q_pin)))
+        implied || register_constraint(:ibr_q_volt_var, @constraint(model,
             q_expr == curve_expr(op, U_vv, base * vv.baseline,
                                  [(base*a, x̄) for (a, x̄) in vv.triples])))
     end

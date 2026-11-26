@@ -387,6 +387,33 @@ function _terminal_roles(net::Dict{String,Any})::TerminalRoles
 end
 
 """
+    _line_angle_phase_test(net) -> (bus, terminal) -> Bool
+
+A predicate, built once per case, for whether a line conductor's terminal is a
+**phase** conductor whose angle a `va_diff_min`/`va_diff_max` window may bound.
+Neutral and protective-earth conductors are not: a neutral voltage is a small
+residual with no operating angle, and an earth conductor sits at or near zero
+volts, where an angle is undefined. The OPF builder and the post-solve
+validator share this test so they bound the same conductors.
+"""
+function _line_angle_phase_test(net)
+    net isa Dict{String,Any} || return (bus, terminal) -> true
+    roles = _terminal_roles(net)
+    buses = get(net, "bus", Dict())
+    bus_neutral = Dict{String,Union{String,Nothing}}()
+    function is_phase(bus, terminal)
+        t = string(terminal)
+        (t in roles.neutral || t in roles.earth) && return false
+        nt = get!(bus_neutral, string(bus)) do
+            b = get(buses, bus, nothing)
+            b isa Dict{String,Any} ? _neutral_terminal(b) : nothing
+        end
+        return t != nt
+    end
+    return is_phase
+end
+
+"""
     _neutral_labels(net) -> Set{String}
 
 The set of terminal-name labels that denote a neutral conductor for this case,

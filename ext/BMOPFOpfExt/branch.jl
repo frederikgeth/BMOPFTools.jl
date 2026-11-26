@@ -277,9 +277,9 @@ end
     _add_line_angle_constraints!(model, net, vars)
 
 Enforce per-line angle-difference bounds (`va_diff_min`, `va_diff_max`, radians) between
-the from- and to-end voltages on each **phase** conductor. Neutral conductors are
-skipped: a neutral voltage is a small residual with no operating angle. Shared by
-OPF and feasibility OPF.
+the from- and to-end voltages on each **phase** conductor. Neutral and
+protective-earth conductors are skipped (`_line_angle_phase_test`): neither has
+an operating angle. Shared by OPF and feasibility OPF.
 
 For each phase conductor k:
   s = vi_fr·vr_to − vr_fr·vi_to   (imaginary part of V_fr · conj(V_to))
@@ -300,10 +300,8 @@ function _add_line_angle_constraints!(model, net, vars; constraint_context=nothi
     register(family, index, cref) = _register_semantic_constraint!(
         constraint_context, family, index, cref)
 
-    buses = get(net, "bus", Dict())
-    nlabels = net isa Dict{String,Any} ? BMOPFTools._neutral_labels(net) : Set{String}()
-    is_neutral(b, t) = t in nlabels ||
-        t == BMOPFTools._neutral_terminal(get(buses, b, Dict{String,Any}()))
+    # Terminal roles are resolved once for the whole case.
+    is_phase = BMOPFTools._line_angle_phase_test(net)
 
     for (lid, line) in get(net, "line", Dict())
         va_diff_min = get(line, "va_diff_min", nothing)
@@ -321,11 +319,12 @@ function _add_line_angle_constraints!(model, net, vars; constraint_context=nothi
             t_fr = tmfr[k]; t_to = tmto[k]
             haskey(vr, (b_fr, t_fr)) || continue
             haskey(vr, (b_to, t_to)) || continue
-            # A neutral conductor has no operating angle to bound: its voltage
-            # is a small residual set by the return current, and the phasors at
-            # the two ends of a healthy line routinely differ by tens of
-            # degrees. Bounding it would reject feasible operating points.
-            (is_neutral(b_fr, t_fr) || is_neutral(b_to, t_to)) && continue
+            # Only a PHASE conductor has an operating angle to bound. A neutral
+            # voltage is a small residual set by the return current, and its
+            # phasors at the two ends of a healthy line routinely differ by tens
+            # of degrees; a protective-earth conductor sits at or near zero
+            # volts, where an angle is undefined.
+            (is_phase(b_fr, t_fr) && is_phase(b_to, t_to)) || continue
             s = @expression(model, vi[(b_fr,t_fr)]*vr[(b_to,t_to)] - vr[(b_fr,t_fr)]*vi[(b_to,t_to)])
             c = @expression(model, vr[(b_fr,t_fr)]*vr[(b_to,t_to)] + vi[(b_fr,t_fr)]*vi[(b_to,t_to)])
             for (suffix, cref) in pairs(_angle_window_constraints!(model, s, c, lo, hi))

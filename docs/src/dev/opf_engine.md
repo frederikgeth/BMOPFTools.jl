@@ -353,23 +353,35 @@ Where the rule is applied today:
 | `ibr_minimum_pf_equality` ($Q=0$ at unity) | the reactive box is pinned at zero, or a unity constant power factor applies |
 | `ibr_power_factor` | the reactive box is pinned at zero under a unity law, or both boxes are pinned on the power-factor line |
 | `ibr_dc_power_equality` | every coil's active power is pinned and the pins sum to the balance |
-| `dc_converter_voltage_control` | another master already references the same DC port at the same voltage |
+| `ibr_q_volt_var` | the curve is flat (all slopes zero) and the reactive box is pinned at its constant value |
+| `dc_converter_voltage_control` | another master already references the same **electrical** DC port at the same voltage; terminals joined by zero-resistance conductors, or perfectly grounded, are one node |
 | `dc_branch_voltage_drop` (ideal conductor) | both terminals are fixed at the same potential |
 
-Two known cases are **not** reduced, because no reduction preserves the model
-everywhere:
+Two known cases are **not** reduced, for different reasons.
 
 - **Exact angle windows on all three phase pairs of a bus**
-  (`va_diff_min == va_diff_max`). At nonzero voltage the three pairwise
+  (`va_diff_min == va_diff_max`). No reduction preserves the model: at nonzero voltage the three pairwise
   equalities carry only two independent angle differences. But the rows are
   homogeneous in voltage: with one phase at zero volts two of them hold
   trivially and the third still constrains the other two phases. Dropping any
   one would change the feasible set there.
-- **Zero ampacity on every terminal of a `center_tap` transformer.** The five
-  zero caps are current equalities, two of which the winding equations already
-  imply. The no-load point is feasible and is checked directly in
-  `test/transformer_current_rating_tests.jl`; sending the model to Ipopt fails
-  on the equation count.
+
+- **Zero ampacity on every terminal of a `center_tap` transformer.** Here an
+  exact reduction does exist: the winding equations give
+  $I_\text{hv,neutral} = -I_\text{hv,phase}$ and
+  $I_\text{center tap} = -(I_\text{leg 1} + I_\text{leg 2})$, so two of the
+  five zero caps follow from the other three everywhere. It is not applied.
+  The engine registers one thermal row per rated terminal as an inspectable
+  contract (see [Transformer current-rating coverage](#Transformer-current-rating-coverage)),
+  and a trial that dropped the two implied rows still did not solve reliably
+  across the scaling policies. The no-load point is feasible and is checked
+  directly in `test/transformer_current_rating_tests.jl`.
+
+The first case has no reduction that preserves the model everywhere; the
+second has one that is deliberately not taken.
+
+A systematic diagnostic for dependent rows is tracked in
+[issue 493](https://github.com/frederikgeth/BMOPFTools.jl/issues/493).
 
 ### Smoothing, substitutions, and performance expectations
 

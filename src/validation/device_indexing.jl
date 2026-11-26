@@ -83,6 +83,11 @@ function _device_index_context(net, kind, id, c; roles=_index_roles(net))
         (topology in ("WYE","SINGLE_PHASE") ? np : nothing,"phase")
     elseif topology=="SINGLE_PHASE" && length(tm)==2
         (1,"terminal_pair")
+    elseif kind=="generator" && topology=="DELTA" && length(tm)==2
+        # One coil across the pair, like a two-terminal SINGLE_PHASE unit: one
+        # P/Q entry, and one or two per-conductor current ratings that act as a
+        # single limit on the one coil current.
+        (1,"terminal_pair")
     elseif topology in ("DELTA","THREE_LEG")
         (kind=="load" && length(tm)==2 ? 1 : length(tm), "cyclic_coil")
     elseif topology in ("WYE","FOUR_LEG")

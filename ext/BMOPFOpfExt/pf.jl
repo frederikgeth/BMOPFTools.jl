@@ -111,6 +111,12 @@ function build_pf!(ctx::OpfContext)
     # Device constraints only — no _add_voltage_and_bus_bounds!.
     BMOPFTools.add_opf_device_constraints!(ctx)
 
+    # The checks above read the case. A coefficient provider can still replace
+    # a fixed bound with a different number or a live parameter while the model
+    # is built, so determinacy is confirmed once more on the rows actually
+    # stamped.
+    _validate_pf_resolved_dispatch(ctx)
+
     # Feasibility objective: the equations fully determine the state.
     _run_opf_stage!(ctx, :objective,
         () -> @objective(ctx.model, Min, 0.0);
@@ -283,6 +289,7 @@ function _validate_pf_ibrs(net::Dict{String,Any})
     profiles = get(net, "control_profile", Dict())
     nlabels = BMOPFTools._neutral_labels(net)
     free_masters = Dict{Any,Vector{String}}()   # DC port => masters without fixed P
+    dc_classes = _dc_node_classes(net)
     for (id, inv) in get(net, "ibr", Dict())
         inv isa Dict || continue
         owner = "IBR '$id'"
@@ -294,8 +301,12 @@ function _validate_pf_ibrs(net::Dict{String,Any})
         if dc_sets_p && haskey(inv, "dc_bus") &&
                 String(get(inv, "dc_control", "P")) == "V" &&
                 !(length(p_lo) == length(p_hi) == 1 && p_lo[1] == p_hi[1])
-            port = (String(inv["dc_bus"]),
-                    sort!(string.(get(inv, "dc_terminal_map", String[])))...)
+            # The same electrical port: ideal ties and perfect grounds merge
+            # terminals, so masters at opposite ends of a zero-ohm conductor
+            # share one voltage equation.
+            terminals = string.(get(inv, "dc_terminal_map", String[]))
+            isempty(terminals) && continue
+            port = first(_dc_port_key(dc_classes, String(inv["dc_bus"]), terminals))
             push!(get!(free_masters, port, String[]), String(id))
         end
         _ibr_reactive_law(inv, profiles) === nothing &&
@@ -310,6 +321,61 @@ function _validate_pf_ibrs(net::Dict{String,Any})
             join(sort!(masters), ", ") * "). Their shared voltage equation " *
             "determines one active power, so the split between them is free. " *
             "Fix p_min == p_max on all but one, or use solve_opf."))
+    end
+    return nothing
+end
+
+# Whether the stamped rows fix one power of one coil: a single equality, or a
+# lower/upper pair whose two sides are the SAME function with the same bound
+# (one live parameter used for both ends of a setpoint).
+function _pf_rows_fix(ctx, prefix::Symbol, index)
+    row(side) = get(ctx.objects, BMOPFTools.OpfModelKey(
+        :constraint, Symbol(prefix, :_, side), index), nothing)
+    row(:equality) === nothing || return true
+    lower, upper = row(:lower), row(:upper)
+    (lower === nothing || upper === nothing) && return false
+    lo = JuMP.constraint_object(lower); hi = JuMP.constraint_object(upper)
+    (lo.set isa MOI.GreaterThan && hi.set isa MOI.LessThan) || return false
+    return lo.set.lower == hi.set.upper && JuMP.isequal_canonical(lo.func, hi.func)
+end
+
+"""
+    _validate_pf_resolved_dispatch(ctx)
+
+Confirm, on the constraint rows the builder stamped, that every generator and
+IBR coil the case-level checks accepted as a fixed setpoint is still one. This
+catches a coefficient provider that widens a bound (`p_min == p_max` in the
+case, a range in the model): the case passes, the model has free dispatch.
+"""
+function _validate_pf_resolved_dispatch(ctx::OpfContext)
+    isempty(ctx.build_spec.coefficient_providers) && return nothing
+    net = ctx.net
+    nlabels = BMOPFTools._neutral_labels(net)
+    profiles = get(net, "control_profile", Dict())
+    fail(owner, label, k) = throw(ArgumentError(
+        "$owner coil $k: solve_pf requires a fixed $(label) setpoint, but the " *
+        "resolved model bounds it by a range. A coefficient provider replaced " *
+        "$(label)_min or $(label)_max; supply the same value or the same " *
+        "parameter for both, or use solve_opf."))
+    for (gid, gen) in get(net, "generator", Dict())
+        gen isa Dict || continue
+        ncoils = length(first(_generator_positions(
+            Vector{String}(get(gen, "terminal_map", String[])),
+            get(gen, "configuration", "WYE"), nlabels)))
+        for k in 1:ncoils, label in (:p, :q)
+            _pf_rows_fix(ctx, Symbol(:generator_, label), (string(gid), k)) ||
+                fail("Generator '$gid'", label, k)
+        end
+    end
+    for (id, inv) in get(net, "ibr", Dict())
+        inv isa Dict || continue
+        ncoils = _ibr_coil_count(inv, nlabels)
+        dc_sets_p = ncoils == 1 && _dc_side_fixes_active_power(inv)
+        q_law = _ibr_reactive_law(inv, profiles) !== nothing
+        for k in 1:ncoils
+            dc_sets_p || _pf_rows_fix(ctx, :ibr_p, (string(id), k)) || fail("IBR '$id'", :p, k)
+            q_law || _pf_rows_fix(ctx, :ibr_q, (string(id), k)) || fail("IBR '$id'", :q, k)
+        end
     end
     return nothing
 end

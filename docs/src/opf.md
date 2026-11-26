@@ -765,6 +765,11 @@ power-carrying phasors. A neutral voltage is a small residual set by the return
 current, and on a healthy unbalanced feeder the neutral phasors at the two ends
 of one section routinely differ by tens of degrees while the phase angles move
 by a fraction of a degree. Bounding it would reject ordinary operating points.
+A **protective-earth conductor** declared in `terminal_conventions` is exempt
+for the same kind of reason: it sits at or near zero volts, where an angle is
+not defined. The post-solve validator applies the same rule, so a solution the
+engine accepts is not reported as violating, or as unassessable, on a
+conductor the engine never bounded.
 
 #### Switches
 
@@ -1643,8 +1648,17 @@ Two refinements follow from asking what is *stamped* rather than what is
   like any other device: with two ranged `"P"`-mode units on one DC bus, DC KCL
   fixes their sum and leaves the split free. Voltage masters sharing a DC port
   assert one voltage equation between them, so at most **one** master per port
-  may be left without a fixed setpoint. A multi-coil unit always needs each
+  may be left without a fixed setpoint. "The same port" is electrical: terminals
+  joined by zero-resistance conductors, or perfectly grounded, are one node, so
+  two masters at opposite ends of an ideal tie share a port. A multi-coil unit always needs each
   coil's active power fixed, because the DC side fixes only their sum.
+
+These checks are made on the case first, and then once more on the rows the
+builder stamped. The second pass matters when a coefficient provider is in
+use: a bound that is fixed in the case can be replaced by a wider number or a
+live parameter while the model is built, and a power flow must be determined in
+the model that is solved, not only in the data it was read from. A setpoint
+supplied as one parameter for both ends of the bound still counts as fixed.
 
 The engine avoids stamping the same equation twice when static data already
 implies it; see [Dependent equality rows](@ref opf-dependent-rows).
