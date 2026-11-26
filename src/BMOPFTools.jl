@@ -406,7 +406,14 @@ function _line_angle_phase_test(net)
         (t in roles.neutral || t in roles.earth) && return false
         nt = get!(bus_neutral, string(bus)) do
             b = get(buses, bus, nothing)
-            b isa Dict{String,Any} ? _neutral_terminal(b) : nothing
+            b isa Dict{String,Any} || return nothing
+            explicit = get(b, "neutral_terminal", nothing)
+            explicit isa String && return explicit
+            # The naming convention ("n", "N", ...) is a FALLBACK for cases
+            # that declare no roles. When `terminal_conventions` is present the
+            # declaration is authoritative: a conductor it calls a phase is a
+            # phase whatever its name, and its angle window is enforced.
+            roles.inferred ? _neutral_terminal(b) : nothing
         end
         return t != nt
     end

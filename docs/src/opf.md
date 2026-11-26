@@ -765,6 +765,10 @@ power-carrying phasors. A neutral voltage is a small residual set by the return
 current, and on a healthy unbalanced feeder the neutral phasors at the two ends
 of one section routinely differ by tens of degrees while the phase angles move
 by a fraction of a degree. Bounding it would reject ordinary operating points.
+Which conductor is a neutral is taken from the case's declared
+`terminal_conventions` when present: a conductor declared as a phase is
+angle-bounded whatever it is called, and the naming convention (`n`, `N`) is
+used only for cases that declare no roles.
 A **protective-earth conductor** declared in `terminal_conventions` is exempt
 for the same kind of reason: it sits at or near zero volts, where an angle is
 not defined. The post-solve validator applies the same rule, so a solution the
@@ -1646,11 +1650,17 @@ Two refinements follow from asking what is *stamped* rather than what is
 
   A `"P"`-mode converter is a dispatched injection and needs a fixed setpoint
   like any other device: with two ranged `"P"`-mode units on one DC bus, DC KCL
-  fixes their sum and leaves the split free. Voltage masters sharing a DC port
-  assert one voltage equation between them, so at most **one** master per port
-  may be left without a fixed setpoint. "The same port" is electrical: terminals
-  joined by zero-resistance conductors, or perfectly grounded, are one node, so
-  two masters at opposite ends of an ideal tie share a port. A multi-coil unit always needs each
+  fixes their sum and leaves the split free. A standalone `dc_source` must
+  likewise be a fixed injection (`p`, or `p_min == p_max`).
+
+  Voltage masters need one more condition. A master without a fixed setpoint
+  contributes one unknown current between its two DC nodes, and DC KCL gives
+  one equation per node, so those currents are determined exactly when the
+  free masters' ports form a **forest** over the DC nodes — no loops. Two free
+  masters on one port, at the two ends of an ideal tie, or around a triangle of
+  ports (p−m, m−n and p−n on a bipolar bus) can circulate power among
+  themselves and are rejected. Nodes are electrical: terminals joined by
+  zero-resistance conductors, or perfectly grounded, are one node. A multi-coil unit always needs each
   coil's active power fixed, because the DC side fixes only their sum.
 
 These checks are made on the case first, and then once more on the rows the

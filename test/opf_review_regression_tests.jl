@@ -981,6 +981,136 @@
         @test !unassessed(report(pe, result))
     end
 
+    # ── 16. Fourth review ─────────────────────────────────────────────────────
+    @testset "a declared phase label is a phase, whatever its name" begin
+        # Two phases, one of them called "n". With roles declared, the naming
+        # convention must not turn it into a neutral.
+        # The source bus uses ordinary names; the oddly named phase lives on the
+        # load bus, so only the angle predicate is under test here. (Source-bus
+        # grounding has its own naming fallback, outside this test.)
+        function two_phase(second; declared=true)
+            net = D("bus" => D("src" => D("terminal_names" => ["a", "b"]),
+                               "e" => D("terminal_names" => ["a", second])),
+                "line" => D("l" => merge(D("bus_from" => "src", "bus_to" => "e",
+                    "terminal_map_from" => ["a", "b"], "terminal_map_to" => ["a", second],
+                    "va_diff_min" => 0.05, "va_diff_max" => 0.10),
+                    D("R_series_$(k)_$(k)" => 0.05 for k in 1:2))),
+                "voltage_source" => D("s" => D("bus" => "src", "terminal_map" => ["a", "b"],
+                    "v_magnitude" => [230.0, 230.0], "v_angle" => [0.0, Float64(pi)])),
+                "load" => D("l" => D("bus" => "e", "terminal_map" => ["a", second],
+                    "configuration" => "SINGLE_PHASE", "p_nom" => [1000.0], "q_nom" => [0.0])))
+            declared && (net["terminal_conventions"] = D(
+                "phase" => unique(["a", "b", second]), "neutral" => String[], "earth" => String[]))
+            net
+        end
+        angle_conductors(net) = Set(k.index[2] for k in opf_object_keys(
+            build_opf_model(net; per_unit=false); kind=:constraint)
+            if startswith(string(k.family), "line_angle_"))
+        # The window cannot be met (the drop is resistive, so the angle shift is
+        # ~0 rad against a required [0.05, 0.10]); what matters is that it is
+        # ENFORCED on both phases under either name.
+        @test angle_conductors(two_phase("b")) == Set([1, 2])
+        @test angle_conductors(two_phase("n")) == Set([1, 2])
+        @test !solved(solve_opf(two_phase("n"); per_unit=false))
+        @test !solved(solve_opf(two_phase("b"); per_unit=false))
+        # The validator applies the same rule to a supplied solution.
+        relaxed = two_phase("n"); delete!(relaxed["line"]["l"], "va_diff_min")
+        delete!(relaxed["line"]["l"], "va_diff_max")
+        result = solve_opf(relaxed; per_unit=false)
+        found = Finding[]; solution_check(two_phase("n"), result, found)
+        @test count(f -> f.code == "E.SOL.ANGLE_VIOLATION", found) == 2
+    end
+
+    @testset "DC voltage references: cycles, consistency, free circulation" begin
+        # A bipolar bus with masters on p−m, m−n and p−n: three references,
+        # two of them independent.
+        function bipolar(units)
+            D("bus" => D("f" => D("terminal_names" => ["a", "n"],
+                        "perfectly_grounded_terminals" => ["n"])),
+              "voltage_source" => D("s" => D("bus" => "f", "terminal_map" => ["a", "n"],
+                  "v_magnitude" => [230.0, 0.0], "v_angle" => [0.0, 0.0], "cost" => [1.0])),
+              "ibr" => D(id => merge(D("bus" => "f", "terminal_map" => ["a", "n"],
+                  "topology" => "SINGLE_PHASE", "prime_mover" => "GENERIC",
+                  "s_max" => [8000.0], "q_min" => [0.0], "q_max" => [0.0],
+                  "dc_bus" => "dc", "dc_control" => "V"), fields) for (id, fields) in units),
+              "dc_bus" => D("dc" => D("terminal_names" => ["p", "m", "n"],
+                  "pole" => D("p" => "POSITIVE", "m" => "METALLIC_RETURN", "n" => "NEGATIVE"),
+                  "v_dc_min" => [600.0, 0.0, -1000.0], "v_dc_max" => [1000.0, 0.0, -600.0])),
+              "dc_grounding" => D("g" => D("dc_bus" => "dc", "terminal" => "m", "r" => 0.0)))
+        end
+        port(a, b, v) = D("dc_terminal_map" => [a, b], "dc_v_set" => v)
+        triangle(extra...) = [("pm", merge(port("p", "m", 800.0), extra[1])),
+                              ("mn", merge(port("m", "n", 800.0), extra[2])),
+                              ("pn", merge(port("p", "n", 1600.0), extra[3]))]
+        free = (D(), D(), D())
+        for pu in (true, false)
+            ctx = build_opf_model(bipolar(triangle(free...)); per_unit=pu)
+            @test family_rows(ctx, :dc_converter_voltage_control) == 2
+        end
+        # Inconsistent third side: a contradiction, reported at build time.
+        bad = triangle(free...); bad[3] = ("pn", port("p", "n", 1500.0))
+        @test_throws ArgumentError build_opf_model(bipolar(bad))
+        # Three free masters around the triangle can circulate power.
+        @test_throws ArgumentError solve_pf(bipolar(triangle(free...)))
+        # Pinning one breaks the loop: the other two are determined.
+        @test solved(solve_pf(bipolar(triangle(D(), D(), fixed_p(200.0)))))
+    end
+
+    @testset "solve_pf counts free DC dispatch in the built model" begin
+        # Two masters on one port. In the case, one is pinned at zero.
+        units = [("m1", master(800.0)), ("m2", merge(master(800.0), fixed_p(0.0)))]
+        @test solved(solve_pf(dc_station(units)))
+        widen = OpfBuildSpec(coefficient_providers=Dict(
+            OpfCoefficientKey(:availability, :ibr, "m2", :p_max, 1) =>
+                OpfCoefficientProvider(:ReviewTest, (ctx, key, default) -> default + 500.0)))
+        # A provider that widens m2 leaves two free masters on one port.
+        @test_throws ArgumentError solve_pf(dc_station(units); build_spec=widen, per_unit=false)
+        # A standalone DC source must be a fixed injection.
+        with_source(fields) = (net = dc_station([("m1", master(800.0))]);
+            net["dc_source"] = D("pv" => merge(D("dc_bus" => "dcA",
+                "terminal_map" => ["p", "m"]), fields)); net)
+        @test solved(solve_pf(with_source(D("p" => 300.0))))
+        @test solved(solve_pf(with_source(D("p_min" => 300.0, "p_max" => 300.0))))
+        @test_throws ArgumentError solve_pf(with_source(D("p_min" => 0.0, "p_max" => 500.0)))
+        @test_throws ArgumentError solve_pf(with_source(D("p_max" => 500.0)))
+    end
+
+    # A device owned by a custom builder stamps its own rows under its own
+    # keys; the native-row check must leave it alone. (The mock builder is
+    # loaded by opf_tests.jl in the full suite.)
+    if isdefined(Main, :MockOpfExtension)
+        @testset "solve_pf leaves custom-owned devices to their builder" begin
+            net = one_coil_net(D("p_min" => [100.0], "p_max" => [100.0],
+                                 "q_min" => [0.0], "q_max" => [0.0]))
+            owned = Dict{Tuple{Symbol,String},Any}((:ibr, "u1") => Main.MockOpfExtension.builder())
+            identity_provider = Dict(
+                OpfCoefficientKey(:availability, :ibr, "u1", :p_max, 1) =>
+                    OpfCoefficientProvider(:ReviewTest, (ctx, key, default) -> default))
+            for providers in (Dict{OpfCoefficientKey,OpfCoefficientProvider}(), identity_provider)
+                spec = OpfBuildSpec(component_builders=owned, coefficient_providers=providers)
+                result = solve_pf(deepcopy(net); build_spec=spec, per_unit=false)
+                @test solved(result)
+            end
+        end
+    end
+
+    @testset "solution_check reports missing DC evidence" begin
+        net = mvdc_tie()
+        net["dc_branch"]["line"]["i_max"] = [1.0, 1.0]       # far below the solved current
+        result = solve_opf(mvdc_tie())
+        report(candidate) = (found = Finding[]; solution_check(net, candidate, found); found)
+        @test any(f -> f.code == "E.SOL.DC_THERMAL_VIOLATION", report(result))
+        # Deleting the scalars the check reads must not turn a failure into a pass.
+        hollow = deepcopy(result)
+        delete!(hollow["dc_branch"]["line"]["1"], "i_dc")
+        delete!(hollow["dc_bus"]["dcA"]["p"], "v_dc")
+        found = report(hollow)
+        incomplete = [f for f in found if f.code == "W.SOL.INCOMPLETE_RESULT"]
+        @test length(incomplete) == 1
+        @test "dc_branch.line.1.i_dc" in only(incomplete).detail["missing_fields"]
+        @test "dc_bus.dcA.p.v_dc" in only(incomplete).detail["missing_fields"]
+    end
+
     @testset "unsupported IBR records are rejected, not skipped" begin
         net = D("bus" => D("f" => bus2(), "t" => bus2()),
             "voltage_source" => D("s" => src2("f")),

@@ -112,6 +112,29 @@ function _canonical_solution_voltages(net, result, findings)
             get(block, id, nothing) isa AbstractDict || push!(missing, "$family.$id")
         end
     end
+    # The DC limit and loss checks read one voltage per DC terminal and one
+    # current per DC branch conductor. A record that is present but lacks those
+    # scalars supports no check at all, so it is reported as missing evidence
+    # rather than passed over in silence.
+    for (b, dcbus) in get(net, "dc_bus", Dict())
+        dcbus isa AbstractDict || continue
+        for t in string.(get(dcbus, "terminal_names", String[]))
+            value = get(get(get(get(result, "dc_bus", Dict()), b, Dict()), t, Dict()), "v_dc", nothing)
+            (value isa Real && !(value isa Bool) && isfinite(value)) ||
+                push!(missing, "dc_bus.$b.$t.v_dc")
+        end
+    end
+    for (id, br) in get(net, "dc_branch", Dict())
+        br isa AbstractDict || continue
+        n = min(length(get(br, "terminal_map_from", String[])),
+                length(get(br, "terminal_map_to", String[])))
+        for k in 1:n
+            value = get(get(get(get(result, "dc_branch", Dict()), id, Dict()), string(k), Dict()),
+                        "i_dc", nothing)
+            (value isa Real && !(value isa Bool) && isfinite(value)) ||
+                push!(missing, "dc_branch.$id.$k.i_dc")
+        end
+    end
     coil_labels = _neutral_labels(net)
     for (family, fields) in (("load", ("pd", "qd")), ("generator", ("pg", "qg")),
                              ("ibr", ("pg", "qg")), ("voltage_source", ("ps", "qs")))

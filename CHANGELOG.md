@@ -90,6 +90,18 @@ Initial General release candidate. Registration has not yet been requested.
     neutral and protective-earth conductors in line angle checks, resolving
     terminal roles once per case. Integrity accepts one-entry bounds on a
     two-terminal DELTA generator.
+  - DC voltage references are treated as a graph over electrical nodes: a
+    reference the others already imply (including the third side of a
+    triangle of ports on a bipolar bus) is not stamped, and one that
+    contradicts them raises. `solve_pf` rejects free voltage masters whose
+    ports close a loop, reading "free" from the built model, and requires a
+    standalone `dc_source` to be a fixed injection. Its resolved-row check
+    skips devices owned by a custom builder.
+  - Line angle windows honor declared phase labels: with
+    `terminal_conventions` present, a phase conductor named `n` is bounded;
+    the naming convention applies only to cases that declare no roles.
+  - `solution_check` reports missing DC voltages or branch currents as
+    `W.SOL.INCOMPLETE_RESULT` instead of passing the DC checks vacuously.
   - Open-delta regulators are unchanged: the bank does not connect its neutral
     terminals, and neutral continuity past it stays an explicit line or
     switch. Two OpenDSS cases (ideal and 0.5 ohm jumper) now pin this.

@@ -442,13 +442,55 @@ function _dc_node_classes(net)
     return (bus, terminal) -> find((String(bus), String(terminal)))
 end
 
-# Orientation-free key of a converter's DC port under `classes`, and the sign
-# that maps its `first − second` voltage onto that key. A one-terminal port is
-# referenced to earth.
-function _dc_port_key(classes, bus, tm)
-    a = classes(bus, tm[1])
-    b = length(tm) >= 2 ? classes(bus, tm[2]) : _DC_EARTH
-    return a <= b ? ((a, b), 1.0) : ((b, a), -1.0)
+"""
+    _DCReferenceGraph
+
+Voltage references between DC nodes as a union-find with potentials: every
+node carries its voltage relative to the representative of its component.
+Adding V(a) − V(b) = U either joins two components (an independent reference)
+or closes a cycle, in which case it must agree with what the component already
+implies.
+"""
+struct _DCReferenceGraph
+    parent::Dict{Tuple{String,String},Tuple{String,String}}
+    offset::Dict{Tuple{String,String},Float64}   # V(node) − V(parent)
+    _DCReferenceGraph() = new(Dict{Tuple{String,String},Tuple{String,String}}(),
+                              Dict{Tuple{String,String},Float64}())
+end
+
+# Representative of `x` and V(x) − V(representative), with path compression.
+function _dc_reference_find!(g::_DCReferenceGraph, x)
+    haskey(g.parent, x) || (g.parent[x] = x; g.offset[x] = 0.0)
+    g.parent[x] == x && return (x, 0.0)
+    root, above = _dc_reference_find!(g, g.parent[x])
+    g.offset[x] += above
+    g.parent[x] = root
+    return (root, g.offset[x])
+end
+
+"""
+    _dc_reference_add!(graph, a, b, U, owner) -> Bool
+
+Record the reference V(a) − V(b) = U. Returns `true` when it is independent of
+those already recorded (its row must be stamped) and `false` when the existing
+references already imply it. Throws when they contradict it.
+"""
+function _dc_reference_add!(g::_DCReferenceGraph, a, b, U::Real, owner)
+    ra, va = _dc_reference_find!(g, a)      # V(a) − V(ra)
+    rb, vb = _dc_reference_find!(g, b)      # V(b) − V(rb)
+    if ra == rb
+        implied = va - vb
+        isapprox(implied, U; atol=1e-9 * max(1.0, abs(implied), abs(U))) ||
+            throw(ArgumentError("IBR '$owner': dc_control=\"V\" sets $U (working " *
+                "units) between DC nodes $a and $b, but the other voltage masters " *
+                "already fix that difference at $implied. The references " *
+                "contradict each other."))
+        return false
+    end
+    # V(ra) − V(rb) = U − va + vb
+    g.parent[ra] = rb
+    g.offset[ra] = U - va + vb
+    return true
 end
 
 """
@@ -501,29 +543,20 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
     if mode == "V"
         v_set === nothing &&
             error("IBR '$inv_id': dc_control=\"V\" needs dc_v_set (or dc_bus v_dc_nom).")
-        # One independent voltage reference per DC port. Several masters on the
-        # same port all assert the same equation; stamping it more than once
-        # adds dependent rows (more equalities than unknowns), so only the
-        # first is stamped. Masters that disagree are a data error.
-        #
-        # "Same port" means electrically the same pair of nodes, not the same
-        # record: terminals joined by ideal (zero-resistance) conductors, or
-        # perfectly grounded, are one node (`_dc_node_classes`). Two masters at
-        # opposite ends of a zero-ohm tie reference one port.
-        references = get!(vars, :dc_voltage_references, Dict{Any,Any}())
-        port, sign = _dc_port_key(_dc_node_classes(net), b, tm)
-        target = sign * v_set
-        if haskey(references, port)
-            owner, existing = references[port]
-            isapprox(existing, target; atol=1e-9 * max(1.0, abs(existing))) ||
-                throw(ArgumentError("IBR '$inv_id': dc_control=\"V\" sets a " *
-                    "different voltage on DC port $(port) than IBR '$owner' " *
-                    "does. One port has one voltage reference."))
-        else
-            references[port] = (String(inv_id), target)
-            register(:dc_converter_voltage_control,
-                @constraint(model, Uport == v_set))
-        end
+        # Voltage masters assert relations V(a) − V(b) = U between DC nodes.
+        # Taken together they form a graph, and only a spanning forest of it is
+        # independent: a second master on a port, a master at the far end of an
+        # ideal tie, or the third side of a triangle (p−m, m−n, p−n on a
+        # bipolar bus) each restate what the others already fix. A dependent
+        # reference is checked for consistency and not stamped; an inconsistent
+        # one is a data error. `_dc_reference_add!` does the bookkeeping.
+        classes = get!(() -> _dc_node_classes(net), vars, :dc_node_classes)
+        graph = get!(() -> _DCReferenceGraph(), vars, :dc_voltage_references)
+        a = classes(b, tm[1])
+        c = length(tm) >= 2 ? classes(b, tm[2]) : _DC_EARTH
+        independent = _dc_reference_add!(graph, a, c, v_set, String(inv_id))
+        independent && register(:dc_converter_voltage_control,
+            @constraint(model, Uport == v_set))
 
     elseif mode == "droop"
         v_set === nothing &&
