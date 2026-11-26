@@ -10,6 +10,156 @@
 #   §3     symmetry/degeneracy       → identical generator costs
 # plus referential integrity (dangling bus/linecode/terminal references).
 
+"""
+    _unreferenced_conductor_groups(net) -> Vector{Vector{Tuple{String,String}}}
+
+Conductor groups that no element ties to the voltage reference.
+
+A bus-level island test is not enough: an earth shunt on a separately carried
+neutral says nothing about delta-connected phases that no element connects to
+that neutral. The phases can then shift together without changing any equation.
+
+A *conductor group* is a set of `(bus, terminal)` nodes joined by elements that
+fix voltage differences between them: a line or closed switch conductor, a
+mutual shunt entry, the terminals of one load, generator, IBR, capacitor or
+shunt, the terminals of one transformer winding side (both sides for the
+galvanically continuous subtypes). A group is referenced when one of its nodes
+is tied to earth: a perfectly grounded terminal, a voltage-source terminal or
+the neutral of a source bus, a shunt or stamped line-shunt row with a nonzero
+sum, or a transformer neutral impedance. Declared terminals that no element
+touches are not groups (they are `W.INT.UNUSED_BUS_TERMINAL`).
+"""
+function _unreferenced_conductor_groups(net)
+    Node = Tuple{String,String}
+    parent = Dict{Node,Node}()
+    earthed = Set{Node}()
+    function find(x)
+        haskey(parent, x) || (parent[x] = x)
+        root = x
+        while parent[root] != root; root = parent[root]; end
+        while parent[x] != root
+            parent[x], x = root, parent[x]
+        end
+        root
+    end
+    tie!(a, b) = (ra = find(a); rb = find(b); ra == rb || (parent[ra] = rb); nothing)
+    node(bus, t) = (String(bus), string(t))
+    strs(tm) = tm isa AbstractVector && all(x -> x isa AbstractString, tm)
+    function tie_all!(bus, tm)
+        bus isa AbstractString && strs(tm) && !isempty(tm) || return
+        first_node = node(bus, tm[1]); find(first_node)
+        for t in tm[2:end]; tie!(first_node, node(bus, t)); end
+    end
+    earth!(bus, t) = (n = node(bus, t); find(n); push!(earthed, n); nothing)
+    table(key) = (v = get(net, key, nothing); v isa AbstractDict ? v : Dict{String,Any}())
+
+    buses = table("bus")
+    for (id, b) in buses
+        b isa AbstractDict || continue
+        pg = get(b, "perfectly_grounded_terminals", nothing)
+        strs(pg) && foreach(t -> earth!(id, t), pg)
+    end
+    roles = _index_roles(net)
+    for (_, vs) in table("voltage_source")
+        vs isa AbstractDict || continue
+        b = get(vs, "bus", nothing); tm = get(vs, "terminal_map", nothing)
+        b isa AbstractString && strs(tm) || continue
+        foreach(t -> earth!(b, t), tm)
+        # The solver pins the neutral of a source bus to the reference.
+        bus = get(buses, b, nothing)
+        nt = bus isa Dict{String,Any} && roles !== nothing ? _declared_bus_neutral(roles, bus) : nothing
+        nt === nothing || earth!(b, nt)
+    end
+    linecodes = table("linecode")
+    for (_, l) in table("line")
+        l isa Dict{String,Any} || continue
+        f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
+        tmf = get(l, "terminal_map_from", nothing); tmt = get(l, "terminal_map_to", nothing)
+        f isa AbstractString && t isa AbstractString && strs(tmf) && strs(tmt) || continue
+        n = min(length(tmf), length(tmt))
+        blocks = try
+            Z, nz = _line_z_complex(l, linecodes)
+            Z === nothing || (n = min(n, nz))
+            yfr, yto = _line_shunt_complex(l, linecodes)
+            (yfr === nothing ? nothing : _zero_padded_block(yfr, n),
+             yto === nothing ? nothing : _zero_padded_block(yto, n))
+        catch
+            (nothing, nothing)                      # malformed data ties nothing to earth
+        end
+        for k in 1:n
+            tie!(node(f, tmf[k]), node(t, tmt[k]))
+        end
+        for (bus, tm, Y) in ((f, tmf, blocks[1]), (t, tmt, blocks[2]))
+            Y === nothing && continue
+            all(isfinite, Y) || continue
+            scale = maximum(abs, Y; init=0.0)
+            scale > 0 || continue
+            for i in 1:n
+                abs(sum(Y[i, :])) > 1e-9 * scale && earth!(bus, tm[i])
+                for j in i+1:n
+                    abs(Y[i, j]) > 1e-9 * scale && tie!(node(bus, tm[i]), node(bus, tm[j]))
+                end
+            end
+        end
+    end
+    for (_, sw) in table("switch")
+        sw isa AbstractDict || continue
+        get(sw, "open_switch", false) === true && continue
+        f = get(sw, "bus_from", nothing); t = get(sw, "bus_to", nothing)
+        tmf = get(sw, "terminal_map_from", nothing); tmt = get(sw, "terminal_map_to", nothing)
+        f isa AbstractString && t isa AbstractString && strs(tmf) && strs(tmt) || continue
+        for k in 1:min(length(tmf), length(tmt))
+            tie!(node(f, tmf[k]), node(t, tmt[k]))
+        end
+    end
+    for kind in ("load", "generator", "ibr", "capacitor"), (_, c) in table(kind)
+        c isa AbstractDict && tie_all!(get(c, "bus", nothing), get(c, "terminal_map", nothing))
+    end
+    for (_, sh) in table("shunt")
+        sh isa AbstractDict || continue
+        b = get(sh, "bus", nothing); tm = get(sh, "terminal_map", nothing)
+        b isa AbstractString && strs(tm) || continue
+        tie_all!(b, tm)
+        Y = try
+            G = _pattern_keys_to_matrix(sh, "G_"); B = _pattern_keys_to_matrix(sh, "B_")
+            n = length(tm)
+            complex.(G === nothing ? zeros(n, n) : _zero_padded_block(G, n),
+                     B === nothing ? zeros(n, n) : _zero_padded_block(B, n))
+        catch
+            nothing
+        end
+        Y === nothing && continue
+        all(isfinite, Y) || continue
+        scale = maximum(abs, Y; init=0.0)
+        scale > 0 || continue
+        for i in 1:length(tm)
+            abs(sum(Y[i, :])) > 1e-9 * scale && earth!(b, tm[i])
+        end
+    end
+    for record in _connection_records(net)
+        record.kind == "transformer" || continue
+        ends = _connection_endpoints(record)
+        for e in ends
+            tie_all!(e.bus, e.map)
+        end
+        if record.subtype in GALVANIC_CONTINUOUS_SUBTYPES && length(ends) == 2 &&
+                all(e -> e.bus isa AbstractString && strs(e.map) && !isempty(e.map), ends)
+            tie!(node(ends[1].bus, ends[1].map[1]), node(ends[2].bus, ends[2].map[1]))
+        end
+    end
+    for ((b, t), _) in _transformer_neutral_earthing(net)
+        earth!(b, t)
+    end
+
+    referenced = Set(find(n) for n in earthed)
+    groups = Dict{Node,Vector{Node}}()
+    for n in collect(keys(parent))
+        r = find(n)
+        r in referenced || push!(get!(groups, r, Node[]), n)
+    end
+    sort!([sort!(g) for g in values(groups)])
+end
+
 # Whether the Π-shunt block a line contributes to the nodal admittance has a
 # path to earth. Mirrors `_line_yprim_block`: the same impedance-source choice,
 # length scaling and conductor truncation. Malformed data is not a reference.
@@ -516,7 +666,28 @@ function integrity_check(net::Dict{String,Any},
             "shunt admittance, or transformer neutral impedance) — " *
             "voltages are defined only up to a shift (rank-deficient): " *
             "$(join(comp, ", ")).",
-            Dict{String,Any}("buses" => comp)))
+            Dict{String,Any}("buses" => comp, "scope" => "island")))
+    end
+
+    # An island can hold a reference that does not reach every conductor: an
+    # earth shunt on a separately carried neutral leaves delta-connected phases
+    # free to shift together. Each conductor group needs its own tie.
+    floating_buses = Set{String}(b for comp in unreferenced for b in comp)
+    groups = [g for g in _unreferenced_conductor_groups(net)
+              if !all(n -> n[1] in floating_buses, g)]
+    result["n_unreferenced_conductor_groups"] = length(groups)
+    for g in groups
+        group_buses = sort!(unique!([n[1] for n in g]))
+        labels = ["$(n[1]).$(n[2])" for n in g]
+        push!(findings, Finding(ERROR, "E.INT.NO_VOLTAGE_REFERENCE", :integrity,
+            :network, nothing,
+            "A group of $(length(g)) conductor terminal(s) on $(length(group_buses)) bus(es) " *
+            "has no tie to the voltage reference, although its island has one elsewhere: no " *
+            "element connects these conductors to the earthed ones, so they can shift " *
+            "together (rank-deficient): $(join(first(labels, 8), ", "))" *
+            "$(length(labels) > 8 ? ", …" : "").",
+            Dict{String,Any}("buses" => group_buses, "scope" => "conductor_group",
+                "terminals" => [Dict{String,Any}("bus" => n[1], "terminal" => n[2]) for n in g])))
     end
 
     # --- MVDC embedding: converters must land in a referenced AC system ---

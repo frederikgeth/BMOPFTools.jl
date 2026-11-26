@@ -63,6 +63,9 @@ Initial General release candidate. Registration has not yet been requested.
     grouping is resolved per bus pair independently of component ids
     (`transformer_bank_groups`), and the power unit of a high-leg bank keeps a
     ratio check against the bank's line-to-line voltage.
+  - **Conductor-level reference.** `E.INT.NO_VOLTAGE_REFERENCE` is also raised
+    for a group of conductors that no element ties to the earthed ones, even
+    when its island has a reference elsewhere (`detail["scope"]`).
   - **Fixtures.** `test/data/profiler_systems`: North American MGN with
     split-phase service, high-leg open delta, European TN four-wire, unearthed
     delta island (referenced and not), Japanese three-wire with V-connection,

@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "39b43eeb58a6c9dda502c57e86d5a3acfaa70a217f0a0c68b2ccc4c5a8e35c9d"
+    "sha256": "9a687bda7f8f27aa3e784aebbfd3c415c7eb3445ae4b88b2388e77c79f349df3"
   },
   "finding_count": 394,
   "findings": [
@@ -315,7 +315,7 @@
       "namespace": "VOLT",
       "catalogue_section": "VOLT",
       "section_title": "voltage levels",
-      "meaning": "BFS voltage propagation reaches a bus with two inconsistent nominal voltages (beyond 5 %). The network's transformer ratios and topology contradict each other. Lines and closed switches that map only neutral- or earth-role terminals at both ends (for example, a primary-to-secondary neutral bond beside a service transformer) carry no phase conductor and do not propagate a level. In a high-leg (four-wire) delta, the phase-to-phase power units that share a secondary bus with a center-tapped unit are not a second level: the bus is reported at the center-tapped leg voltage and listed in `mixed_phase_to_neutral_buses`.",
+      "meaning": "BFS voltage propagation reaches a bus with two inconsistent nominal voltages (beyond 5 %). The network's transformer ratios and topology contradict each other. Lines and closed switches that map only neutral- or earth-role terminals at both ends (for example, a primary-to-secondary neutral bond beside a service transformer) carry no phase conductor and do not propagate a level. In a high-leg (four-wire) delta, a phase-to-phase power unit that shares a secondary bus with a center-tapped unit is not a second level, provided the nominal phasors of the two primary windings actually close the delta (third conductor at √3 times the leg level; primaries on the same phase, or a line-to-line beside a line-to-neutral primary, do not and are ordinary conflicts): the bus is reported at the center-tapped leg voltage and listed in `mixed_phase_to_neutral_buses`.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2194,7 +2194,7 @@
       "namespace": "INT",
       "catalogue_section": "INT",
       "section_title": "structural integrity",
-      "meaning": "A galvanic island (transformer windings are separations) with no source, perfect grounding, grounding shunt, line shunt admittance to earth as the admittance builders stamp it (modeled line capacitance: an unearthed delta or IT island is referenced through it; one impedance source per line — inline totals, else the linecode scaled by length — and only the block over the mapped conductors, with omitted entries of a sparsely declared matrix read as zero, so a shunt entry the engine never stamps is not a reference), or transformer neutral impedance (`r/x_neutral_from`/`to` on a side that has a neutral terminal — impedance and resonant earthing) — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island.",
+      "meaning": "A galvanic island (transformer windings are separations) with no source, perfect grounding, grounding shunt, line shunt admittance to earth as the admittance builders stamp it (modeled line capacitance: an unearthed delta or IT island is referenced through it; one impedance source per line — inline totals, else the linecode scaled by length — and only the block over the mapped conductors, with omitted entries of a sparsely declared matrix read as zero, so a shunt entry the engine never stamps is not a reference), or transformer neutral impedance (`r/x_neutral_from`/`to` on a side that has a neutral terminal — impedance and resonant earthing) — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island. A second form (`detail[\"scope\"] = \"conductor_group\"`; the first has `\"island\"`) is raised when the island has a reference that does not reach every conductor: a group of terminals joined to each other by lines, windings and devices, but to no earthed conductor, can shift together. An earth shunt on a separately carried neutral does not reference delta-connected phases that nothing connects to that neutral.",
       "contract_id": null,
       "knowledge_ids": []
     },

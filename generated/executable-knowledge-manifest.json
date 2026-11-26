@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "c1ab919a2c4605e489b03e32aeb7bbff93b0cd9b5f28536c9f471f776ebe1d70",
+  "corpus_sha256": "f46eeec13e11a3739279d98ea5dfd3b7296fdf9321b943d841928ae4e561abf8",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "39b43eeb58a6c9dda502c57e86d5a3acfaa70a217f0a0c68b2ccc4c5a8e35c9d"
+      "sha256": "9a687bda7f8f27aa3e784aebbfd3c415c7eb3445ae4b88b2388e77c79f349df3"
     },
     {
       "path": "docs/src/first_case.md",
@@ -318,7 +318,7 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "dbb9570b0d5bf725ea81c54f13320f06611b248a3929315aeb2dc7261129a584"
+      "sha256": "8228ffc4d60b222efc6b228e7629077a1e3a011b3f2ec40704709c0f7534f72f"
     },
     {
       "path": "knowledge/executable.toml",
@@ -446,7 +446,7 @@
     },
     {
       "path": "src/analysis/connectivity.jl",
-      "sha256": "727421fe0aab1ad0cff5b2912f3c0da9753a0c2854508566b80a338db0f892c6"
+      "sha256": "ba5befe246c0ffb29223d44b003b71ce63e58a823fa305d2e06fd15b32f5e3b3"
     },
     {
       "path": "src/analysis/coordinate_semantics.jl",
@@ -534,7 +534,7 @@
     },
     {
       "path": "src/analysis/voltage_levels.jl",
-      "sha256": "ea816b4bba595d5aedd842461c917d9f0b1aca02ec329d8e456b61d6d853b997"
+      "sha256": "5c90f449742e6dbc734b15b199590c96d81ab4ba8917cfc9e3cb4e6b4533e316"
     },
     {
       "path": "src/analysis/winding_limit_coverage.jl",
@@ -670,7 +670,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "8402b0447bb1a1f45b01d2da8a92059017a2d05b71d7f03a053a2b50ca64f678"
+      "sha256": "f104a4e63f3d79eac316f9b800849c4c33815044d9d08adb1b7fe6a360609776"
     },
     {
       "path": "src/report/formatting.jl",
@@ -714,7 +714,7 @@
     },
     {
       "path": "src/validation/integrity.jl",
-      "sha256": "9ee19e622f2d2cad9196811da1a863d9021b916857f4f835415a7cee7f4bb317"
+      "sha256": "4798f2d588599ce7846992fbe0342a1dcfa7303c7b7c8deed5614fd468e64e59"
     },
     {
       "path": "src/validation/power_factor.jl",
@@ -766,7 +766,7 @@
     },
     {
       "path": "test/connection_map_tests.jl",
-      "sha256": "9c36ed38176c03fedabe0905f6a1187d9f1ab01ca42c95f68d930c3e3a3212b1"
+      "sha256": "9642c9f796969f470caed1cb83c0258cd35dc9d6ed97f368e07ec6464023dd73"
     },
     {
       "path": "test/controller_compliance_tests.jl",

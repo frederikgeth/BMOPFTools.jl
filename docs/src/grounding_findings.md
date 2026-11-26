@@ -49,6 +49,15 @@ What counts as a tie to the reference:
 A delta-connected capacitor bank, whose admittance rows sum to zero, ties
 phases to each other and not to earth, so it does not count.
 
+A tie references only the conductors it reaches. Conductors are grouped by the
+elements that fix voltage differences between them: a line conductor end to
+end, the terminals of one winding, the terminals of one load. Each group needs
+its own tie. An earth shunt on a neutral that is carried along a delta feeder,
+with no winding or load between that neutral and the phases, leaves the phases
+free to shift together; `E.INT.NO_VOLTAGE_REFERENCE` then names the floating
+group (`detail["scope"] = "conductor_group"`), although the island as a whole
+has a reference.
+
 ## A floating neutral
 
 Start from the European feeder, whose neutral is earthed at the transformer,

@@ -138,7 +138,11 @@ uses the same branches, so `n_extra_edges + neutral_only_cycle_rank` equals
 `whole_network["cycle_rank"]`.
 
 `results[:connectivity]["dc_links"]` lists groups of AC buses whose converters
-share one DC island; the buses of a group are connected through it.
+share one DC island; the buses of a group are connected through it. In the
+degree and path metrics each DC island is a vertex of its own, joined to every
+AC bus it couples, so a hop over a DC island counts as two and
+`longest_path_buses` shows it as `dc_island:<label>`; the metrics do not depend
+on how the AC buses are named.
 `dc_link_islands` gives the same groups with the `dc_island` label (its smallest
 `dc_bus` id), so two islands that link the same AC buses stay distinct. Cycles
 closed through a DC island are counted in
@@ -177,9 +181,15 @@ transformer ratios. Three cases need care when reading it:
 - On a high-leg (four-wire) delta bus no single value describes every conductor.
   The map holds the center-tapped leg voltage, the bus is listed in
   `mixed_phase_to_neutral_buses`, and the power units that create the high leg are
-  listed in `high_leg_units`. A power unit is identified only when its primary is
-  connected across different conductors than the center-tapped unit's; primaries
-  on the same conductors are in phase and do not close a delta. The high leg sits at √3 times the leg voltage to
+  listed in `high_leg_units`; `high_leg_banks` gives, per power unit, the
+  lighting unit, the buses, the high-leg conductor and a `status`. A bank is
+  identified from the nominal phasors of the two primary windings (source angles
+  in the primary's zone, else the standard order of `a/b/c` or `1/2/3` labels):
+  the third conductor must come out at √3 times the leg level. Primaries on the
+  same phase, a line-to-line beside a line-to-neutral primary, or one reversed
+  winding do not close the delta and are ordinary level conflicts. When the
+  phasors cannot be resolved the status is `unverified`: the unit is kept out
+  of level propagation, and not called a high leg. The high leg sits at √3 times the leg voltage to
   neutral. A power unit's own ratio is still checked, against twice the leg level.
 
 ### Transformer phase evidence

@@ -128,10 +128,20 @@ function connectivity_analysis(net::Dict{String,Any},
     # island are joined through it. An AC section fed only over DC is part of
     # the network, not a disconnected component, and a DC link between two
     # buses of one AC network closes a loop like any other branch.
+    # Each DC island is its own vertex, joined to every AC bus it couples: a
+    # star, not a chain through the AC buses in name order. Degree and path
+    # metrics then do not depend on bus ids, and the cycle count is the same
+    # (k links and one more vertex, against k - 1 links in a chain).
     dc_links = _dc_links(net)
     for link in dc_links
-        for k in 2:length(link.buses)
-            add_edge_safe!(link.buses[k-1], link.buses[k])
+        add_vertex!(g); add_vertex!(g_phase)
+        island_vertex = nv(g)
+        push!(bus_names, "dc_island:$(link.island)")
+        for b in link.buses
+            i = get(bus_index, b, nothing)
+            i === nothing && continue
+            n_branches[] += 1; n_phase_branches[] += 1
+            add_edge!(g, i, island_vertex); add_edge!(g_phase, i, island_vertex)
         end
     end
     result["dc_links"] = [link.buses for link in dc_links]
@@ -155,7 +165,7 @@ function connectivity_analysis(net::Dict{String,Any},
         # label each component's buses
         comp_bus_lists = Vector{Vector{String}}()
         for comp in comps
-            push!(comp_bus_lists, [bus_names[i] for i in comp])
+            push!(comp_bus_lists, [bus_names[i] for i in comp if i <= n])
         end
         result["components"] = comp_bus_lists
         push!(findings, Finding(ERROR, "E.CONN.DISCONNECTED", :connectivity, :network, nothing,
@@ -164,7 +174,7 @@ function connectivity_analysis(net::Dict{String,Any},
     end
 
     # Degree statistics
-    degrees = degree(g)
+    degrees = degree(g)[1:n]            # AC buses; DC-island vertices are not buses
     result["degree_min"]    = minimum(degrees)
     result["degree_max"]    = maximum(degrees)
     result["degree_mean"]   = mean(degrees)
@@ -201,13 +211,15 @@ function connectivity_analysis(net::Dict{String,Any},
             src_idx = get(bus_index, src, nothing)
             src_idx === nothing && continue
             dists = gdistances(g, src_idx)
-            finite_dists = filter(d -> d < typemax(Int), dists)
+            # Depth is measured to AC buses. A hop over a DC island counts as
+            # two (bus, island, bus), whatever the buses are called.
+            finite_dists = filter(d -> d < typemax(Int), dists[1:n])
             isempty(finite_dists) && continue
             d = maximum(finite_dists)
             if d > max_depth
                 max_depth = d
                 # trace back the farthest bus
-                farthest_idx = findfirst(==(d), dists)
+                farthest_idx = findfirst(i -> dists[i] == d, 1:n)
                 if farthest_idx !== nothing
                     max_path = _trace_path(g, src_idx, farthest_idx, bus_names)
                 end
@@ -225,7 +237,7 @@ function connectivity_analysis(net::Dict{String,Any},
     powered = Set{String}()
     let vsrc_set0 = Set(vsrc_buses)
         for comp in comps
-            names = [bus_names[i] for i in comp]
+            names = [bus_names[i] for i in comp if i <= n]
             any(n -> n in vsrc_set0, names) && union!(powered, names)
         end
     end
@@ -270,6 +282,12 @@ function connectivity_analysis(net::Dict{String,Any},
     result["n_split_phase_zones"] = count(z -> z.topology == :split_phase, zone_class)
     result["n_swer_zones"]        = count(z -> z.topology == :swer, zone_class)
 
+    # High-leg banks, resolved once for the network and indexed by secondary bus.
+    high_leg_by_bus = Dict{String,Vector{Any}}()
+    any(z -> z.topology == :split_phase, zone_class) &&
+        for bank in _high_leg_banks(net)
+            push!(get!(high_leg_by_bus, bank.bus_to, Any[]), bank)
+        end
     for z in zone_class
         if z.topology == :split_phase
             ct = something(findfirst(f -> f[1] == "center_tap", z.feed), nothing)
@@ -287,13 +305,8 @@ function connectivity_analysis(net::Dict{String,Any},
             # reports) lands beyond the two legs. Another phase conductor in
             # the zone is listed separately, without a claim about its voltage.
             high_set = Set{String}()
-            sp_units = get(get(net, "transformer", Dict()), "single_phase", Dict())
-            for (_, uid) in _high_leg_power_units(net)
-                u = sp_units isa AbstractDict ? get(sp_units, uid, nothing) : nothing
-                u isa AbstractDict && get(u, "bus_to", nothing) in z.buses || continue
-                for x in get(u, "terminal_map_to", String[])
-                    string(x) in legs || push!(high_set, string(x))
-                end
+            for bid in z.buses, bank in get(high_leg_by_bus, bid, ())
+                bank.status == "verified" && union!(high_set, bank.high)
             end
             high = sort!(collect(high_set))
             other = sort!(collect(setdiff(z.phases, legs, high)))

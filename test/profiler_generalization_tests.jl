@@ -881,6 +881,170 @@ end
         @test g["unassessed_units"] == ["reg2"] && g["n_branches"] == 2
     end
 
+    @testset "a reference must reach every conductor group" begin
+        # Oracle: the passive Ybus. A group floats when a common shift of its
+        # nodes lies in the nullspace of the island's admittance matrix.
+        floats(net, nodes) = begin
+            r = ybus_passive(net)
+            x = zeros(ComplexF64, length(r.nodes))
+            for n in nodes; x[r.index[n]] = 1.0; end
+            maximum(abs, r.Y * x) <= 1e-9 * maximum(abs, r.Y)
+        end
+        groups(net) = (f = Finding[]; integrity_check(net, f);
+            [x for x in f if x.code == "E.INT.NO_VOLTAGE_REFERENCE" && x.detail["scope"] == "conductor_group"])
+        phases = [(b, t) for b in ("it0", "it1") for t in ("a", "b", "c")]
+
+        # A separately carried fourth conductor with the line's only earth shunt:
+        # the island has a tie to earth, the delta phases do not.
+        net = _pg_sys("it_delta_island_unreferenced")
+        for b in ("it0", "it1"); net["bus"][b]["terminal_names"] = ["a","b","c","n"]; end
+        net["line"]["run"]["terminal_map_from"] = ["a","b","c","n"]
+        net["line"]["run"]["terminal_map_to"] = ["a","b","c","n"]
+        lc = net["linecode"]["cable"]
+        for i in 1:4
+            lc["R_series_$(i)_4"] = lc["R_series_4_$(i)"] = i == 4 ? 3e-4 : 5e-5
+            lc["X_series_$(i)_4"] = lc["X_series_4_$(i)"] = i == 4 ? 3e-4 : 1e-4
+        end
+        lc["i_max"] = fill(200.0, 4); lc["B_from_4_4"] = 1e-7
+        @test floats(net, phases)
+        g = only(groups(net))
+        @test Set((t["bus"], t["terminal"]) for t in g.detail["terminals"]) == Set(phases)
+        @test g.severity == ERROR && g.detail["buses"] == ["it0", "it1"]
+        @test integrity_check(net, Finding[])["n_without_reference"] == 0     # the island has one
+        @test integrity_check(net, Finding[])["n_unreferenced_conductor_groups"] == 1
+
+        # Anything that ties the phases to the earthed conductor removes it, and
+        # the Ybus agrees each time.
+        cap = deepcopy(net); cap["linecode"]["cable"]["B_from_1_1"] = 1e-7       # capacitance on a phase
+        @test !floats(cap, phases) && isempty(groups(cap))
+        mutual = deepcopy(net); mutual["linecode"]["cable"]["B_from_1_4"] = -2e-8 # phase-to-neutral capacitance
+        mutual["linecode"]["cable"]["B_from_4_1"] = -2e-8
+        mutual["linecode"]["cable"]["B_from_1_1"] = 2e-8                          # rows a sums to zero: no earth
+        @test !floats(mutual, phases) && isempty(groups(mutual))
+        wye = deepcopy(net)                                                       # a phase-to-neutral load
+        wye["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => ["a","n"],
+            "configuration" => "SINGLE_PHASE", "p_nom" => [100.0], "q_nom" => [0.0])
+        @test isempty(groups(wye))
+        # The whole-island finding is not repeated per group.
+        bare = _pg_sys("it_delta_island_unreferenced")
+        f = Finding[]; integrity_check(bare, f)
+        refs = [x for x in f if x.code == "E.INT.NO_VOLTAGE_REFERENCE"]
+        @test length(refs) == 1 && only(refs).detail["scope"] == "island"
+        # Declared but untouched terminals are not a group.
+        spare = _pg_sys("it_delta_island_capacitive")
+        spare["bus"]["it1"]["terminal_names"] = ["a","b","c","spare"]
+        @test isempty(groups(spare))
+        # Every well-formed regional fixture has every conductor group referenced.
+        for name in ("na_mgn_split_phase", "na_high_leg_open_delta", "eu_tn_four_wire",
+                     "it_delta_island_capacitive", "jp_three_wire_v_connection", "au_men_four_wire")
+            @test isempty(BMOPFTools._unreferenced_conductor_groups(_pg_sys(name)))
+        end
+        # Malformed tables and records do not abort it.
+        bad = _pg_sys("eu_tn_four_wire")
+        bad["shunt"] = nothing; bad["switch"] = Dict{String,Any}("s" => 3)
+        bad["line"]["f1"]["terminal_map_to"] = "abcn"; bad["load"]["h1"]["terminal_map"] = [1, 2]
+        @test BMOPFTools._unreferenced_conductor_groups(bad) isa Vector
+    end
+
+    @testset "high-leg identification follows the primary winding phasors" begin
+        bank(net) = voltage_level_analysis(net, Finding[])["high_leg_banks"]
+        base = _pg_sys("na_high_leg_open_delta")
+        b = only(bank(base))
+        @test b["status"] == "verified" && b["high_leg"] == ["c"] && b["lighting_unit"] == "lighting"
+        # Power primary moved to a–b (with its line-to-line nominal): different
+        # terminal set, but the phasors do not close a delta.
+        net = _pg_sys("na_high_leg_open_delta")
+        p = net["transformer"]["single_phase"]["power"]
+        p["terminal_map_from"] = ["a", "b"]; p["v_nom_from"] = 7200.0 * sqrt(3)
+        @test isempty(bank(net))
+        rep = _pg_analyze(net)
+        @test "E.VOLT.LEVEL_MISMATCH" in _pg_codes(rep.findings)
+        @test isempty(only(f for f in rep.findings if f.code == "I.PROV.SPLIT_PHASE_ZONE").detail["high_leg"])
+        # Reversing BOTH windings of the power unit is the same transformer.
+        net = _pg_sys("na_high_leg_open_delta")
+        p = net["transformer"]["single_phase"]["power"]
+        p["terminal_map_from"] = ["n", "b"]; p["terminal_map_to"] = ["c", "b"]
+        @test only(bank(net))["status"] == "verified"
+        # Reversing only one of them flips its polarity, and the delta no
+        # longer closes: the third conductor sits at sqrt(7) times the leg
+        # level (the power-flow cross-check confirms 317 V), not sqrt(3).
+        net = _pg_sys("na_high_leg_open_delta")
+        net["transformer"]["single_phase"]["power"]["terminal_map_to"] = ["c", "b"]
+        @test isempty(bank(net))
+        # Neither does a power primary on the lighting unit's own phase.
+        net = _pg_sys("na_high_leg_open_delta")
+        net["transformer"]["single_phase"]["power"]["terminal_map_from"] = ["n", "a"]
+        @test isempty(bank(net))
+        # The source's angles decide, not the labels: with phases b and c
+        # exchanged at the source the bank is still a delta.
+        net = _pg_sys("na_high_leg_open_delta")
+        net["voltage_source"]["grid"]["v_angle"] = [0.0, 2π/3, -2π/3]
+        @test only(bank(net))["status"] == "verified"
+        # ...and a source that puts b in phase with a makes it none.
+        net["voltage_source"]["grid"]["v_angle"] = [0.0, 0.0, 2π/3]
+        @test isempty(bank(net))
+        # Unresolvable primary phasors: reported as unverified, not as a conflict,
+        # and not called a high leg in the split-phase finding.
+        net = _pg_sys("na_high_leg_open_delta")
+        delete!(net, "voltage_source")
+        relabel(x) = x isa AbstractString ? get(Dict("a" => "u", "b" => "v", "c" => "w"), x, x) :
+                     x isa AbstractVector ? Any[relabel(v) for v in x] :
+                     x isa AbstractDict ? Dict{String,Any}(k => (k in ("bus", "bus_from", "bus_to", "linecode", "name", "configuration") ? v : relabel(v)) for (k, v) in x) : x
+        net = relabel(net)
+        net["terminal_conventions"] = Dict{String,Any}("phase" => ["u","v","w"], "neutral" => ["n"], "earth" => String[])
+        b = only(bank(net))
+        @test b["status"] == "unverified" && b["high_leg"] == ["w"]
+        f = Finding[]; connectivity_analysis(net, f)
+        @test isempty(only(x for x in f if x.code == "I.PROV.SPLIT_PHASE_ZONE").detail["high_leg"])
+    end
+
+    @testset "high-leg banks are resolved once per network" begin
+        many(k) = begin
+            net = _pg_sys("na_high_leg_open_delta")
+            for i in 1:k
+                net["bus"]["svc$i"] = deepcopy(net["bus"]["svc"])
+                for (st, id) in (("center_tap", "lighting"), ("single_phase", "power"))
+                    u = deepcopy(net["transformer"][st][id]); u["bus_to"] = "svc$i"
+                    net["transformer"][st]["$id$i"] = u
+                end
+            end
+            net
+        end
+        cost(net) = (connectivity_analysis(net, Finding[]); @allocated connectivity_analysis(net, Finding[]))
+        small = many(50); large = many(200)
+        @test length(voltage_level_analysis(large, Finding[])["high_leg_banks"]) == 201
+        # Four times the banks: allocation grows about linearly, not quadratically.
+        @test cost(large) < 8 * cost(small)
+    end
+
+    @testset "DC-linked path metrics do not depend on bus names" begin
+        build(names) = begin
+            net = _pg_sys("eu_tn_four_wire")
+            # three AC end buses hanging off lv2, each with a converter on ONE DC bus
+            net["dc_bus"] = Dict{String,Any}("d" => Dict{String,Any}("terminal_names" => ["p","n"]))
+            net["ibr"] = Dict{String,Any}()
+            for (k, name) in enumerate(names)
+                net["bus"][name] = Dict{String,Any}("terminal_names" => ["a","b","c","n"])
+                net["ibr"]["c$k"] = Dict{String,Any}("bus" => name, "dc_bus" => "d")
+            end
+            net["line"]["tie"] = Dict{String,Any}("bus_from" => "lv2", "bus_to" => names[1],
+                "linecode" => "cable", "length" => 20.0,
+                "terminal_map_from" => ["a","b","c","n"], "terminal_map_to" => ["a","b","c","n"])
+            connectivity_analysis(net, Finding[])
+        end
+        ra = build(("x1", "x2", "x3")); rb = build(("x3", "x1", "x2")); rc = build(("x2", "x3", "x1"))
+        @test ra["tree_depth_max"] == rb["tree_depth_max"] == rc["tree_depth_max"]
+        @test ra["degree_max"] == rb["degree_max"] == rc["degree_max"]
+        @test ra["n_degree_1"] == rb["n_degree_1"] == rc["n_degree_1"] == 3   # mv and the two far converter buses
+        @test ra["is_radial"] && rb["is_radial"] && rc["is_radial"] && ra["is_connected"]
+        @test ra["n_extra_edges"] + ra["neutral_only_cycle_rank"] ==
+              ra["structure"]["whole_network"]["cycle_rank"] == 0
+        # mv - lv0 - lv1 - lv2 - first - island - other: the island hop counts two.
+        @test ra["tree_depth_max"] == 6
+        @test any(startswith("dc_island:"), ra["longest_path_buses"])
+        @test !any(startswith("dc_island:"), ra["degree_1_buses"])
+    end
+
     # ── Noise budget on decks an independent engine solves ──────────────────
     #
     # Every deck in test/data/pf_comparison (and the SWER feeder) is solved by

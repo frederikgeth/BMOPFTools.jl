@@ -41,7 +41,10 @@ function voltage_level_analysis(net::Dict{String,Any},
     # --- BFS propagation ---
     # Build adjacency: bus => Vector of (neighbor_bus, edge_type, edge_id, ratio)
     # ratio = 1.0 for same-level edges; v_nom_to/v_nom_from for transformers
-    adjacency = _build_voltage_adjacency(net)
+    # High-leg banks are resolved once and shared by every step below.
+    high_leg_banks = _high_leg_banks(net)
+    high_leg = _high_leg_power_units(high_leg_banks)
+    adjacency = _build_voltage_adjacency(net; high_leg=high_leg)
 
     queue = collect(keys(assigned_level))
     while !isempty(queue)
@@ -131,15 +134,15 @@ function voltage_level_analysis(net::Dict{String,Any},
     result["transformer_transitions"] = transitions
     # Buses whose phase-to-neutral voltage is not uniform across conductors
     # (high-leg delta); the reported level is the center-tapped leg voltage.
-    high_leg = _high_leg_power_units(net)
-    sp_units = get(get(net, "transformer", Dict()), "single_phase", Dict())
-    result["high_leg_units"] = sort!([id for (_, id) in high_leg])
-    result["mixed_phase_to_neutral_buses"] = sort!(unique!(String[
-        string(sp_units[id]["bus_to"]) for (_, id) in high_leg]))
+    result["high_leg_units"] = sort!([b.id for b in high_leg_banks])
+    result["high_leg_banks"] = [Dict{String,Any}("power_unit" => b.id, "lighting_unit" => b.lighting,
+        "bus_from" => b.bus_from, "bus_to" => b.bus_to, "high_leg" => b.high, "status" => b.status)
+        for b in high_leg_banks]
+    result["mixed_phase_to_neutral_buses"] = sort!(unique!(String[b.bus_to for b in high_leg_banks]))
 
     # Check: non-transformer edges crossing voltage levels
     _check_level_crossing_lines(net, assigned_level, findings)
-    _check_transformer_ratio_consistency(net, assigned_level, findings)
+    _check_transformer_ratio_consistency(net, assigned_level, findings; high_leg=high_leg)
 
     result
 end
@@ -159,56 +162,122 @@ function _winding_phase_to_phase(net, t::AbstractDict, key::String)::Bool
     ctx.evidence["reason"]===nothing && ctx.evidence["resolved_roles"]==["phase","phase"]
 end
 
-# High-leg (four-wire) delta: a center-tapped lighting unit and one or two
-# phase-to-phase power units land on the same secondary bus. The center tap
-# fixes the per-conductor reference (the two legs), while the high leg sits at
-# √3 times that to neutral, so no single per-conductor nominal describes the
-# bus through the power units. They are identified here so level propagation
-# follows the center-tapped unit and the power units are not read as a
-# conflicting second level. Returns `(subtype, id)` of the power units.
-function _high_leg_power_units(net::Dict{String,Any})::Set{Tuple{String,String}}
-    out = Set{Tuple{String,String}}()
+# High-leg (four-wire) delta: a center-tapped lighting unit and a phase-to-phase
+# power unit land on the same secondary bus and close an open delta. The center
+# tap fixes the per-conductor reference (the two legs); the third conductor, the
+# high leg, sits at √3 times that to neutral, so no single per-conductor nominal
+# describes the bus through the power unit.
+#
+# Secondary maps and turns ratios do not establish that geometry: it depends on
+# the relative phasors of the two PRIMARY windings. With nominal primary
+# phasors p₁ (lighting) and p₂ (power), unit directions u = p/|p|, and leg
+# level L, the model's winding polarity (secondary first-minus-second terminal
+# in phase with primary first-minus-second) gives the legs at ±L·u₁ and the
+# new conductor at V_shared ∓ 2L·u₂. That is a high leg only when its
+# magnitude is √3·L: primaries on the same conductors give 3L, a line-to-neutral
+# beside a line-to-line primary gives about 2.9L. The power unit's own voltage
+# rating is deliberately not used here; `_check_high_leg_ratio` checks it.
+#
+# Returns one record per identified power unit, resolved once per network:
+# `(id, bus_from, bus_to, lighting, high, status)`. `status` is "verified", or
+# "unverified" when the primary phasors cannot be resolved (no source in the
+# primary's zone and non-standard phase labels); such a unit is kept out of
+# level propagation rather than raised as a false conflict, and is reported.
+function _high_leg_banks(net::Dict{String,Any})
+    out = NamedTuple{(:id, :bus_from, :bus_to, :lighting, :high, :status),
+                     Tuple{String,String,String,String,Vector{String},String}}[]
     xfmr = get(net, "transformer", Dict())
+    xfmr isa AbstractDict || return out
     ct = get(xfmr, "center_tap", nothing); sp = get(xfmr, "single_phase", nothing)
     ct isa AbstractDict && sp isa AbstractDict || return out
-    # Center-tapped units per (bus_from, bus_to) pair: secondary legs and the
-    # primary conductors each is connected across.
+    strs(tm, n) = tm isa AbstractVector && length(tm) == n && all(x -> x isa AbstractString, tm)
     lighting = Dict{Tuple{String,String},Vector{Any}}()
-    for (_, t) in ct
+    for id in sort!(collect(keys(ct)))
+        t = ct[id]
         t isa AbstractDict || continue
         f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
         tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
-        f isa AbstractString && b isa AbstractString && tm isa AbstractVector &&
-            length(tm) == 3 && tf isa AbstractVector || continue
-        push!(get!(lighting, (f, b), Any[]),
-              (legs=Set((string(tm[1]), string(tm[3]))), primary=Set(string.(tf))))
+        f isa AbstractString && b isa AbstractString && strs(tm, 3) && strs(tf, 2) || continue
+        push!(get!(lighting, (String(f), String(b)), Any[]), (id=string(id), to=string.(tm), from=string.(tf)))
     end
     isempty(lighting) && return out
-    for (id, t) in sp
+
+    # Terminal roles and nominal phasors are resolved once, lazily.
+    roles = _index_roles(net)
+    is_return(x) = roles === nothing ? _is_convention_neutral(x) :
+        (x in roles.neutral || x in roles.earth)
+    standard = Dict("a" => 0.0, "b" => -2π/3, "c" => 2π/3, "A" => 0.0, "B" => -2π/3, "C" => 2π/3,
+                    "1" => 0.0, "2" => -2π/3, "3" => 2π/3)
+    zone_of = nothing; zone_angles = Dict{Int,Dict{String,Float64}}()
+    function phasor(bus, t)
+        is_return(t) && return 0.0 + 0.0im
+        if zone_of === nothing
+            zone_of = Dict{String,Int}()
+            for (k, zone) in enumerate(_galvanic_zones(net)), bid in zone
+                zone_of[bid] = k
+            end
+            for (_, vs) in get(net, "voltage_source", Dict())
+                vs isa AbstractDict || continue
+                k = get(zone_of, get(vs, "bus", nothing), 0)
+                tm = get(vs, "terminal_map", nothing); va = get(vs, "v_angle", nothing)
+                k != 0 && tm isa AbstractVector && va isa AbstractVector || continue
+                angles = get!(zone_angles, k, Dict{String,Float64}())
+                for (label, angle) in zip(tm, va)
+                    angle isa Real && isfinite(angle) && get!(angles, string(label), Float64(angle))
+                end
+            end
+        end
+        angles = get(zone_angles, get(zone_of, bus, 0), nothing)
+        angle = angles !== nothing && haskey(angles, t) ? angles[t] : get(standard, t, nothing)
+        angle === nothing ? nothing : cis(angle)
+    end
+    function direction(bus, tm)
+        a = phasor(bus, tm[1]); b = phasor(bus, tm[2])
+        (a === nothing || b === nothing) && return nothing
+        p = a - b
+        abs(p) > 1e-6 ? p / abs(p) : nothing
+    end
+
+    for id in sort!(collect(keys(sp)))
+        t = sp[id]
         t isa AbstractDict || continue
-        units = get(lighting, (get(t, "bus_from", nothing), get(t, "bus_to", nothing)), nothing)
+        f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
+        f isa AbstractString && b isa AbstractString || continue
+        units = get(lighting, (String(f), String(b)), nothing)
         units === nothing && continue
         tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
-        tm isa AbstractVector && tf isa AbstractVector || continue
-        primary = Set(string.(tf))
+        strs(tm, 2) && strs(tf, 2) || continue
+        to = string.(tm)
+        any(is_return, to) && continue                 # the power unit is phase-to-phase
         for u in units
-            # The power unit must reach a conductor beyond the two legs: a unit
-            # across the legs themselves is paralleled with the lighting winding.
-            any(x -> !(string(x) in u.legs), tm) || continue
-            # ...and its primary must sit across different conductors than the
-            # lighting unit's. Two primaries on the same conductors are in
-            # phase: their secondaries add in line instead of closing a delta,
-            # and the third conductor is not a high leg.
-            primary != u.primary || continue
-            _winding_phase_to_phase(net, t, "terminal_map_to") || continue
-            push!(out, ("single_phase", string(id)))
+            legs = (u.to[1], u.to[3])
+            shared = [x for x in to if x in legs]; fresh = [x for x in to if !(x in legs)]
+            # One end on a leg, the other on a new conductor: a unit across the
+            # two legs is paralleled with the lighting winding instead.
+            length(shared) == 1 && length(fresh) == 1 || continue
+            u1 = direction(String(f), u.from); u2 = direction(String(f), string.(tf))
+            if u1 === nothing || u2 === nothing
+                push!(out, (id=string(id), bus_from=String(f), bus_to=String(b), lighting=u.id,
+                            high=fresh, status="unverified"))
+                break
+            end
+            v_shared = shared[1] == legs[1] ? u1 : -u1          # in units of the leg level
+            v_fresh = to[1] == shared[1] ? v_shared - 2 * u2 : v_shared + 2 * u2
+            abs(abs(v_fresh) / sqrt(3.0) - 1) <= 0.1 || continue
+            push!(out, (id=string(id), bus_from=String(f), bus_to=String(b), lighting=u.id,
+                        high=fresh, status="verified"))
             break
         end
     end
     out
 end
 
-function _build_voltage_adjacency(net::Dict{String,Any})
+_high_leg_power_units(net::Dict{String,Any}) = _high_leg_power_units(_high_leg_banks(net))
+_high_leg_power_units(banks::AbstractVector)::Set{Tuple{String,String}} =
+    Set{Tuple{String,String}}(("single_phase", b.id) for b in banks)
+
+function _build_voltage_adjacency(net::Dict{String,Any};
+                                  high_leg=_high_leg_power_units(net))
     # adjacency: bus => [(neighbor, edge_type, edge_id, ratio)]
     adj = Dict{String,Vector{Tuple{String,Symbol,String,Float64}}}()
     roles = _index_roles(net)
@@ -222,7 +291,6 @@ function _build_voltage_adjacency(net::Dict{String,Any})
     # over line edges. When both a transformer and a line connect the same two
     # buses, the transformer must win to detect line-crossing violations correctly.
     xfmr = get(net, "transformer", Dict())
-    high_leg = _high_leg_power_units(net)
     for subtype in TRANSFORMER_SUBTYPES
         subtype in WINDING_LIST_SUBTYPES && continue   # n_winding below
         sub = get(xfmr, subtype, nothing)
@@ -441,12 +509,17 @@ end
 # unit fixes the scalar bus nominal), but its own ratio is still checked: its
 # secondary closes the delta across the bank's line-to-line voltage, which is
 # twice the leg level the lighting unit establishes.
-function _check_high_leg_ratio(net, id, t, assigned, findings)
+function _check_high_leg_ratio(roles, id, t, assigned, findings)
     f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
     vf_bus = get(assigned, f, nothing); leg = get(assigned, b, nothing)
     vf_ref = get(t, "v_nom_from", nothing); vt_ref = get(t, "v_nom_to", nothing)
     all(v -> v isa Real && isfinite(v) && v > 0, (vf_bus, leg, vf_ref, vt_ref)) || return
-    primary_ll = _winding_phase_to_phase(net, t, "terminal_map_from") ? sqrt(3.0) : 1.0
+    # Phase-to-phase primary: both terminals are phases under the resolved roles.
+    tf = get(t, "terminal_map_from", nothing)
+    is_return(x) = roles === nothing ? _is_convention_neutral(x) :
+        (x in roles.neutral || x in roles.earth)
+    primary_ll = tf isa AbstractVector && length(tf) == 2 && all(x -> x isa AbstractString, tf) &&
+        !any(is_return, tf) ? sqrt(3.0) : 1.0
     expected = Float64(vt_ref) / (Float64(vf_ref) / primary_ll)   # secondary L-L per primary per-conductor volt
     actual = 2 * leg / vf_bus
     abs(expected - actual) / max(expected, 1e-6) > 0.1 || return
@@ -463,15 +536,16 @@ end
 
 function _check_transformer_ratio_consistency(net::Dict{String,Any},
                                                assigned::Dict{String,Float64},
-                                               findings::Vector{Finding})
+                                               findings::Vector{Finding};
+                                               high_leg=_high_leg_power_units(net))
     xfmr = get(net, "transformer", Dict())
-    high_leg = _high_leg_power_units(net)
+    roles = _index_roles(net)
     for subtype in TRANSFORMER_SUBTYPES
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
             if (subtype, string(id)) in high_leg
-                _check_high_leg_ratio(net, string(id), t, assigned, findings)
+                _check_high_leg_ratio(roles, string(id), t, assigned, findings)
                 continue
             end
             f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)

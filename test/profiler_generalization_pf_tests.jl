@@ -59,6 +59,23 @@ using JuMP, Ipopt
         @test !isapprox(vmag(res, "svc", "c"), sqrt(3) * 120.0; rtol = 0.2)
     end
 
+    @testset "a line-to-line power primary beside a line-to-neutral lighting primary" begin
+        net = sys("na_high_leg_open_delta")
+        p = net["transformer"]["single_phase"]["power"]
+        p["terminal_map_from"] = ["a", "b"]; p["v_nom_from"] = 7200.0 * sqrt(3)
+        rep = report(net)
+        @test isempty(rep.results[:voltage_levels]["high_leg_banks"])
+        @test "E.VOLT.LEVEL_MISMATCH" in [f.code for f in rep.findings]
+        res = solve(net)
+        @test vmag(res, "svc", "a") ≈ 120.0 rtol = 0.03
+        @test vmag(res, "svc", "c") ≈ 349.0 rtol = 0.03      # not sqrt(3) x 120 = 208
+        # One winding of the power unit reversed: sqrt(7) x 120 V.
+        net = sys("na_high_leg_open_delta")
+        net["transformer"]["single_phase"]["power"]["terminal_map_to"] = ["c", "b"]
+        @test isempty(report(net).results[:voltage_levels]["high_leg_banks"])
+        @test vmag(solve(net), "svc", "c") ≈ sqrt(7) * 120.0 rtol = 0.03
+    end
+
     @testset "an island is referenced exactly when the profiler says so" begin
         # Referenced through cable capacitance: phase-to-earth voltages are the
         # balanced nominal.
