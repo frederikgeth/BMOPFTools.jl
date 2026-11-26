@@ -89,14 +89,13 @@ function connectivity_analysis(net::Dict{String,Any},
     end
 
     # Transformers (each winding pair is an edge). Single-phase units that join
-    # the same two buses on DIFFERENT conductor sets are one bank (three L-N
-    # units, an open-wye/open-delta pair, a high-leg lighting + power pair):
-    # the bank is a single branch of the bus graph, not a cycle. Units on the
-    # SAME conductors are genuinely parallel and still close a loop.
+    # the same two buses on DIFFERENT secondary conductors are one bank (three
+    # L-N units, an open-wye/open-delta pair, a high-leg lighting + power pair):
+    # the bank is a single branch of the bus graph, not a cycle. The grouping is
+    # shared with the physical branch inventory, so this verdict and the cycle
+    # evidence in `structure` count the same branches.
     xfmr = get(net, "transformer", Dict())
-    bank_maps = Dict{Tuple{String,String},Vector{Set{String}}}()
-    bank_units = Dict{Tuple{String,String},Vector{String}}()
-    bank_neutrals = roles === nothing ? nothing : roles.neutral
+    banks = _transformer_bank_groups(net)
     for subtype in TRANSFORMER_SUBTYPES
         subtype in WINDING_LIST_SUBTYPES && continue   # n_winding below
         sub = get(xfmr, subtype, nothing)
@@ -106,29 +105,12 @@ function connectivity_analysis(net::Dict{String,Any},
             t isa AbstractDict || continue
             bf = get(t, "bus_from", nothing); bt = get(t, "bus_to", nothing)
             check_self_loop!("transformer ($subtype)", id, bf, bt)
-            if subtype in _BANKABLE_SUBTYPES && bf isa AbstractString &&
-                    bt isa AbstractString && bf != bt
-                key = (String(bf), String(bt))
-                sig = _bank_unit_signature(t, bank_neutrals)
-                seen = get!(bank_maps, key, Set{String}[])
-                units = get!(bank_units, key, String[])
-                # A further leg lands on secondary phase conductors that no
-                # earlier unit already spans, in whole or in part of a pair:
-                # neither a subset nor a superset of an earlier unit's set.
-                if sig !== nothing && !isempty(seen) &&
-                        !any(s -> issubset(sig, s) || issubset(s, sig), seen)
-                    push!(seen, sig); push!(units, string(id))
-                    continue                     # another leg of the same bank
-                end
-                sig === nothing || sig in seen || push!(seen, sig)
-                push!(units, string(id))
-            end
+            (subtype, string(id)) in banks.merged && continue   # a further leg of a bank
             add_edge_safe!(bf, bt)
         end
     end
-    result["transformer_banks"] = [Dict{String,Any}("bus_from" => k[1], "bus_to" => k[2],
-            "units" => sort(bank_units[k]))
-        for k in sort!(collect(keys(bank_units))) if length(bank_maps[k]) > 1]
+    result["transformer_banks"] = [g for g in banks.groups if length(g["units"]) > 1]
+    result["transformer_bank_groups"] = banks.groups
 
     # n-winding transformers: connect winding 1's bus to every other winding's.
     for (id, t) in get(xfmr, "n_winding", Dict())
@@ -298,7 +280,21 @@ function connectivity_analysis(net::Dict{String,Any},
             tm_to = ct_rec isa AbstractDict ? get(ct_rec, "terminal_map_to", nothing) : nothing
             legs = tm_to isa AbstractVector && length(tm_to) == 3 ?
                 sort!([string(tm_to[1]), string(tm_to[3])]) : sort(collect(z.phases))
-            high = sort!(collect(setdiff(z.phases, legs)))
+            # The high leg comes from the identified bank: the conductors a
+            # high-leg power unit (the same units the voltage-level pass
+            # reports) lands beyond the two legs. Another phase conductor in
+            # the zone is listed separately, without a claim about its voltage.
+            high_set = Set{String}()
+            sp_units = get(get(net, "transformer", Dict()), "single_phase", Dict())
+            for (_, uid) in _high_leg_power_units(net)
+                u = sp_units isa AbstractDict ? get(sp_units, uid, nothing) : nothing
+                u isa AbstractDict && get(u, "bus_to", nothing) in z.buses || continue
+                for x in get(u, "terminal_map_to", String[])
+                    string(x) in legs || push!(high_set, string(x))
+                end
+            end
+            high = sort!(collect(high_set))
+            other = sort!(collect(setdiff(z.phases, legs, high)))
             push!(findings, Finding(INFO, "I.PROV.SPLIT_PHASE_ZONE", :connectivity,
                 :network, nothing,
                 "Galvanic zone anchored at bus '$(z.label)' is split-phase " *
@@ -309,7 +305,8 @@ function connectivity_analysis(net::Dict{String,Any},
                     "phase-to-neutral voltage differs from the legs'."),
                 Dict{String,Any}("zone_anchor" => z.label, "center_tap" => ct_id,
                                  "phases" => sort(collect(z.phases)),
-                                 "legs" => legs, "high_leg" => high)))
+                                 "legs" => legs, "high_leg" => high,
+                                 "other_phases" => other)))
         elseif z.topology == :swer
             push!(findings, Finding(INFO, "I.PROV.SWER_ZONE", :connectivity,
                 :network, nothing,
@@ -472,6 +469,7 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
             # line or switch. It is skipped on purpose: a neutral bond is not
             # a zone interface.
             edge.continuous && continue
+            edge.kind == "dc_link" && continue      # a converter link, not a transformer
             transformer_id = edge.kind == "transformer:n_winding" ? first(rsplit(edge.id, ":"; limit=2)) : edge.id
             push!(incident[a], "$(edge.kind):$transformer_id")
             push!(incident[b], "$(edge.kind):$transformer_id")
@@ -486,6 +484,13 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
             _topology_counts(sort!(collect(zone)), zone_edges[i])))
     end
     whole = _topology_counts(buses, edges)
+    # What one "physical branch" is in these counts and in the cycle witnesses.
+    whole["branch_scope"] = "lines; closed switches; two-bus transformers, with a bank of " *
+        "single-phase units counted once; n_winding winding pairs; DC links between " *
+        "converters on one DC island. Neutral-only lines and switches are included here " *
+        "and reported separately as neutral_only_cycle_rank by the mesh verdict."
+    whole["n_merged_bank_legs"] = inventory.n_merged_bank_legs
+    whole["n_dc_links"] = inventory.n_dc_links
     zone_rank = sum(z["cycle_rank"] for z in zones; init=0)
     whole["transformer_mediated_cycle_rank"] = whole["cycle_rank"] - zone_rank
 
@@ -795,6 +800,75 @@ function _dc_link_ac_groups(net)::Vector{Vector{String}}
         push!(get!(groups, find(d), Set{String}()), b)
     end
     sort!([sort!(collect(g)) for g in values(groups) if length(g) >= 2])
+end
+
+"""
+    _transformer_bank_groups(net) -> (merged, groups)
+
+Resolve, per ordered `(bus_from, bus_to)` pair, which single-phase units form
+one bank. The whole pair is resolved before anything is counted, and the result
+does not depend on component ids:
+
+- units are ordered by their secondary phase-conductor set (smaller sets first);
+- a unit is a **leg** when its set neither contains nor is contained in the set
+  of a leg already taken; otherwise it is **parallel** to the bank;
+- a unit whose maps cannot be read is **unassessed** and stays its own branch.
+
+Among units with identical sets one is a leg and the rest are parallel, so the
+count is the same whichever id sorts first. `groups` reports `units` (the legs),
+`parallel_units`, `unassessed_units`, and `ambiguous`, which is true when a unit
+partly overlaps the legs (for example `a–b` beside `a–n` and `b–n`): the
+grouping is then one reading of the data, recorded rather than hidden.
+`merged` holds the `(subtype, id)` of every leg beyond the first of its bank:
+the branches a bus graph must not count separately.
+"""
+function _transformer_bank_groups(net)
+    merged = Set{Tuple{String,String}}()
+    groups = Dict{String,Any}[]
+    xfmr = get(net, "transformer", Dict())
+    xfmr isa AbstractDict || return (merged=merged, groups=groups)
+    roles = _index_roles(net)
+    neutrals = roles === nothing ? nothing : roles.neutral
+    pairs = Dict{Tuple{String,String},Vector{Any}}()
+    for subtype in _BANKABLE_SUBTYPES
+        sub = get(xfmr, subtype, nothing)
+        sub isa AbstractDict || continue
+        for (id, t) in sub
+            t isa AbstractDict || continue
+            bf = get(t, "bus_from", nothing); bt = get(t, "bus_to", nothing)
+            bf isa AbstractString && bt isa AbstractString && bf != bt || continue
+            sig = _bank_unit_signature(t, neutrals)
+            push!(get!(pairs, (String(bf), String(bt)), Any[]),
+                  (subtype=subtype, id=string(id), sig=sig))
+        end
+    end
+    for key in sort!(collect(keys(pairs)))
+        units = pairs[key]
+        length(units) > 1 || continue
+        assessed = sort!([u for u in units if u.sig !== nothing],
+                         by = u -> (length(u.sig), sort!(collect(u.sig)), u.subtype, u.id))
+        legs = eltype(assessed)[]; parallel = eltype(assessed)[]; ambiguous = false
+        for u in assessed
+            clash = [l for l in legs if issubset(u.sig, l.sig) || issubset(l.sig, u.sig)]
+            if isempty(clash)
+                push!(legs, u)
+            else
+                push!(parallel, u)
+                any(l -> l.sig != u.sig, clash) && (ambiguous = true)
+            end
+        end
+        for l in legs[2:end]
+            push!(merged, (l.subtype, l.id))
+        end
+        push!(groups, Dict{String,Any}("bus_from" => key[1], "bus_to" => key[2],
+            "units" => sort!([l.id for l in legs]),
+            "parallel_units" => sort!([u.id for u in parallel]),
+            "unassessed_units" => sort!([u.id for u in units if u.sig === nothing]),
+            "ambiguous" => ambiguous,
+            "n_branches" => (isempty(legs) ? 0 : 1) + length(parallel) +
+                            count(u -> u.sig === nothing, units)))
+    end
+    (merged=merged, groups=groups)
 end
 
 # Single-phase unit subtypes that are banked in practice.

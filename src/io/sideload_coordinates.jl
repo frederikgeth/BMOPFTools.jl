@@ -12,7 +12,9 @@ and `net["meta"]["crs"]` is set to the local Cartesian declaration
 reads, so `Buscoords` in feet or meters (IEEE test feeders, State Plane or any
 projected grid treated as a local plane) can be used directly. `units` is then
 required: `"m"`, `"km"`, `"ft"`, `"ftUS"` (US survey foot), `"kft"` or `"mi"`.
-An existing, different `meta.crs` is an error rather than being overwritten.
+The resulting frame is resolved before anything is written: an existing frame,
+unit or axis declaration that disagrees (at the root or in `meta`) is an error,
+and the case is left untouched.
 
 Returns the number of buses matched and the number of CSV rows skipped
 because the bus ID was not present in `net` (open-switch stub buses and
@@ -44,19 +46,26 @@ function sideload_coordinates!(net::Dict{String,Any}, csv_path::AbstractString;
         isempty(strip(name)) && throw(ArgumentError("the Cartesian frame name must not be empty"))
         declaration = Dict{String,Any}("type" => "cartesian", "name" => String(strip(name)),
                                        "units" => first(parsed))
-        # Any frame declaration already present, under any accepted key at the
-        # root or in meta, must be this one: a second, different declaration
-        # would leave the case ambiguous after a seemingly successful load.
-        for (path, existing) in _coordinate_declarations(net, _SPATIAL_CRS_KEYS)
-            existing == declaration || throw(ArgumentError(
-                "the case already declares a coordinate frame at $path ($(repr(existing))); " *
-                "remove it before loading Cartesian coordinates"))
-        end
+        # Resolve the PROSPECTIVE frame with the resolver the profiler uses,
+        # before anything is written: an existing declaration under any
+        # accepted key, existing coordinate_units or coordinate_axis_order, at
+        # the root or in meta, must agree with this one. A load that would
+        # leave the case ambiguous is refused, and the case stays untouched.
         get(net, "meta", Dict{String,Any}()) isa AbstractDict ||
             throw(ArgumentError("net[\"meta\"] must be an object"))
-        meta = get!(net, "meta", Dict{String,Any}())
-        meta isa AbstractDict || throw(ArgumentError("net[\"meta\"] must be an object"))
-        meta["crs"] = declaration
+        prospective = copy(net)
+        prospective["meta"] = merge(Dict{String,Any}(get(net, "meta", Dict{String,Any}())),
+                                    Dict{String,Any}("crs" => declaration))
+        haskey(get(net, "meta", Dict{String,Any}()), "crs") &&
+            net["meta"]["crs"] != declaration && throw(ArgumentError(
+                "net[\"meta\"][\"crs\"] already declares $(repr(net["meta"]["crs"])); " *
+                "remove it before loading Cartesian coordinates"))
+        frame_check = _coordinate_frame(prospective)
+        frame_check.status == "declared_cartesian" || throw(ArgumentError(
+            "loading these coordinates would leave the coordinate frame $(frame_check.status) " *
+            "($(join(frame_check.report["issues"], ", "))); existing declarations: " *
+            "$(repr(frame_check.report["declarations"])). Remove or correct them first"))
+        get!(net, "meta", Dict{String,Any}())["crs"] = declaration
     elseif units !== nothing
         throw(ArgumentError("units apply to frame=:cartesian only"))
     end

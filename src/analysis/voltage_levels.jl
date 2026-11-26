@@ -425,6 +425,30 @@ function _check_level_crossing_lines(net::Dict{String,Any},
     end
 end
 
+# A high-leg power unit is left out of level propagation (the center-tapped
+# unit fixes the scalar bus nominal), but its own ratio is still checked: its
+# secondary closes the delta across the bank's line-to-line voltage, which is
+# twice the leg level the lighting unit establishes.
+function _check_high_leg_ratio(net, id, t, assigned, findings)
+    f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
+    vf_bus = get(assigned, f, nothing); leg = get(assigned, b, nothing)
+    vf_ref = get(t, "v_nom_from", nothing); vt_ref = get(t, "v_nom_to", nothing)
+    all(v -> v isa Real && isfinite(v) && v > 0, (vf_bus, leg, vf_ref, vt_ref)) || return
+    primary_ll = _winding_phase_to_phase(net, t, "terminal_map_from") ? sqrt(3.0) : 1.0
+    expected = Float64(vt_ref) / (Float64(vf_ref) / primary_ll)   # secondary L-L per primary per-conductor volt
+    actual = 2 * leg / vf_bus
+    abs(expected - actual) / max(expected, 1e-6) > 0.1 || return
+    push!(findings, Finding(WARNING, "W.VOLT.XFMR_RATIO",
+        :voltage_levels, :transformer, id,
+        "Transformer '$id' is the power unit of a high-leg delta bank, but its turns ratio " *
+        "$(round(expected, digits=4)) is inconsistent with the bank's line-to-line voltage " *
+        "(twice the $(round(leg, digits=1)) V leg level set by the center-tapped unit: " *
+        "ratio $(round(actual, digits=4))).",
+        Dict{String,Any}("id" => id, "turns_ratio" => expected, "bus_ratio" => actual,
+            "basis" => "high_leg_line_to_line", "leg_level_v" => leg,
+            "bank_line_to_line_v" => 2 * leg, "v_nom_to" => Float64(vt_ref))))
+end
+
 function _check_transformer_ratio_consistency(net::Dict{String,Any},
                                                assigned::Dict{String,Float64},
                                                findings::Vector{Finding})
@@ -434,7 +458,10 @@ function _check_transformer_ratio_consistency(net::Dict{String,Any},
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
-            (subtype, string(id)) in high_leg && continue
+            if (subtype, string(id)) in high_leg
+                _check_high_leg_ratio(net, string(id), t, assigned, findings)
+                continue
+            end
             f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
             vf_bus = get(assigned, f, nothing)
             vt_bus = get(assigned, b, nothing)

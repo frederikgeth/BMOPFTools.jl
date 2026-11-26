@@ -43,7 +43,7 @@ What counts as a tie to the reference:
 | `perfectly_grounded_terminals` on a bus | a zero-impedance tie |
 | a `voltage_source` | pins each of its terminals, and the neutral of its bus |
 | a `shunt` with nonzero row sums (for example a one-terminal earth electrode) | a finite tie |
-| line shunt admittance to earth (`G/B_from/to`, the line's capacitance) | a finite tie at both ends |
+| line shunt admittance to earth (`G/B_from/to`, the line's capacitance), as the engine stamps it: from the linecode scaled by length, or from the line itself when it carries inline impedance; over the mapped conductors only | a finite tie at both ends |
 | a transformer's `r_neutral_*` / `x_neutral_*` on a side with a neutral terminal | a finite tie at the winding's star point |
 
 A delta-connected capacitor bank, whose admittance rows sum to zero, ties

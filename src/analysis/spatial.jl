@@ -156,7 +156,9 @@ function _spatial_length_scale(chord_rows; min_lines::Int=10, min_chord_m::Float
                            if r.chord >= min_chord_m && r.length > 0])
     out = Dict{String,Any}("status" => "indeterminate", "reason" => "too_few_lines",
         "n_lines" => length(ratios), "min_lines" => min_lines, "min_chord_m" => min_chord_m,
-        "median_length_to_chord" => nothing, "factor" => nothing, "reading" => nothing)
+        "median_length_to_chord" => nothing, "factor" => nothing, "reading" => nothing,
+        "length_basis" => "the per-line comparison length: meta.physical_length_m when declared, " *
+            "else the declared length unless it is regularized or an inline-impedance placeholder")
     length(ratios) >= min_lines || return out
     n = length(ratios)
     med = isodd(n) ? ratios[(n + 1) ÷ 2] : (ratios[n ÷ 2] + ratios[n ÷ 2 + 1]) / 2
@@ -594,6 +596,7 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
     lengths_by_level = Dict{String,Vector{Float64}}()
     length_rows = NamedTuple[]
     chord_rows = NamedTuple[]
+    scale_rows = NamedTuple[]
     route_gap_rows = NamedTuple[]
     context_rows = Dict{String,Any}[]
     n_route_length_mismatch = 0
@@ -632,6 +635,11 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
                 Dict{String,Any}("from_xy_m" => collect(metric_coords[from]),
                                  "to_xy_m" => collect(metric_coords[to]))
             reference_length = context["comparison_length_m"]
+            # The network-wide unit check follows the same length basis as the
+            # per-line checks: the physical length when one is declared, no
+            # regularized electrical length, no placeholder.
+            reference_length !== nothing && !placeholder_length &&
+                push!(scale_rows, (length=reference_length, chord=chord))
             if declared_frame && !placeholder_length && "far_longer_than_chord" in context["contexts"]
                 push!(findings, Finding(WARNING, "W.GEO.LINE_LONGER_THAN_CHORD",
                     :connectivity, :line, string(id),
@@ -692,11 +700,11 @@ function _spatial_analysis(net::Dict{String,Any}, voltage_levels::Dict{String,An
         end
     end
 
-    length_scale = _spatial_length_scale(chord_rows)
+    length_scale = _spatial_length_scale(scale_rows)
     if crs_status in ("declared_wgs84", "declared_cartesian") && length_scale["status"] == "suspect"
         push!(findings, Finding(WARNING, "W.GEO.LENGTH_SCALE_SUSPECT", :connectivity,
             :network, nothing,
-            "Across $(length_scale["n_lines"]) lines the median ratio of declared length to " *
+            "Across $(length_scale["n_lines"]) lines the median ratio of physical length to " *
             "bus-to-bus distance is $(round(length_scale["median_length_to_chord"], sigdigits=4)), " *
             "close to $(length_scale["factor"]): $(length_scale["reading"]). " *
             "A consistent factor points at a unit, not at individual lines.",

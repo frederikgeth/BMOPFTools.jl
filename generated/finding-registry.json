@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "df8bff6c30fdfaceb27a87ddbca06ec83b3316e1135ca08bf40e64a510ae35f4"
+    "sha256": "9b354f138b9a5562b53dfae675021e42850895d8f5bd24136a0aea3a12fdb65a"
   },
   "finding_count": 394,
   "findings": [
@@ -235,7 +235,7 @@
       "namespace": "CONN",
       "catalogue_section": "CONN",
       "section_title": "connectivity & topology",
-      "meaning": "Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail. Single-phase transformer units that join the same two buses on different conductors are one bank (`transformer_banks` in the result) and count as one branch; units on the same conductors are parallel and do close a cycle. Radiality is assessed over phase-carrying branches: a line or closed switch that maps only neutral- or earth-role terminals at both ends (for example, a neutral bond beside a service transformer) closes no phase-conductor cycle. Such cycles are counted in `neutral_only_cycle_rank` (result and detail) and do not raise this warning.",
+      "meaning": "Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail. Single-phase transformer units that join the same two buses on different secondary phase conductors are one bank (`transformer_banks` in the result) and count as one branch; a unit across conductors the bank already spans is parallel and does close a cycle (`transformer_bank_groups` lists legs, parallel units and whether the grouping is ambiguous, independently of component ids). DC links between converters on one DC island are branches. The verdict and the cycle evidence in the detail are computed from one branch inventory, whose scope is stated in `structure.whole_network.branch_scope`. Radiality is assessed over phase-carrying branches: a line or closed switch that maps only neutral- or earth-role terminals at both ends (for example, a neutral bond beside a service transformer) closes no phase-conductor cycle. Such cycles are counted in `neutral_only_cycle_rank` (result and detail) and do not raise this warning.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -285,7 +285,7 @@
       "namespace": "GEO",
       "catalogue_section": "GEO",
       "section_title": "declared coordinate frames",
-      "meaning": "Across at least ten lines with a chord of 10 m or more, the median ratio of declared length to bus-to-bus distance sits within 5 % of a known unit factor (kilometers, feet, kilofeet or miles stored as meters; coordinates in feet or kilometers declared as meters) and at least 60 % of the lines agree. One network-level Finding: a consistent factor is a unit, not a route.",
+      "meaning": "Across at least ten lines with a chord of 10 m or more, the median ratio of physical length (the same per-line comparison basis as the chord checks: `meta.physical_length_m` when declared, never a regularized electrical length or an inline-impedance placeholder) to bus-to-bus distance sits within 5 % of a known unit factor (kilometers, feet, kilofeet or miles stored as meters; coordinates in feet or kilometers declared as meters) and at least 60 % of the lines agree. One network-level Finding: a consistent factor is a unit, not a route.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -345,7 +345,7 @@
       "namespace": "VOLT",
       "catalogue_section": "VOLT",
       "section_title": "voltage levels",
-      "meaning": "A transformer's `v_nom` turns ratio disagrees (>10 %) with the voltage ratio of the levels it actually connects — ratio and placement are inconsistent.",
+      "meaning": "A transformer's `v_nom` turns ratio disagrees (>10 %) with the voltage ratio of the levels it actually connects — ratio and placement are inconsistent. The power unit of a high-leg delta bank is checked against the bank's line-to-line voltage (twice the leg level set by the center-tapped unit; `basis = high_leg_line_to_line`).",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1721,7 +1721,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "A galvanic zone is fed by a `center_tap` transformer — a split-phase section (NA 120-0-120, AU 230-0-230 downstream of SWER). The two legs are anti-phase about the center-tap neutral; the OPF warm-start initializes them 180° apart accordingly.",
+      "meaning": "A galvanic zone is fed by a `center_tap` transformer — a split-phase section (NA 120-0-120, AU 230-0-230 downstream of SWER). The two legs are anti-phase about the center-tap neutral; the OPF warm-start initializes them 180° apart accordingly. `detail[\"legs\"]` are the center-tapped winding's outer terminals; `detail[\"high_leg\"]` lists conductors landed by an identified high-leg power unit (the units in `results[:voltage_levels][\"high_leg_units\"]`), and `detail[\"other_phases\"]` any further phase conductor in the zone, without a claim about its voltage.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2194,7 +2194,7 @@
       "namespace": "INT",
       "catalogue_section": "INT",
       "section_title": "structural integrity",
-      "meaning": "A galvanic island (transformer windings are separations) with no source, perfect grounding, grounding shunt, line shunt admittance to earth (modeled line capacitance: an unearthed delta or IT island is referenced through it), or transformer neutral impedance (`r/x_neutral_from`/`to` on a side that has a neutral terminal — impedance and resonant earthing) — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island.",
+      "meaning": "A galvanic island (transformer windings are separations) with no source, perfect grounding, grounding shunt, line shunt admittance to earth as the admittance builders stamp it (modeled line capacitance: an unearthed delta or IT island is referenced through it; one impedance source per line — inline totals, else the linecode scaled by length — and only the block over the mapped conductors, so a shunt entry the engine never stamps is not a reference), or transformer neutral impedance (`r/x_neutral_from`/`to` on a side that has a neutral terminal — impedance and resonant earthing) — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island.",
       "contract_id": null,
       "knowledge_ids": []
     },

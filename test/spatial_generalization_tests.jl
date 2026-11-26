@@ -173,6 +173,40 @@ using BMOPFTools
         @test !("W.GEO.LENGTH_SCALE_SUSPECT" in geo(r.findings))
         mixed = vcat([chordm * 0.001 for _ in 1:7], [chordm for _ in 1:6])
         @test !("W.GEO.LENGTH_SCALE_SUSPECT" in geo(run(chain("EPSG:4326", at, mixed)).findings))
+        # The aggregate follows the per-line length basis. Twelve 1 km spans
+        # with inline impedance and the OpenDSS placeholder length are not
+        # "kilometers stored as meters": the length is not a physical quantity.
+        km(k) = (153.0 + 0.0101379k, -27.0)                # ~1000 m spans
+        inline() = begin
+            net = chain("EPSG:4326", km, fill(1.0, 12))
+            for l in values(net["line"])
+                delete!(l, "linecode"); l["R_series_1_1"] = 0.3; l["X_series_1_1"] = 0.1
+            end
+            net
+        end
+        r = run(inline())
+        @test isempty(geo(r.findings))
+        @test spatial(r)["length_scale"]["n_lines"] == 0
+        @test spatial(r)["length_scale"]["status"] == "indeterminate"
+        # With a declared physical length, that length is what is compared.
+        net = inline()
+        for l in values(net["line"])
+            l["meta"] = Dict{String,Any}("physical_length_m" => 1000.0, "electrical_length_regularized" => true)
+        end
+        r = run(net)
+        @test !("W.GEO.LENGTH_SCALE_SUSPECT" in geo(r.findings))
+        @test spatial(r)["length_scale"]["status"] == "passed"
+        @test spatial(r)["length_scale"]["median_length_to_chord"] ≈ 1.0 rtol = 0.01
+        # A regularized electrical length without a physical one is not sampled.
+        net = chain("EPSG:4326", km, fill(1.0, 12))
+        for l in values(net["line"]); l["meta"] = Dict{String,Any}("electrical_length_regularized" => true); end
+        r = run(net)
+        @test spatial(r)["length_scale"]["n_lines"] == 0 && isempty(geo(r.findings))
+        # A physical length that IS off by a unit is still caught.
+        net = inline()
+        for l in values(net["line"]); l["meta"] = Dict{String,Any}("physical_length_m" => 1.0); end
+        @test "W.GEO.LENGTH_SCALE_SUSPECT" in geo(run(net).findings)
+
         # The scale Finding is rolled up with, not instead of, the per-line ones.
         r = run(chain("EPSG:4326", at, [chordm * 0.001 for _ in 1:30]))
         short = only(x for x in r.findings if x.code == "W.GEO.LINE_SHORTER_THAN_CHORD")
@@ -255,6 +289,21 @@ using BMOPFTools
         conflict = base(); conflict["meta"] = Dict{String,Any}("crs" => "EPSG:4326")
         @test_throws ArgumentError sideload_coordinates!(conflict, csv; frame=:cartesian, units="m")
         @test !haskey(conflict["bus"]["b1"], "x")              # nothing written on refusal
+        # Existing unit or axis metadata that disagrees is found BEFORE anything
+        # is written: the same resolver the profiler uses judges the result.
+        for (key, value) in (("coordinate_units", "m"), ("coordinate_axis_order", ["y", "x"]))
+            for where_ in (:root, :meta)
+                c = base()
+                where_ == :root ? (c[key] = value) : (c["meta"] = Dict{String,Any}(key => value))
+                before = deepcopy(c)
+                @test_throws ArgumentError sideload_coordinates!(c, csv; frame=:cartesian, units="ft")
+                @test c == before
+            end
+        end
+        # Agreeing metadata is accepted, and the loaded case is a clean frame.
+        ok = base(); ok["coordinate_units"] = "ft"
+        @test sideload_coordinates!(ok, csv; frame=:cartesian, units="ft") == (3, 1)
+        @test spatial(run(ok))["coordinate_reference"]["status"] == "declared_cartesian"
         # A declaration under another accepted key, at the root, conflicts too,
         # and the refused call leaves the case untouched.
         aliased = base(); aliased["coordinate_reference_system"] = "EPSG:4326"

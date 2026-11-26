@@ -58,6 +58,11 @@ Initial General release candidate. Registration has not yet been requested.
     `W.GEO.COORDINATE_OUTLIER` (null-island placeholders, positions far outside
     the network). `W.GEO.WGS84_RANGE` records whether the values are valid with
     the axes exchanged.
+  - **One graph for the mesh verdict and its evidence.** Banks and DC links are
+    part of the shared branch inventory (`branch_scope` states it), bank
+    grouping is resolved per bus pair independently of component ids
+    (`transformer_bank_groups`), and the power unit of a high-leg bank keeps a
+    ratio check against the bank's line-to-line voltage.
   - **Fixtures.** `test/data/profiler_systems`: North American MGN with
     split-phase service, high-leg open delta, European TN four-wire, unearthed
     delta island (referenced and not), Japanese three-wire with V-connection,

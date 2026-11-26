@@ -122,7 +122,19 @@ entry gives `bus_from`, `bus_to` and the sorted `units`. A bank is one branch of
 the bus graph for radiality, and supplies the union of its legs' phases. A unit
 whose secondary phase conductors another unit already spans (the same pair, or
 the two legs of a center-tapped winding) is a parallel transformer: it is not
-listed and closes a cycle.
+a leg and closes a cycle.
+
+`results[:connectivity]["transformer_bank_groups"]` gives the full resolution
+for every bus pair with more than one single-phase unit: `units` (the legs),
+`parallel_units`, `unassessed_units` (maps that cannot be read), `n_branches`,
+and `ambiguous`, true when a unit partly overlaps the legs, as `a–b` beside
+`a–n` and `b–n` does. The grouping is resolved for the whole pair before
+anything is counted and does not depend on component ids.
+
+`results[:connectivity]["structure"]["whole_network"]["branch_scope"]` states
+what one physical branch is in the cycle counts and witnesses; the mesh verdict
+uses the same branches, so `n_extra_edges + neutral_only_cycle_rank` equals
+`whole_network["cycle_rank"]`.
 
 `results[:connectivity]["dc_links"]` lists groups of AC buses whose converters
 share one DC island; the buses of a group are connected through it.
@@ -159,7 +171,7 @@ transformer ratios. Three cases need care when reading it:
   The map holds the center-tapped leg voltage, the bus is listed in
   `mixed_phase_to_neutral_buses`, and the power units that create the high leg are
   listed in `high_leg_units`. The high leg sits at √3 times the leg voltage to
-  neutral.
+  neutral. A power unit's own ratio is still checked, against twice the leg level.
 
 ### Transformer phase evidence
 

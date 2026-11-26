@@ -45,11 +45,15 @@ function _physical_branch_inventory(net::Dict{String,Any})
         end
     end
     transformers = get(net, "transformer", Dict())
+    # One branch per bank of single-phase units: the same grouping the mesh
+    # verdict uses, so the verdict and its cycle evidence agree.
+    banks = _transformer_bank_groups(net)
     for subtype in TRANSFORMER_SUBTYPES
         subtype in WINDING_LIST_SUBTYPES && continue
         sub = get(transformers, subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
+            (subtype, string(id)) in banks.merged && continue
             edge = branch("transformer:$subtype", id, get(t, "bus_from", nothing),
                           get(t, "bus_to", nothing), subtype in GALVANIC_CONTINUOUS_SUBTYPES)
             edge === nothing || (push!(fixed, edge); push!(declared, edge))
@@ -64,11 +68,22 @@ function _physical_branch_inventory(net::Dict{String,Any})
             edge === nothing || (push!(fixed, edge); push!(declared, edge))
         end
     end
+    # DC links: AC buses whose converters share a DC island, chained in sorted
+    # order exactly as the connectivity graph inserts them.
+    n_dc_links = 0
+    for group in _dc_link_ac_groups(net)
+        for k in 2:length(group)
+            edge = branch("dc_link", "$(group[k-1])|$(group[k])", group[k-1], group[k], false)
+            edge === nothing && continue
+            push!(fixed, edge); push!(declared, edge); n_dc_links += 1
+        end
+    end
     sort!(switches, by=s -> s.id)
     sort!(invalid_switches)
     sort!(skipped_ids)
     (buses=buses, fixed=fixed, declared=declared, switches=switches,
-     invalid_switches=invalid_switches, skipped=skipped, skipped_ids=skipped_ids)
+     invalid_switches=invalid_switches, skipped=skipped, skipped_ids=skipped_ids,
+     n_merged_bank_legs=length(banks.merged), n_dc_links=n_dc_links)
 end
 
 # The declared conductor-path pass and switch counterfactuals use the same

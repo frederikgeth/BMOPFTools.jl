@@ -10,6 +10,32 @@
 #   §3     symmetry/degeneracy       → identical generator costs
 # plus referential integrity (dangling bus/linecode/terminal references).
 
+# Whether the Π-shunt block a line contributes to the nodal admittance has a
+# path to earth. Mirrors `_line_yprim_block`: the same impedance-source choice,
+# length scaling and conductor truncation. Malformed data is not a reference.
+function _line_stamps_earth_shunt(line::Dict{String,Any}, linecodes::AbstractDict)::Bool
+    try
+        Z, nz = _line_z_complex(line, linecodes)
+        Z === nothing && return false
+        tmf = get(line, "terminal_map_from", nothing); tmt = get(line, "terminal_map_to", nothing)
+        tmf isa AbstractVector && tmt isa AbstractVector || return false
+        n = min(nz, length(tmf), length(tmt))
+        n == 0 && return false
+        for Y in _line_shunt_complex(line, linecodes)
+            Y === nothing && continue
+            size(Y, 1) >= n && size(Y, 2) >= n || continue
+            block = Y[1:n, 1:n]
+            all(isfinite, block) || continue
+            scale = maximum(abs, block)
+            scale > 0 || continue
+            any(abs(sum(block[i, :])) > 1e-9 * scale for i in 1:n) && return true
+        end
+        return false
+    catch
+        return false
+    end
+end
+
 """
     integrity_check(net, findings) -> Dict{String,Any}
 
@@ -450,33 +476,20 @@ function integrity_check(net::Dict{String,Any},
             push!(grounded_buses, b)
     end
 
-    # A line's shunt admittance to earth (its capacitance, G/B_from/to on the
-    # line or its linecode) is a finite path to the reference at both ends: an
-    # unearthed delta or IT island with modeled line capacitance is referenced
-    # through it, exactly as the admittance builders stamp it. A matrix whose
-    # rows sum to zero is purely phase-to-phase and anchors nothing.
+    # A line's shunt admittance to earth (its capacitance) is a finite path to
+    # the reference at both ends: an unearthed delta or IT island with modeled
+    # line capacitance is referenced through it. The test reads exactly what the
+    # admittance builders stamp, so the profiler and the engine cannot disagree:
+    # ONE impedance source (inline totals, else the linecode scaled by length),
+    # and only the leading block over the mapped conductors. A block whose rows
+    # sum to zero is purely phase-to-phase and anchors nothing.
     linecodes_ref = get(net, "linecode", Dict())
-    function _shunts_to_earth(obj)
-        obj isa AbstractDict || return false
-        for prefix in ("G_from_", "B_from_", "G_to_", "B_to_")
-            # Malformed entries (null, strings) are reported by the schema and
-            # dimension checks; here they simply are not a reference.
-            all(v -> v isa Real, (v for (k, v) in obj if startswith(string(k), prefix))) || continue
-            M = _pattern_keys_to_matrix(obj, prefix)
-            M isa AbstractMatrix && !isempty(M) || continue
-            scale = maximum(abs, M)
-            scale > 0 || continue
-            any(abs(sum(M[i, :])) > 1e-9 * scale for i in 1:size(M, 1)) && return true
-        end
-        false
-    end
+    linecodes_ref isa AbstractDict || (linecodes_ref = Dict{String,Any}())
     for (_, l) in get(net, "line", Dict())
-        l isa AbstractDict || continue
+        l isa Dict{String,Any} || continue
         f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
         f isa AbstractString && t isa AbstractString || continue
-        lc = get(l, "linecode", nothing)
-        (_shunts_to_earth(l) ||
-         (lc isa AbstractString && _shunts_to_earth(get(linecodes_ref, lc, nothing)))) || continue
+        _line_stamps_earth_shunt(l, linecodes_ref) || continue
         push!(grounded_buses, f); push!(grounded_buses, t)
     end
 

@@ -443,10 +443,40 @@ end
         vl = voltage_level_analysis(net, Finding[])
         @test isempty(vl["mixed_phase_to_neutral_buses"])
         @test vl["bus_voltage_map"]["svc"] ≈ 240.0 / sqrt(3)
-        # Boundary: a line-to-neutral unit beside a center tap is not a high leg.
+        # Boundary: a line-to-neutral unit beside a center tap is not a high leg,
+        # and both passes say so: no high leg in the split-phase finding either,
+        # and the unit's 240 V against the 120 V level is an ordinary mismatch.
         net = _pg_sys("na_high_leg_open_delta")
         net["transformer"]["single_phase"]["power"]["terminal_map_to"] = ["c", "n"]
         @test isempty(BMOPFTools._high_leg_power_units(net))
+        rep = _pg_analyze(net)
+        split = only(f for f in rep.findings if f.code == "I.PROV.SPLIT_PHASE_ZONE")
+        @test isempty(split.detail["high_leg"]) && split.detail["other_phases"] == ["c"]
+        @test !occursin("high-leg", split.message)
+        @test isempty(rep.results[:voltage_levels]["mixed_phase_to_neutral_buses"])
+        @test "E.VOLT.LEVEL_MISMATCH" in _pg_codes(rep.findings) ||
+              "W.VOLT.XFMR_RATIO" in _pg_codes(rep.findings)
+
+        # The power unit's own ratio is still checked, against the bank's
+        # line-to-line voltage (twice the leg level).
+        ratio(v) = begin
+            n = _pg_sys("na_high_leg_open_delta")
+            n["transformer"]["single_phase"]["power"]["v_nom_to"] = v
+            [f for f in _pg_analyze(n).findings if f.code == "W.VOLT.XFMR_RATIO"]
+        end
+        @test isempty(ratio(240.0))
+        @test isempty(ratio(250.0))                       # within the 10 % tolerance
+        bad = only(ratio(480.0))
+        @test bad.component_id == "power" && bad.detail["basis"] == "high_leg_line_to_line"
+        @test bad.detail["bank_line_to_line_v"] ≈ 240.0
+        @test length(ratio(208.0)) == 1                   # a wye-system unit in a delta bank
+        # Japanese V-connection with a phase-to-phase primary: 200 V closes the delta.
+        jp(v) = begin
+            n = _pg_sys("jp_three_wire_v_connection")
+            n["transformer"]["single_phase"]["pole_shop_power"]["v_nom_to"] = v
+            [f.component_id for f in _pg_analyze(n).findings if f.code == "W.VOLT.XFMR_RATIO"]
+        end
+        @test isempty(jp(200.0)) && jp(400.0) == ["pole_shop_power"]
     end
 
     @testset "unearthed delta island: referenced only through modeled capacitance" begin
@@ -460,19 +490,54 @@ end
         @test !("I.PROV.KRON_LIKELY" in _pg_codes(bare.findings))
         @test bare.results[:provenance]["wires_by_level"]["LV_231V"]["delta_fed"]
 
-        # Boundary: purely phase-to-phase line admittance (zero row sums) is not
-        # a path to earth; inline matrices on the line count like a linecode's.
-        net = _pg_sys("it_delta_island_unreferenced")
-        lc = net["linecode"]["cable"]
+        # The reference is what the admittance builder stamps, nothing else.
+        refd(net) = (f = Finding[]; integrity_check(net, f); !("E.INT.NO_VOLTAGE_REFERENCE" in _pg_codes(f)))
+        # Earth leakage in the stamped primitive: rows of Y sum to the shunt.
+        leak(net) = (Y = line_yprim(net["line"]["run"], net["linecode"])[2];
+                     maximum(abs, sum(Y, dims=2)) > 1e-12)
+        bare() = _pg_sys("it_delta_island_unreferenced")
+        @test !leak(bare()) && !refd(bare())
+        cap = _pg_sys("it_delta_island_capacitive")
+        @test leak(cap) && refd(cap)
+
+        # Purely phase-to-phase admittance (zero row sums) is not a path to earth.
+        net = bare()
         for i in 1:3, j in 1:3
-            lc["B_from_$(i)_$(j)"] = i == j ? 2e-7 : -1e-7
+            net["linecode"]["cable"]["B_from_$(i)_$(j)"] = i == j ? 2e-7 : -1e-7
         end
-        f = Finding[]; integrity_check(net, f)
-        @test "E.INT.NO_VOLTAGE_REFERENCE" in _pg_codes(f)
-        net = _pg_sys("it_delta_island_unreferenced")
+        @test !refd(net)
+        # A line that uses a linecode takes its shunt from the linecode: a
+        # B entry placed on the line record itself is never stamped.
+        net = bare()
         for i in 1:3; net["line"]["run"]["B_to_$(i)_$(i)"] = 1e-6; end
-        f = Finding[]; integrity_check(net, f)
-        @test !("E.INT.NO_VOLTAGE_REFERENCE" in _pg_codes(f))
+        @test !leak(net) && !refd(net)
+        # Inline totals on the line are the single source when present.
+        net = bare()
+        line = net["line"]["run"]; lc = net["linecode"]["cable"]; delete!(line, "linecode")
+        for i in 1:3, j in 1:3
+            line["R_series_$(i)_$(j)"] = lc["R_series_$(i)_$(j)"] * 80
+            line["X_series_$(i)_$(j)"] = lc["X_series_$(i)_$(j)"] * 80
+        end
+        @test !refd(net)
+        for i in 1:3; line["B_from_$(i)_$(i)"] = 4e-6; end
+        @test leak(net) && refd(net)
+        # Linecode values scale with length: a zero-length line stamps no shunt.
+        net = _pg_sys("it_delta_island_capacitive"); net["line"]["run"]["length"] = 0.0
+        @test !refd(net)
+        # Only the mapped conductor block is stamped: capacitance on a fourth
+        # linecode conductor that this three-wire line does not use is not there.
+        net = bare()
+        lc = net["linecode"]["cable"]
+        for i in 1:4
+            lc["R_series_$(i)_4"] = lc["R_series_4_$(i)"] = i == 4 ? 3e-4 : 5e-5
+            lc["X_series_$(i)_4"] = lc["X_series_4_$(i)"] = i == 4 ? 3e-4 : 1e-4
+        end
+        for i in 1:4, j in 1:4; lc["B_from_$(i)_$(j)"] = (i == 4 && j == 4) ? 1e-7 : 0.0; end
+        @test !leak(net) && !refd(net)
+        # Malformed shunt data is not a reference and does not abort the helper.
+        net = _pg_sys("it_delta_island_capacitive")
+        net["linecode"]["cable"]["B_from_1_1"] = "high"
+        @test !BMOPFTools._line_stamps_earth_shunt(net["line"]["run"], net["linecode"])
     end
 
     @testset "Kron suspicion needs branches at the level" begin
@@ -673,6 +738,85 @@ end
             "c1" => Dict{String,Any}("bus" => "lv1", "dc_bus" => "d1"),
             "c2" => Dict{String,Any}("bus" => "lv2", "dc_bus" => "d$n"))
         @test BMOPFTools._dc_link_ac_groups(net) == [["lv1", "lv2"]]
+    end
+
+    @testset "mesh verdict and its evidence come from one graph" begin
+        consistent(net) = begin
+            f = Finding[]
+            r = connectivity_analysis(net, f)
+            whole = r["structure"]["whole_network"]
+            mesh = [x for x in f if x.code == "W.CONN.MESHED"]
+            # phase-carrying excess + neutral-only cycles = physical cycle rank
+            @test r["n_extra_edges"] + r["neutral_only_cycle_rank"] == whole["cycle_rank"]
+            @test r["is_radial"] == isempty(mesh)
+            @test occursin("bank", whole["branch_scope"]) && occursin("DC links", whole["branch_scope"])
+            (r, whole, mesh)
+        end
+        # A DC link across two buses of a radial feeder: one loop, with a witness.
+        net = _pg_sys("eu_tn_four_wire")
+        net["dc_bus"] = Dict{String,Any}("d1" => Dict{String,Any}("terminal_names" => ["p","n"]),
+                                         "d2" => Dict{String,Any}("terminal_names" => ["p","n"]))
+        net["dc_branch"] = Dict{String,Any}("cable" => Dict{String,Any}("dc_bus_from" => "d1", "dc_bus_to" => "d2"))
+        net["ibr"] = Dict{String,Any}("c1" => Dict{String,Any}("bus" => "lv1", "dc_bus" => "d1"),
+                                      "c2" => Dict{String,Any}("bus" => "lv2", "dc_bus" => "d2"))
+        r, whole, mesh = consistent(net)
+        m = only(mesh)
+        @test m.detail["extra_edges"] == 1 && whole["cycle_rank"] == 1 && whole["n_dc_links"] == 1
+        @test m.detail["simple_cycle_rank"] + m.detail["parallel_excess"] == 1
+        @test length(m.detail["cycle_closing_branches"]) == 1
+        # A DC link between otherwise separate AC sections is no isolating transformer.
+        @test all(z -> z["n_incident_isolating_transformers"] <= 1, r["structure"]["galvanic_zones"])
+        # The bundled banks: radial verdict and zero cycle rank together.
+        for name in ("na_high_leg_open_delta", "jp_three_wire_v_connection")
+            r, whole, mesh = consistent(_pg_sys(name))
+            @test r["is_radial"] && whole["cycle_rank"] == 0 && whole["n_merged_bank_legs"] == 1
+        end
+        for name in ("eu_tn_four_wire", "na_mgn_split_phase", "au_men_four_wire")
+            consistent(_pg_sys(name))
+        end
+        consistent(_pg_dss("pf_open_delta_reg.dss"))
+    end
+
+    @testset "bank grouping does not depend on component ids" begin
+        build(ids) = begin
+            net = _pg_sys("eu_tn_four_wire")
+            delete!(net["transformer"], "delta_wye")
+            net["bus"]["mv"]["terminal_names"] = ["a","b","c","n"]
+            net["bus"]["mv"]["perfectly_grounded_terminals"] = ["n"]
+            unit(tm) = Dict{String,Any}("bus_from" => "mv", "bus_to" => "lv0",
+                "terminal_map_from" => ["a","n"], "terminal_map_to" => tm,
+                "v_nom_from" => 5773.5, "v_nom_to" => 230.0, "s_rating" => 1e5)
+            net["transformer"]["single_phase"] = Dict{String,Any}(
+                ids[1] => unit(["a","n"]), ids[2] => unit(["b","n"]), ids[3] => unit(["a","b"]))
+            f = Finding[]
+            r = connectivity_analysis(net, f)
+            (r, only(r["transformer_bank_groups"]))
+        end
+        ra, ga = build(("u1", "u2", "u3"))          # a–b sorts last
+        rb, gb = build(("u2", "u3", "u1"))          # a–b sorts first
+        @test ra["n_extra_edges"] == rb["n_extra_edges"] == 1
+        @test ga["n_branches"] == gb["n_branches"] == 2
+        # The legs are the two line-to-neutral units; a–b spans both and is parallel.
+        @test ga["units"] == ["u1", "u2"] && ga["parallel_units"] == ["u3"]
+        @test gb["units"] == ["u2", "u3"] && gb["parallel_units"] == ["u1"]
+        @test ga["ambiguous"] && gb["ambiguous"]
+        @test ra["structure"]["whole_network"]["cycle_rank"] ==
+              rb["structure"]["whole_network"]["cycle_rank"]
+        # Identical secondaries: one leg, one parallel, not ambiguous, whichever id is first.
+        for ids in (("p", "q"), ("q", "p"))
+            net = _pg_dss("pf_open_delta_reg.dss")
+            sp = net["transformer"]["single_phase"]
+            sp["reg2"]["terminal_map_to"] = copy(sp["reg1"]["terminal_map_to"])
+            sp[ids[1]] = pop!(sp, "reg1"); sp[ids[2]] = pop!(sp, "reg2")
+            g = only(connectivity_analysis(net, Finding[])["transformer_bank_groups"])
+            @test length(g["units"]) == 1 && length(g["parallel_units"]) == 1 && !g["ambiguous"]
+            @test g["n_branches"] == 2
+        end
+        # An unreadable unit stays its own branch and is named.
+        net = _pg_dss("pf_open_delta_reg.dss")
+        net["transformer"]["single_phase"]["reg2"]["terminal_map_to"] = "bc"
+        g = only(BMOPFTools._transformer_bank_groups(net).groups)
+        @test g["unassessed_units"] == ["reg2"] && g["n_branches"] == 2
     end
 
     # ── Noise budget on decks an independent engine solves ──────────────────
