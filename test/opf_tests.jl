@@ -1775,8 +1775,8 @@ end
          "voltage_source":{"src":{"bus":"sourcebus","terminal_map":["1"],
              "v_magnitude":[1000.0],"v_angle":[0.0]}},
          "switch":{"sw":{"bus_from":"sourcebus","bus_to":"switchbus",
-             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
-             "open_switch":false,"i_max":[10.0,10.0],"s_max":[1000.0,1000.0]}},
+             "terminal_map_from":["1"],"terminal_map_to":["1"],
+             "open_switch":false,"i_max":[10.0],"s_max":[1000.0]}},
          "load":{"ld":{"bus":"switchbus","terminal_map":["1","n"],
              "configuration":"SINGLE_PHASE","p_nom":[500.0],"q_nom":[0.0]}}}
         """; from_string=true)
@@ -2497,7 +2497,7 @@ end
              "terminal_map_from":["1"],"terminal_map_to":["1"],
              "linecode":"lc","length":1.0}},
          "switch":{"sw1":{"bus_from":"switchbus","bus_to":"bus1",
-             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+             "terminal_map_from":["1"],"terminal_map_to":["1"],
              "open_switch":false}},
          "load":{"ld1":{"bus":"bus1","terminal_map":["1","n"],
              "configuration":"SINGLE_PHASE",
@@ -2555,8 +2555,11 @@ end
 
         # ── switch: terminal-name keys, three fields ──────────────────────────
         @test haskey(res["switch"], "sw1")
-        # terminal_map_from = ["1","n"] → keys "1" and "n"
-        for t in ("1","n")
+        # terminal_map_from = ["1"] → key "1". The switch carries no neutral
+        # conductor: both neutrals are perfectly grounded, and an ideal
+        # conductor between two grounds would close a loop through the earth
+        # with an undetermined current (E.INT.IDEAL_LOOP).
+        for t in ("1",)
             @test haskey(res["switch"]["sw1"], t)
             sd = res["switch"]["sw1"][t]
             for f in ("cr","ci","cm")
@@ -2633,7 +2636,7 @@ end
              "terminal_map_from":["1"],"terminal_map_to":["1"],
              "linecode":"lc","length":1.0}},
          "switch":{"sw1":{"bus_from":"switchbus","bus_to":"bus1",
-             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+             "terminal_map_from":["1"],"terminal_map_to":["1"],
              "open_switch":false,"i_max":[0.03]}},
          "load":{"ld1":{"bus":"bus1","terminal_map":["1","n"],
              "configuration":"SINGLE_PHASE",
@@ -2670,7 +2673,7 @@ end
              "terminal_map_from":["1"],"terminal_map_to":["1"],
              "linecode":"lc","length":1.0}},
          "switch":{"sw1":{"bus_from":"switchbus","bus_to":"bus1",
-             "terminal_map_from":["1","n"],"terminal_map_to":["1","n"],
+             "terminal_map_from":["1"],"terminal_map_to":["1"],
              "open_switch":false}},
          "load":{"ld1":{"bus":"bus1","terminal_map":["1","n"],
              "configuration":"SINGLE_PHASE",

@@ -22,7 +22,46 @@
 # Declared q_min/q_max bounds always apply, including with PF or Volt-var.
 # A control law adds an equality; it does not replace reactive capability.
 
-"Declare `cri`/`cii` IBR current variables (one per phase conductor)."
+"""
+    _ibr_coil_count(inv, nlabels) -> Int
+
+Number of independently controlled coils of an IBR, which is also the number of
+current variable pairs and of P/Q bound entries: one for `SINGLE_PHASE`, one
+per cyclic phase pair for `THREE_LEG`, one per phase conductor for `FOUR_LEG`.
+"""
+function _ibr_coil_count(inv, nlabels)
+    tm   = Vector{String}(get(inv, "terminal_map", String[]))
+    topo = get(inv, "topology", "FOUR_LEG")
+    topo == "THREE_LEG" && return length(tm)
+    topo == "SINGLE_PHASE" && return 1
+    return length(_phase_positions(tm, nlabels))   # FOUR_LEG
+end
+
+"""
+    _ibr_reactive_law(inv, profiles) -> Union{Symbol,Nothing}
+
+The reactive-power control equality the builder stamps for this IBR:
+`:constant_pf`, `:volt_var`, or `nothing` when reactive power is left to its box.
+
+This mirrors `_add_ibr_constraints!` rather than the declared profile, because
+a declaration is not always honored: a constant power factor takes precedence
+over a droop, `THREE_LEG` carries no droop at all, and a malformed or
+unsupported Volt-var object falls back to the box. `solve_pf` relies on it to
+decide whether reactive power is determined; a test holds the two in step.
+"""
+function _ibr_reactive_law(inv, profiles)
+    profile = get(profiles, get(inv, "control_profile", nothing), nothing)
+    profile isa AbstractDict || return nothing
+    BMOPFTools._constant_pf_value(profile) === nothing || return :constant_pf
+    vv = get(profile, "volt_var", nothing)
+    (vv === nothing || get(inv, "topology", "FOUR_LEG") == "THREE_LEG") && return nothing
+    resolved = Base.CoreLogging.with_logger(Base.CoreLogging.NullLogger()) do
+        _resolve_volt_var(vv, 1.0, 2e-3)
+    end
+    return resolved === nothing ? nothing : :volt_var
+end
+
+"Declare `cri`/`cii` IBR current variables (one pair per coil)."
 function _add_ibr_variables!(model, net)
     cri = Dict{Tuple{String,Int}, JuMP.VariableRef}()
     cii = Dict{Tuple{String,Int}, JuMP.VariableRef}()
@@ -32,9 +71,7 @@ function _add_ibr_variables!(model, net)
         inv isa Dict || continue
         tm   = Vector{String}(get(inv, "terminal_map", String[]))
         topo = get(inv, "topology", "FOUR_LEG")
-        n_ph = topo == "THREE_LEG" ? length(tm) :
-               topo == "SINGLE_PHASE" ? 1 :
-               length(_phase_positions(tm, nlabels))   # FOUR_LEG
+        n_ph = _ibr_coil_count(inv, nlabels)
         for k in 1:n_ph
             cri[(inv_id, k)] = @variable(model, base_name = "cri_$(inv_id)_$(k)")
             cii[(inv_id, k)] = @variable(model, base_name = "cii_$(inv_id)_$(k)")
@@ -413,6 +450,16 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
         p_max = Float64.(get(inv, "p_max",  Float64[]))
         q_min = Float64.(get(inv, "q_min",  Float64[]))
         q_max = Float64.(get(inv, "q_max",  Float64[]))
+        # A supplied P/Q bound vector has one entry per coil. A shorter one
+        # would leave the remaining coils as free, unbounded injections.
+        let ncoils = _ibr_coil_count(inv, nlabels)
+            for (field, values) in (("p_min", p_min), ("p_max", p_max),
+                                    ("q_min", q_min), ("q_max", q_max))
+                (isempty(values) || length(values) == ncoils) || throw(ArgumentError(
+                    "IBR '$inv_id': $field has $(length(values)) entries but the " *
+                    "device has $ncoils coil(s); supply one entry per coil."))
+            end
+        end
         p_min_model = coefficient === nothing ? p_min : Any[
             coefficient(:limit, :ibr, inv_id, :p_min, i, value)
             for (i, value) in enumerate(p_min)]
@@ -483,7 +530,10 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
 
         # Per-phase available active power (model units) for p_ref=P_AVAILABLE.
         p_avail_per = let pa = get(inv, "p_avail", nothing)
-            n = max(length(_phase_positions(tm, nlabels)), 1)
+            # Divide by the number of COILS, not phase terminals: a two-terminal
+            # SINGLE_PHASE unit is one coil even when both terminals are phases.
+            n = topo == "SINGLE_PHASE" ? 1 :
+                max(length(_phase_positions(tm, nlabels)), 1)
             pa isa Number ?
                 Float64(pa) / n /
                 (bases === nothing ? 1.0 : _ac_power_base(bases, bus)) : 0.0
@@ -516,7 +566,10 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
         p_exprs    = JuMP.QuadExpr[]
 
         if topo == "SINGLE_PHASE"
-            length(tm) >= 2 || (@warn "IBR '$inv_id': SINGLE_PHASE needs ≥2 terminals"; continue)
+            # Skipping the device would leave its current variables free and
+            # outside KCL: the unit would vanish from the network silently.
+            length(tm) >= 2 || throw(ArgumentError(
+                "IBR '$inv_id': SINGLE_PHASE needs two terminals."))
             t_ph  = tm[1]
             t_ref = tm[2]
             dvr = @expression(model, vr[(bus, t_ph)] - vr[(bus, t_ref)])
@@ -665,7 +718,8 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             end
 
         else
-            @warn "IBR '$inv_id': unknown topology '$topo' — skipping."
+            throw(ArgumentError("IBR '$inv_id': unsupported topology '$topo' " *
+                "(expected SINGLE_PHASE, FOUR_LEG, or THREE_LEG)."))
         end
 
         # DC-side active-power coupling of the per-phase active powers.
@@ -688,12 +742,43 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             p_net = @expression(model, sum(p_exprs))
             p_dc_min = get(inv, "p_dc_min", 0.0)
             p_dc_max = get(inv, "p_dc_max", 0.0)
-            _register_semantic_constraint!(ctx, :ibr_dc_power_lower,
-                String(inv_id), @constraint(model, p_net >= Float64(p_dc_min)))
-            _register_semantic_constraint!(ctx, :ibr_dc_power_upper,
-                String(inv_id), @constraint(model, p_net <= Float64(p_dc_max)))
+            # The STATCOM default p_dc_min == p_dc_max == 0 is a balance, not a
+            # range. `_box_constraints!` stamps it as ONE equality
+            # (:ibr_dc_power_equality); two opposing inequalities would have no
+            # interior and non-unique multipliers.
+            #
+            # When every coil's active power is itself pinned by a static
+            # equality that already sums to the balance, the balance row would
+            # be a linear combination of those rows — more equalities than
+            # degrees of freedom. It is then implied and is not stamped.
+            #
+            # "Pinned" is read from the RESOLVED coefficients, never from the
+            # input defaults: a coefficient provider can turn a bound into a
+            # live parameter, and a bound that may move on a re-solve implies
+            # nothing. Only plain numbers count.
+            pins = [_static_pin(p_min_model, p_max_model, k) for k in eachindex(p_exprs)]
+            implied = all(!isnothing, pins) && Float64(p_dc_min) == Float64(p_dc_max) &&
+                      isapprox(sum(pins), Float64(p_dc_min);
+                               atol=1e-12 * max(1.0, sum(abs, pins)))
+            if !implied
+                for (side, cref) in pairs(_box_constraints!(
+                        model, p_net, Float64(p_dc_min), Float64(p_dc_max)))
+                    _register_semantic_constraint!(ctx,
+                        Symbol(:ibr_dc_power_, side), String(inv_id), cref)
+                end
+            end
         end
     end
+end
+
+# The value a coil's power is pinned to by a STATIC box equality, or `nothing`.
+# `lo`/`hi` are the resolved bound vectors: an entry that is a JuMP parameter or
+# expression is live and may change on a re-solve, so it never counts as a pin.
+function _static_pin(lo, hi, idx)
+    (length(lo) >= idx && length(hi) >= idx) || return nothing
+    a, b = lo[idx], hi[idx]
+    (a isa Real && b isa Real && isfinite(a) && a == b) || return nothing
+    return Float64(a)
 end
 
 # Stamp the per-phase active/reactive constraints and apparent-power circle for a
@@ -738,8 +823,26 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
     if min_pf !== nothing
         sine = sqrt((1-min_pf)*(1+min_pf))
         register_constraint(:ibr_minimum_pf_generation, @constraint(model, p_expr >= 0))
-        register_constraint(:ibr_minimum_pf_upper, @constraint(model, min_pf*q_expr <= sine*p_expr))
-        register_constraint(:ibr_minimum_pf_lower, @constraint(model, -min_pf*q_expr <= sine*p_expr))
+        if sine == 0
+            # Unity minimum power factor: the wedge |Q| <= tan(phi)·P closes to
+            # the half-line Q = 0. Stamp it as ONE equality; the two wedge rows
+            # would read Q <= 0 and -Q <= 0, a pair with no interior and
+            # non-unique multipliers. `min_pf` is static policy data.
+            #
+            # Another row may already say Q = 0 for this coil: a reactive box
+            # pinned at zero (:ibr_q_equality) or a unity constant power
+            # factor (:ibr_power_factor). A second identical equality would
+            # leave the coil with more equalities than degrees of freedom, so
+            # the envelope is then implied and is not stamped again.
+            box_pins_zero = _static_pin(q_min, q_max, idx) == 0
+            pf_pins_zero = pf_coeffs !== nothing && pf_coeffs[2] isa Real &&
+                iszero(pf_coeffs[2])
+            (box_pins_zero || pf_pins_zero) ||
+                register_constraint(:ibr_minimum_pf_equality, @constraint(model, q_expr == 0))
+        else
+            register_constraint(:ibr_minimum_pf_upper, @constraint(model, min_pf*q_expr <= sine*p_expr))
+            register_constraint(:ibr_minimum_pf_lower, @constraint(model, -min_pf*q_expr <= sine*p_expr))
+        end
     end
 
     # Reactive capability remains hard under every control mode. Keep the live
@@ -752,12 +855,37 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
     end
     # Reactive control: constant-PF or Volt-var equality, in addition to capability.
     if pf_coeffs !== nothing
-        register_constraint(:ibr_power_factor, @constraint(model,
+        # The constant-power-factor law is one linear relation between P and Q.
+        # If static box equalities already fix what it relates, and the fixed
+        # values satisfy it, the row is a combination of rows already present:
+        # a coil pinned at Q = 0 under a unity power factor, or a coil with both
+        # P and Q pinned on the power-factor line. Stamping it again would
+        # leave more equalities than unknowns. Values that do NOT satisfy the
+        # law keep the row, so the conflict stays visible.
+        q_pin = _static_pin(q_min, q_max, idx)
+        p_pin = _static_pin(p_min, p_max, idx)
+        implied = q_pin !== nothing && if iszero(pf_coeffs[2])
+            iszero(q_pin)
+        else
+            p_pin !== nothing && isapprox(
+                pf_sign * pf_coeffs[1] * q_pin + pf_coeffs[2] * p_pin, 0.0;
+                atol=1e-12 * max(1.0, abs(q_pin), abs(p_pin)))
+        end
+        implied || register_constraint(:ibr_power_factor, @constraint(model,
             pf_sign * pf_coeffs[1] * q_expr + pf_coeffs[2] * p_expr == 0))
     elseif vv !== nothing
         op   = relu_operator_for!(relu_ops, model, vv.eps; mode=softplus)
         base = _droop_base(vv, idx, smax, p_max, p_avail_per)
-        register_constraint(:ibr_q_volt_var, @constraint(model,
+        # A FLAT Volt-var curve (all slopes zero) is the constant equality
+        # Q = base·baseline. When the reactive box already pins Q at that
+        # value the law is implied; restating it would leave more equalities
+        # than unknowns. Live curve coefficients are never treated as flat.
+        flat = base isa Real && vv.baseline isa Real &&
+               all(t -> t[1] isa Real && iszero(t[1]), vv.triples)
+        q_pin = _static_pin(q_min, q_max, idx)
+        implied = flat && q_pin !== nothing && isapprox(q_pin, base * vv.baseline;
+            atol=1e-12 * max(1.0, abs(q_pin)))
+        implied || register_constraint(:ibr_q_volt_var, @constraint(model,
             q_expr == curve_expr(op, U_vv, base * vv.baseline,
                                  [(base*a, x̄) for (a, x̄) in vv.triples])))
     end

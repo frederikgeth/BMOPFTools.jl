@@ -106,9 +106,17 @@ function build_pf!(ctx::OpfContext)
     BMOPFTools.set_opf_start_values!(ctx)
 
     _validate_pf_generators(ctx.net)
+    _validate_pf_ibrs(ctx.net)
+    _validate_pf_dc_sources(ctx.net)
 
     # Device constraints only — no _add_voltage_and_bus_bounds!.
     BMOPFTools.add_opf_device_constraints!(ctx)
+
+    # The checks above read the case. A coefficient provider can still replace
+    # a fixed bound with a different number or a live parameter while the model
+    # is built, so determinacy is confirmed once more on the rows actually
+    # stamped.
+    _validate_pf_resolved_dispatch(ctx)
 
     # Feasibility objective: the equations fully determine the state.
     _run_opf_stage!(ctx, :objective,
@@ -181,6 +189,10 @@ function _strip_operational_limits!(net::Dict{String,Any})
             for f in _PF_LIMIT_FIELDS
                 delete!(xfmr, f)
             end
+            # n_winding ratings live per winding, one level further down, and
+            # are deliberately KEPT: a winding's `s_max` is that transformer's
+            # nameplate (the counterpart of the always-enforced `s_rating`),
+            # and its `i_max` is enforced with it.
         end
     end
 
@@ -194,27 +206,220 @@ Throw an `ArgumentError` if any generator has a non-degenerate active or reactiv
 power range (`p_min != p_max` or `q_min != q_max`). A power flow has no objective
 to select a point within a range, so generators must be fixed setpoints.
 """
+# One side of a fixed setpoint: both bounds present, ONE ENTRY PER COIL, and
+# equal. A missing, short, or one-sided bound leaves a coil's power free, which
+# a power flow (no objective) cannot resolve — it would return wherever the
+# start point happened to lead.
+function _require_fixed_setpoint(owner, label, lo, hi, ncoils::Int)
+    (length(lo) == ncoils && length(hi) == ncoils && ncoils > 0) || throw(ArgumentError(
+        "$owner: solve_pf requires $(label)_min and $(label)_max with one " *
+        "entry for each of its $ncoils coil(s) and $(label)_min == $(label)_max. " *
+        "A power flow has no objective to choose a dispatch, so a missing, " *
+        "short, or one-sided bound leaves the operating point undetermined. " *
+        "Use solve_opf for range-bounded devices."))
+    for k in eachindex(lo)
+        # Relative comparison: the working values may be per-unit or SI.
+        isapprox(lo[k], hi[k]; rtol=1e-9, atol=1e-12 * max(1.0, abs(lo[k]))) ||
+            throw(ArgumentError(
+                "$owner: $(label)_min[$k] ≠ $(label)_max[$k]. solve_pf requires " *
+                "fixed setpoints ($(label)_min == $(label)_max); a power flow has " *
+                "no objective to choose a dispatch within a range. Use solve_opf " *
+                "for range-bounded devices."))
+    end
+    return nothing
+end
+
 function _validate_pf_generators(net::Dict{String,Any})
+    nlabels = BMOPFTools._neutral_labels(net)
     for (gid, gen) in get(net, "generator", Dict())
         gen isa Dict || continue
-        p_min = Float64.(get(gen, "p_min", Float64[]))
-        p_max = Float64.(get(gen, "p_max", Float64[]))
-        q_min = Float64.(get(gen, "q_min", Float64[]))
-        q_max = Float64.(get(gen, "q_max", Float64[]))
-
-        for (lo, hi, label) in ((p_min, p_max, "p"), (q_min, q_max, "q"))
-            n = min(length(lo), length(hi))
-            for k in 1:n
-                if !isapprox(lo[k], hi[k]; atol=1e-9, rtol=1e-9)
-                    throw(ArgumentError(
-                        "Generator '$gid': $(label)_min[$k]=$(lo[k]) ≠ " *
-                        "$(label)_max[$k]=$(hi[k]). solve_pf requires fixed " *
-                        "generator setpoints ($(label)_min == $(label)_max); a " *
-                        "power flow has no objective to choose a dispatch within " *
-                        "a range. Use solve_opf for range-bounded generators."))
-                end
-            end
+        ncoils = length(first(_generator_positions(
+            Vector{String}(get(gen, "terminal_map", String[])),
+            get(gen, "configuration", "WYE"), nlabels)))
+        for label in ("p", "q")
+            _require_fixed_setpoint("Generator '$gid'", label,
+                Float64.(get(gen, "$(label)_min", Float64[])),
+                Float64.(get(gen, "$(label)_max", Float64[])), ncoils)
         end
+    end
+    return nothing
+end
+
+"""
+    _dc_side_fixes_active_power(inv) -> Bool
+
+Whether the DC side supplies the ONE equation that determines a single-coil
+IBR's active power, so that no fixed AC setpoint is needed:
+
+- a private DC link (`dc_link_coupled`) with a zero-width balance
+  (`p_dc_min == p_dc_max`); a balance *range* determines nothing;
+- a `dc_bus` converter in `"droop"` mode (its V–P law) or `"V"` mode (it
+  balances the DC network at its voltage reference). A `"P"`-mode converter is
+  a dispatched injection, so the DC side determines nothing for it.
+"""
+function _dc_side_fixes_active_power(inv)
+    if haskey(inv, "dc_bus")
+        return String(get(inv, "dc_control", "P")) in ("V", "droop")
+    elseif get(inv, "dc_link_coupled", false) === true
+        return Float64(get(inv, "p_dc_min", 0.0)) == Float64(get(inv, "p_dc_max", 0.0))
+    end
+    return false
+end
+
+"""
+    _validate_pf_ibrs(net)
+
+Require every IBR to be a determined device, **coil by coil**. The test is
+which equations fix the dispatch, not which fields are present.
+
+- **Active power** must be a fixed setpoint per coil (`p_min == p_max`). A
+  Volt-watt curve only *caps* P, so it does not determine it. The exception is
+  a **single-coil** unit whose DC side supplies the determining equation
+  ([`_dc_side_fixes_active_power`](@ref)). A multi-coil DC-coupled unit is not
+  exempt, because the DC side fixes only the *sum* of its coil powers.
+- **Free voltage masters must not close a loop.** That is checked on the
+  built model, where the resolved setpoints are known
+  ([`_validate_pf_resolved_dispatch`](@ref)).
+- **Reactive power** must be fixed per coil (`q_min == q_max`) or set by a
+  control equality the builder actually stamps for this device
+  ([`_ibr_reactive_law`](@ref)): a constant power factor, or a Volt-var curve
+  on a topology that supports one. A declared but unapplied law — Volt-var on
+  `THREE_LEG`, or a malformed curve — does not count.
+"""
+function _validate_pf_ibrs(net::Dict{String,Any})
+    profiles = get(net, "control_profile", Dict())
+    nlabels = BMOPFTools._neutral_labels(net)
+    for (id, inv) in get(net, "ibr", Dict())
+        inv isa Dict || continue
+        owner = "IBR '$id'"
+        ncoils = _ibr_coil_count(inv, nlabels)
+        p_lo = Float64.(get(inv, "p_min", Float64[]))
+        p_hi = Float64.(get(inv, "p_max", Float64[]))
+        dc_sets_p = ncoils == 1 && _dc_side_fixes_active_power(inv)
+        dc_sets_p || _require_fixed_setpoint(owner, "p", p_lo, p_hi, ncoils)
+        _ibr_reactive_law(inv, profiles) === nothing &&
+            _require_fixed_setpoint(owner, "q",
+                Float64.(get(inv, "q_min", Float64[])),
+                Float64.(get(inv, "q_max", Float64[])), ncoils)
+    end
+    return nothing
+end
+
+# Whether the stamped rows fix one power of one coil: a single equality, or a
+# lower/upper pair whose two sides are the SAME function with the same bound
+# (one live parameter used for both ends of a setpoint).
+function _pf_rows_fix(ctx, prefix::Symbol, index)
+    row(side) = get(ctx.objects, BMOPFTools.OpfModelKey(
+        :constraint, Symbol(prefix, :_, side), index), nothing)
+    row(:equality) === nothing || return true
+    lower, upper = row(:lower), row(:upper)
+    (lower === nothing || upper === nothing) && return false
+    lo = JuMP.constraint_object(lower); hi = JuMP.constraint_object(upper)
+    (lo.set isa MOI.GreaterThan && hi.set isa MOI.LessThan) || return false
+    return lo.set.lower == hi.set.upper && JuMP.isequal_canonical(lo.func, hi.func)
+end
+
+"""
+    _validate_pf_dc_sources(net)
+
+A standalone `dc_source` is a determined injection only when its power is
+given: a plain `p`, or `p_min == p_max`. A range, a one-sided bound, or no
+power at all leaves a free DC injection that a power flow cannot resolve.
+"""
+function _validate_pf_dc_sources(net::Dict{String,Any})
+    for (id, source) in get(net, "dc_source", Dict())
+        source isa Dict || continue
+        lo = get(source, "p_min", nothing); hi = get(source, "p_max", nothing)
+        fixed = (lo === nothing && hi === nothing && get(source, "p", nothing) isa Real) ||
+                (lo isa Real && hi isa Real && lo == hi)
+        fixed || throw(ArgumentError(
+            "dc_source '$id': solve_pf requires a fixed power (p, or p_min == " *
+            "p_max). A power flow has no objective to choose a dispatch within " *
+            "a range. Use solve_opf for a dispatchable DC source."))
+    end
+    return nothing
+end
+
+"""
+    _validate_pf_resolved_dispatch(ctx)
+
+Confirm determinacy on the model that was built, where coefficient providers
+have been resolved. Two questions are asked of the stamped rows.
+
+1. **Is every native coil that needs a setpoint still fixed?** A provider can
+   widen a bound that is fixed in the case (`p_min == p_max` in the data, a
+   range in the model).
+2. **Do the free voltage masters determine their own dispatch?** A master with
+   no fixed setpoint contributes one unknown current between its two DC nodes,
+   and DC KCL supplies one equation per node. Those currents are determined
+   exactly when the free masters' ports form a **forest** over the DC nodes:
+   two free masters on one port, at the two ends of an ideal tie, or around a
+   triangle of ports (p−m, m−n, p−n) can circulate power among themselves.
+   "Free" is read from the rows, so a master pinned in the case and widened by
+   a provider counts as free.
+
+Devices owned by a custom builder are skipped: they stamp their own rows under
+their own keys, and their determinacy is their builder's contract.
+"""
+function _validate_pf_resolved_dispatch(ctx::OpfContext)
+    net = ctx.net
+    spec = ctx.build_spec
+    native(family, id) = !haskey(spec.family_builders, family) &&
+                         !haskey(spec.component_builders, (family, String(id)))
+    nlabels = BMOPFTools._neutral_labels(net)
+    profiles = get(net, "control_profile", Dict())
+    fail(owner, label, k) = throw(ArgumentError(
+        "$owner coil $k: solve_pf requires a fixed $(label) setpoint, but the " *
+        "resolved model bounds it by a range. A coefficient provider replaced " *
+        "$(label)_min or $(label)_max; supply the same value or the same " *
+        "parameter for both, or use solve_opf."))
+    for (gid, gen) in get(net, "generator", Dict())
+        (gen isa Dict && native(:generator, gid)) || continue
+        ncoils = length(first(_generator_positions(
+            Vector{String}(get(gen, "terminal_map", String[])),
+            get(gen, "configuration", "WYE"), nlabels)))
+        for k in 1:ncoils, label in (:p, :q)
+            _pf_rows_fix(ctx, Symbol(:generator_, label), (string(gid), k)) ||
+                fail("Generator '$gid'", label, k)
+        end
+    end
+    classes = haskey(net, "dc_bus") ?
+        get!(() -> _dc_node_classes(net), ctx.vars, :dc_node_classes) : nothing
+    loops = Dict{Tuple{String,String},Tuple{String,String}}()   # forest of free masters
+    function root(x)
+        get!(loops, x, x)
+        while loops[x] != x
+            loops[x] = loops[loops[x]]
+            x = loops[x]
+        end
+        return x
+    end
+    for id in sort!(collect(keys(get(net, "ibr", Dict()))))
+        inv = net["ibr"][id]
+        (inv isa Dict && native(:ibr, id)) || continue
+        ncoils = _ibr_coil_count(inv, nlabels)
+        dc_sets_p = ncoils == 1 && _dc_side_fixes_active_power(inv)
+        q_law = _ibr_reactive_law(inv, profiles) !== nothing
+        for k in 1:ncoils
+            dc_sets_p || _pf_rows_fix(ctx, :ibr_p, (string(id), k)) || fail("IBR '$id'", :p, k)
+            q_law || _pf_rows_fix(ctx, :ibr_q, (string(id), k)) || fail("IBR '$id'", :q, k)
+        end
+        # Free voltage masters: one unknown current each, between two DC nodes.
+        (classes !== nothing && dc_sets_p && haskey(inv, "dc_bus") &&
+         String(get(inv, "dc_control", "P")) == "V") || continue
+        _pf_rows_fix(ctx, :ibr_p, (string(id), 1)) && continue
+        terminals = string.(get(inv, "dc_terminal_map", String[]))
+        isempty(terminals) && continue
+        a = root(classes(String(inv["dc_bus"]), terminals[1]))
+        b = root(length(terminals) >= 2 ?
+                 classes(String(inv["dc_bus"]), terminals[2]) : _DC_EARTH)
+        a == b && throw(ArgumentError(
+            "solve_pf: voltage-master IBR '$id' has no fixed active-power " *
+            "setpoint and its DC port closes a loop with other free voltage " *
+            "masters (a shared port, an ideal tie, or a ring of ports). Power " *
+            "can circulate among them, so their dispatch is undetermined. Fix " *
+            "p_min == p_max on one master of the loop, or use solve_opf."))
+        loops[a] = b
     end
     return nothing
 end

@@ -368,6 +368,9 @@ function _add_yy_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
             register(:transformer_voltage_imag, (tid, "fr", k),
                 @constraint(model, vi_fr - N * vi_to == -N * (Rp * Iti + Xp * Itr)))
         else
+            _record_ideal_transformer_row!(model, "Transformer '$tid' winding $k",
+                vr[(b_fr, t_p_fr)], t_q_fr === nothing ? nothing : vr[(b_fr, t_q_fr)],
+                vr[(b_to, t_p_to)], t_q_to === nothing ? nothing : vr[(b_to, t_q_to)], N)
             register(:transformer_voltage_real, (tid, "fr", k),
                 @constraint(model, vr_fr == N * vr_to))
             register(:transformer_voltage_imag, (tid, "fr", k),
@@ -1021,6 +1024,10 @@ function _add_yd_transformer!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl
                 n_eff * vi_wye_pn
                 - (Reff * Iwi + Xeff * Iwr)))
         else
+            _record_ideal_transformer_row!(model, "Transformer '$tid' winding $k",
+                vr[(b_del, t_del_k)], vr[(b_del, t_del_other)],
+                vr[(b_wye, t_wye_ph)], n_pos === nothing ? nothing : vr[(b_wye, tm_wye[n_pos])],
+                n_eff)
             register(:transformer_voltage_real, (tid, side_wye, k), @constraint(model,
                 vr[(b_del, t_del_k)] - vr[(b_del, t_del_other)] == n_eff * vr_wye_pn))
             register(:transformer_voltage_imag, (tid, side_wye, k), @constraint(model,
@@ -1163,8 +1170,8 @@ end
 # tap ratio `a` (regulated/source) and ANSI connection type, define the effective
 # from→to ratio (BMOPFTools._autotransformer_neff):
 #
-#   Type B (standard SVR, default):  n_eff = a
-#   Type A:                          n_eff = 1/a
+#   Type B (standard SVR, default):  n_eff = 1/a
+#   Type A:                          n_eff = a
 #
 # The voltage and current-coupling constraints are then IDENTICAL in form to the
 # wye-wye transformer with N := n_eff and series impedance Z = R + jX referred to
@@ -1223,6 +1230,8 @@ function _add_regulating_winding!(model, refs, n_eff,
             r_fr * refs.Isi - n_eff * r_to * refs.Iti
             + x_fr * refs.Isr - n_eff * x_to * refs.Itr))
     else
+        _record_ideal_transformer_row!(model, "A regulating winding",
+            refs.vr_fr_p, refs.vr_fr_q, refs.vr_to_p, refs.vr_to_q, n_eff)
         register(:transformer_voltage_real,
             @constraint(model, dvr_fr == n_eff * dvr_to))
         register(:transformer_voltage_imag,
@@ -1426,8 +1435,12 @@ const _OPEN_DELTA_PAIRS = Dict{String,Tuple{Tuple{Int,Int},Tuple{Int,Int}}}(
     _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i)
 
 Monolithic open-delta regulator: two line-to-line regulating windings. Terminal
-arity (4,4): `["1","2","3","n"]` on both sides; the neutral carries no winding
-current. `tap_ratio` is `[a1, a2]` (per regulator); `regulator_type` shared.
+arity (4,4): `["1","2","3","n"]` on both sides. The neutral carries no winding
+current and the bank does not connect its two neutral terminals: neutral
+continuity across the bank is modeled explicitly, with a neutral-only line or
+closed switch (provenance reports an unconnected downstream neutral as
+`E.PROV.FLOATING_NEUTRAL`). `tap_ratio` is `[a1, a2]` (per regulator);
+`regulator_type` shared.
 """
 function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                                     tap=nothing, branch_inj=nothing, scoil=nothing,

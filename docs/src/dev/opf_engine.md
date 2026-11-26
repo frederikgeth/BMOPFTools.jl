@@ -37,6 +37,10 @@ The expectation for a new formulation, constraint, or element is therefore:
    against OpenDSSDirect, an analytic case, or an existing benchmark with a
    known solution. A constraint that only "looks right" is not enough; the
    feasibility/correctness of the model is the thing being benchmarked.
+   Prefer the **external** reference where one can express the case:
+   agreement between the per-unit and SI builds of this engine is a useful
+   supplement, but it cannot detect an error both builds share (see the
+   review oracles in [Validating the OPF](../validation.md)).
 
 !!! warning "Not a model zoo"
     It is **not in scope** to accumulate every state-of-the-art formulation here
@@ -309,6 +313,132 @@ not certify positive voltage. The log definition is normalized by its fixed
 start magnitude squared. Changing a start later does not change that scale.
 The [load-domain warning](../opf.md#squared-voltage-drop-variable) explains when
 changing physical bounds requires rebuilding.
+
+### [Dependent equality rows](@id opf-dependent-rows)
+
+Several device rules can state the same equation. A reactive box pinned at zero
+and a unity power factor both say $Q = 0$; twelve voltage masters on one DC
+port all say $U = U^\text{set}$; a shared-DC-link balance restates the sum of
+coil powers that are each already pinned. Stamped naively, the model then has
+more equalities than unknowns for those coordinates. Ipopt counts before it
+solves and rejects such a model as `Not_Enough_Degrees_Of_Freedom`
+(`INVALID_MODEL` through JuMP), even though a perfectly good operating point
+exists.
+
+The engine removes a dependent row under one rule only:
+
+> A hard constraint is omitted when rows already in the model **imply it
+> algebraically from static data**. Otherwise it stays.
+
+Three consequences follow, and each is tested as a pair (the consistent case
+drops the row and solves; the conflicting or live case keeps it):
+
+- **Static means a plain number in the resolved model.** A bound supplied
+  through a coefficient provider is a live JuMP parameter. It may change on a
+  re-solve, so it implies nothing, and the row it might have made redundant is
+  kept. The check reads the resolved coefficients, never the input defaults.
+- **Conflicting data keeps the row or raises.** A coil pinned off its
+  power-factor line keeps the power-factor equality, so the conflict surfaces
+  as infeasibility. Two voltage masters that disagree on one port, or an ideal
+  DC conductor between terminals fixed at different potentials, raise an
+  `ArgumentError`: those are contradictions in the data, not operating points.
+- **Rank evidence is a diagnostic, not a license.** A Jacobian rank deficit at
+  one point shows that rows are dependent *there*. It does not show which row
+  is implied everywhere, so it never justifies deleting a constraint by itself.
+
+Where the rule is applied today:
+
+| Row | Omitted when |
+|---|---|
+| `ibr_minimum_pf_equality` ($Q=0$ at unity) | the reactive box is pinned at zero, or a unity constant power factor applies |
+| `ibr_power_factor` | the reactive box is pinned at zero under a unity law, or both boxes are pinned on the power-factor line |
+| `ibr_dc_power_equality` | every coil's active power is pinned and the pins sum to the balance |
+| `ibr_q_volt_var` | the curve is flat (all slopes zero) and the reactive box is pinned at its constant value |
+| `dc_converter_voltage_control` | the voltage references already recorded imply it. References form a graph over **electrical** DC nodes (terminals joined by zero-resistance conductors, or perfectly grounded, are one node), and only a spanning forest is independent: a second master on a port, a master across an ideal tie, and the third side of a triangle of ports (p−m, m−n, p−n) are all dependent. Terminals already fixed in the model (a perfect ground, equal voltage bounds) seed the graph, so a master that restates one is not stamped. A dependent reference that contradicts the others raises |
+| `dc_branch_voltage_drop` (ideal conductor) | both terminals are fixed at the same potential |
+
+**Ideal conductors need two separate checks.** An ideal conductor contributes
+a voltage relation ("its two ends are at one voltage") and a current that no
+impedance sets. These fail in different ways and are judged separately:
+
+- *Is the voltage relation new information?* That is the dependent-row
+  question above. On the DC side an ideal conductor is a reference with value
+  zero in the same graph as fixed terminals, exact pair bounds and voltage
+  masters: stamped when independent, omitted when implied, an error when
+  contradictory. On the AC side the only such relations are those of ideal
+  conductors themselves, and a dependent one always comes with an undetermined
+  current, so it is handled by the second check.
+- *Is the current determined?* Only Kirchhoff's current law can fix it, and it
+  does so exactly when the ideal conductors form a forest over the nodes. A
+  loop leaves a circulating current free, and dropping a row does not cure
+  that, so loops are **rejected**, not reduced. On the DC side every perfectly
+  grounded terminal is one node, because a ground supplies any current: a
+  single ideal conductor between two grounds is a loop through the earth. A
+  terminal pinned by equal voltage bounds supplies no current and is an
+  ordinary node. The AC side follows the same rule, with perfect grounds and
+  source terminals as the one node (see [zero impedance](@ref zero-impedance)):
+  the neutral pole of a four-wire switch between two buses with grounded
+  neutrals is a loop through the earth. That conductor is redundant rather
+  than wrong — both ends are at earth potential — so `fix_case` removes it, and
+  the two `fix_case` passes that can create the pattern (low-impedance lines
+  to switches, grounding shunts to perfect grounds) are followed by that
+  cleanup.
+
+  The AC check is implemented as a rank test rather than a graph search, so
+  that it also covers ideal transformers. Each ideal element contributes one
+  voltage row: $V_p - V_q = 0$ for a conductor, and
+  $(V_p - V_q) - N\,(V_{p'} - V_{q'}) = 0$ for a coil pair of a zero-leakage
+  transformer with a fixed ratio. The element's one unknown current enters
+  KCL with exactly those coefficients (the ampere-turn balance supplies the
+  $N$), so the current columns are the transpose of the voltage rows: the rows
+  are independent if and only if KCL determines every ideal current.
+  Fixed-voltage terminals are dropped from a row before the test. The builders
+  feed rows to an incremental sparse elimination (`_IdealRowBasis`) and reject
+  the first dependent one. For conductors alone this reduces to the forest
+  rule. Two ideal transformers in parallel, or one bridged by a closed switch,
+  are dependent, and so is a single ideal grounded-wye/delta unit whose wye
+  terminals and neutral are all fixed by a source (its three delta rows then
+  sum to a statement about data; the free current is the zero-sequence
+  current circulating in the delta). A ratio that is a decision variable (a free tap) is not a
+  structural row and is not tested. The test is sufficient, not necessary: a
+  row between two fixed voltages is rejected even if power setpoints elsewhere
+  would happen to pin its current.
+
+Both conditions, and contradictory DC voltage references, are properties of
+the case and are reported by static validation before any model exists:
+`E.INT.IDEAL_LOOP`, `E.INT.DC_IDEAL_LOOP` and `E.INT.DC_REFERENCE_CONFLICT`
+(see the [finding-code reference](../findings.md)). The builders raise on
+exactly what those detectors return (`src/validation/ideal_topology.jl`), so a
+case that passes them is not rejected for these reasons at build time. Two
+things only the builder can see: an AC impedance replaced through a
+coefficient provider, and the winding wiring of ideal wye–delta transformers
+and regulators (static validation covers ideal `single_phase` units).
+
+Two known cases are **not** reduced, for different reasons.
+
+- **Exact angle windows on all three phase pairs of a bus**
+  (`va_diff_min == va_diff_max`). No reduction preserves the model: at nonzero voltage the three pairwise
+  equalities carry only two independent angle differences. But the rows are
+  homogeneous in voltage: with one phase at zero volts two of them hold
+  trivially and the third still constrains the other two phases. Dropping any
+  one would change the feasible set there.
+
+- **Zero ampacity on every terminal of a `center_tap` transformer.** Here an
+  exact reduction does exist: the winding equations give
+  $I_\text{hv,neutral} = -I_\text{hv,phase}$ and
+  $I_\text{center tap} = -(I_\text{leg 1} + I_\text{leg 2})$, so two of the
+  five zero caps follow from the other three everywhere. It is not applied.
+  The engine registers one thermal row per rated terminal as an inspectable
+  contract (see [Transformer current-rating coverage](#Transformer-current-rating-coverage)),
+  and a trial that dropped the two implied rows still did not solve reliably
+  across the scaling policies. The no-load point is feasible and is checked
+  directly in `test/transformer_current_rating_tests.jl`.
+
+The first case has no reduction that preserves the model everywhere; the
+second has one that is deliberately not taken.
+
+A systematic diagnostic for dependent rows is tracked in
+[issue 493](https://github.com/frederikgeth/BMOPFTools.jl/issues/493).
 
 ### Smoothing, substitutions, and performance expectations
 

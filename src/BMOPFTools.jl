@@ -387,6 +387,78 @@ function _terminal_roles(net::Dict{String,Any})::TerminalRoles
 end
 
 """
+    _declared_bus_neutral(roles, bus) -> Union{String,Nothing}
+
+The neutral terminal of `bus` under the case's resolved terminal `roles`:
+
+1. the bus's explicit `neutral_terminal` field, when it has one;
+2. otherwise, when the case **declares** `terminal_conventions`, the bus
+   terminal carrying a declared neutral label — and none if it has none. The
+   declaration is authoritative: a conductor declared as a phase is not a
+   neutral because of its name;
+3. otherwise (roles inferred), the naming convention of
+   [`_neutral_terminal`](@ref).
+"""
+function _declared_bus_neutral(roles::TerminalRoles, bus)
+    bus isa Dict{String,Any} || return nothing
+    explicit = get(bus, "neutral_terminal", nothing)
+    explicit isa String && return explicit
+    # A malformed terminal list (not a list of strings) is another check's
+    # finding; here it simply yields no neutral.
+    names = get(bus, "terminal_names", String[])
+    (names isa AbstractVector && all(t -> t isa AbstractString, names)) || return nothing
+    roles.inferred && return _neutral_terminal(bus)
+    for t in names
+        string(t) in roles.neutral && return string(t)
+    end
+    return nothing
+end
+
+"""
+    _sequence_phase_terminals(roles, bus) -> Vector{String}
+
+The terminals of `bus` that are PHASE conductors, in declaration order: every
+terminal except the bus neutral ([`_declared_bus_neutral`](@ref)) and any
+terminal with a declared protective-earth role. Sequence and unbalance limits
+are defined over exactly these when there are three of them. Preflight, the
+OPF builder and the solution verifier all take the phase set from here, so a
+limit cannot be applied by one and skipped by another.
+"""
+function _sequence_phase_terminals(roles::TerminalRoles, bus)
+    bus isa Dict{String,Any} || return String[]
+    names = get(bus, "terminal_names", String[])
+    (names isa AbstractVector && all(t -> t isa AbstractString, names)) || return String[]
+    neutral = _declared_bus_neutral(roles, bus)
+    return String[String(t) for t in names if t != neutral && !(String(t) in roles.earth)]
+end
+
+"""
+    _line_angle_phase_test(net) -> (bus, terminal) -> Bool
+
+A predicate, built once per case, for whether a line conductor's terminal is a
+**phase** conductor whose angle a `va_diff_min`/`va_diff_max` window may bound.
+Neutral and protective-earth conductors are not: a neutral voltage is a small
+residual with no operating angle, and an earth conductor sits at or near zero
+volts, where an angle is undefined. The OPF builder and the post-solve
+validator share this test so they bound the same conductors.
+"""
+function _line_angle_phase_test(net)
+    net isa Dict{String,Any} || return (bus, terminal) -> true
+    roles = _terminal_roles(net)
+    buses = get(net, "bus", Dict())
+    bus_neutral = Dict{String,Union{String,Nothing}}()
+    function is_phase(bus, terminal)
+        t = string(terminal)
+        (t in roles.neutral || t in roles.earth) && return false
+        nt = get!(bus_neutral, string(bus)) do
+            _declared_bus_neutral(roles, get(buses, bus, nothing))
+        end
+        return t != nt
+    end
+    return is_phase
+end
+
+"""
     _neutral_labels(net) -> Set{String}
 
 The set of terminal-name labels that denote a neutral conductor for this case,
@@ -395,6 +467,28 @@ from the resolved [`TerminalRoles`](@ref). Pass this to the terminal-map helpers
 neutral by the case's declared label(s) rather than the hard-wired `"n"` guess.
 """
 _neutral_labels(net::Dict{String,Any})::Set{String} = _terminal_roles(net).neutral
+
+"""
+    _earth_labels(net) -> Set{String}
+
+The terminal-name labels the case declares as protective earth (empty when the
+case declares no `terminal_conventions`, or they cannot be resolved). A
+protective-earth conductor is neither a phase nor the neutral, so it has no
+entry in the per-phase bound arrays (`v_min`/`v_max`, `vpn_*`), forms no phase
+pair (`vpp_*`, `va_diff_*`) and is not part of a symmetrical-component
+transform. Every place that lists "the phase terminals of a bus" filters by
+this set, so the engine, the bound producers and the post-solve checks index
+those arrays the same way.
+"""
+function _earth_labels(net)::Set{String}
+    roles = try
+        _terminal_roles(net)
+    catch err
+        err isa InterruptException && rethrow()
+        nothing
+    end
+    roles === nothing ? Set{String}() : roles.earth
+end
 
 """
     _return_label_predicate(net) -> (label, fallback_neutral) -> Bool
@@ -825,6 +919,7 @@ include("analysis/provenance.jl")
 include("infeasibility/transformer_headroom.jl")
 include("infeasibility/preflight.jl")
 
+include("validation/ideal_topology.jl")
 include("validation/schema.jl")
 include("validation/completeness.jl")
 include("validation/device_indexing.jl")
@@ -2693,7 +2788,7 @@ export opf_vuf_term
 
 """
     opf_element_loss(ctx, block, id) -> JuMP expression
-    opf_total_loss(ctx; blocks=("line","transformer","switch")) -> JuMP expression
+    opf_total_loss(ctx; blocks=("line","transformer","dc_branch")) -> JuMP expression
 
 Active-power loss of one two-port element, or of the whole network, as a JuMP
 expression in the model's WORKING units (per-unit when `per_unit=true`).

@@ -2368,11 +2368,34 @@ _net_center_tap_ideal() = parse_bmopf("""
          "l2":{"bus":"lv","terminal_map":["2","n"],"configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]}}}
 """; from_string=true)
 
+# Move the voltage source of `net` to a new bus and feed its old bus through a
+# short resistive line (phases only).
+function _feed_through_line!(net; r=0.05)
+    vs = only(values(net["voltage_source"]))
+    bus = vs["bus"]; tm = collect(String, vs["terminal_map"])
+    net["bus"]["grid"] = Dict{String,Any}("terminal_names" => copy(tm))
+    vs["bus"] = "grid"
+    net["line"] = merge(get(net, "line", Dict{String,Any}()), Dict{String,Any}(
+        "feed" => merge(Dict{String,Any}("bus_from" => "grid", "bus_to" => bus,
+            "terminal_map_from" => tm, "terminal_map_to" => tm),
+            Dict{String,Any}("R_series_$(k)_$(k)" => r for k in eachindex(tm)))))
+    net
+end
+
 @testset "Ideal (zero-impedance) transformers solve — every subtype" begin
+    # An ideal grounded-wye/delta transformer DIRECTLY on a stiff source is the
+    # one ideal unit that is not well posed: with the wye voltages and neutral
+    # all fixed, its three delta rows sum to a statement about data, and the
+    # zero-sequence current that circulates in the delta and returns through
+    # the grounded neutral is determined by nothing (0 V across 0 Ω). The
+    # engine rejects it (E.INT.IDEAL_LOOP). Behind any feeder impedance the
+    # same transformer is well posed.
+    stiff = _zero_all_xfmr_impedance!(_net_yd_xfmr())
+    @test_throws ArgumentError solve_pf(stiff; optimizer=Ipopt.Optimizer)
     cases = [
         ("single_phase",                 _net_1ph_xfmr()),
         ("center_tap",                   _net_center_tap_ideal()),
-        ("wye_delta",                    _net_yd_xfmr()),
+        ("wye_delta",                    _feed_through_line!(_net_yd_xfmr())),
         ("delta_wye",                    _net_dy_xfmr()),
         ("single_phase_autotransformer", _net_autotransformer()),
         ("open_delta_regulator",         _net_open_delta_reg()),

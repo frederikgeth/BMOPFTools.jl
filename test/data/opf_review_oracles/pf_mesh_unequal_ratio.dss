@@ -1,0 +1,47 @@
+! Low-voltage mesh closed across two transformers of UNEQUAL ratio.
+! (BMOPF subtype: single_phase, twice, tied by a line)
+!
+! Topology:            ┌─[T1 11 kV / 0.240 kV]── lv1 ──┐
+!              hv ─────┤                               tie line
+!                      └─[T2 11 kV / 0.252 kV]── lv2 ──┘── load
+!
+! The 12 V open-circuit mismatch between the two secondaries drives a
+! circulating current around the loop T1 – tie – T2 that exists even at no
+! load. This is the oracle for the per-unit voltage-base assignment: the tie
+! line joins two buses, so they must share one voltage base. A base propagated
+! through each transformer's own nameplate ratio would give lv1 and lv2
+! different bases and silently remove the circulating current.
+
+Clear
+
+! Base frequency locked to 50 Hz (BMOPF's modeling frequency).
+Set DefaultBaseFreq=50
+
+New Circuit.pf_mesh_unequal_ratio basekv=11.0 pu=1.0 angle=0 phases=1 bus1=hv.1.0 model=ideal
+
+New Reactor.grnd_hv bus1=hv.4 bus2=hv.0 R=0.001 X=0 phases=1
+
+New Transformer.t1 phases=1 windings=2
+~ wdg=1 bus=hv.1.4  conn=wye kv=11.0  %r=1.0 kva=100
+~ wdg=2 bus=lv1.1.4 conn=wye kv=0.240 %r=1.0 kva=100
+~ xhl=4.0
+
+New Transformer.t2 phases=1 windings=2
+~ wdg=1 bus=hv.1.4  conn=wye kv=11.0  %r=1.0 kva=100
+~ wdg=2 bus=lv2.1.4 conn=wye kv=0.252 %r=1.0 kva=100
+~ xhl=4.0
+
+New Reactor.grnd_lv1 bus1=lv1.4 bus2=lv1.0 R=0.001 X=0 phases=1
+New Reactor.grnd_lv2 bus1=lv2.4 bus2=lv2.0 R=0.001 X=0 phases=1
+
+! Two-conductor tie (phase + neutral), absolute ohms.
+New Line.tie bus1=lv1.1.4 bus2=lv2.1.4 phases=2 length=1 units=none
+~ rmatrix=[0.02 | 0.0 0.02] xmatrix=[0.01 | 0.0 0.01] cmatrix=[0 | 0 0]
+
+New Load.ld1 bus1=lv2.1.4 kv=0.240 kw=30 kvar=10 phases=1 model=1 Vminpu=0 Vmaxpu=2
+
+Set VoltageBases=[11.0, 0.240]
+CalcVoltageBases
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve

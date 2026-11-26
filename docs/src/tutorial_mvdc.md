@@ -128,6 +128,12 @@ the AC-side injection, so the power a converter **delivers into the DC link** is
 `−pg` — with `dc_p_ref = 0`, that is `(dc_v_set − v_dc)/dc_droop`, positive
 whenever the DC voltage has drooped *below* the set-point.
 
+The law is written on the pole-voltage **magnitude**. On a negative pole
+(`dc_v_set < 0`), or with a reversed `dc_terminal_map`, read $v_{dc}$ and
+`dc_v_set` above as $|v_{dc}|$ and $|\texttt{dc\_v\_set}|$: a loaded link sags
+toward zero on either pole, so the two halves of a bipolar network respond
+symmetrically.
+
 Put two droop converters (`vA`, `vB`) on one `dc_bus` that jointly feed a DC load,
 both with `dc_v_set = 1500`, `dc_p_ref = 0`. The listing is complete — note the DC
 voltage window `[1200, 1800] V` is deliberately wide enough for the heaviest load
@@ -214,8 +220,8 @@ leaves `v_dc` undetermined and is flagged `E.INT.DC_NO_VOLTAGE_CONTROL`.
 ## [MVDC feeder: a resistive DC tie](@id mvdc-feeder)
 
 The back-to-back SOP above is a point device: both converters share **one**
-`dc_bus`, so the DC link is electrically a single node and its only loss is in the
-converters. Pull the two converters apart onto **separate** DC buses (`dcA`, `dcB`)
+`dc_bus`, so the DC link is electrically a single node and, with the lossless
+converters of this model, dissipates nothing at all. Pull the two converters apart onto **separate** DC buses (`dcA`, `dcB`)
 and join them with a `dc_branch` carrying a real pole resistance, and the tie
 becomes a *distributed* **MVDC feeder**: the pole conductor now has its own `I²R`
 loss and a pole-voltage drop `I·R`, exactly like an AC line. This is the same D2/D4
@@ -282,9 +288,13 @@ println("DC feeder loss    : ", round(-pA - pB, digits=1), " W   vs  i²·R = ",
 `4.4 kW` gap is precisely the `i²·R = 29.6² × 5 ≈ 4376 W` dissipated in the pole
 conductor. The pole voltage sags from the master's `1500 V` at `dcA` to `1352 V`
 at `dcB`, a `148 V ≈ i·R` drop — the DC analogue of an AC feeder's voltage droop.
-Unlike the shared-bus SOP, whose only loss was in the converters, this MVDC feeder
-carries a **real, quantified line loss** that the optimizer now trades against the
-AC-side losses when it chooses the transfer.
+Unlike the shared-bus SOP, whose DC link was lossless, this MVDC feeder carries
+a **real, quantified line loss**. It is reported per branch under
+`res["dc_branch"][id]["loss"]["p_loss"]` and counted in the network total
+`res["losses"]["p_loss"]`, and it enters both the cost objective (as extra
+power the source must supply) and the loss objective [`opf_loss_term`](@ref),
+so the optimizer trades it against the AC-side losses when it chooses the
+transfer.
 
 **Remember to widen the far bus.** The pole drop pushes `dcB` down to `1352 V`,
 *below* the master's `1400 V` floor — so if `dcB` inherits `dcA`'s `[1400, 1800]`

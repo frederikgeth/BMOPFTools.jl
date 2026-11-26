@@ -14,18 +14,7 @@
 # ── Return-conductor recognition (DC analog of `_neutral_terminal`) ──────────
 # The DC return / neutral is the terminal whose pole role is METALLIC_RETURN;
 # fallback to a terminal named "m" (metallic return) or "n".
-function _dc_return_terminal(dcbus::Dict)
-    pole = get(dcbus, "pole", nothing)
-    if pole isa Dict
-        for (t, role) in pole
-            String(role) == "METALLIC_RETURN" && return String(t)
-        end
-    end
-    for t in string.(get(dcbus, "terminal_names", String[]))
-        lowercase(t) in ("m", "n") && return t
-    end
-    nothing
-end
+_dc_return_terminal(dcbus::Dict) = BMOPFTools._dc_return_terminal(dcbus)
 
 # Terminals with a given pole role, in terminal_names order.
 function _dc_terminals_with_role(dcbus::Dict, role::AbstractString)
@@ -35,25 +24,14 @@ function _dc_terminals_with_role(dcbus::Dict, role::AbstractString)
        if String(get(pole, t, "")) == role]
 end
 
-# Set of perfectly-grounded (dc_bus, terminal): declared on the dc_bus, or a
-# dc_grounding with no/zero resistance.
-function _dc_grounded_terminals(net::Dict{String,Any})
-    g = Set{Tuple{String,String}}()
-    for (b, dcbus) in get(net, "dc_bus", Dict())
-        dcbus isa Dict || continue
-        for t in string.(get(dcbus, "perfectly_grounded_terminals", String[]))
-            push!(g, (b, t))
-        end
-    end
-    for (_, gr) in get(net, "dc_grounding", Dict())
-        gr isa Dict || continue
-        b = get(gr, "dc_bus", nothing); t = get(gr, "terminal", nothing)
-        (b isa AbstractString && t isa AbstractString) || continue
-        r = get(gr, "r", nothing)
-        (r === nothing || Float64(r) <= 0) && push!(g, (String(b), String(t)))
-    end
-    g
-end
+# Pure-data DC topology (grounded and fixed terminals, node equivalence under
+# ideal conductors, the voltage-reference graph, ideal-loop and conflict
+# detection) lives in the core package, where validation shares it.
+const _DC_EARTH              = BMOPFTools._DC_EARTH
+const _dc_grounded_terminals = BMOPFTools._dc_grounded_terminals
+const _dc_node_classes       = BMOPFTools._dc_node_classes
+const _dc_v_nom_port         = BMOPFTools._dc_v_nom_port
+const _DCReferenceGraph      = BMOPFTools._DCReferenceGraph
 
 """
     _add_dc_variables!(model, net) -> Dict
@@ -184,6 +162,16 @@ function _add_dc_network_constraints!(model, net, vars;
 
     # ── DC branches: Ohm's law per conductor + thermal limits ───────────────
     idc_br = vars[:idc_br]
+    # A loop of ideal conductors is a property of the case; validation reports
+    # it as E.INT.DC_IDEAL_LOOP from the same detector.
+    references = get!(() -> _dc_seeded_reference_graph(vars), vars, :dc_voltage_references)
+    for loop in BMOPFTools._dc_ideal_loops(net)
+        throw(ArgumentError("dc_branch '$(loop.branch)' conductor $(loop.conductor) " *
+            "closes a loop of ideal (zero-resistance) DC conductors between " *
+            "$(loop.from) and $(loop.to). Its voltage row is implied by the others " *
+            "and a current could circulate around the loop undetermined. Remove " *
+            "the redundant conductor or give it its resistance (E.INT.DC_IDEAL_LOOP)."))
+    end
     for (id, br) in get(net, "dc_branch", Dict())
         br isa Dict || continue
         bf = String(get(br, "dc_bus_from", "")); bt = String(get(br, "dc_bus_to", ""))
@@ -199,11 +187,21 @@ function _add_dc_network_constraints!(model, net, vars;
             if k <= length(rv) && rv[k] > 0
                 register(:dc_branch_voltage_drop, (id, k),
                     @constraint(model, i == (v_dc[kf] - v_dc[kt]) / rv[k]))
-            elseif !(JuMP.is_fixed(v_dc[kf]) && JuMP.is_fixed(v_dc[kt]))
-                register(:dc_branch_voltage_drop, (id, k),
-                    @constraint(model, v_dc[kf] == v_dc[kt]))   # ideal conductor
+            else
+                # An ideal conductor states that its two ends are at one
+                # voltage. Whether that statement is NEW is decided by the
+                # reference graph, which already holds the fixed terminals and
+                # the conductors and masters recorded so far: an independent
+                # statement gets its row, an implied one does not (it would be
+                # a dependent equality), and a contradictory one is an error.
+                # (Whether the conductor's CURRENT is determined is a separate
+                # matter: loops of ideal conductors were rejected above.)
+                if _dc_reference_add!(references, kf, kt, 0.0,
+                        "dc_branch '$id' conductor $k (an ideal conductor)")
+                    register(:dc_branch_voltage_drop, (id, k),
+                        @constraint(model, v_dc[kf] == v_dc[kt]))
+                end
             end
-            # (both ends already fixed → equality is redundant; current stays free)
             # current flows from→to: leaves "from" (−i into node), enters "to" (+i)
             _dc_kcl_add!(kcl, bf, tmf[k], -i)
             _dc_kcl_add!(kcl, bt, tmt[k],  i)
@@ -239,7 +237,7 @@ function _add_dc_network_constraints!(model, net, vars;
     end
 
     # ── Line-to-neutral / line-to-line magnitude bounds ─────────────────────
-    _add_dc_voltage_pair_bounds!(model, net, v_dc;
+    _add_dc_voltage_pair_bounds!(model, net, v_dc; vars=vars,
                                  constraint_context=constraint_context)
 end
 
@@ -283,12 +281,28 @@ function _bound_oriented_diff!(model, Δ, lo, hi, orient::Int;
     end
 end
 
+# An EXACT pair bound (lo == hi) is a voltage reference, not a band: it states
+# the difference of two terminal voltages outright. It goes through the
+# reference graph like a fixed terminal or a voltage master, so it is stamped
+# as ONE equality when it is new information, not at all when the references
+# already imply it (a voltage master on the same pair, say), and reported when
+# it contradicts them. Returns `true` when it handled the bound.
+function _dc_exact_pair!(model, vars, Δ, a, b, lo, hi, orient::Int, owner; on_equality)
+    (lo isa Real && hi isa Real && lo == hi) || return false
+    graph = get!(() -> _dc_seeded_reference_graph(vars), vars, :dc_voltage_references)
+    target = orient > 0 ? Float64(lo) : -Float64(lo)      # value of V(a) − V(b)
+    if _dc_reference_add!(graph, a, b, target, owner)
+        on_equality(@constraint(model, Δ == target))
+    end
+    return true
+end
+
 # Stamp line-to-neutral (pole−return) and line-to-line (positive−negative pole)
 # magnitude bounds. Orientation comes from the `pole` role map (POSITIVE pole sits
 # above the return, NEGATIVE pole below), so the bounds are LINEAR. A missing role
 # is a hard error (validation flags it first as E.DOM.DC_POLE_ROLE_REQUIRED) — we
 # never silently fall back to a nonconvex squared form.
-function _add_dc_voltage_pair_bounds!(model, net, v_dc;
+function _add_dc_voltage_pair_bounds!(model, net, v_dc; vars,
                                       constraint_context=nothing)
     register(family, index, cref) = _register_semantic_constraint!(
         constraint_context, family, index, cref)
@@ -306,6 +320,12 @@ function _add_dc_voltage_pair_bounds!(model, net, v_dc;
                 orient == 0 && error("dc_bus '$b': terminal '$t' needs a POSITIVE/" *
                     "NEGATIVE pole role to orient its line-to-neutral bound.")
                 Δ = @expression(model, v_dc[(b, t)] - v_dc[(b, ret)])
+                if _dc_exact_pair!(model, vars, Δ, (b, t), (b, ret), lnlo, lnhi, orient,
+                        "dc_bus '$b' vdc_ln bound on '$t'";
+                        on_equality=cref -> register(:dc_bus_voltage_ln_equality,
+                            (b, t, ret), cref))
+                    continue
+                end
                 _bound_oriented_diff!(model, Δ, lnlo, lnhi, orient;
                     on_upper=cref -> register(:dc_bus_voltage_ln_upper,
                         (b, t, ret), cref),
@@ -323,6 +343,10 @@ function _add_dc_voltage_pair_bounds!(model, net, v_dc;
                       "NEGATIVE pole role.")
             (haskey(v_dc, (b, pos[1])) && haskey(v_dc, (b, neg[1]))) || continue
             Δ = @expression(model, v_dc[(b, pos[1])] - v_dc[(b, neg[1])])
+            _dc_exact_pair!(model, vars, Δ, (b, pos[1]), (b, neg[1]), lllo, llhi, 1,
+                    "dc_bus '$b' vdc_ll bound";
+                    on_equality=cref -> register(:dc_bus_voltage_ll_equality,
+                        (b, pos[1], neg[1]), cref)) && continue
             _bound_oriented_diff!(model, Δ, lllo, llhi, 1;
                 on_upper=cref -> register(:dc_bus_voltage_ll_upper,
                     (b, pos[1], neg[1]), cref),
@@ -343,24 +367,6 @@ function _dc_port_voltage(model, vars, inv)
         return (v_dc[(b, tm[1])], b, tm)
     end
     return (nothing, b, tm)
-end
-
-# Default pole-to-return nominal DC voltage from the dc_bus `v_dc_nom`.
-function _dc_v_nom_port(net, b, tm)
-    dcb = get(get(net, "dc_bus", Dict()), b, nothing)
-    dcb isa Dict || return nothing
-    nom = Float64.(get(dcb, "v_dc_nom", Float64[]))
-    terms = string.(get(dcb, "terminal_names", String[]))
-    idx(t) = findfirst(==(t), terms)
-    if length(tm) >= 2
-        i, j = idx(tm[1]), idx(tm[2])
-        (i !== nothing && j !== nothing && i <= length(nom) && j <= length(nom)) || return nothing
-        return nom[i] - nom[j]
-    elseif length(tm) == 1
-        i = idx(tm[1])
-        return (i !== nothing && i <= length(nom)) ? nom[i] : nothing
-    end
-    nothing
 end
 
 # Build the strictly-increasing breakpoint pairs (xs in DC volts, ys in AC watts)
@@ -384,6 +390,44 @@ function _droop_breakpoints(v_set, k, p_ref, deadband, P_lo, P_hi)
         end
     end
     length(xk) >= 2 ? (xk, yk) : nothing
+end
+
+"""
+    _dc_seeded_reference_graph(vars) -> _DCReferenceGraph
+
+The reference graph, seeded with every DC terminal whose voltage is already
+FIXED in the model (a perfect ground, or equal `v_dc_min`/`v_dc_max`). Those
+are voltage references too: a master that restates one is dependent and is not
+stamped, and a master that contradicts one is reported when the model is built
+rather than left for the solver to find infeasible.
+"""
+function _dc_seeded_reference_graph(vars)
+    graph = _DCReferenceGraph()
+    v_dc = get(vars, :v_dc, Dict())
+    for key in sort!(collect(keys(v_dc)))
+        JuMP.is_fixed(v_dc[key]) || continue
+        _dc_reference_add!(graph, key, _DC_EARTH, JuMP.fix_value(v_dc[key]),
+            "The fixed voltage of DC terminal $key")
+    end
+    return graph
+end
+
+"""
+    _dc_reference_add!(graph, a, b, U, owner) -> Bool
+
+Record the reference V(a) − V(b) = U in the model's reference graph. Returns
+`true` when it is independent of those already recorded (its row must be
+stamped) and `false` when they already imply it. Throws when they contradict
+it — the condition validation reports as `E.INT.DC_REFERENCE_CONFLICT`.
+"""
+function _dc_reference_add!(g::_DCReferenceGraph, a, b, U::Real, owner)
+    status, implied = BMOPFTools._dc_reference_record!(g, a, b, U)
+    status == :conflict && throw(ArgumentError("$owner sets $U (working units) " *
+        "between DC nodes $a and $b, but the voltage references already recorded " *
+        "(other voltage masters, or terminals fixed by equal voltage bounds) fix " *
+        "that difference at $implied. The references contradict each other " *
+        "(E.INT.DC_REFERENCE_CONFLICT)."))
+    return status == :independent
 end
 
 """
@@ -436,7 +480,19 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
     if mode == "V"
         v_set === nothing &&
             error("IBR '$inv_id': dc_control=\"V\" needs dc_v_set (or dc_bus v_dc_nom).")
-        register(:dc_converter_voltage_control,
+        # Voltage masters assert relations V(a) − V(b) = U between DC nodes.
+        # Taken together they form a graph, and only a spanning forest of it is
+        # independent: a second master on a port, a master at the far end of an
+        # ideal tie, or the third side of a triangle (p−m, m−n, p−n on a
+        # bipolar bus) each restate what the others already fix. A dependent
+        # reference is checked for consistency and not stamped; an inconsistent
+        # one is a data error. `_dc_reference_add!` does the bookkeeping.
+        graph = get!(() -> _dc_seeded_reference_graph(vars), vars, :dc_voltage_references)
+        a = (b, tm[1])
+        c = length(tm) >= 2 ? (b, tm[2]) : _DC_EARTH
+        independent = _dc_reference_add!(graph, a, c, v_set,
+            "IBR '$inv_id' (dc_control=\"V\")")
+        independent && register(:dc_converter_voltage_control,
             @constraint(model, Uport == v_set))
 
     elseif mode == "droop"
@@ -451,7 +507,15 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
         # the per-phase p_max/p_min sums when given, else ±Σs_max.
         P_hi = isempty(p_max) ? (isempty(smax) ? 0.0 : sum(smax))  : sum(p_max)
         P_lo = isempty(p_min) ? (isempty(smax) ? 0.0 : -sum(smax)) : sum(p_min)
-        bp = _droop_breakpoints(v_set, k, p_ref, db, P_lo, P_hi)
+        # The droop law is about the port voltage MAGNITUDE: a heavily loaded
+        # DC bus sags towards zero whichever pole the port sits on. `Uport` is
+        # signed (first minus second terminal), so on a negative pole — or a
+        # reversed `dc_terminal_map` — write the curve on −Uport against
+        # |v_set|. Writing it on the signed value would make the magnitude
+        # RISE under load there.
+        v_set == 0 && error("IBR '$inv_id': dc_control=\"droop\" needs a nonzero dc_v_set.")
+        polarity = v_set < 0 ? -1.0 : 1.0
+        bp = _droop_breakpoints(abs(v_set), k, p_ref, db, P_lo, P_hi)
         if bp === nothing
             error("IBR '$inv_id': degenerate droop (need dc_droop>0 and a non-empty " *
                   "s_max for the saturation limits).")
@@ -461,7 +525,8 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
         ε  = max(relu_eps * (xs[end] - xs[1]), 1e-6)
         op = relu_operator_for!(relu_ops, model, ε; mode=softplus)
         register(:dc_converter_droop,
-            @constraint(model, p_ac_expr == curve_expr(op, Uport, base, triples)))
+            @constraint(model, p_ac_expr ==
+                curve_expr(op, polarity == 1.0 ? Uport : -Uport, base, triples)))
     end
 end
 

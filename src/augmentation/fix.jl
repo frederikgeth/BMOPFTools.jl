@@ -15,6 +15,7 @@ Base.@kwdef struct FixRecipe
     apply_source_bus_bounds       :: Bool    = true
     apply_adjacent_current_bounds :: Bool    = false  # opt-in: topology inference
     apply_perfect_grounding       :: Bool    = false  # opt-in: changes OPF physics
+    apply_remove_earthed_ideal_conductors :: Bool = true  # exact; needed for a solvable model
     apply_shunt_to_capacitor      :: Bool    = false  # opt-in: re-represent capacitive shunts
     apply_snap_transformer_impedance :: Bool = false  # opt-in: tiny placeholder leakage → 0
 
@@ -64,6 +65,16 @@ controlled by the corresponding `apply_*` flag in `recipe`.
 7. **Perfect grounding** *(opt-in, default off)* — promote grounding shunts
    whose equivalent resistance is below `recipe.perfect_grounding_threshold_ohm`
    to `perfectly_grounded_terminals` entries and remove the shunt.
+8. **Remove earthed ideal conductors** — drop every ideal conductor (a closed
+   switch conductor, or a line conductor with zero self and mutual impedance)
+   whose two ends are both perfectly grounded. Such a conductor closes a loop
+   through the earth: nothing determines the current it carries, and the OPF
+   rejects the case (`E.INT.IDEAL_LOOP`). Both ends are at zero volts and can
+   sink any current, so removing it changes no other quantity; the pass is
+   exact, not an approximation. It runs after passes 4 and 7 because those two
+   together create the pattern (a low-impedance four-wire line becomes a
+   switch, and its neutral ends become perfect grounds). An element left with
+   no conductor is removed.
 
 # Example
 ```julia
@@ -112,11 +123,15 @@ function fix_case(net::Dict{String,Any};
         _fix_perfect_grounding!(net′, entries,
                                 recipe.perfect_grounding_threshold_ohm)
 
-    # Pass 8 — capacitive shunts → capacitor objects (opt-in)
+    # Pass 8 — remove ideal conductors between two earthed terminals
+    recipe.apply_remove_earthed_ideal_conductors &&
+        _fix_earthed_ideal_conductors!(net′, entries)
+
+    # Pass 9 — capacitive shunts → capacitor objects (opt-in)
     recipe.apply_shunt_to_capacitor &&
         _fix_shunt_to_capacitor!(net′, entries)
 
-    # Pass 9 — snap placeholder transformer leakage to exactly zero (opt-in)
+    # Pass 10 — snap placeholder transformer leakage to exactly zero (opt-in)
     recipe.apply_snap_transformer_impedance &&
         _fix_snap_transformer_impedance!(net′, entries,
                                          recipe.snap_transformer_z_min_pu)
@@ -335,6 +350,101 @@ function _fix_low_impedance!(net′, entries, threshold_ohm)
     end
 end
 
+const _CONDUCTOR_MATRIX_PREFIXES =
+    ("R_series_", "X_series_", "G_from_", "B_from_", "G_to_", "B_to_")
+
+# Restrict the per-conductor data of `d` (impedance and shunt matrices, rating
+# vectors) to the conductors `keep` of an `n`-conductor element.
+function _keep_conductors!(d::AbstractDict, keep::Vector{Int}, n::Int)
+    for prefix in _CONDUCTOR_MATRIX_PREFIXES
+        M = _pattern_keys_to_matrix(d, prefix)
+        M === nothing && continue
+        (size(M, 1) > n || size(M, 2) > n) && continue   # malformed; reported elsewhere
+        # A matrix smaller than the conductor count is legal: the entries it
+        # omits are zero. Pad it to the full count before slicing, so every
+        # entry that remains keeps its conductor.
+        full = zeros(eltype(M), n, n)
+        full[1:size(M, 1), 1:size(M, 2)] .= M
+        _nk_write_matrix!(d, prefix, full[keep, keep])
+    end
+    for field in ("i_max", "s_max")
+        v = get(d, field, nothing)
+        v isa AbstractVector && length(v) == n && (d[field] = v[keep])
+    end
+    return d
+end
+
+"""
+    _fix_earthed_ideal_conductors!(net′, entries)
+
+Remove every ideal conductor whose two ends are both earthed
+(`_ac_earthed_ideal_conductors`). See pass 8 of [`fix_case`](@ref) for why the
+removal is exact. A line that takes its matrices from a linecode gets a reduced
+copy of that linecode, so other lines sharing the original are untouched.
+"""
+function _fix_earthed_ideal_conductors!(net′, entries)
+    drop = Dict{Tuple{String,String},Vector{Int}}()
+    for hit in _ac_earthed_ideal_conductors(net′)
+        push!(get!(drop, (hit.element, hit.id), Int[]), hit.conductor)
+    end
+    isempty(drop) && return nothing
+    linecodes = get!(net′, "linecode", Dict{String,Any}())
+    reduced = Dict{Tuple{String,Vector{Int}},String}()   # (linecode, dropped) → reduced copy
+    for (element, id) in sort!(collect(keys(drop)))
+        collection = net′[element]
+        obj = collection[id]
+        gone = sort!(drop[(element, id)])
+        tmf = collect(String, obj["terminal_map_from"]); tmt = collect(String, obj["terminal_map_to"])
+        n = length(tmf)
+        keep = setdiff(1:n, gone)
+        dropped = [(tmf[k], tmt[k]) for k in gone]
+        note = "ideal conductor(s) $(join(["$(a)–$(b)" for (a, b) in dropped], ", ")) join two " *
+               "earthed terminals: the loop closes through the earth, the current is " *
+               "undetermined, and removal changes no other quantity"
+        if isempty(keep)
+            delete!(collection, id)
+            push!(entries, TransformEntry(Symbol(element), id, "(removed)",
+                Dict("terminal_map_from" => tmf, "terminal_map_to" => tmt), nothing,
+                "E.INT.IDEAL_LOOP", :standard, note * "; no conductor remains"))
+            continue
+        end
+        if element == "line" && !_line_has_inline_z(obj)
+            lcid = string(obj["linecode"])
+            obj["linecode"] = get!(reduced, (lcid, gone)) do
+                copy_id = _unique_id(linecodes, "$(lcid)_without_$(join(gone, "_"))")
+                lc = deepcopy(linecodes[lcid])
+                _keep_conductors!(lc, keep, n)
+                # The copy no longer has the conductor order of the geometry it
+                # was compiled from, so it must not claim to be geometry-backed.
+                # (This is not a Kron reduction: the removed conductor was
+                # decoupled, so the remaining entries are unchanged.)
+                haskey(lc, "line_geometry") && delete!(lc, "line_geometry")
+                get(lc, "source", nothing) == "geometry" && delete!(lc, "source")
+                derivation = get(lc, "derivation", nothing)
+                derivation isa AbstractDict || (derivation = Dict{String,Any}())
+                derivation["conductor_removal"] =
+                    "earthed ideal conductor(s) $(join(gone, ", ")) of '$lcid' removed"
+                lc["derivation"] = derivation
+                linecodes[copy_id] = lc
+                copy_id
+            end
+            for field in ("i_max", "s_max")      # line-level overrides
+                v = get(obj, field, nothing)
+                v isa AbstractVector && length(v) == n && (obj[field] = v[keep])
+            end
+        else
+            _keep_conductors!(obj, keep, n)
+        end
+        obj["terminal_map_from"] = tmf[keep]
+        obj["terminal_map_to"]   = tmt[keep]
+        push!(entries, TransformEntry(Symbol(element), id, "terminal_map_from/terminal_map_to",
+            Dict("terminal_map_from" => tmf, "terminal_map_to" => tmt),
+            Dict("terminal_map_from" => tmf[keep], "terminal_map_to" => tmt[keep]),
+            "E.INT.IDEAL_LOOP", :standard, note))
+    end
+    return nothing
+end
+
 # Maximum per-conductor total impedance magnitude for a line (Ω).
 # Returns nothing if the linecode is missing or has no R/X data.
 function _line_z_max(lc, length_m::Float64)
@@ -352,6 +462,7 @@ end
 
 # Pass 5: remove only bounds satisfied by explicit fixed source voltages.
 function _fix_source_bus_bounds!(net′, entries)
+    earth = _earth_labels(net′)
     for (bid, bus) in get(net′, "bus", Dict())
         sources = [vs for vs in values(get(net′, "voltage_source", Dict()))
                    if get(vs, "bus", nothing) == bid]
@@ -376,7 +487,8 @@ function _fix_source_bus_bounds!(net′, entries)
         end
         conflict && continue
         nt = _neutral_terminal(bus)
-        phases = [string(t) for t in get(bus, "terminal_names", String[]) if t != nt]
+        phases = [string(t) for t in get(bus, "terminal_names", String[])
+                  if t != nt && !(string(t) in earth)]
         isempty(phases) && continue
         all(t -> haskey(fixed, t), phases) || continue
         values_by_family = Dict("v" => abs.([fixed[t] for t in phases]))

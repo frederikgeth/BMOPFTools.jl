@@ -7,6 +7,7 @@ and authorized CC BY 4.0 on 2026-09-26. The common grant and attribution are in
 | Paths | Provenance |
 |---|---|
 | `SWER/`, `pf_comparison/` | Synthetic package fixtures; original directory notices retained. |
+| `opf_review_oracles/` | Original synthetic OpenDSS decks, each isolating one defect from the November 2026 OPF engine review and consumed by `test/opf_review_opendss_tests.jl`. See its `license.md`. |
 | `line_geometry/` | Original synthetic overhead, concentric-neutral, and tape-shield inputs and independently generated OpenDSS reference matrices. See its README. Replaces the former IEEE-13/Kersting configurations. |
 | `powerio_v08_bmopf.json` | PowerIO 0.8.0 output from the copyright holder's three-bus regression input; conversion provenance described in `test/powerio_v08_tests.jl`. |
 | `pmd_bounds/`, `ybus/`, `issue190_generator.dss` | Copyright-holder-authorized regression inputs. |

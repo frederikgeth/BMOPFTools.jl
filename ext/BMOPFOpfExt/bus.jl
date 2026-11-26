@@ -46,6 +46,7 @@ neutral terminals (their voltage is determined by physics, not operational limit
 function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars;
                               constraint_context=nothing)
     vr = vars[:vr]; vi = vars[:vi]
+    earth = BMOPFTools._earth_labels(net)
     register(family, index, cref) = _register_semantic_constraint!(
         constraint_context, family, index, cref)
     fixed = _source_fixed_terminals(net)
@@ -63,7 +64,7 @@ function _add_voltage_bounds!(model, net, bus_terminals, grounded, vars;
         # per-phase arrays indexed by this order, so the phase index k is kept
         # aligned to the array even when a phase is grounded/source-fixed (those
         # are skipped at apply-time but do not shift k).
-        phase_terms = [t for t in terminals if t != neutral]
+        phase_terms = [t for t in terminals if t != neutral && !(t in earth)]
         _check_per_phase_bound(v_min, length(phase_terms), bid, "v_min")
         _check_per_phase_bound(v_max, length(phase_terms), bid, "v_max")
 
@@ -99,6 +100,8 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
                                      constraint_context=nothing)
     vr    = vars[:vr]; vi = vars[:vi]
     fixed = _source_fixed_terminals(net)
+    sequence_roles = BMOPFTools._terminal_roles(net)
+    earth = BMOPFTools._earth_labels(net)
     register(family, index, cref) = _register_semantic_constraint!(
         constraint_context, family, index, cref)
 
@@ -113,7 +116,7 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
         # and the post-solve validator. A grounded or source-fixed phase is
         # skipped at apply-time but does NOT shift the index — collapsing onto the
         # filtered list would misalign every entry after the first such phase.
-        phase_all  = [t for t in terminals if t != neutral]
+        phase_all  = [t for t in terminals if t != neutral && !(t in earth)]
         n_phase    = length(phase_all)
         applicable(t) = !((bid, t) in grounded) && !((bid, t) in fixed)
 
@@ -235,7 +238,13 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
         # Sequence components require the full set of three phase terminals
         # (the symmetrical-component transform is defined over all three phases),
         # so use phase_all — not a grounded/fixed-filtered subset.
-        if n_phase == 3 &&
+        #
+        # "The three phases" are the phase-role terminals: the neutral and any
+        # declared protective-earth conductor are not phases. Counting an earth
+        # terminal would make a three-phase bus look four-phase and silently
+        # drop the limit; preflight and the verifier use the same selection.
+        seq_phases = BMOPFTools._sequence_phase_terminals(sequence_roles, bus)
+        if length(seq_phases) == 3 &&
                 (vpos_min !== nothing || vpos_max !== nothing ||
                  vneg_max !== nothing || vzero_max !== nothing ||
                  get(bus, "vuf_max", nothing) !== nothing)
@@ -243,8 +252,8 @@ function _add_bus_limit_constraints!(model, net, bus_terminals, grounded, vars;
             # and the sequence OBJECTIVE terms cannot drift apart. See
             # `_sequence_voltage_terms` in objectives.jl for the reference
             # convention (phase-to-neutral on a floating-neutral bus).
-            seq = _sequence_voltage_terms(model, vr, vi, bid,
-                                          phase_all, neutral, grounded)
+            seq = _sequence_voltage_terms(model, vr, vi, bid, seq_phases,
+                BMOPFTools._declared_bus_neutral(sequence_roles, bus), grounded)
 
             if vpos_min !== nothing || vpos_max !== nothing
                 (V1_r, V1_i) = seq.positive

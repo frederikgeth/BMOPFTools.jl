@@ -358,7 +358,8 @@ function BMOPFTools.opf_sequence_voltage(ctx::OpfContext, bus::AbstractString;
         "bus '$bus' is not in the network"))
     terminals = get(ctx.bus_terminals, bus, String[])
     neutral   = BMOPFTools._neutral_terminal(bus_dict)
-    phase_all = [t for t in terminals if t != neutral]
+    earth     = BMOPFTools._earth_labels(ctx.net)
+    phase_all = [t for t in terminals if t != neutral && !(t in earth)]
     terms = _sequence_voltage_terms(ctx.model, ctx.vars[:vr], ctx.vars[:vi],
                                     bus, phase_all, neutral, ctx.grounded)
     return getfield(terms, component)
@@ -387,15 +388,49 @@ end
 #   * `branch.jl` calls `_kcl_add!` for a switch WITHOUT a ledger `entry`, so
 #     `ctx.branch_inj["switch"]` is always empty -- offering "switch" here would
 #     be a silent no-op that always contributes exactly zero;
-#   * `results.jl` totals only lines and transformers, so including any third
-#     block would break the equality `opf_total_loss` promises with the reported
-#     number.
+#   * `results.jl` totals exactly the blocks listed here, so a block that is
+#     offered but not totalled would break the equality `opf_total_loss`
+#     promises with the reported number.
+#
+# DC branches ARE a loss block. Their I²R is real network loss, and leaving it
+# out made a "minimum loss" objective blind to DC conductors: it would push
+# current through a resistive DC tie for free and report a lower loss while the
+# source supplied more power. They carry no AC ledger entry, so their loss is
+# written directly as Σ_k (v_from,k − v_to,k)·i_k (see `_dc_branch_loss_expr`).
 #
 # BMOPF models a switch as an ideal closure -- a voltage equality with no series
 # impedance -- so its loss is identically zero by construction and there is
 # nothing to report. Asking for it is rejected rather than answered with a zero
 # that looks like a measurement.
-const _LOSS_BLOCKS = ("line", "transformer")
+const _LOSS_BLOCKS = ("line", "transformer", "dc_branch")
+
+"""
+    _dc_branch_loss_expr(ctx, id) -> JuMP expression or `nothing`
+
+Ohmic loss of one DC branch, Σ_k (v_from,k − v_to,k)·i_k over its conductors,
+in the model's working units on the SYSTEM power base (the DC power base is
+converted, so the term adds directly to the AC element losses). `nothing` when
+the branch is not in the model.
+"""
+function _dc_branch_loss_expr(ctx::OpfContext, id)
+    br = get(get(ctx.net, "dc_branch", Dict()), id, nothing)
+    (br isa AbstractDict && haskey(ctx.vars, :v_dc) && haskey(ctx.vars, :idc_br)) ||
+        return nothing
+    v_dc = ctx.vars[:v_dc]; idc = ctx.vars[:idc_br]
+    bf = String(get(br, "dc_bus_from", "")); bt = String(get(br, "dc_bus_to", ""))
+    tmf = string.(get(br, "terminal_map_from", String[]))
+    tmt = string.(get(br, "terminal_map_to", String[]))
+    w = ctx.bases === nothing ? 1.0 : _dc_power_base(ctx.bases) / ctx.bases.s_base
+    terms = Any[]
+    for k in 1:min(length(tmf), length(tmt))
+        kf = (bf, tmf[k]); kt = (bt, tmt[k])
+        (haskey(v_dc, kf) && haskey(v_dc, kt) && haskey(idc, (id, k))) || continue
+        push!(terms, JuMP.@expression(ctx.model,
+            w * (v_dc[kf] - v_dc[kt]) * idc[(id, k)]))
+    end
+    isempty(terms) && return JuMP.@expression(ctx.model, 0.0)
+    return JuMP.@expression(ctx.model, sum(terms))
+end
 
 """
     _element_loss_expr(ctx, records) -> JuMP expression
@@ -421,7 +456,7 @@ end
     BMOPFTools.opf_element_loss(ctx, block, id) -> JuMP expression
 
 Active-power loss of one two-port element (`block` is `"line"`, `"transformer"`,
-or `"switch"`) as a JuMP expression in the model's working units.
+or `"dc_branch"`) as a JuMP expression in the model's working units.
 
 Built from the same per-device terminal-injection ledger that the post-solve
 result uses, so `result[block][id]["loss"]["p_loss"]` and this expression are
@@ -438,6 +473,12 @@ function BMOPFTools.opf_element_loss(ctx::OpfContext, block::AbstractString,
         join(_LOSS_BLOCKS, ", ") * ". BMOPF models a switch as an ideal " *
         "closure with no series impedance, so it has no loss to report and is " *
         "not carried in the injection ledger."))
+    if block == "dc_branch"
+        loss = _dc_branch_loss_expr(ctx, id)
+        loss === nothing && throw(ArgumentError(
+            "no DC branch '$id' in the model."))
+        return loss
+    end
     recs = get(get(ctx.branch_inj, block, Dict{String,Any}()), id, nothing)
     recs === nothing && throw(ArgumentError(
         "no terminal-injection records for $block '$id'. Either the id is not " *
@@ -447,14 +488,16 @@ function BMOPFTools.opf_element_loss(ctx::OpfContext, block::AbstractString,
 end
 
 """
-    BMOPFTools.opf_total_loss(ctx; blocks=("line","transformer","switch")) -> expr
+    BMOPFTools.opf_total_loss(ctx; blocks=("line","transformer","dc_branch")) -> expr
 
 Total active-power loss over every two-port element in `blocks`, as a JuMP
 expression in the model's working units. The quantity `result["losses"]["p_loss"]`
 reports.
 
-Sums [`opf_element_loss`](@ref) over the ledger, so it is an exact smooth
-quadratic and matches the reported total by construction.
+Sums [`opf_element_loss`](@ref) over AC lines, transformers, and DC branches, so
+it is an exact smooth quadratic and matches the reported total by construction.
+DC-branch I²R is included by default: omitting it would let a loss objective
+route current through a resistive DC conductor at no apparent cost.
 
 !!! note "Switches have no loss to report"
     BMOPF models a switch as an ideal closure — a voltage equality with no
@@ -478,8 +521,17 @@ function BMOPFTools.opf_total_loss(ctx::OpfContext; blocks = _LOSS_BLOCKS)
             "closure with no series impedance, so it has no loss to report."))
     end
     terms = Any[]
-    for b in blocks, (_, recs) in get(ctx.branch_inj, b, Dict{String,Any}())
-        push!(terms, _element_loss_expr(ctx, recs))
+    for b in blocks
+        if b == "dc_branch"
+            for id in keys(get(ctx.net, "dc_branch", Dict()))
+                loss = _dc_branch_loss_expr(ctx, id)
+                loss === nothing || push!(terms, loss)
+            end
+            continue
+        end
+        for (_, recs) in get(ctx.branch_inj, b, Dict{String,Any}())
+            push!(terms, _element_loss_expr(ctx, recs))
+        end
     end
     isempty(terms) && return JuMP.@expression(ctx.model, 0.0)
     return JuMP.@expression(ctx.model, sum(terms))
@@ -636,7 +688,7 @@ completely, `:max` protects the worst one. They give different answers.
 [`opf_physical_scale`](@ref). `:squared` and `:max` return the SQUARE of that
 unit; `:magnitude` returns the unit itself.
 
-`:max` adds one variable and `length(pairs)` linear constraints; the others add
+`:max` adds one variable and `length(pairs)` quadratic constraints; the others add
 neither. `scale`/`eps_rel` are used only by `:magnitude`.
 """
 function BMOPFTools.opf_reduce_norm(ctx::OpfContext, pairs;
@@ -752,7 +804,7 @@ function BMOPFTools.opf_sequence_term(ctx::OpfContext, buses;
 end
 
 """
-    BMOPFTools.opf_loss_term(ctx; blocks=("line","transformer","switch"),
+    BMOPFTools.opf_loss_term(ctx; blocks=("line","transformer","dc_branch"),
                              weight=1.0, name=:losses)
 
 An [`OpfObjectiveTerm`](@ref) for total active-power loss, in **watts**, so the
@@ -911,8 +963,9 @@ function _phases_in_bus_order(ctx::OpfContext, bus::AbstractString, entries, wha
     bus_dict = get(get(ctx.net, "bus", Dict{String,Any}()), String(bus), nothing)
     bus_dict isa AbstractDict || throw(ArgumentError("bus '$bus' is not in the network"))
     neutral = BMOPFTools._neutral_terminal(bus_dict)
+    earth = BMOPFTools._earth_labels(ctx.net)
     order = [t for t in get(ctx.bus_terminals, String(bus), String[])
-             if t != neutral && !(t in nlabels)]
+             if t != neutral && !(t in nlabels) && !(t in earth)]
     by_terminal = Dict(String(t) => (re, ie) for (t, re, ie) in entries)
     picked = Tuple{Any,Any}[]
     for t in order

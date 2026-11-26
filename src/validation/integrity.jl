@@ -693,6 +693,8 @@ function integrity_check(net::Dict{String,Any},
     _power_factor_config_check!(net, findings)
     result["n_reference_issues"] = n_ref_issues
     result["n_dimension_issues"] = n_dim_issues
+    _check_ideal_topology!(net, findings)
+
     result
 end
 
@@ -779,4 +781,101 @@ function _check_droop_options!(findings, cp_id, law, obj,
             "$law in '$cp_id': $ref_field '$rv' not yet supported (only $ref_ok).",
             Dict{String,Any}()))
     end
+end
+
+"""
+    _check_ideal_topology!(net, findings)
+
+Report ideal-coupling defects that leave a model without a unique solution, or
+with no solution at all, before any model is built: loops of ideal conductors
+(AC and DC) and contradictory DC voltage references. The OPF builders raise on
+exactly what these detectors return (`src/validation/ideal_topology.jl`).
+"""
+function _check_ideal_topology!(net::Dict{String,Any}, findings::Vector{Finding})
+    # Collections that are not objects are a schema defect reported elsewhere.
+    all(k -> get(net, k, Dict()) isa AbstractDict,
+        ("bus", "line", "switch", "dc_bus", "dc_branch", "dc_grounding", "ibr")) ||
+        return nothing
+    ac_references = _ac_reference_terminals(net)
+    removable = Set((c.element, c.id, c.conductor) for c in _ac_earthed_ideal_conductors(net))
+    for loop in _ac_ideal_loops(net)
+        between = loop.from in ac_references && loop.to in ac_references
+        fixable = (loop.element, loop.id, loop.conductor) in removable
+        is_xfmr = loop.element == "transformer"
+        text = if is_xfmr
+            "transformer '$(loop.id)' winding $(loop.conductor) is ideal (zero leakage " *
+            "impedance) and its voltage relation between $(loop.from[1]).$(loop.from[2]) " *
+            "and $(loop.to[1]).$(loop.to[2]) is already implied by other ideal elements " *
+            "or fixed voltages: another ideal transformer in parallel, a closed switch " *
+            "or zero-impedance line across it, or fixed voltages on both sides. The " *
+            "current through it is undetermined; supply its leakage impedance or " *
+            "remove the parallel ideal path."
+        else
+            "$(loop.element) '$(loop.id)' conductor $(loop.conductor) closes a loop of " *
+            "ideal (zero-impedance) conductors between $(loop.from[1]).$(loop.from[2]) " *
+            "and $(loop.to[1]).$(loop.to[2])" *
+            (between ?
+                ": both terminals are held at a fixed voltage (perfect grounds or source " *
+                "terminals), so the conductor's voltage relation only repeats data, and " *
+                "the loop closes through the earth or the source, where the injection " *
+                "is free." :
+                ": its voltage relation is implied by the others and a current can " *
+                "circulate around the loop undetermined.") *
+            (fixable ? " Both ends are earthed, so the conductor is redundant; " *
+                       "`fix_case` removes it." : "")
+        end
+        push!(findings, Finding(ERROR, "E.INT.IDEAL_LOOP", :integrity,
+            Symbol(loop.element), loop.id, text,
+            Dict{String,Any}("element"=>loop.element, "conductor"=>loop.conductor,
+                "bus_from"=>loop.from[1], "terminal_from"=>loop.from[2],
+                "bus_to"=>loop.to[1], "terminal_to"=>loop.to[2],
+                "between_references"=>between,
+                "closes_through_reference"=>
+                    (loop.from in ac_references || loop.to in ac_references),
+                "removable_by_fix_case"=>fixable,
+                "remedy"=>fixable ? "remove_earthed_ideal_conductor" :
+                    is_xfmr ? "supply_transformer_leakage_impedance" :
+                    (between && !fixable) ? "keep_one_voltage_reference_or_supply_impedance" :
+                    "remove_redundant_ideal_conductor_or_supply_impedance")))
+    end
+    haskey(net, "dc_bus") || return nothing
+    dc_grounded = _dc_grounded_terminals(net)
+    for loop in _dc_ideal_loops(net)
+        push!(findings, Finding(ERROR, "E.INT.DC_IDEAL_LOOP", :integrity,
+            :dc_branch, loop.branch,
+            "dc_branch '$(loop.branch)' conductor $(loop.conductor) closes a loop of " *
+            "ideal (zero-resistance) DC conductors between $(loop.from[1]).$(loop.from[2]) " *
+            "and $(loop.to[1]).$(loop.to[2]): its voltage relation is implied by the " *
+            "others and a current can circulate around the loop undetermined.",
+            Dict{String,Any}("conductor"=>loop.conductor,
+                "dc_bus_from"=>loop.from[1], "terminal_from"=>loop.from[2],
+                "dc_bus_to"=>loop.to[1], "terminal_to"=>loop.to[2],
+                "closes_through_reference"=>
+                    (loop.from in dc_grounded || loop.to in dc_grounded),
+                "remedy"=>"remove_redundant_ideal_conductor_or_supply_resistance")))
+    end
+    for conflict in _dc_reference_conflicts(net)
+        master = conflict.kind == :voltage_master
+        conductor = conflict.kind == :ideal_conductor
+        pair = conflict.kind == :exact_pair_bound
+        push!(findings, Finding(ERROR, "E.INT.DC_REFERENCE_CONFLICT", :integrity,
+            master ? :ibr : conductor ? :dc_branch : :dc_bus,
+            master ? conflict.owner : conductor ? String(first(split(conflict.owner, "."))) :
+                conflict.from[1],
+            (master ?
+                "IBR '$(conflict.owner)' (dc_control=\"V\") sets $(conflict.stated) V " *
+                "across its DC port" :
+             conductor ?
+                "Ideal dc_branch conductor $(conflict.owner) holds its two ends at one voltage" :
+             pair ?
+                "The exact $(conflict.owner) sets $(conflict.stated) V" :
+                "DC terminal $(conflict.owner) is fixed at $(conflict.stated) V") *
+            ", but the voltage references already in the case (terminals fixed by " *
+            "grounding or equal bounds, ideal conductors, other voltage masters) fix " *
+            "that difference at $(conflict.implied) V.",
+            Dict{String,Any}("kind"=>String(conflict.kind), "owner"=>conflict.owner,
+                "stated_V"=>conflict.stated, "implied_V"=>conflict.implied,
+                "dc_bus"=>conflict.from[1], "terminal"=>conflict.from[2])))
+    end
+    return nothing
 end

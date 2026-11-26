@@ -3,9 +3,9 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "92cfe6136ea2547380cf089f2cf46906c2cac8efb1750922083cb36c9de5b8a4"
+    "sha256": "5ce0aed91f0966e45989527e39d2ef2492cbe4fe698d453c7473670a2ecebe68"
   },
-  "finding_count": 383,
+  "finding_count": 391,
   "findings": [
     {
       "code": "W.EXPORT.DSS_RATING_UNVERIFIED",
@@ -747,7 +747,7 @@
       "namespace": "DOM",
       "catalogue_section": "DOM",
       "section_title": "domain plausibility",
-      "meaning": "An isolating power transformer (`single_phase`/`center_tap`/`wye_delta`/`delta_wye`/`n_winding`) has **zero leakage reactance** (total series X ≤ `xfmr_z_min_ohm`, default 1e-6 Ω) — modeled as an ideal transformer with no series voltage drop. The IVR OPF represents the series impedance as a *coefficient* in the winding voltage-drop equation, not an inverted admittance, so zero impedance collapses cleanly to the exact voltage-ratio constraint `V_fr = N·V_to` and is **well-posed, not degenerate**. Informational because `%Z` was most likely omitted: supply realistic leakage (x ≈ 4–10 % on the rating base) if regulation across the winding matters. A lossless unit (R≈0 with finite X) is normal here and is **not** flagged. Regulators/autotransformers are excluded.",
+      "meaning": "An isolating power transformer (`single_phase`/`center_tap`/`wye_delta`/`delta_wye`/`n_winding`) has **zero leakage reactance** (total series X ≤ `xfmr_z_min_ohm`, default 1e-6 Ω) — modeled as an ideal transformer with no series voltage drop. The IVR OPF represents the series impedance as a *coefficient* in the winding voltage-drop equation, not an inverted admittance, so zero impedance collapses cleanly to the exact voltage-ratio constraint `V_fr = N·V_to` and is **well-posed, not degenerate**. Informational because `%Z` was most likely omitted: supply realistic leakage (x ≈ 4–10 % on the rating base) if regulation across the winding matters. A lossless unit (R≈0 with finite X) is normal here and is **not** flagged. Regulators/autotransformers are excluded. Well-posed applies to one ideal unit on its path: two ideal units in parallel, one bridged by a closed switch, or an ideal grounded-wye/delta unit directly on a voltage source, have no impedance to settle a current by and are rejected as `E.INT.IDEAL_LOOP`.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -798,6 +798,16 @@
       "catalogue_section": "DOM",
       "section_title": "domain plausibility",
       "meaning": "A line/switch sets a **positive `s_max` on its neutral conductor**. A ground-referenced apparent-power limit is degenerate there: the neutral-to-ground voltage is ≈ 0, so `S = V∘I* ≈ 0` and the cap never binds even as the neutral current overheats the conductor. Rate the neutral with `i_max` (a current limit) instead. See [current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits).",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "W.DOM.BUS_LIMIT_NOT_APPLICABLE",
+      "severity": "WARNING",
+      "namespace": "DOM",
+      "catalogue_section": "DOM",
+      "section_title": "domain plausibility",
+      "meaning": "A bus carries a voltage limit that has no meaning on that bus, so the OPF does not enforce it. Two cases. (1) A **sequence or unbalance limit** (`vpos_min`/`vpos_max`, `vneg_max`, `vzero_max`, `vuf_max`) on a bus without exactly three phases: symmetrical components are a change of coordinates for three phasors, and are not defined for one or two. (2) A **phase-to-neutral limit** (`vpn_min`/`vpn_max`) on a bus with no neutral terminal: there is no neutral to measure against. The limit is therefore absent from the optimization although it is present in the data, and a solution can violate what the limit was meant to express. This usually arises when one set of limits is applied uniformly to every bus of a feeder that has single-phase laterals or three-wire sections. Either remove the limit from that bus, or state the requirement in a form the bus supports, such as a phase-to-earth limit (`v_min`/`v_max`) or a phase-to-phase limit (`vpp_min`/`vpp_max`).",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2159,6 +2169,16 @@
       "knowledge_ids": []
     },
     {
+      "code": "E.INT.IDEAL_LOOP",
+      "severity": "ERROR",
+      "namespace": "INT",
+      "catalogue_section": "INT",
+      "section_title": "structural integrity",
+      "meaning": "Ideal AC elements whose **current nothing determines**: closed switches, line conductors whose entire impedance row is exactly zero (no self and no mutual impedance), and ideal transformers (zero leakage impedance, fixed tap). An ideal conductor carries a current that no impedance sets, so only Kirchhoff's current law can fix it. That works as long as the ideal conductors form a tree. Two closed switches in parallel, or a ring of them, have no impedance to share current by: any circulating current can be added without changing a single voltage. The same holds, less obviously, for one ideal conductor between two terminals that can each supply any current, namely perfect grounds and source terminals. The usual instance is the **neutral pole of a four-wire switch between two buses whose neutrals are both perfectly grounded**: both ends are at earth potential, the earth is a second ideal path between them, and how the return current divides between the switch pole and the earth is decided by nothing in the model. For the optimizer each of these is a redundant voltage equality plus a free direction, and the current reported for the conductor (and any thermal limit checked on it) would be an artifact of the starting point. The OPF refuses to build such a case; this is the same rule as `E.INT.DC_IDEAL_LOOP` on the DC side. Remedies depend on the kind of loop, and the detail says which applies. A conductor between two **earthed** terminals is redundant, not wrong: it does nothing electrically, so leave it out of the element's terminal maps (a three-pole switch on a four-wire feeder with grounded neutrals). `fix_case` does this automatically and exactly (`removable_by_fix_case` in the detail), and no other quantity in the solution changes. For parallel elements or a ring, represent them as one or give one its real impedance; a small but physical impedance makes the split unique. An ideal conductor that does not close a loop is fine, and is the recommended way to model a negligible impedance. **Ideal transformers** follow the same logic with a turns ratio in it. One ideal transformer is well posed: its current is whatever its load draws. Two in parallel, or one bridged by a closed switch, state the same voltage relation twice and can share the load in any proportion (in a real substation the leakage impedances set the sharing, which is why paralleled units are specified with matched %Z); give each its leakage impedance. One ideal unit can also be undetermined on its own: a **grounded-wye/delta transformer connected directly to a voltage source**. Its delta lets a zero-sequence current circulate, that current returns through the grounded wye neutral, and with the wye voltages fixed by the source it is driven by zero volts across zero ohms. Any feeder impedance between the source and the transformer, or the transformer's own leakage, removes the ambiguity. Formally, every ideal element contributes one voltage row, and its unknown current enters Kirchhoff's current law with that same row's coefficients, so \"the voltage rows are linearly independent\" and \"KCL determines every ideal current\" are one condition; for conductors alone it is the tree rule above. The rule is **sufficient, not necessary**: an ideal conductor between two terminals whose voltages are both fixed is always reported, because its voltage relation only repeats data, even in the special case where exact power setpoints on a second voltage source would pin the current. Keep one voltage reference instead of two. The check reads the case as written, so an impedance replaced through a coefficient provider at build time is judged by the builder instead, as are ideal wye–delta transformers and regulators, whose winding wiring the builder holds.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
       "code": "W.INT.WYE_WITHOUT_NEUTRAL",
       "severity": "WARNING",
       "namespace": "INT",
@@ -2215,6 +2235,16 @@
       "catalogue_section": "CONV",
       "section_title": "terminal-role conventions",
       "meaning": "The case declares no `terminal_conventions` block, so phase/neutral/earth roles were inferred from the naming convention (a terminal `n`/`N` is neutral, all others phase). Declare the block to make the classification explicit and self-documenting; it is written for you on the next [`write_bmopf`](@ref).",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "W.CONV.PHASE_NAMED_AS_NEUTRAL",
+      "severity": "WARNING",
+      "namespace": "CONV",
+      "catalogue_section": "CONV",
+      "section_title": "terminal-role conventions",
+      "meaning": "`terminal_conventions` declares a label as a **phase**, but the label (`n`, `N` or `n_ref`) is one the naming convention reads as a neutral. The declaration is what the case means, and the parts of the toolchain that resolve roles from it treat the conductor as a phase: line angle windows, source-bus grounding, and device terminal maps. Bus-level voltage limits, some objective terms and the bus checks of the solution verifier still fall back to the name and may treat the conductor as the bus neutral, which changes which voltages are bounded and how. Until every consumer follows the declaration, the robust choice is to rename the conductor so that its name and its role agree. This is a warning about tool coverage, not about the case being wrong.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2793,6 +2823,26 @@
       "knowledge_ids": []
     },
     {
+      "code": "W.SOL.DC_OHM_RESIDUAL",
+      "severity": "WARNING",
+      "namespace": "SOL",
+      "catalogue_section": "SOL",
+      "section_title": "solution profiling",
+      "meaning": "Post-solve: on a `dc_branch` conductor the reported voltage drop does not equal r·i for the case resistance and the reported current. Ohm's law is the one equation a DC conductor must satisfy, and it ties together three numbers the result reports separately (two terminal voltages and a current). When they disagree the result is not a solution of this case: it may come from a different resistance, a different unit base, or a hand-edited file. The check matters beyond the branch itself, because the DC loss used in the network power balance is r·i²; a drop reported across a zero-resistance conductor dissipates nothing, whatever v·i suggests. Counted as a failed check.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "W.SOL.DC_LOSS_SHARE_MISMATCH",
+      "severity": "WARNING",
+      "namespace": "SOL",
+      "catalogue_section": "SOL",
+      "section_title": "solution profiling",
+      "meaning": "Post-solve: the result's `losses.p_loss_dc` differs from the DC-branch loss recomputed as Σ r·i² from the case resistances and the reported branch currents. The reported share is a summary; the recomputed value is the evidence. The validator uses its own value when it closes the AC power balance, so a result cannot improve its balance by declaring a DC loss, least of all on a case with no DC branch. A mismatch means the summary and the detailed quantities in the same result do not describe the same solution. Counted as a failed check.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
       "code": "I.SOL.BINDING_SUMMARY",
       "severity": "INFO",
       "namespace": "SOL",
@@ -2999,6 +3049,26 @@
       "catalogue_section": "DC",
       "section_title": "MVDC/LVDC network",
       "meaning": "A connected DC island (dc_buses joined by dc_branches) has no `dc_grounding` (perfect or resistive) — the signed DC voltages float (rank-deficient). The DC analog of `E.INT.NO_VOLTAGE_REFERENCE`.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "E.INT.DC_IDEAL_LOOP",
+      "severity": "ERROR",
+      "namespace": "INT",
+      "catalogue_section": "DC",
+      "section_title": "MVDC/LVDC network",
+      "meaning": "Zero-resistance `dc_branch` conductors whose **current nothing determines**. An ideal conductor carries a current that no resistance sets, so only Kirchhoff's current law can fix it. That works as long as the ideal conductors form a tree. In a closed loop of them (a triangle, two in parallel) Kirchhoff's voltage law around the ring reads 0 = 0 and nothing opposes a current flowing round it: any circulating current can be added to a solution and it remains a solution. A **perfect ground** supplies whatever current is asked of it, so all perfectly grounded terminals are one node for this purpose, and a single ideal conductor between two grounds is already a loop: it closes through the earth, and how the return current divides between the conductor and the earth is undetermined. In optimization terms the model has a free direction, and a solver returns whichever circulation its starting point led to. This is a statement about currents only. A terminal pinned by equal voltage bounds has a known voltage but supplies no current, so it does not close a loop; whether a conductor's voltage relation is redundant or contradictory is the separate question behind `E.INT.DC_REFERENCE_CONFLICT`. The OPF refuses to build such a case. Remove the redundant conductor, or give one conductor of the loop its resistance: any positive value makes the current split unique. The finding names the conductor that closes the loop in sorted order; the defect belongs to the loop as a whole.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "E.INT.DC_REFERENCE_CONFLICT",
+      "severity": "ERROR",
+      "namespace": "INT",
+      "catalogue_section": "DC",
+      "section_title": "MVDC/LVDC network",
+      "meaning": "The case makes two **exact statements about the same DC voltage** and they disagree. Exact statements come from four sources: a terminal fixed at a potential (a perfect ground, or `v_dc_min == v_dc_max`), an ideal conductor (its two ends are at one voltage), an exact voltage-pair bound (`vdc_ln_min == vdc_ln_max`, or the line-to-line equivalent), and a voltage-master converter (`dc_control = \"V\"` holds its port at `dc_v_set`). Each is a line in a ledger of voltage differences. Following the ledger from one node to another must give one answer whichever path is taken; here two paths give different answers, for example two masters asking for 800 V and 790 V on one port, a master asking for 790 V across a pole already fixed at 800 V, a zero-ohm conductor between terminals held at 800 V and 700 V, or the three sides of a bipole that do not add up (p−m plus m−n must equal p−n). No operating point satisfies both, so this is a contradiction in the data, not an infeasibility for a solver to discover. Statements that *agree* are no problem: the OPF keeps one equation and drops the restatements. The detail gives the kind of statement, its value and the value already implied. Decide which statement is intended and remove or correct the other; if two converters are meant to share voltage control, one should be the master and the others on droop or power control.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -3218,7 +3288,7 @@
       "namespace": "RED",
       "catalogue_section": "DC",
       "section_title": "MVDC/LVDC network",
-      "meaning": "Two `dc_branch`es connect the same unordered `dc_bus` pair.",
+      "meaning": "Two `dc_branch`es connect the same unordered `dc_bus` pair. Parallel **resistive** branches are well posed (the current divides by resistance). If the same conductor is zero-resistance in both, they form an ideal loop and `E.INT.DC_IDEAL_LOOP` is raised as well.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -3238,7 +3308,17 @@
       "namespace": "SOL",
       "catalogue_section": "DC",
       "section_title": "MVDC/LVDC network",
-      "meaning": "Post-solve: a signed DC node voltage lies outside its `[v_dc_min, v_dc_max]` band.",
+      "meaning": "Post-solve: a DC voltage is outside its bounds. Two families are checked: a signed node voltage against its `[v_dc_min, v_dc_max]` band, and a voltage **difference** against a pair bound (`vdc_ln_*` pole to return, `vdc_ll_*` pole to pole; `family` in the detail). The second matters because each terminal can sit inside its own band while the difference between them is wrong. An exact pair bound (minimum equal to maximum) is the band of zero width: it states the difference outright, and the detail marks it `exact`.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "W.SOL.DC_VSET_RESIDUAL",
+      "severity": "WARNING",
+      "namespace": "SOL",
+      "catalogue_section": "DC",
+      "section_title": "MVDC/LVDC network",
+      "meaning": "Post-solve: a DC voltage master (`dc_control = \"V\"`) does not hold its port at its setpoint (`dc_v_set`, or the nominal port voltage). A master is the DC counterpart of an AC slack bus: it fixes the voltage and lets its power float. A result in which the port sits elsewhere, even inside every voltage band, is not a solution of the case as written: every DC current and loss in it belongs to a different operating point. Like the other residual checks this fails the verification (`verification_status = \"failed\"`). The detail gives the setpoint, the reported port voltage and their difference.",
       "contract_id": null,
       "knowledge_ids": []
     },

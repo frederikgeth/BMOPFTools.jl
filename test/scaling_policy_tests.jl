@@ -1119,7 +1119,7 @@ end
              "terminal_map_from":["a","b","c","n"],
              "terminal_map_to":["a","b","c"],
              "v_nom_from":11000.0,"v_nom_to":415.0,"s_rating":500000.0,
-             "r_series_from":0.0,"x_series_from":0.0,
+             "r_series_from":0.0,"x_series_from":4.84,
              "r_series_to":0.0,"x_series_to":0.0}},
            "delta_wye":{"dy":{"bus_from":"delta","bus_to":"lv",
              "terminal_map_from":["a","b","c"],

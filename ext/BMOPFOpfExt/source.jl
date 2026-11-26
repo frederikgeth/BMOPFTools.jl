@@ -62,6 +62,7 @@ function _add_source_constraints!(model, net, vars, kcl_r, kcl_i;
     vr = vars[:vr]; vi = vars[:vi]
     cr_src = vars[:cr_src]; ci_src = vars[:ci_src]
     nlabels = BMOPFTools._neutral_labels(net)
+    source_roles = BMOPFTools._terminal_roles(net)
     register(family, index, cref) = _register_semantic_constraint!(
         constraint_context, family, index, cref)
 
@@ -113,8 +114,8 @@ function _add_source_constraints!(model, net, vars, kcl_r, kcl_i;
         # slack neutral return current below satisfies neutral KCL. The neutral
         # name comes from the bus's own declaration (neutral_terminal field /
         # convention heuristics) rather than assuming the literal name "n".
-        src_bus_nt = BMOPFTools._neutral_terminal(
-            get(get(net, "bus", Dict()), bus, Dict{String,Any}()))
+        src_bus_nt = BMOPFTools._declared_bus_neutral(
+            source_roles, get(get(net, "bus", Dict()), bus, nothing))
         for (b, t) in keys(vr)
             b == bus && (t == src_bus_nt || t in nlabels) || continue
             if !JuMP.is_fixed(vr[(bus, t)])
@@ -138,8 +139,8 @@ function _add_source_constraints!(model, net, vars, kcl_r, kcl_i;
             t_n = if n_pos_idx !== nothing
                 tm[n_pos_idx]
             else
-                bt = get(get(net, "bus", Dict()), bus, Dict())
-                BMOPFTools._neutral_terminal(bt)
+                BMOPFTools._declared_bus_neutral(
+                    source_roles, get(get(net, "bus", Dict()), bus, nothing))
             end
 
             for (idx, ph) in enumerate(ph_pos)

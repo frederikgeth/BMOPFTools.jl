@@ -110,8 +110,8 @@ function _generation_cost_expr(model, net, vars)
         t_n = if n_pos_idx !== nothing
             tm[n_pos_idx]
         else
-            bt = get(get(net, "bus", Dict()), bus, Dict())
-            BMOPFTools._neutral_terminal(bt)
+            BMOPFTools._declared_bus_neutral(BMOPFTools._terminal_roles(net),
+                get(get(net, "bus", Dict()), bus, nothing))
         end
 
         for (idx, ph) in enumerate(ph_pos)

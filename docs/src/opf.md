@@ -182,35 +182,81 @@ well beyond that starting point.
 
 The network is a graph of **buses** $b \in \mathcal{B}$, each with a set of
 **terminals** $\mathcal{T}_b$.  Terminals are named strings (e.g. `"a"`, `"b"`,
-`"c"`, `"n"`).  The *neutral terminal* $n_b$ is identified by the explicit
-`neutral_terminal` bus field, or by the naming convention: a terminal named `"n"`
-or `"N"` (case-insensitive) is treated as neutral.
-
-Terminals declared in `perfectly_grounded_terminals` are **perfectly grounded**:
-their voltage is fixed to zero and they do not appear in the KCL system.
-The set of grounded pairs is $\mathcal{G}_\text{nd}$.
+`"c"`, `"n"`).  The *neutral terminal* $n_b$ is identified, in order of
+precedence, by the case-level [`terminal_conventions`](conventions.md)
+labels, by the explicit `neutral_terminal` bus field, or by the naming
+convention: a terminal named `"n"`/`"N"` (case-insensitive), or the reserved
+import label `"n_ref"`, is treated as neutral.
 
 **Phase terminals** $\mathcal{T}_b^\phi \subseteq \mathcal{T}_b$ are all
 terminals that are not the neutral.
+
+#### [Earth, grounded terminals, and return paths](@id opf-earth-reference)
+
+Every voltage in the model is measured against one common reference, **earth**
+(remote ground, 0 V). Three rules decide how a conductor relates to it, and
+they are worth reading once because they determine where return current flows.
+
+**1. A perfectly grounded terminal is tied to earth by an ideal conductor.**
+The set of grounded pairs $\mathcal{G}_\text{nd}$ contains
+
+- every terminal a bus lists in `perfectly_grounded_terminals`, and
+- the **neutral terminal of every voltage-source bus** (see
+  [Voltage sources](#Voltage-sources)).
+
+A grounded terminal keeps its voltage variables, fixed to zero, and keeps its
+KCL equation. What makes it a *ground* rather than a dead end is a free
+**earth-injection current** $(c^{r,\text{gnd}}_{b,t},\, c^{i,\text{gnd}}_{b,t})$:
+whatever the connected branches push into the node flows on into earth. That
+current is reported per terminal under `result["ground"]`.
+
+**2. A terminal that is not grounded floats.** Its voltage is a free variable
+determined by KCL. A neutral conductor grounded only at the substation therefore
+shows a neutral-to-earth voltage along the feeder, as it does in the field.
+
+**3. A wye-connected device without a neutral in its `terminal_map` is
+referenced to earth.** This applies alike to WYE loads and generators and to
+the wye windings of `single_phase`, `wye_delta`, and `delta_wye` transformers.
+Its coil voltage is the phase-to-earth voltage and its return current leaves
+through an *implicit ideal earth connection* that appears in no KCL equation.
+In power-engineering terms, a three-terminal wye map describes a **solidly
+grounded star** (Yg), not a floating star.
+
+!!! warning "A three-terminal wye map is Yg, with the zero-sequence path that implies"
+    A solidly grounded star point carries zero-sequence current. A `wye_delta`
+    unit whose wye map is `["a","b","c"]` therefore behaves as a grounding
+    transformer on that side. To model an **ungrounded** star, give the bus an
+    ungrounded neutral terminal and include it in the terminal map: the star
+    point then floats and the phase currents must sum to zero through it. To
+    model an **impedance-grounded** star, do the same and connect the neutral to
+    earth through a `shunt` (or the transformer's `r/x_neutral_*` fields).
 
 ---
 
 ### Variables
 
-All variables are real-valued. By default they are in SI units (V and A); see
-[Units and scaling](#Units-and-scaling) for the optional per-unit solve.
+All variables are real-valued. By default the model is built in **per-unit**
+working coordinates and results are converted back to SI (V, A, W); see
+[Units and scaling](#Units-and-scaling) for the bases and the SI alternative.
 
 | Variable | Index | Description |
 |---|---|---|
 | $v^r_{b,t},\; v^i_{b,t}$ | $(b,t)\in\mathcal{B}\times\mathcal{T}_b$ | Rectangular voltage at terminal |
+| $c^{r,\text{gnd}}_{b,t},\; c^{i,\text{gnd}}_{b,t}$ | $(b,t)\in\mathcal{G}_\text{nd}$ | Earth-injection current at a grounded terminal |
 | $c^r_{\ell,k},\; c^i_{\ell,k}$ | line $\ell$, conductor $k$ | Series current, from-side |
-| $\tilde{c}^r_{\ell,k},\; \tilde{c}^i_{\ell,k}$ | line $\ell$, conductor $k$ | Series current, to-side |
+| $c^r_{sw,k},\; c^i_{sw,k}$ | switch $sw$, conductor $k$ | Switch current (fixed to zero when open) |
 | $c^{r,d}_{d,k},\; c^{i,d}_{d,k}$ | load $d$, phase $k$ | Load current |
 | $c^{r,g}_{g,k},\; c^{i,g}_{g,k}$ | generator $g$, phase $k$ | Generator current |
 | $c^{r,n}_{n,k},\; c^{i,n}_{n,k}$ | IBR $n$, phase $k$ | IBR current |
 | $c^{r,s}_{v,k},\; c^{i,s}_{v,k}$ | voltage source $v$, phase $k$ | Source slack current |
 | $c^{r,x}_{x,\sigma,k},\; c^{i,x}_{x,\sigma,k}$ | transformer $x$, side $\sigma$, conductor $k$ | Transformer winding current (two-bus subtypes) |
 | $c^{r,w}_{x,j,k},\; c^{i,w}_{x,j,k}$ | `n_winding` transformer $x$, winding $j$, phase $k$ | n-winding winding current |
+| $N_x$ or $n_{\text{eff},x}$ | transformer $x$ with a free tap | Effective ratio (see [Continuous tap optimization](@ref Continuous-tap-optimisation)) |
+
+The to-side line series current $\tilde{c}_{\ell,k} = -c_{\ell,k}$ is an
+*expression*, not a variable: a line has one independent series current per
+conductor. Cases with a DC side add DC node voltages and DC branch, converter,
+load, and source currents (see the [MVDC tutorial](tutorial_mvdc.md)).
 
 Load, generator, IBR, and source current variables cover **phase
 conductors only**; neutral return current is implicit in KCL. IBRs add an
@@ -222,9 +268,38 @@ analogous current variable per phase — see [IBRs](#ibrs) below.
 
 The data model is always in **SI** units, but by default the OPF is built and
 solved in a **normalized per-unit copy** (`per_unit=true`). It uses a system
-base `s_base` (VA, default `1e6`) with per-bus voltage bases propagated through
-transformer ratios, then converts results back to SI. Pass `per_unit=false` to
-build the numerical model directly in volts, amperes, ohms, and watts.
+base `s_base` (VA, default `1e6`) with per-bus voltage bases, then converts
+results back to SI. Pass `per_unit=false` to build the numerical model directly
+in volts, amperes, ohms, and watts.
+
+**How voltage bases are assigned.** A voltage base is a coordinate scale for a
+*conductor*, so every bus joined by copper must share one:
+
+1. Buses joined by lines, switches, or galvanically continuous transformers
+   (`single_phase_autotransformer`, `open_delta_regulator`) are grouped into
+   **galvanic zones**. A regulator belongs here because its two bus records are
+   bonded through a shared bushing, and its model uses the dimensionless
+   `tap_ratio`, never a nameplate voltage pair.
+2. The zone containing the first voltage source takes that source's largest
+   phase voltage magnitude as its base.
+3. The base changes only across an **isolating** transformer, by its nominal
+   ratio: $V_\text{base,to} = V_\text{base,fr}\cdot
+   V^\text{nom}_\text{to}/V^\text{nom}_\text{fr}$. Zones the source cannot
+   reach inherit the source base.
+
+Each transformer's nominal voltages are then divided by the base of *its own*
+side, so its per-unit ratio is one exactly when the two zone bases stand in the
+nameplate ratio. That is not always possible. When two transformers of unequal
+ratio feed the same low-voltage zone (a mesh closed across, say, an 11/0.240 kV
+and an 11/0.252 kV unit), the zone keeps the base it received first and the
+second transformer simply carries a per-unit ratio different from one. The
+circulating current that the ratio mismatch drives around the loop is retained,
+and the per-unit and SI models describe the same physics.
+
+The derived bases follow from $V_\text{base}$ and $S_\text{base}$:
+$I_\text{base} = S_\text{base}/V_\text{base}$,
+$Z_\text{base} = V_\text{base}^2/S_\text{base}$,
+$Y_\text{base} = S_\text{base}/V_\text{base}^2$.
 
 Both modes exist because **variable scaling affects the conditioning of a
 nonlinear interior-point solve**. Ipopt's initialization, barrier updates and
@@ -324,7 +399,7 @@ limit and an apparent-power limit, and both are enforced natively when present:
 | Line / cable | `i_max` (per conductor) | `s_max` (per conductor) | **current** |
 | Switch | `i_max` (per conductor) | `s_max` (per conductor) | **current** |
 | Generator / IBR | `i_max` (per conductor circle) | `s_max` (per-phase circle) | power (nameplate) |
-| 2-winding transformer (+ regulators) | `i_max_from`/`i_max_to` (per winding) | `s_rating` (nameplate — **required**, always enforced) | **power** (nameplate); regulators prefer current |
+| 2-winding transformer (+ regulators) | `i_max_from`/`i_max_to` (per winding) | `s_rating` (nameplate; enforced whenever supplied, in power flow too) | **power** (nameplate); regulators prefer current |
 | n-winding transformer | per-winding `i_max` | per-winding `s_max` rating | power (per winding) |
 
 Declaring **both** on the same element triggers the audit finding
@@ -338,16 +413,19 @@ physics, not taste:
   specifies in amperes — current is the physical driver, so `i_max` is preferred.
 - **Transformers** are specified by their **kVA nameplate**; the primary and
   secondary currents differ, so a single apparent-power rating is the natural
-  limit. `s_rating` is a **required** transformer field (it also sets the
-  winding-1 per-unit impedance base — see
-  [transformer models](transformer_models.md)) and is **always enforced** as a
-  per-winding coil apparent-power cap, alongside the per-winding
-  `i_max_from`/`i_max_to` current cones when present. For `n ≥ 3` windings the cap
-  is a per-winding `s_max` rating. One consequence to keep in mind: the primary
-  coil carries **load + losses**, so at exactly-rated delivery the from-side cap
-  binds slightly *below* the secondary nameplate throughput (by the loss margin).
-  To solve a transformer with no loading limit, remove `s_rating` from the network
-  dict before calling the OPF (a determined power flow / physics comparison).
+  limit. A supplied `s_rating` (it also sets the winding-1 per-unit impedance
+  base — see [transformer models](transformer_models.md)) is **always
+  enforced**, in `solve_pf` too, as an apparent-power cap on the coils of **one**
+  winding, alongside the `i_max_from`/`i_max_to` current cones when present.
+  Which winding, and what share of the nameplate each coil receives, depends on
+  the subtype — see the per-subtype table in
+  [Nameplate rating as a loading cap](@ref transformer-nameplate-cap). For `n ≥ 3` windings the cap is a per-winding `s_max`
+  rating. One consequence to keep in mind: a from-side coil carries **load +
+  losses**, so at exactly-rated delivery a from-side cap binds slightly *below*
+  the secondary nameplate throughput (by the loss margin). An absent `s_rating`
+  leaves a two-winding unit **uncapped**; remove the field to solve a
+  transformer with no loading limit (a physics comparison against a limit-free
+  reference).
 - **Regulators** (autotransformer / open-delta) are a subtlety: their true limit
   is the **tap-changer (series-winding) current**, and the kVA is only defined at
   a reference voltage — so, unlike bulk transformers, regulators lean toward
@@ -408,6 +486,10 @@ transformers are never converted (their nameplate stays canonical).
 
 #### Grounding
 
+A grounded terminal is held at earth potential, and its earth-injection current
+is left free (see [Earth, grounded terminals, and return
+paths](@ref opf-earth-reference)):
+
 ```math
 v^r_{b,t} = 0, \quad v^i_{b,t} = 0 \qquad \forall\,(b,t) \in \mathcal{G}_\text{nd}
 ```
@@ -429,10 +511,43 @@ unbounded by default; optional per-phase bounds make it a bounded grid
 connection, and an optional `cost` prices imported power (see
 [Voltage source as current slack](@ref source-slack) below).
 
-The source-bus **neutral** is additionally fixed to zero
-($v^r_{b,n} = v^i_{b,n} = 0$) without being added to $\mathcal{G}_\text{nd}$,
-so that KCL is still enforced there and the grid generator's neutral return
-current can satisfy it.
+**The source-bus neutral is solidly grounded.** Which terminal is the neutral
+follows the bus's explicit `neutral_terminal` field, then the case's declared
+`terminal_conventions`, and only for cases that declare no roles the naming
+convention (`n`, `N`); a conductor declared as a phase is never grounded
+because of its name. The neutral terminal of every
+bus that hosts a voltage source is fixed to zero
+($v^r_{b,n} = v^i_{b,n} = 0$) and added to $\mathcal{G}_\text{nd}$, whether or
+not the source's own `terminal_map` lists it. Source magnitudes `v_magnitude`
+are therefore phase-to-earth and phase-to-neutral at once. The neutral receives
+the summed slack return current $-\sum_k c^{s}_{v,k}$ and, being grounded, a
+free earth-injection current, so an earth-return circuit (current leaving on a
+phase and coming back through earth) closes at the source.
+
+!!! note "Modeling a source that is not solidly grounded"
+    This rule means an impedance-grounded or ungrounded supply cannot be written
+    on the source bus itself. Keep the grounding off that bus instead:
+
+    1. give the **source bus phase terminals only** (no neutral), so there is
+       no source-bus neutral for the engine to earth;
+    2. join it to the first network bus with a **three-wire link** (a line with
+       exact zero impedance is admissible);
+    3. connect that bus's neutral to earth through a `shunt` holding the
+       grounding admittance, or leave it unconnected for an ungrounded supply.
+
+    The source then fixes the phase-to-earth voltages, and all neutral current
+    returns through the grounding impedance. A 230 V source with a 0.5 Ω
+    grounding resistor feeding a 3 kW phase-to-neutral load over 0.1 Ω
+    conductors reproduces the series-circuit answer
+    $I\,(230 - 0.7\,I) = 3000$, i.e. 13.61 A and 6.8 V neutral-to-earth at the
+    grounding point (a regression test pins it). A transformer whose wye
+    neutral is grounded through `r/x_neutral_*` serves the same purpose.
+
+    The passive admittance export ([`ybus_passive`](@ref)) deliberately does
+    **not** apply this rule: it grounds only the terminals declared in
+    `perfectly_grounded_terminals`, because a voltage source is a boundary
+    injection there rather than part of the passive network. Declare the source
+    neutral in `perfectly_grounded_terminals` when the two views must agree.
 
 #### [Magnitude-limit input domain](@id opf-magnitude-domain)
 
@@ -477,6 +592,65 @@ optional **maximum-only** cap `vn_max` (when present and ungrounded):
 $\bigl(v^r_{b,n}\bigr)^2 + \bigl(v^i_{b,n}\bigr)^2 \leq \bigl(v^b_{n,\text{max}}\bigr)^2$.
 Otherwise the neutral voltage is determined by KCL.
 
+#### [Other bus voltage limits](@id opf-bus-limits)
+
+A phase-to-earth magnitude is only one way to state a voltage requirement. On a
+four-wire feeder the customer sees the phase-to-**neutral** voltage, a
+three-phase motor sees the phase-to-**phase** voltage and its unbalance, and a
+protection engineer may care about the angle between phases. Each of these is
+an optional bus field, stamped only when present. Write
+$u_{b,k} = v_{b,t_k} - v_{b,n_b}$ for the phase-to-neutral phasor of phase $k$
+(or $v_{b,t_k}$ itself when the neutral is perfectly grounded).
+
+| Field | Shape | Constraint |
+|---|---|---|
+| `vpn_min`, `vpn_max` | per phase | $(V^{pn}_{\min,k})^2 \le \lvert u_{b,k}\rvert^2 \le (V^{pn}_{\max,k})^2$ |
+| `vpp_min`, `vpp_max` | per unordered phase pair $(j<k)$ | $(V^{pp}_{\min,jk})^2 \le \lvert v_{b,t_j} - v_{b,t_k}\rvert^2 \le (V^{pp}_{\max,jk})^2$ |
+| `va_diff_min`, `va_diff_max` (with optional `va_nom`) | scalars (rad); `va_nom` per phase | $\theta^{\min} \le \theta_{b,k} - \theta_{b,j} - \Delta_{jk} \le \theta^{\max}$ for every phase pair, $\Delta_{jk} = \theta^\text{nom}_k - \theta^\text{nom}_j$ |
+| `vpos_min`, `vpos_max` | scalar | bounds on the positive-sequence magnitude $\lvert V_1\rvert$ |
+| `vneg_max`, `vzero_max` | scalar | caps on $\lvert V_2\rvert$ and $\lvert V_0\rvert$ |
+| `vuf_max` | scalar, dimensionless | $\lvert V_2\rvert^2 \le u^2\,\lvert V_1\rvert^2$ |
+
+Arrays are indexed by the bus's **full** phase list in `terminal_names` order;
+a grounded or source-fixed phase is skipped without shifting the index of the
+entries after it.
+
+*Angle windows.* The angle condition is written without trigonometric functions
+of variables. With $z = \overline{v_{b,t_j}}\,v_{b,t_k}$ rotated by
+$e^{-j\Delta_{jk}}$ into $c + js$, the window
+$\theta^{\min} \le \arg(c+js) \le \theta^{\max}$ becomes two bilinear rows,
+$\sin\theta^{\min}\,c \le \cos\theta^{\min}\,s$ and
+$\cos\theta^{\max}\,s \le \sin\theta^{\max}\,c$. Both endpoints are required and
+must lie strictly inside $(-\pi/2, \pi/2)$. `va_nom` centers the window on the
+nominal displacement (for example $\mp 120°$); without it the window bounds the
+raw angle difference.
+
+*Sequence components.* $V_0, V_1, V_2$ are the Fortescue transform of the three
+phasors $u_{b,k}$, with $\alpha = e^{j2\pi/3}$:
+$V_1 = \tfrac13(u_a + \alpha u_b + \alpha^2 u_c)$,
+$V_2 = \tfrac13(u_a + \alpha^2 u_b + \alpha u_c)$,
+$V_0 = \tfrac13(u_a + u_b + u_c)$. Because the transform is linear in the
+rectangular voltages, every sequence bound is a quadratic row. `vneg_max` caps
+$\lvert V_2\rvert$ in volts, which matches a standard's unbalance limit only if
+$\lvert V_1\rvert$ sits at nominal; `vuf_max` is the true ratio
+$\lvert V_2\rvert/\lvert V_1\rvert \le u$ and needs no voltage base.
+
+!!! warning "Limits that do not apply are skipped without a message"
+    A limit is stamped only where its definition makes sense:
+
+    - `vpn_min`/`vpn_max` need a neutral terminal on the bus. Without one they
+      are skipped; use `v_min`/`v_max` there.
+    - `vn_max` is skipped when the neutral is perfectly grounded (it is zero).
+    - Sequence and unbalance limits (`vpos_*`, `vneg_max`, `vzero_max`,
+      `vuf_max`) need **exactly three** phase terminals. On a single- or
+      two-phase bus they are skipped.
+    - A per-conductor limit vector (`i_max`, `s_max`, `i_max_from`, `i_max_to`)
+      **shorter** than the conductor count caps only the leading conductors;
+      the trailing ones, typically the neutral, stay unrated.
+
+    Run the [validation](validation.md) pass before a study that relies on a
+    limit: it reports limits that cannot bind.
+
 #### Lines
 
 **KVL** (series voltage drop, conductor $k$ of line $\ell$ with total impedance
@@ -500,8 +674,10 @@ The impedance matrices capture full mutual coupling between conductors.
 \tilde{c}^r_{\ell,k} = -c^r_{\ell,k}, \qquad \tilde{c}^i_{\ell,k} = -c^i_{\ell,k}
 ```
 
-**π-model shunt currents** (from linecode ``G_fr``/``B_fr``/``G_to``/``B_to`` fields,
-scaled by line length; linear in voltage variables, no new JuMP variables):
+**π-model shunt currents** (from the linecode matrix fields `G_from_i_j`,
+`B_from_i_j`, `G_to_i_j`, `B_to_i_j`, scaled by line length; or the same fields
+given inline on the line, used as-is; linear in voltage variables, no new JuMP
+variables):
 
 ```math
 I^{\text{sh},r}_{k}(b) = \sum_j \bigl(G_{kj}\,v^r_{b,t_j} - B_{kj}\,v^i_{b,t_j}\bigr),
@@ -543,9 +719,11 @@ $-(\tilde{c}^r_{\ell,k} + I^{\text{sh},r}_k(b^\text{to}))$ at the to-bus.
     ```
     from $|c_{\ell,k}| = |I^\text{tot} - I^\text{sh}_k| \le I^\text{max} +
     \sum_j |Y^\text{sh}_{kj}|\,V^\text{max}_j$ (triangle inequality), where
-    $|Y^\text{sh}_{kj}| = \sqrt{G_{kj}^2 + B_{kj}^2}$ is the from-side π-shunt
+    $|Y^\text{sh}_{kj}| = \sqrt{G_{kj}^2 + B_{kj}^2}$ is the π-shunt
     admittance and $V^\text{max}_j$ is a **hard** to-ground voltage-magnitude
-    bound on from-terminal $j$. This box is added only when such a $V^\text{max}$
+    bound on terminal $j$. The same series current appears at both ends, so the
+    bound is formed at the from end and at the to end and the tighter one is
+    kept. Each box is added only when such a $V^\text{max}$
     exists for every terminal feeding row $k$ — i.e. a phase-to-ground bound
     `v_max`, a phase-to-neutral bound `vpn_max` with a grounded neutral, or
     `vpn_max` together with a neutral-to-ground bound `vn_max`. With only a
@@ -567,7 +745,9 @@ S_{\ell,k} = v_{b^\text{fr},t_k}\,\overline{I^\text{tot}_{\ell,k}}
 
 with $P_{\ell,k} = v^r c^{r,\text{tot}} + v^i c^{i,\text{tot}}$ and
 $Q_{\ell,k} = v^i c^{r,\text{tot}} - v^r c^{i,\text{tot}}$ (all at from-terminal
-$t_k$; a matching cone is added at the to-end when a to-shunt is present).
+$t_k$). A matching cone is **always** added at the to end: equal current
+magnitudes do not imply equal powers, because the two end voltages differ, and
+under reverse flow the to end is the binding one.
 `s_max` follows the same **element → linecode → unconstrained** precedence as
 `i_max`. Both limits may be present and are both enforced; the binding one can
 change with voltage, so the pair is not mathematically redundant, but declaring
@@ -575,6 +755,29 @@ both is usually an engineering duplication — see [current vs. apparent-power
 limits](@ref Current-vs-apparent-power-limits) for why current is the source of
 truth here and why the **neutral entry of `s_max` is degenerate**
 ($v_n \approx 0 \Rightarrow S \approx 0$).
+
+**Angle-difference limit** (optional `va_diff_min`/`va_diff_max`, radians).
+A line may bound the angle by which its from-end voltage leads its to-end
+voltage, $\theta^{\min}_\ell \le \theta_\text{fr} - \theta_\text{to} \le
+\theta^{\max}_\ell$, on each **phase conductor** $k$. With
+$c + js = v_{b^\text{fr},t_k}\,\overline{v_{b^\text{to},t_k}}$ the window is the
+same pair of bilinear rows as the [bus angle window](@ref opf-bus-limits); both
+endpoints are required and must lie strictly inside $(-\pi/2,\pi/2)$.
+
+The **neutral conductor is exempt**. An angle window is a statement about the
+power-carrying phasors. A neutral voltage is a small residual set by the return
+current, and on a healthy unbalanced feeder the neutral phasors at the two ends
+of one section routinely differ by tens of degrees while the phase angles move
+by a fraction of a degree. Bounding it would reject ordinary operating points.
+Which conductor is a neutral is taken from the case's declared
+`terminal_conventions` when present: a conductor declared as a phase is
+angle-bounded whatever it is called, and the naming convention (`n`, `N`) is
+used only for cases that declare no roles.
+A **protective-earth conductor** declared in `terminal_conventions` is exempt
+for the same kind of reason: it sits at or near zero volts, where an angle is
+not defined. The post-solve validator applies the same rule, so a solution the
+engine accepts is not reported as violating, or as unassessable, on a
+conductor the engine never bounded.
 
 #### Switches
 
@@ -587,7 +790,7 @@ KVL voltage-drop equation is replaced by a state-dependent condition, and there
 is no $\pi$-shunt.
 
 A **closed** switch replaces KVL with a **zero voltage drop** (lossless short),
-imposed per mapped conductor $k$ (neutral included if mapped):
+imposed per mapped conductor $k$:
 
 ```math
 v^r_{b^\text{fr},t^\text{fr}_k} = v^r_{b^\text{to},t^\text{to}_k}, \qquad
@@ -599,6 +802,27 @@ mechanism by which power flows through the closed switch. The two terminals are
 held at equal voltage but are **not** merged into one bus (a separate
 [`collapse_closed_switches`](@ref) network simplification does that node merge
 explicitly, outside the OPF).
+
+!!! warning "KCL must be able to determine the current"
+    Because no impedance sets a switch current, the closed switch poles (and
+    any other ideal conductors) must form a **tree**. Two closed switches in
+    parallel can pass any circulating current, and so can one pole between two
+    terminals that can each supply any current: two perfect grounds, or a
+    source terminal and a ground. The common case is a **four-wire switch
+    between two buses whose neutrals are both perfectly grounded**. Its neutral
+    pole joins two points at earth potential, with the earth as a second ideal
+    path between them, and nothing decides how the return current divides.
+    The engine rejects such a case (`E.INT.IDEAL_LOOP`) rather than report an
+    arbitrary current. The neutral pole is redundant there, so map only the
+    phase poles (a three-pole switch), or let [`fix_case`](@ref) remove it; the
+    rest of the solution is unchanged. The same rule applies to line conductors
+    whose impedance is exactly zero, and to **ideal transformers** (zero
+    leakage): one is fine, but two in parallel, or one bridged by a closed
+    switch, can share the load in any proportion and are rejected. Give
+    paralleled transformers their leakage impedance. An ideal
+    grounded-wye/delta transformer directly on a voltage source is rejected for
+    the same reason (its zero-sequence current is undetermined); a feeder
+    impedance or the transformer's leakage resolves it.
 
 An **open** switch has its current variables fixed to zero
 ($c^r_{sw,k} = c^i_{sw,k} = 0$); the voltage-equality is dropped, so the two
@@ -639,12 +863,14 @@ I^{\text{sh},i}_{k} = \sum_j \bigl(G^{sh}_{kj}\,v^i_{b,t_j} + B^{sh}_{kj}\,v^r_{
 ```
 
 KCL contribution: $-I^{\text{sh},r}_k$ (current leaves the bus to ground).
-Grounded terminals are absent from the voltage variable dict and contribute zero.
+A grounded terminal has zero voltage and so contributes nothing to the sum.
 
 #### Capacitor banks
 
-A fixed `capacitor` is a constant susceptance $B = q_\text{rated}/v_\text{rated}^2$
-(per phase for WYE, per pair for DELTA) delivering $Q = B\,V^2$. Its connection
+A fixed `capacitor` is a constant susceptance $B = q_\text{rated}/v_\text{nom}^2$
+(per phase for WYE, per pair for DELTA) delivering $Q = B\,V^2$. The nominal
+voltage `v_nom` is **required**: it is the voltage the reactive rating refers
+to, and no default could mean the same capacitor in SI and in per-unit. Its connection
 is compiled to a terminal-space susceptance matrix $\mathbf{B}$ and injected with
 **exactly the shunt contribution above** (with $\mathbf{G}=0$) — so it adds **no
 JuMP variables** (linear in the voltages). A continuously-controllable capacitor
@@ -660,6 +886,11 @@ For every load sub-load $k$, define the **voltage drop** across the sub-load
 \Delta v^r_k = v^r_{b,t^\phi_k} - v^r_{b,n_b}, \qquad
 \Delta v^i_k = v^i_{b,t^\phi_k} - v^i_{b,n_b}
 ```
+
+A WYE load whose `terminal_map` lists no neutral is referenced to earth:
+$\Delta v_k = v_{b,t^\phi_k}$ and its return current closes through the implicit
+earth connection described in
+[Earth, grounded terminals, and return paths](@ref opf-earth-reference).
 
 The **realized power** is always bilinear in these voltage drops and the load
 current variables (exact, no approximation):
@@ -745,7 +976,7 @@ logarithmic path uses nonlinear exponentials even for ZIP/current models.
 |---|---|---|---|
 | `constant_power` (default) | $P^{\text{nom}}_k$ | $Q^{\text{nom}}_k$ | yes |
 | `constant_current` | $P^{\text{nom}}_k \cdot s_k / V^{\text{nom}}_k$ | $Q^{\text{nom}}_k \cdot s_k / V^{\text{nom}}_k$ | yes (with $s_k$) |
-| `constant_impedance` | $P^{\text{nom}}_k \cdot W_k / (V^{\text{nom}}_k)^2$ | $Q^{\text{nom}}_k \cdot W_k / (V^{\text{nom}}_k)^2$ | yes |
+| `constant_impedance` | $P^{\text{nom}}_k \cdot \lvert\Delta v_k\rvert^2 / (V^{\text{nom}}_k)^2$ | $Q^{\text{nom}}_k \cdot \lvert\Delta v_k\rvert^2 / (V^{\text{nom}}_k)^2$ | not needed: stamped as the affine current law above, with no $W_k$ |
 | `zip` | $P^{\text{nom}}_k (\alpha^Z_k W_k/(V^{\text{nom}}_k)^2 + \alpha^I_k s_k/V^{\text{nom}}_k + \alpha^P_k)$ | analogous with $\beta$ | yes (with $s_k$ if $\alpha^I_k \neq 0$) |
 | `exponential` | $P^{\text{nom}}_k (W_k/(V^{\text{nom}}_k)^2)^{\gamma^P_k/2}$ | analogous with $\gamma^Q_k$ | only if $\gamma \in \{0,1,2\}$ |
 
@@ -760,13 +991,23 @@ terminal voltage magnitude at which `p_nom`/`q_nom` are specified: phase-to-neut
 (shared across all sub-loads) or a per-sub-load array.
 
 **DELTA** loads use line-to-line voltage drops: $\Delta v^r_k = v^r_{b,t_k} - v^r_{b,t_{k^+}}$,
-$\Delta v^i_k = v^i_{b,t_k} - v^i_{b,t_{k^+}}$ (indices cyclic).
+$\Delta v^i_k = v^i_{b,t_k} - v^i_{b,t_{k^+}}$. A three-terminal map gives three
+coils with cyclic $k^+$; a two-terminal map gives **one** coil across that pair.
+A DELTA map holds phase terminals only: a neutral is not a coil endpoint and is
+rejected.
+
+**ZIP defaults.** A coefficient family (`alpha_*` or `beta_*`) that is entirely
+absent means constant power $(0,0,1)$; if any member is given, the missing ones
+are zero.
 
 #### [Generators](@id generators-section)
 
 Generators use coil voltage with power bounds and an injected (positive) sign
-convention. WYE coils reference the listed neutral (or ground if absent); DELTA
-coils reference the next terminal cyclically. A two-terminal `SINGLE_PHASE`
+convention. WYE coils reference the listed neutral, or earth if the map lists
+none (see [return paths](@ref opf-earth-reference)). DELTA coils span phase
+pairs: three terminals give three coils, each referenced to the next terminal
+cyclically, and two terminals give **one** line-to-line coil. A DELTA map holds
+two or three distinct phase terminals; a neutral is rejected. A two-terminal `SINGLE_PHASE`
 generator is one coil between the two listed terminals, including phase-to-phase
 connections. It has one P/Q/cost entry and one current pair, reported under the
 first terminal name. Both terminal current ratings apply to that same current,
@@ -785,6 +1026,11 @@ Q^{g,\text{min}}_{g,k}
 \;\leq\; \Delta v^i_k \, c^{r,g}_{g,k} - \Delta v^r_k \, c^{i,g}_{g,k}
 \;\leq\; Q^{g,\text{max}}_{g,k}
 ```
+
+Every supplied `p_min`, `p_max`, `q_min`, or `q_max` vector must have exactly
+**one entry per coil**; a shorter vector is rejected, because the uncovered
+coils would otherwise be free, unbounded injections. Equal static bounds are
+stamped as one equality row.
 
 Two optional per-phase limits may also be supplied. An **apparent-power
 rating** `s_max` $= S^{\max}_{g,k}$ [VA] stamps the power circle
@@ -825,7 +1071,16 @@ unbalance. A **single-phase** generator has a single current (phase and return
 are the same), so its `i_max` is length 1 or 2 — the two entries describe one
 conductor pair and collapse to a **single** circle at the tighter limit (never
 constraining the variable twice); a length-1 vector is standardized to 2 by the
-augmentation pass. `DELTA` has no neutral and takes exactly one entry per conductor.
+augmentation pass.
+
+A `DELTA` generator has no neutral, and its `i_max` entries cap the **coil**
+currents, as for a `THREE_LEG` IBR below. A three-terminal delta has three
+coils and takes three entries; entry $k$ caps the current of the coil between
+`terminal_map[k]` and the next terminal, and the conductor current (the
+difference of two coil currents) can exceed it. A **two-terminal** delta is one
+coil whose current flows through both of its conductors, so its one or two
+entries collapse to a single circle at the tighter limit, whichever terminal
+that limit is listed against.
 
 #### IBRs
 
@@ -841,12 +1096,17 @@ Q_{n,k} = \Delta v^i_k \, c^{r,n}_{n,k} - \Delta v^r_k \, c^{i,n}_{n,k}.
 The voltage difference $\Delta v_k$ depends on the IBR **topology**:
 
 - **`FOUR_LEG`** — phase-to-neutral, $\Delta v_k = v_{b,t_k} - v_{b,t_n}$, one
-  current per phase conductor; the neutral is the last terminal in
-  `terminal_map`.
+  current per phase conductor. The neutral is the terminal of `terminal_map`
+  that carries the neutral role (by label, not by position); a map with no
+  neutral is referenced to earth, like any other wye device.
 - **`THREE_LEG`** — line-to-line (delta), $\Delta v_k = v_{b,t_k} - v_{b,t_{k^+}}$
   with cyclic index $k^+ = (k \bmod n) + 1$; no neutral current.
 - **`SINGLE_PHASE`** — phase-to-reference, $\Delta v = v_{b,t_1} - v_{b,t_2}$,
   a single current.
+
+Any other topology string, or a `SINGLE_PHASE` unit with fewer than two
+terminals, is rejected with an `ArgumentError`. (Skipping such a record would
+leave its current outside KCL, silently removing the device from the network.)
 
 Each phase $k$ is constrained by an active-power box and, when an apparent-power
 rating $S^{\max}_{n,k}$ is given, an apparent-power circle:
@@ -872,7 +1132,9 @@ current cap makes the reactive capability roll off **≈ linearly** with voltage
 ($Q^{\max} \approx |\Delta v_k|\,I^{\max}$) rather than staying flat at
 $S^{\max}$ — the constant-MVA idealization the apparent-power circle alone
 implies. `i_max` is **optional and opt-in**: omit it and the model is unchanged;
-supply it to model the low-voltage var rolloff of a real converter.
+supply it to model the low-voltage var rolloff of a real converter. Unlike a
+generator's, an IBR's current limit is stamped as the cone only, without the
+companion box bound of formulation principle 11.
 
 For a `FOUR_LEG` IBR, `i_max` is **per conductor**, with a
 trailing entry capping the **neutral conductor** ($\sum_k c^{r,n}_{n,k}$,
@@ -950,9 +1212,15 @@ supplied result or substitute live coefficient-provider values for case data.
 The existing P-only near-active Finding retains its meaning. The aggregate
 `n_inv_violations` and `n_inv_active` counts now include Q-bound Findings.
 
-Active power follows either the box upper bound above or, when the
+Active power always respects the box upper bound above. When the
 `control_profile` declares a `volt_watt` sub-object, a **Volt-watt** curtailment
-cap $P_{n,k} \leq P^{\text{base}}_{n,k}\, f^{\mathrm{VW}}(U_{n,k})$.
+cap $P_{n,k} \leq P^{\text{base}}_{n,k}\, f^{\mathrm{VW}}(U_{n,k})$ is added
+*on top*, so the effective limit is the tighter of the two. The base
+$P^{\text{base}}_{n,k}$ is selected by `p_ref`: the per-coil rating (`S_MAX`),
+the per-coil `p_max` (`P_MAX`), or the unit's scalar available power `p_avail`
+shared equally over its **coils** (`P_AVAILABLE`). A two-terminal
+`SINGLE_PHASE` unit is one coil and keeps the whole of `p_avail`, whether its
+terminals are phase–neutral or phase–phase.
 
 The monitored voltage $U_{n,k}$ is **independent of the power voltage difference**
 $\Delta v_k$ above: it is chosen per curve by the curve's `voltage_reference`
@@ -972,6 +1240,23 @@ coincide — the reference is `terminal_map[2]` — and aggregation is moot. The
 legacy IBR-level `voltage_aggregation` field (`PER_PHASE`/`AVERAGE`), when present,
 overrides the aggregation the enum implies, for backward compatibility.
 `THREE_LEG` droop is unsupported (box bounds, with a warning).
+
+!!! warning "Control requests the engine cannot honor fall back, with a warning"
+    A control profile is applied only in the forms the native builder supports.
+    Otherwise the device keeps its P/Q box and a warning is logged:
+
+    - `volt_var` needs four breakpoints, two `q_limits`,
+      `q_unit = "VA_FRACTION"`, and `q_ref = "VAR_MAX"`;
+    - `volt_watt` needs two breakpoints, two `p_limits`,
+      `p_unit = "VA_FRACTION"`, and `p_ref` in `S_MAX`/`P_MAX`/`P_AVAILABLE`;
+    - a profile with both `power_factor` and a droop curve uses the power
+      factor and drops **both** curves;
+    - an unknown `voltage_reference` is read as `PN_PER_PHASE`; a `PN` reference
+      on a unit without a neutral, or a `PP` reference with fewer than two
+      phases, is read as phase-to-earth.
+
+    Check the log, or the `modeled_volt_watt` result block, when a study
+    depends on the controller being active.
 
 ##### STATCOMs (D-STATCOMs)
 
@@ -1001,8 +1286,14 @@ the aggregate constraint
 P^{dc}_{\min} \;\le\; \sum_{k} P_{n,k} \;\le\; P^{dc}_{\max},
 ```
 
-over that IBR's phases, while each phase's $P_{n,k}$ is freed within its
-apparent-power circle. With $P^{dc}_{\min} = P^{dc}_{\max} = 0$ — the default the
+over that IBR's phases. The per-phase boxes $P^{\min}_{n,k} \le P_{n,k} \le
+P^{\max}_{n,k}$ still apply, so circulation needs per-phase boxes wide enough to
+allow it; the augmentation pass widens them to the apparent-power rating
+for a coupled STATCOM. When $P^{dc}_{\min} = P^{dc}_{\max}$ the pair collapses
+to a single **equality** row (constraint family `ibr_dc_power_equality`);
+otherwise two rows `ibr_dc_power_lower`/`ibr_dc_power_upper` are stamped. An
+absent band defaults to $[0, 0]$ in the engine. With
+$P^{dc}_{\min} = P^{dc}_{\max} = 0$ — the default the
 augmentation derives for a STATCOM — the converter exchanges **no net active
 power** yet may *circulate* active power between phases: sourcing real power on a
 heavily-loaded phase and sinking it on a lightly-loaded one. Because LV feeders
@@ -1037,13 +1328,21 @@ exactly. $\varepsilon \to 0$ recovers the exact ReLU; the relative smoothing is
 the `volt_var_watt_eps` keyword of [`solve_opf`](@ref). The
 [Smooth droop encoding](relu_softplus_encoding.md) tech note derives the
 closed-form derivatives, the $\varepsilon\log 2$ error bound, and the numerically
-stable `log1pexp`/`logistic` evaluation in full. For a backend with native
+stable `log1pexp`/`logistic` evaluation in full. The `softplus` keyword selects
+the implementation: `:user_defined` (default, the registered operator above),
+`:builtin` (the same function written with JuMP's built-in nonlinear
+primitives, for differentiation wrappers that cannot see a registered
+operator), or `:swish`. For a backend with native
 logistic support, `softplus=:swish` selects the alternative
 $z\,\sigma(z/\varepsilon)$ encoding; it is solver-specific and does not retain
 softplus's monotonicity or convexity.
 
-Breakpoint voltages are SI volts (phase-to-neutral) and are scaled into model
-units at build time, so the droop is identical in SI and per-unit mode. Droop is
+Breakpoint voltages are SI volts of the **monitored quantity** the curve's
+`voltage_reference` selects (phase-to-neutral, phase-to-earth, or
+phase-to-phase) and are scaled into model units at build time, so the droop is
+identical in SI and per-unit mode. The smoothing width is
+$\varepsilon = \texttt{volt\_var\_watt\_eps} \times$ the mean breakpoint
+voltage (see [Smooth droop encoding](relu_softplus_encoding.md)). Droop is
 applied for `SINGLE_PHASE` and `FOUR_LEG` only; a `THREE_LEG` (delta) IBR
 has too few degrees of freedom for a per-phase droop, so a profile on it is
 ignored (box bounds retained) with a warning. Regional default characteristics
@@ -1066,329 +1365,44 @@ current is also added to the neutral terminal.
 
 #### Transformers
 
-Transformer constraints are **linear at a fixed tap**.  The turns ratio for the four
-two-winding subtypes is $N = V^\text{ref}_\text{fr} / V^\text{ref}_\text{to}$
-(SI volts), optionally scaled by a dimensionless multiplier `tap`
-($N = N_0\cdot\texttt{tap}$).  The two regulator subtypes
-(`single_phase_autotransformer`, `open_delta_regulator`) use an effective ratio
-$n_\text{eff}$ derived from `tap_ratio` and `regulator_type` (see below).
+A transformer is modeled as an **ideal ratio** between coil voltages, a
+**series leakage impedance** carried by the winding currents, and a **no-load
+(core) admittance** across one winding. All of its rows are voltage and current
+equalities that are **linear at a fixed tap**; a free tap makes them bilinear.
 
-##### [Continuous tap optimization](@id Continuous-tap-optimisation)
+Three conventions carry over from the rest of this page and are worth holding
+on to before reading the equations:
 
-The tap can be a **free continuous decision variable** instead of a constant, so the
-OPF chooses OLTC/regulator settings to reduce losses and hold voltages in band. It
-follows the implicit free-variable pattern (bounds make it optimizable):
+- every transformer current is the current flowing **from the bus into the
+  transformer**, so each terminal contributes $-c^x$ to KCL;
+- a wye winding whose terminal map has no neutral is a **solidly grounded
+  star** (see [return paths](@ref opf-earth-reference));
+- an isolating transformer is the only element across which the per-unit
+  voltage base changes, while regulators and autotransformers keep one base on
+  both sides (see [Units and scaling](#Units-and-scaling)).
 
-| subtype | tap field | free when |
-|---|---|---|
-| `single_phase`, `delta_wye`, `wye_delta` | `tap` (mult. on $N_0$) | `tap_min` < `tap_max` |
-| `single_phase_autotransformer` | `tap_ratio` | `tap_ratio_min` < `tap_ratio_max` |
-| `open_delta_regulator` | `tap_ratio` (per reg.) | `tap_ratio_min` < `tap_ratio_max` (element-wise) |
-
-A free tap adds **one variable per tap** equal to the effective from→to ratio
-coefficient ($N$ for `single_phase`, $n_\text{eff}$ otherwise). Using the ideal-core
-coupling $N\,I_\text{series} = -I_\text{to}$, the voltage drop stays **quadratic** in
-the tap (no cubic), so the existing Ipopt NLP solves it unchanged. For the YY family
-the from-winding leakage of an OLTC scales with the winding turns ($\propto
-\texttt{tap}^2$); referred to the to side it is **constant**
-($R' = r_\text{to} + r_\text{fr}/N_0^2$, $X' = x_\text{to} + x_\text{fr}/N_0^2$) and
-the drop is $v_\text{fr} - N v_\text{to} = -N\,(R'\,I_\text{to} \mp X'\,I_\text{to})$,
-matching OpenDSS's turns-scaled `Yprim`; at `tap = 1` it is identical to the
-fixed-tap stamping. (The `delta_wye`/`wye_delta` coupled delta-arm carries the same
-exact ``\texttt{tap}^2`` referral — the short-circuit impedance referred to the
-tapped side scales as ``\texttt{tap}^2``, the non-tapped side is held at nominal.) The
-solved tap is reported in the [result dictionary](results.md) as `tap`/`tap_ratio`
-with a `tap_binding` flag. See the
-[tap-optimization tutorial](@ref tap-optimisation).
-
-Because every subtype is expressed as voltage/current **equalities** (the IVR
-impedance form $v_\text{fr} - N v_\text{to} = Z\,I$) rather than a nodal
-admittance $Y = Z^{-1}$, **zero winding resistance and zero leakage reactance are
-admissible**: the constraints degrade to the ideal-transformer relation
-$v_\text{fr} = N v_\text{to}$ (and, for `n_winding`, $V_1^r = V_{i+1}^r$ with
-$\sum_k N_k I_k = 0$) with no inversion and no singularity. This holds for *all*
-subtypes and is covered by the "ideal (zero-impedance) transformers" tests.
-(The separate `transformer_yprim`/`nwinding_yprim` **admittance export** is the
-one place that genuinely inverts $Z$ and so is singular at zero impedance — it
-warns and skips there.)
-
----
-
-**`single_phase` — Γ-equivalent model**
-
-Series impedance $R_x = R_1 + N^2 R_2$, $X_x = X_1 + N^2 X_2$ is referred
-to the HV (from) side, where $R_1, X_1$ (`r/x_series_from`, Ω on HV base)
-are the HV winding values and $R_2, X_2$ (`r/x_series_to`, Ω on LV base)
-are the LV winding values.  For each per-phase pair index $k$:
-
-```math
-v^r_{b^\text{fr},t^\text{fr}_k} - N\,v^r_{b^\text{to},t^\text{to}_k}
-= R_x\,c^{r,x}_{x,\text{fr},k} - X_x\,c^{i,x}_{x,\text{fr},k}
-```
-
-```math
-N\,c^{r,x}_{x,\text{fr},k} + c^{r,x}_{x,\text{to},k} = 0 \quad\text{(and imaginary)}
-```
-
-The no-load shunt $G_0 + jB_0$ (`g_no_load`, `b_no_load`, S) sits at the
-HV terminals (phase-to-ground).  The total HV terminal current entering the
-bus is series + shunt:
-
-```math
-I^\text{fr,term}_{x,k} =
-  c^{r,x}_{x,\text{fr},k}
-  + G_0\,v^r_{b^\text{fr},t^\text{fr}_k}
-  - B_0\,v^i_{b^\text{fr},t^\text{fr}_k}
-```
-
-When all loss fields are absent or zero the model reduces to the ideal
-$v^r_{b^\text{fr},t^\text{fr}_k} = N\,v^r_{b^\text{to},t^\text{to}_k}$.
-
----
-
-**`center_tap` — coupled-coil 3-winding (primitive admittance)**
-
-Terminal map: `terminal_map_from = [t_ph, t_n]` (HV phase, HV neutral),
-`terminal_map_to = [t₁, tₙ, t₂]` (leg-1, center-tap neutral, leg-2).
-$V^\text{ref}_\text{to}$ is the **per-leg** voltage (e.g. 120 V for a
-120-0-120 V unit), so $N = V^\text{ref}_\text{fr}/V^\text{ref}_\text{to} = 60$
-for a 7.2 kV / 120 V unit.
-
-The split-phase unit is a genuine 3-winding transformer whose two LV
-half-windings are tightly coupled on the shared core. Modeling each leg with an
-*independent* secondary impedance drop omits that mutual coupling and spreads the
-two legs apart under load. The OPF therefore imposes the OpenDSS-consistent 5×5
-primitive admittance $Y_\text{CT}$ (the same one the Ybus exporter builds; see
-[Transformer primitive admittance](spec/transformer-admittance.md)) as nodal current injections —
-element current into each of the five terminals
-$\mathbf I = Y_\text{CT}\,\mathbf V$ — and pins the per-winding current variables
-(HV series, leg-1, center, leg-2) to those injections for the `i_max` limits and
-loss accounting. $Y_\text{CT}$ is reconstructed from the symmetric star leakage
-arms $Z_1 = R_1+jX_1$ (HV) and $Z_2 = R_2+jX_2$ (each LV leg), with winding 3
-dotted at the center tap (leg-2 voltage span $V_{t_n} - V_{t_2}$). It matches
-OpenDSS's transformer `Yprim` to machine precision.
-
-The implied current relations are the ampere-turn
-
-```math
-N\,c^{r,x}_{x,s} + c^{r,x}_{x,\ell_1} - c^{r,x}_{x,\ell_2} = 0
-\quad\text{(and imaginary)}
-```
-
-and the center-tap KCL (variable index 2 on `to` side):
-
-```math
-c^{r,x}_{x,n} + c^{r,x}_{x,\ell_1} + c^{r,x}_{x,\ell_2} = 0
-\quad\text{(and imaginary)}
-```
-
-Under zone-local `OpfScaling(...; power_bases=...)`, the ampere-turn equation in model coordinates is
-`N (S_primary/S_secondary) c_s + c_l1 - c_l2 = 0`. For the fixed primitive,
-BMOPFTools assembles a reciprocal intermediate primitive on the primary power
-base, then transforms the three secondary current rows to the secondary base.
-The normalized matrix is therefore generally nonsymmetric; transforming it
-back to dimensional coordinates recovers the reciprocal physical primitive.
-
-The no-load shunt $G_0 + jB_0$ is folded into $Y_\text{CT}$ across winding 2,
-the LV leg-1 span $(t_1,t_n)$, following the OpenDSS convention. For an ideal
-core (zero series impedance) $Y_\text{CT}$ is singular, so both legs are instead
-pinned directly to $V_\text{hv}/N$ and the relations above route the currents.
-
-!!! note "Leakage from OpenDSS XHL/XLT/XHT"
-    For a 3-winding OpenDSS unit, the per-pair leakage values must be
-    star-converted before storing in `x_series_from`/`x_series_to`:
-    ```
-    x_series_from = (XHL + XHT − XLT) / 2 × Vhv² / (100 · s_rating)
-    x_series_to   = (XHL + XLT − XHT) / 2 × Vlv² / (100 · s_rating)
-    ```
-    Using the 2-winding shortcut (full `XHL` on the HV side, `x_series_to = 0`)
-    drops the LV-side leakage and spreads the legs apart under load.
-    PowerIO v0.9's BMOPF export carries the correct star split for
-    [`from_dss`](@ref); BMOPFTools normalizes the no-load shunt convention.
-
----
-
-**Wye–delta (Yd) / Delta–wye (Dy)** — effective turns ratio:
-
-$$n_\text{eff} = \begin{cases} \sqrt{3}/N & \text{Yd} \\ N\sqrt{3} & \text{Dy} \end{cases}$$
-
-**Loss model (per-winding T).** Matching the OpenDSS / PMD reference, each
-winding carries its own series impedance — $R^\text{w}/X^\text{w}$
-(`r/x_series_from`, wye winding) and $R^\text{d}/X^\text{d}$
-(`r/x_series_to`, delta winding) — and a `g/b_no_load` core-loss shunt sits at
-the from-side (HV) phase terminals. `g_no_load` is the **total** core-loss
-conductance, split equally across the from-side phases and stamped
-phase-to-ground; it is referred to the line-to-neutral stamping voltage
-$V_\text{LN} = v_\text{ref,from}/\sqrt 3$, so that the total core loss
-$g_\text{no\_load}\,V_\text{LN}^2 = \%\text{noloadloss}\cdot S_\text{rated}$
-matches OpenDSS. The legacy single `r_series`/`x_series` is
-read as $R^\text{w} = R_\text{series}$, $R^\text{d} = 0$, recovering the ideal
-delta. The series drop enters the voltage equation behind the ideal transform:
-
-Voltage (delta line-to-line = wye phase-to-neutral × $n_\text{eff}$, less the
-winding series drop, indices cyclic):
-
-```math
-v^r_{\text{del},t_k} - v^r_{\text{del},t_{k^+}}
-= n_\text{eff}\bigl(v^r_{\text{wye},t^\phi_k} - v^r_{\text{wye},n_\text{wye}}\bigr)
-  - \bigl(R^\text{w} c^{r,x}_{x,\text{wye},k} - X^\text{w} c^{i,x}_{x,\text{wye},k}\bigr)
-  - n_\text{eff}\bigl(R^\text{d} c^{r,x}_{x,\text{del},k} - X^\text{d} c^{i,x}_{x,\text{del},k}\bigr)
-```
-
-When all impedance fields are zero this collapses to the ideal transform.
-
-Current (transpose of voltage transform, power-conservative):
-
-```math
-n_\text{eff} \, c^{r,x}_{x,\text{del},k}
-= c^{r,x}_{x,\text{wye},k} - c^{r,x}_{x,\text{wye},k^-}
-```
-
-With zone-local `OpfScaling(...; power_bases=...)`, this displayed physical/global-base equation becomes
-`n_eff (S_delta/S_wye) c_del = c_wye,k - c_wye,k⁻` in model coordinates.
-Delta-arm leakage referral carries the reciprocal `S_wye/S_delta`. This
-reciprocal pair preserves both the connection incidence and
-`V_base*I_base=S_base`; omitting either changes the physical transformer rather
-than merely scaling it.
-
-Star-point KCL at the wye neutral:
-
-```math
-c^{r,x}_{x,\text{wye},n} + \sum_{k} c^{r,x}_{x,\text{wye},k} = 0
-```
-
----
-
-**`single_phase_autotransformer` — step voltage regulator**
-
-A fixed-tap regulator modeled as an autotransformer: the series and common
-windings share a node, so from and to are galvanically tied (not isolated).
-With fixed tap ratio $a$ (`tap_ratio`, regulated/source) the effective from→to
-ratio is
-
-```math
-n_\text{eff} = \begin{cases} 1/a & \text{Type B (standard SVR, default)} \\ a & \text{Type A} \end{cases}
-```
-
-The voltage and current-coupling constraints are the `single_phase` YY form
-with $N := n_\text{eff}$ and a series impedance $R_x = R_1 + n_\text{eff}^2 R_2$,
-$X_x = X_1 + n_\text{eff}^2 X_2$:
-
-```math
-\bigl(v^r_{b^\text{fr},t^\text{ph}} - v^r_{b^\text{fr},t^\text{n}}\bigr)
-- n_\text{eff}\bigl(v^r_{b^\text{to},t^\text{ph}} - v^r_{b^\text{to},t^\text{n}}\bigr)
-= R_x\,c^{r,x}_{x,\text{fr}} - X_x\,c^{i,x}_{x,\text{fr}}
-```
-
-```math
-n_\text{eff}\,c^{r,x}_{x,\text{fr}} + c^{r,x}_{x,\text{to}} = 0 \quad\text{(and imaginary)}
-```
-
-The galvanic tie shows up in the **shared-neutral KCL** — both the series and
-the to-side return close at the common neutral (unlike the isolated YY, whose
-from-neutral carries only the from-side return):
-
-```math
-I_n + c^{r,x}_{x,\text{fr}} + c^{r,x}_{x,\text{to}} = 0
-\;\;\Longleftrightarrow\;\;
-I_n + (1 - n_\text{eff})\,c^{r,x}_{x,\text{fr}} = 0
-```
-
-A sign error here would produce negative transformer losses. A lossless ideal
-regulator ($R=X=G=B=0$) collapses to $v_\text{to} = n_\text{eff}\,v_\text{fr}$.
-
----
-
-**`open_delta_regulator` — monolithic open-delta**
-
-Two single-phase autotransformer windings connected **line-to-line** across the
-phase pairs implied by `connection` (`ABBC`/`BCAC`/`CABA`); per-regulator taps
-`tap_ratio = [a_1, a_2]` give $n_{\text{eff},j}$ as above. For each regulator
-$j$ spanning from-phase pair $(p, q)$ and the matching to-phase pair:
-
-```math
-\bigl(v^r_{b^\text{fr},t_p} - v^r_{b^\text{fr},t_q}\bigr)
-- n_{\text{eff},j}\bigl(v^r_{b^\text{to},t_p} - v^r_{b^\text{to},t_q}\bigr)
-= R_{x,j}\,c^{r,x}_{x,\text{fr},j} - X_{x,j}\,c^{i,x}_{x,\text{fr},j}
-```
-
-```math
-n_{\text{eff},j}\,c^{r,x}_{x,\text{fr},j} + c^{r,x}_{x,\text{to},j} = 0
-```
-
-KCL injects each regulator's line current at the two phases it spans
-($+I$ at one, $-I$ at the other). The phase **common to both regulators** (B in
-the ABBC arrangement) is a **galvanic straight-through** — a zero-impedance wire
-with its own current variable, enforcing
-
-```math
-v_{b^\text{fr},t_\text{shared}} = v_{b^\text{to},t_\text{shared}}
-```
-
-This is the physically-correct "common neutral" model of Yan et al. (2018): the
-shared phase passes through unchanged while the two regulated line-to-line
-voltages are boosted by their taps. Without it the line-to-line voltages are
-still correct but the per-phase reference floats (the unphysical
-"unspecified neutral" model). See
-[Transformer primitive admittance](spec/transformer-admittance.md) for the matching bus-admittance form.
-
----
-
-**`n_winding` — general n-winding (ZB model, WYE and/or DELTA)**
-
-The general n-winding transformer keeps the **explicit per-winding current
-variables** $c^{r,w}_{x,j,k}, c^{i,w}_{x,j,k}$ (one per winding $j$ and phase
-$k$) — it is the same rectangular IVR style as the other devices, **not** an
-admittance model that eliminates currents. Keeping both current and voltage
-variables (rather than substituting an admittance) is what lets the leakage be
-parameterized down to **zero impedance** (a lossless / ideal transformer): the
-leakage equation below stays well-posed at $ZB = 0$ (it collapses to the ideal
-ratio $V^r_1 = V^r_{i+1}$) with no division by an impedance.
-
-The leakage is the OpenDSS-style $ZB$ matrix referred to winding 1 (an
-$(n{-}1)\times(n{-}1)$ impedance, exact for any $n$; see
-[Conversion § n-winding](@ref n-winding)). With winding-local power bases, let
-$f_j=S_j/S_1$. The referred currents in winding-1 current coordinates are
-$I^r_{j} = N_j f_j\,c^{w}_{x,j,k}$
-($N_j = V^\text{ref}_j / V^\text{ref}_1$); every $f_j=1$ in SI and ordinary
-system-base per-unit. With referred coil voltages $V^r_j = U_{j,k}/N_j$, per
-phase/leg $k$:
-
-```math
-\sum_{j=1}^{n} N_j f_j\,c^{r,w}_{x,j,k} = 0 \quad\text{(ideal core / ampere-turn; and imaginary)}
-```
-
-```math
-V^r_1 - V^r_{i+1} = -\sum_{j=1}^{n-1} ZB_{i,j}\,I^r_{j+1},
-\qquad i = 1,\dots,n-1 \quad\text{(complex; real/imag split)}
-```
-
-The per-leg leakage/ampere-turn structure is identical for `WYE` and `DELTA`
-windings — only the coil↔terminal incidence differs. The coil voltage $U_{j,k}$
-is **phase-to-neutral** for a `WYE` winding and **line-to-line** (phase $k$ minus
-its delta partner $k^{\pm}$, selected by the winding's `delta_roll`) for a
-`DELTA` winding, whose $V^\text{ref}$ is its line-to-line coil voltage — so the
-$\sqrt{3}$ coil-base factor lives entirely in $N_j$, and $V^r_j$ stays consistent
-(per-unit needs no $\sqrt3$ correction, since the bus base is line-to-neutral).
-A `WYE` coil injects $-c^{w}_{x,j,k}$ at its phase and $+\sum_k c^{w}_{x,j,k}$ at
-its neutral; a `DELTA` coil injects $-c^{w}_{x,j,k}$ at phase $k$ and
-$+c^{w}_{x,j,k}$ at its delta partner. Referencing winding 1 folds out the core
-node, so **no internal star-node variable is introduced**; the optional no-load
-shunt sits across winding 2, matching the engine's OpenDSS convention. The
-constraints are all linear. This path is
-independent of the two-bus transformer code and is validated against OpenDSS's
-own 3- and 4-winding solves, including delta (`Dyn`/`Dyyn`) configurations.
+The equations for every subtype — `single_phase`, `center_tap`, `wye_delta`,
+`delta_wye`, the two regulator subtypes, and `n_winding` — together with
+continuous tap optimization, are on their own page:
+[Transformer equations in the OPF](opf_transformers.md). The supported subtypes,
+field meanings, nameplate cap, and approximations are in
+[Transformer models](transformer_models.md).
 
 #### Kirchhoff's Current Law
 
-KCL is enforced at every ungrounded terminal. Each component accumulates its
-signed current contribution (positive = into bus) into per-terminal expressions
+KCL is enforced at **every** terminal. Each component accumulates its signed
+current contribution (positive = into bus) into per-terminal expressions
 $\kappa^r_{b,t}$ and $\kappa^i_{b,t}$:
 
 ```math
 \kappa^r_{b,t} = 0, \qquad \kappa^i_{b,t} = 0
-\qquad \forall\,(b,t) \notin \mathcal{G}_\text{nd}
+\qquad \forall\,(b,t)
 ```
+
+At a grounded terminal $\kappa$ includes the free earth-injection current
+$c^\text{gnd}_{b,t}$, so the row is always satisfiable and simply *defines* the
+current flowing to earth there. At every other terminal KCL is a genuine
+restriction.
 
 Sign conventions:
 
@@ -1397,11 +1411,16 @@ Sign conventions:
 | Line from-side | from terminal | $-c^r_\ell$ (leaves) |
 | Line to-side | to terminal | $+c^r_\ell$ (enters, since $\tilde{c} = -c$) |
 | Load WYE | phase terminal | $-c^{r,d}$ (consumed) |
-| Load WYE | neutral terminal | $+c^{r,d}$ (return) |
+| Load WYE | neutral terminal | $+c^{r,d}$ (return; absent if the map has no neutral) |
 | Load DELTA | positive terminal | $-c^{r,d}$ |
 | Load DELTA | negative terminal | $+c^{r,d}$ |
 | Generator WYE | phase terminal | $+c^{r,g}$ (injects) |
 | Generator WYE | neutral terminal | $-c^{r,g}$ (return) |
+| Generator DELTA | positive / negative terminal | $+c^{r,g}$ / $-c^{r,g}$ |
+| IBR | phase (or pair-positive) / return terminal | $+c^{r,n}$ / $-c^{r,n}$ |
+| Switch | from / to terminal | $-c^r_{sw}$ / $+c^r_{sw}$ |
+| Shunt, capacitor, line π-half | each terminal | $-I^{\text{sh},r}$ (leaves to earth) |
+| Grounded terminal | the terminal itself | $+c^{r,\text{gnd}}$ (free) |
 | Voltage source | phase terminal | $+c^{r,s}$ (slack injects) |
 | Voltage source | neutral terminal | $-c^{r,s}$ (return) |
 | Transformer | each terminal | $-c^{r,x}$ (winding current leaves) |
@@ -1432,8 +1451,9 @@ fields on the `voltage_source` object shape the slack:
 - **`cost`** — a per-phase vector of linear active-power prices (one entry per
   phase term) added to the objective; exact since the source voltage is fixed.
 
-The source-bus **neutral** is fixed to zero and carries the summed slack return
-current, so neutral KCL is satisfied without a neutral voltage reference.
+The source-bus **neutral** is fixed to zero, treated as perfectly grounded, and
+receives the summed slack return current (see
+[Voltage sources](#Voltage-sources) for what that implies for grounding).
 
 This makes the source play three roles with one object: unbounded power-flow
 slack (no bounds, no cost), bounded grid connection (bounds), and priced
@@ -1470,6 +1490,14 @@ canonical three-phase prior only chooses coordinates left free by source and
 topology equations, such as a floating delta common mode; it does not impose a
 balanced-bus claim.
 
+Device currents are seeded so that the bilinear power rows start close to
+satisfied rather than at zero current. Constant-power load currents use their
+nominal power; generator currents use the midpoint of each finite P/Q box;
+Yd/Dy winding currents use the rated magnitude `s_rating / (3·|V|)` in phase
+with the transported wye voltage. The auxiliary P/Q variables of every
+apparent-power limit are started on their defining equalities, evaluated at
+the voltage and current starts. Line and switch currents are not seeded.
+
 IBR currents are seeded from their target complex power and the transported
 phase-to-reference voltage using `I = conj(S / V)`. The rectangular components
 are `(P*vr + Q*vi)/abs2(V)` and `(P*vi - Q*vr)/abs2(V)` in either SI or per-unit
@@ -1477,7 +1505,8 @@ coordinates. Thus the seed preserves the target's reactive-power sign; it is
 still only an initial guess, subject to the limitations below.
 
 !!! important "A warm start selects a trajectory, not a solution certificate"
-    The transport solve constructs a deterministic **zero-current phasor guess**.
+    The transport solve constructs a deterministic **zero-current voltage
+    phasor guess** (the device-current seeds above are added afterwards).
     It is not a loaded power-flow solution, and Ipopt is not guaranteed to return
     the feasible or stationary point nearest to it. Repeating the solve from the
     same start can establish computational reproducibility under a fixed software
@@ -1508,6 +1537,9 @@ still only an initial guess, subject to the limitations below.
     2018](https://doi.org/10.1109/TPWRS.2018.2823277)).
     For voltage-sheet and collapse terminology, see Van Cutsem & Vournas in the
     [bounds bibliography](bounds/references.md).
+
+If the transport solve fails or returns a non-finite value, the level-aware
+nominal starts are kept; the schema below then reports `applied = false`.
 
 Use `opf_diagnostic_schema(ctx).initialization` to inspect the equation counts and maximum
 normalized transport residual by relation family. That evidence describes the
@@ -1546,10 +1578,12 @@ solver behavior.
 
 ## Feasibility relaxation
 
-`solve_feasibility_opf` adds an **elastic slack current**
-$(c^{r,\varepsilon}_{b,t},\, c^{i,\varepsilon}_{b,t})$ at every ungrounded,
-non-source terminal. These variables can absorb any KCL residual at those
-terminals, but they do not relax contradictory source fixes, inconsistent hard
+`solve_feasibility_opf` answers a diagnostic question: *if the network cannot
+meet its limits, where would current have to be injected to make it balance,
+and how much?* It adds an **elastic slack current**
+$(c^{r,\varepsilon}_{b,t},\, c^{i,\varepsilon}_{b,t})$ to KCL at every
+terminal that is not perfectly grounded. These variables can absorb any KCL
+residual, but they do not relax contradictory source fixes, inconsistent hard
 bounds, or other hard equalities:
 
 ```math
@@ -1557,13 +1591,27 @@ bounds, or other hard equalities:
 \kappa^i_{b,t} + c^{i,\varepsilon}_{b,t} = 0
 ```
 
-The primary cost objective is replaced by the $\ell_2^2$ norm of all slack
-injections:
+Source-bus phase terminals receive a slack too; the source's own free current
+already balances KCL there, so the penalty drives that slack to zero.
+
+The cost objective is replaced by the sum of squared slack currents **in
+amperes**:
 
 ```math
-\min \sum_{(b,t)} \Bigl[\bigl(c^{r,\varepsilon}_{b,t}\bigr)^2
-                       + \bigl(c^{i,\varepsilon}_{b,t}\bigr)^2\Bigr]
+\min \sum_{(b,t)} w_b\Bigl[\bigl(c^{r,\varepsilon}_{b,t}\bigr)^2
+                       + \bigl(c^{i,\varepsilon}_{b,t}\bigr)^2\Bigr],
+\qquad
+w_b = \begin{cases} 1 & \text{SI model}\\
+\bigl(I_{\text{base},b}/I_\text{ref}\bigr)^2 & \text{per-unit model}\end{cases}
 ```
+
+with $I_\text{ref}$ the largest bus current base. The weight matters on a
+multi-voltage network. One per-unit of slack is worth $I_{\text{base},b}$
+amperes, which is large on a low-voltage bus and small on a medium-voltage
+one; an unweighted per-unit sum would therefore price an ampere differently at
+each voltage level and move the slack to a different location than the SI
+model does. With the weight, both unit systems minimize the same physical
+quantity and localize the infeasibility alike.
 
 The implementation adds a tiny linear transformer-current tie-break to select a
 numerical representative when Yd/Dy delta circulation is unobservable. Therefore
@@ -1589,20 +1637,93 @@ println(diag["is_feasible"])            # local classification from status/slack
 println(diag["total_infeasibility_A"])  # L2 norm of all slacks (A)
 ```
 
+The DC network's nodal balance is not elastic: a DC-side infeasibility is not
+localized by this relaxation.
+
 ## Power-flow inverter controls
 
-`solve_pf` retains an inverter's `s_max` as the per-phase normalization base
-for `S_MAX` Volt-watt and `VAR_MAX` Volt-var controls, while omitting its
-apparent-power constraint. Inverter current limits are also ignored by the
-power-flow recipe. Preserving the rating therefore preserves the controller
-response without enforcing its operational capability circle.
+A power flow has no objective, so the equations alone must determine the
+operating point. `solve_pf` therefore requires every dispatchable AC device to
+be **determined**, coil by coil, and rejects a case that is not:
 
-Volt-var specifies a reactive-power equality. Volt-watt specifies an
-active-power upper bound; a control profile alone does not select a unique
-active-power dispatch under the zero objective of `solve_pf`. Supply fixed
-active-power setpoints for a determined witness, or use `solve_opf` with an
-explicit dispatch objective. A fixed setpoint above the Volt-watt cap remains
-incompatible with the controller; power flow does not disable that cap.
+| Device | Active power | Reactive power |
+|---|---|---|
+| Generator | `p_min == p_max` | `q_min == q_max` |
+| IBR | `p_min == p_max` | `q_min == q_max`, **or** a control equality the engine actually stamps for that device: constant power factor, or Volt-var |
+
+Both bounds must be present, with **one entry per coil** (one for
+`SINGLE_PHASE`, one per phase for `FOUR_LEG`, one per phase pair for
+`THREE_LEG`). A missing, short, or one-sided bound is rejected just like a
+range, because the solver would otherwise return whatever point its starting
+guess led to and report success.
+
+Two refinements follow from asking what is *stamped* rather than what is
+*declared*:
+
+- **A control law counts only where it is applied.** `THREE_LEG` carries no
+  droop, a malformed Volt-var curve falls back to the reactive box, and a
+  constant power factor takes precedence over a droop in the same profile. A
+  `THREE_LEG` unit with a Volt-var profile and a reactive range is therefore
+  undetermined, and is rejected.
+- **A DC side determines one number, and only if it supplies an equation.**
+  For a **single-coil** unit the active-power requirement is waived when the DC
+  side fixes that power:
+  - a private DC link (`dc_link_coupled`) with a zero-width balance
+    (`p_dc_min == p_dc_max`); a balance *range* determines nothing;
+  - a `dc_bus` converter in `"droop"` mode (its V–P law) or `"V"` mode (it
+    balances the DC network at its voltage reference).
+
+  A `"P"`-mode converter is a dispatched injection and needs a fixed setpoint
+  like any other device: with two ranged `"P"`-mode units on one DC bus, DC KCL
+  fixes their sum and leaves the split free. A standalone `dc_source` must
+  likewise be a fixed injection (`p`, or `p_min == p_max`).
+
+  Voltage masters need one more condition. A master without a fixed setpoint
+  contributes one unknown current between its two DC nodes, and DC KCL gives
+  one equation per node, so those currents are determined exactly when the
+  free masters' ports form a **forest** over the DC nodes — no loops. Two free
+  masters on one port, at the two ends of an ideal tie, or around a triangle of
+  ports (p−m, m−n and p−n on a bipolar bus) can circulate power among
+  themselves and are rejected. Nodes are electrical: terminals joined by
+  zero-resistance conductors, or perfectly grounded, are one node. A multi-coil unit always needs each
+  coil's active power fixed, because the DC side fixes only their sum.
+
+These checks are made on the case first, and then once more on the rows the
+builder stamped. The second pass matters when a coefficient provider is in
+use: a bound that is fixed in the case can be replaced by a wider number or a
+live parameter while the model is built, and a power flow must be determined in
+the model that is solved, not only in the data it was read from. A setpoint
+supplied as one parameter for both ends of the bound still counts as fixed.
+
+The engine avoids stamping the same equation twice when static data already
+implies it; see [Dependent equality rows](@ref opf-dependent-rows). Loops of
+ideal conductors and contradictory DC voltage references are not reduced but
+rejected, and static validation reports them first as `E.INT.IDEAL_LOOP`,
+`E.INT.DC_IDEAL_LOOP` and `E.INT.DC_REFERENCE_CONFLICT`.
+
+Volt-var specifies a reactive-power equality. Volt-watt specifies only an
+active-power **upper bound**, which is why a Volt-watt profile does not
+determine the dispatch and a fixed active setpoint is still required. A fixed
+setpoint above the Volt-watt cap is incompatible with the controller; power
+flow does not disable that cap.
+
+`solve_pf` drops operational limits (voltage bounds, line, switch, generator,
+and IBR current limits, line and DC-branch power limits). Three kinds of limit
+are **kept**:
+
+- transformer nameplates: `s_rating` on the two-winding subtypes, and the
+  per-winding `s_max` and `i_max` of an `n_winding` transformer;
+- voltage-source P/Q bounds;
+- declared IBR `q_min`/`q_max`.
+
+An inverter's `s_max` is retained as the normalization base for `S_MAX`
+Volt-watt and `VAR_MAX` Volt-var curves, while its apparent-power constraint is
+omitted. A power flow that returns an infeasible status on an otherwise healthy
+network is often a nameplate being exceeded; remove the rating to compare
+against a limit-free reference.
+
+For how tightly a determined solve satisfies its equations, see
+[Zero-degree-of-freedom solves](@ref solver-square-termination).
 
 ## [Solver control and extending the formulation](@id extending-the-formulation)
 
@@ -1648,8 +1769,9 @@ result = solve_opf(net; model_hook! = ctx -> begin
 end)
 ```
 
-The model is solved in the model's working units: SI by default, per-unit
-when `per_unit=true` — scale hand-written constants accordingly.
+The model is solved in the model's working units: per-unit by default, SI
+when `per_unit=false` — scale hand-written constants accordingly (the example
+above divides by the bus power base).
 
 A `solution_hook!(ctx, result)` runs after the solve and before per-unit
 unwrapping, with the model still live: read `JuMP.value` of the variables a
@@ -1663,7 +1785,7 @@ longer trips a spurious `W.SOL.POWER_BALANCE`.
 
 `solve_opf` builds, solves, and extracts one snapshot in a single fused call —
 it cannot express constraints that couple one time step to the next, such as a
-battery's state of charge. For that, the same pipeline is exposed as four
+battery's state of charge. For that, the same pipeline is exposed as
 composable steps that let you build **several snapshots into one JuMP model**,
 add your own inter-temporal constraints, solve once, and extract each snapshot:
 
@@ -1826,6 +1948,15 @@ or droop targets can make the intersection infeasible.
 
 Constraint keys use families `ibr_minimum_pf_generation`,
 `ibr_minimum_pf_lower`, and `ibr_minimum_pf_upper`, indexed by `(ibr_id, coil)`.
+A limit of exactly one is the boundary case: the wedge
+$\lvert Q\rvert \le \tan\varphi\, P$ closes to the half-line $Q = 0$, $P \ge 0$.
+The two wedge rows would then read $Q \le 0$ and $-Q \le 0$, a pair with no
+interior and no unique multipliers, so the engine stamps the single equality
+`ibr_minimum_pf_equality` in their place (`ibr_minimum_pf_generation` is kept).
+That equality is omitted when another row already states $Q = 0$ for the coil —
+a reactive box pinned at zero (`ibr_q_equality`) or a unity constant power
+factor (`ibr_power_factor`) — since a second identical equality would leave the
+coil with more equalities than unknowns.
 The policy itself is fixed at model construction, not a live coefficient knob;
 rebuild to change it. Existing live P/Q/capability coefficients remain live.
 

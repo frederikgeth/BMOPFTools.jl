@@ -107,19 +107,40 @@ function _canonical_solution_voltages(net, result, findings)
     # Missing components cannot be interpreted as zero injections or losses.
     for family in ("line", "switch", "load", "generator", "ibr", "voltage_source",
                    "capacitor", "dc_bus", "dc_branch")
-        block = get(result, family, Dict())
+        block = _record(result, family)        # a null block reads as empty
         for id in keys(get(net, family, Dict()))
             get(block, id, nothing) isa AbstractDict || push!(missing, "$family.$id")
         end
     end
+    # The DC limit and loss checks read one voltage per DC terminal and one
+    # current per DC branch conductor. A record that is present but lacks those
+    # scalars supports no check at all, so it is reported as missing evidence
+    # rather than passed over in silence.
+    for (b, dcbus) in get(net, "dc_bus", Dict())
+        dcbus isa AbstractDict || continue
+        for t in string.(get(dcbus, "terminal_names", String[]))
+            value = get(_record(_record(_record(result, "dc_bus"), b), t), "v_dc", nothing)
+            isnan(_evidence(value)) && push!(missing, "dc_bus.$b.$t.v_dc")
+        end
+    end
+    for (id, br) in get(net, "dc_branch", Dict())
+        br isa AbstractDict || continue
+        n = min(length(get(br, "terminal_map_from", String[])),
+                length(get(br, "terminal_map_to", String[])))
+        for k in 1:n
+            value = get(_record(_record(_record(result, "dc_branch"), id), string(k)),
+                        "i_dc", nothing)
+            isnan(_evidence(value)) && push!(missing, "dc_branch.$id.$k.i_dc")
+        end
+    end
+    coil_labels = _neutral_labels(net)
     for (family, fields) in (("load", ("pd", "qd")), ("generator", ("pg", "qg")),
                              ("ibr", ("pg", "qg")), ("voltage_source", ("ps", "qs")))
         for (id, device) in get(net, family, Dict())
-            tm = string.(get(device, "terminal_map", String[]))
-            bus = get(get(net, "bus", Dict()), get(device, "bus", ""), Dict{String,Any}())
-            nt = _neutral_terminal(bus)
-            for t in tm
-                t == nt && continue
+            # One power record per COIL, keyed as the engine keys it — not one
+            # per non-neutral terminal: a line-to-line unit spans two phase
+            # terminals and has a single record.
+            for t in _result_coil_terminals(family, device, coil_labels)
                 vals = get(get(get(result, family, Dict()), id, Dict()), t, Dict())
                 for field in fields
                     get(vals, field, nothing) isa Real || push!(missing, "$family.$id.$t.$field")
@@ -159,6 +180,31 @@ end
 
 # Native ideal-source references and explicit perfect grounds, in SI volts.
 # This deliberately does not stand in for branch/device equation or KCL checks.
+"""
+    _result_coil_terminals(family, device, neutral_labels) -> Vector{String}
+
+The terminals under which the engine reports one power record per coil of a
+device, following its connection and the case's terminal roles:
+
+- a two-terminal `SINGLE_PHASE` unit, and a two-terminal `DELTA` unit, are one
+  coil keyed by the first terminal, even when both terminals are phases;
+- a three-terminal `DELTA` / `THREE_LEG` unit has one coil per terminal;
+- a `WYE` / `FOUR_LEG` unit (and a voltage source) has one coil per **phase**
+  terminal, the neutral being identified by the case's declared labels rather
+  than by a naming guess.
+"""
+function _result_coil_terminals(family, device, neutral_labels)
+    tm = string.(get(device, "terminal_map", String[]))
+    isempty(tm) && return String[]
+    kind = uppercase(string(get(device, family == "ibr" ? "topology" : "configuration",
+                                family == "ibr" ? "FOUR_LEG" : "WYE")))
+    phases() = [tm[p] for p in _phase_positions(tm, neutral_labels)]
+    family == "voltage_source" && return phases()
+    kind == "SINGLE_PHASE" && (family == "ibr" || length(tm) == 2) && return [tm[1]]
+    kind in ("DELTA", "THREE_LEG") && return length(tm) == 2 && kind == "DELTA" ? [tm[1]] : tm
+    return phases()
+end
+
 function _check_solution_references(net, result, findings)
     buses = get(net, "bus", Dict())
     function check_reference(bid, t, target, owner)
@@ -308,7 +354,8 @@ end
 # case the caller keeps the static p_max box bound). `cp` is the resolved
 # control_profile dict; `pf_present` mirrors the OPF's PF-override gate.
 function _volt_watt_cap(inv, cp, pf_present::Bool, topo::String,
-                        idx::Int, t_ph, t_res, smax_arr, p_max_arr, n_phase::Int; evidence::Bool=false)
+                        idx::Int, t_ph, t_res, smax_arr, p_max_arr, n_phase::Int;
+                        evidence::Bool=false, neutral_labels=nothing)
     (cp isa Dict && !pf_present && topo != "THREE_LEG") || return nothing
     vw = get(cp, "volt_watt", nothing)
     vw isa Dict || return nothing
@@ -336,9 +383,10 @@ function _volt_watt_cap(inv, cp, pf_present::Bool, topo::String,
     # Averaged aggregation feeds every phase the mean magnitude; for the common
     # SINGLE_PHASE / per-phase cases this is just the phase's own magnitude.
     tm   = Vector{String}(get(inv, "terminal_map", String[]))
-    np   = _neutral_pos(tm)
+    np   = neutral_labels === nothing ? _neutral_pos(tm) : _neutral_pos(tm, neutral_labels)
     t_n  = np !== nothing ? tm[np] : nothing
-    phase_terms = [tm[p] for p in _phase_positions(tm)]
+    phase_terms = [tm[p] for p in (neutral_labels === nothing ? _phase_positions(tm) :
+                                   _phase_positions(tm, neutral_labels))]
     t_pp = length(phase_terms) >= 2 ? phase_terms[mod1(idx + 1, length(phase_terms))] : nothing
 
     U = if averaged && !isempty(phase_terms)
@@ -392,6 +440,11 @@ function solution_check(net::Dict{String,Any},
                         result::Dict{String,Any},
                         findings::Vector{Finding})::Dict{String,Any}
     out = Dict{String,Any}("controller_compliance"=>Dict{String,Any}[])
+    # The case's declared neutral labels, resolved once: device checks below
+    # identify phase and neutral terminals exactly as the engine does, never by
+    # a naming guess.
+    device_labels = _neutral_labels(net)
+    sequence_roles = _terminal_roles(net)
 
     # ── Termination ──────────────────────────────────────────────────────────
     status = get(result, "termination_status", "UNKNOWN")
@@ -495,6 +548,9 @@ function solution_check(net::Dict{String,Any},
 
     buses   = get(net, "bus", Dict())
     bus_res = get(result, "bus", Dict())
+    # Per-phase arrays and phase pairs are indexed over the phase conductors:
+    # neither the neutral nor a declared protective earth (`_earth_labels`).
+    earth   = _earth_labels(net)
 
     source_buses = Set(get(vs, "bus", "") for (_, vs) in get(net, "voltage_source", Dict())
                        if vs isa Dict)
@@ -515,7 +571,7 @@ function solution_check(net::Dict{String,Any},
         nt = _neutral_terminal(bus)
 
         term_names = Vector{String}(get(bus, "terminal_names", String[]))
-        phase_ts_ordered = [t for t in term_names if t != nt]
+        phase_ts_ordered = [t for t in term_names if t != nt && !(t in earth)]
 
         for (k, t) in enumerate(phase_ts_ordered)
             haskey(t_res, t) || continue
@@ -563,7 +619,7 @@ function solution_check(net::Dict{String,Any},
 
         # Phase terminals in terminal_names order (neutral excluded)
         term_names = Vector{String}(get(bus, "terminal_names", String[]))
-        phase_ts_ordered = [t for t in term_names if t != nt]
+        phase_ts_ordered = [t for t in term_names if t != nt && !(t in earth)]
 
         for (k, t) in enumerate(phase_ts_ordered)
             haskey(t_res, t) || continue
@@ -609,7 +665,7 @@ function solution_check(net::Dict{String,Any},
         # Enumerate pairs over the FULL phase list (i<j); the pair index must
         # match the producer/OPF, so a terminal absent from the result is skipped
         # without shifting the index (see _add_bus_limit_constraints!).
-        phase_ts_ordered = [t for t in term_names if t != nt]
+        phase_ts_ordered = [t for t in term_names if t != nt && !(t in earth)]
         length(phase_ts_ordered) < 2 && continue
 
         pair_idx = 0
@@ -658,10 +714,9 @@ function solution_check(net::Dict{String,Any},
 
         t_res = get(bus_res, bid, nothing)
         t_res isa Dict || continue
-        nt = _neutral_terminal(bus)
-        tnames = get(bus, "terminal_names", String[])
-        phase_ts = [string(t) for t in tnames
-                    if string(t) != nt && lowercase(string(t)) != "n"]
+        # The same phase selection as the builder and preflight.
+        nt = _declared_bus_neutral(sequence_roles, bus)
+        phase_ts = _sequence_phase_terminals(sequence_roles, bus)
         if length(phase_ts) != 3
             push!(findings, Finding(WARNING, "W.SOL.LIMIT_UNASSESSED", :solution, :bus, bid,
                 "Sequence limits require a complete three-phase bus.",
@@ -755,7 +810,7 @@ function solution_check(net::Dict{String,Any},
         t_res isa Dict || continue
         nt = _neutral_terminal(bus)
         term_names = Vector{String}(get(bus, "terminal_names", String[]))
-        phase_ts_ordered = [t for t in term_names if t != nt]
+        phase_ts_ordered = [t for t in term_names if t != nt && !(t in earth)]
         length(phase_ts_ordered) < 2 && continue
         va_nom = get(bus, "va_nom", nothing)
         nom(idx) = (va_nom isa AbstractVector && idx <= length(va_nom)) ?
@@ -794,6 +849,12 @@ function solution_check(net::Dict{String,Any},
 
     # Branch angles use theta_from - theta_to (PSK-000013), without the
     # bus-angle nominal centering or the engine's tangent inequalities.
+    #
+    # The engine bounds PHASE conductors only. A neutral voltage is a small
+    # residual with no operating angle, and a protective-earth conductor sits at
+    # (or near) zero volts, where an angle is undefined. Terminal roles are
+    # resolved ONCE here: resolving them per line scans every bus each time.
+    angle_is_phase = _line_angle_phase_test(net)
     for (lid, line) in get(net, "line", Dict())
         lo = get(line, "va_diff_min", nothing); hi = get(line, "va_diff_max", nothing)
         lo === nothing && hi === nothing && continue
@@ -808,6 +869,8 @@ function solution_check(net::Dict{String,Any},
             continue
         end
         for k in eachindex(fr)
+            (angle_is_phase(line["bus_from"], fr[k]) &&
+             angle_is_phase(line["bus_to"], to[k])) || continue
             vf = get(get(bus_res, line["bus_from"], Dict()), fr[k], Dict())
             vt = get(get(bus_res, line["bus_to"], Dict()), to[k], Dict())
             coords = (get(vf,"vr",NaN), get(vf,"vi",NaN), get(vt,"vr",NaN), get(vt,"vi",NaN))
@@ -1098,7 +1161,14 @@ function solution_check(net::Dict{String,Any},
         ph_res isa Dict || continue
         tm = Vector{String}(get(gen, "terminal_map", String[]))
         cfg = get(gen, "configuration", "WYE")
-        ph_pos = cfg == "DELTA" ? collect(eachindex(tm)) : _phase_positions(tm)
+        # Coils as the engine builds them: a two-terminal DELTA unit is ONE
+        # coil whose current flows through both conductors, so the tighter of
+        # its per-conductor ratings governs.
+        one_coil_delta = cfg == "DELTA" && length(tm) == 2
+        ph_pos = cfg == "SINGLE_PHASE" && length(tm) == 2 ? [1] :
+                 cfg != "DELTA" ? _phase_positions(tm, device_labels) :
+                 one_coil_delta ? [1] : collect(eachindex(tm))
+        one_coil_delta && !isempty(imax_arr) && (imax_arr = [minimum(imax_arr)])
 
         for (idx, ph) in enumerate(ph_pos)
             t_ph = tm[ph]
@@ -1215,13 +1285,17 @@ function solution_check(net::Dict{String,Any},
 
         tm   = Vector{String}(get(inv, "terminal_map", String[]))
         topo = get(inv, "topology", "FOUR_LEG")
-        n_phase = max(length(_phase_positions(tm)), 1)
+        # Number of COILS sharing the available power (mirrors the engine): a
+        # two-terminal SINGLE_PHASE unit is one coil even when both terminals
+        # are phases.
+        n_phase = topo == "SINGLE_PHASE" ? 1 :
+                  max(length(_phase_positions(tm, device_labels)), 1)
         t_res   = get(bus_res, get(inv, "bus", ""), Dict())
 
         phase_keys = if topo == "SINGLE_PHASE"
             length(tm) >= 1 ? [(1, tm[1])] : Tuple{Int,String}[]
         elseif topo == "FOUR_LEG"
-            [(idx, tm[ph]) for (idx, ph) in enumerate(_phase_positions(tm))]
+            [(idx, tm[ph]) for (idx, ph) in enumerate(_phase_positions(tm, device_labels))]
         else  # THREE_LEG
             [(k, tm[k]) for k in eachindex(tm)]
         end
@@ -1239,7 +1313,8 @@ function solution_check(net::Dict{String,Any},
             lo = idx <= length(p_min_arr) ? p_min_arr[idx] : nothing
             hi = idx <= length(p_max_arr) ? p_max_arr[idx] : nothing
             vw = _volt_watt_cap(inv, cp, pf_val !== nothing, topo,
-                                    idx, t_ph, t_res, smax_arr, p_max_arr, n_phase; evidence=true)
+                                    idx, t_ph, t_res, smax_arr, p_max_arr, n_phase;
+                                    evidence=true, neutral_labels=device_labels)
             if vw !== nothing
                 hi = hi === nothing ? vw.cap : min(hi, vw.cap)
                 row = get(get(get(result,"modeled_volt_watt",Dict()),inv_id,Dict()),string(idx),nothing)
@@ -1380,8 +1455,13 @@ function solution_check(net::Dict{String,Any},
         bus = get(load, "bus", "")
         tm  = Vector{String}(get(load, "terminal_map", String[]))
         cfg = get(load, "configuration", "WYE")
-        ph_pos    = cfg == "DELTA" ? collect(eachindex(tm)) : _phase_positions(tm)
-        n_pos_idx = cfg == "DELTA" ? nothing : _neutral_pos(tm)
+        # Coils as the engine builds them: a two-terminal DELTA or SINGLE_PHASE
+        # load is one coil across its two terminals.
+        two_terminal = length(tm) == 2 && cfg in ("DELTA", "SINGLE_PHASE")
+        ph_pos    = two_terminal ? [1] : cfg == "DELTA" ? collect(eachindex(tm)) :
+                    _phase_positions(tm, device_labels)
+        n_pos_idx = two_terminal ? (cfg == "SINGLE_PHASE" ? 2 : nothing) :
+                    cfg == "DELTA" ? nothing : _neutral_pos(tm, device_labels)
         t_n       = n_pos_idx !== nothing ? tm[n_pos_idx] : nothing
 
         for (idx, ph) in enumerate(ph_pos)
@@ -1533,6 +1613,45 @@ function solution_check(net::Dict{String,Any},
     losses = get(result, "losses", Dict())
     p_loss = losses isa Dict ? Float64(get(losses, "p_loss", 0.0)) : 0.0
     q_loss = losses isa Dict ? Float64(get(losses, "q_loss", 0.0)) : 0.0
+    # `losses.p_loss` is the loss of the WHOLE network, DC conductors included.
+    # The balance below is the AC-network balance: every term in it is an
+    # AC-side quantity, and a converter enters through its AC injection, which
+    # already nets out whatever its DC side dissipates. The DC-branch share
+    # must therefore be taken back out, or it would be counted twice and every
+    # network with a lossy DC branch would report a spurious imbalance.
+    #
+    # The share is DERIVED, not read from the result: for each DC branch in the
+    # case, Σ_k (v_from,k − v_to,k)·i_k from the solved DC voltages and
+    # currents. A reported `losses.p_loss_dc` is only cross-checked against it,
+    # so a result cannot adjust its own balance by declaring a DC loss, least
+    # of all on a case with no DC branch.
+    p_loss_dc, dc_residuals = _derived_dc_branch_loss(net, result)
+    for (id, k, drop, expected) in dc_residuals
+        push!(findings, Finding(WARNING, "W.SOL.DC_OHM_RESIDUAL", :solution, :dc_branch, id,
+            "dc_branch '$id' conductor $k: reported voltage drop " *
+            "$(round(drop; digits=3)) V does not match r·i = " *
+            "$(round(expected; digits=3)) V for the case resistance and the reported current.",
+            Dict{String,Any}("conductor"=>k,
+                             "reported_drop_V"=>drop, "expected_drop_V"=>expected)))
+    end
+    reported_dc = losses isa Dict ? get(losses, "p_loss_dc", nothing) : nothing
+    # Without complete DC evidence the DC share is unknown, and with it the AC
+    # balance: an omitted branch current is not a zero contribution. The
+    # missing fields already make the verification indeterminate; the checks
+    # that depend on the share are then not assessed rather than failed on a
+    # guess.
+    dc_evidence_complete = !any(startswith(m, "dc_bus.") || startswith(m, "dc_branch.")
+                                for m in missing)
+    if dc_evidence_complete && reported_dc isa Real &&
+            abs(Float64(reported_dc) - p_loss_dc) > max(0.01 * abs(p_loss_dc), 1.0)
+        push!(findings, Finding(WARNING, "W.SOL.DC_LOSS_SHARE_MISMATCH", :solution, :network, nothing,
+            "Reported DC-branch loss share losses.p_loss_dc = " *
+            "$(round(Float64(reported_dc); digits=2)) W does not match the " *
+            "$(round(p_loss_dc; digits=2)) W recomputed from the DC branches of the case.",
+            Dict{String,Any}("reported_p_loss_dc"=>Float64(reported_dc),
+                             "derived_p_loss_dc"=>p_loss_dc)))
+    end
+    p_loss_ac = p_loss - p_loss_dc
 
     # Standalone shunt and capacitor elements are neither injections nor branch
     # losses, so they must be counted explicitly: a shunt absorbs (P,Q) from its
@@ -1555,7 +1674,7 @@ function solution_check(net::Dict{String,Any},
     out["q_shunt"] = q_shunt
     out["q_capacitor"] = q_cap
 
-    balance_err   = abs(p_gen - p_load - p_shunt - p_loss)
+    balance_err   = abs(p_gen - p_load - p_shunt - p_loss_ac)
     q_balance_err = abs(q_gen + q_cap - q_load - q_shunt - q_loss)
     balance_tol   = max(0.01 * abs(p_load), 1.0)   # 1 % of load or 1 W
     # Reactive flows can be near zero while loads are unity-PF; floor on |q_load|
@@ -1568,11 +1687,15 @@ function solution_check(net::Dict{String,Any},
     out["p_load"]            = p_load
     out["q_load"]            = q_load
     out["p_loss"]            = p_loss
+    out["p_loss_dc"]         = p_loss_dc
     out["q_loss"]            = q_loss
-    out["power_balance_err"]  = balance_err
+    # Not assessed means not reported: with DC evidence missing the residual
+    # would be the omitted DC loss, not an imbalance.
+    out["power_balance_err"]  = dc_evidence_complete ? balance_err : NaN
     out["q_power_balance_err"] = q_balance_err
 
-    if balance_err > balance_tol
+    out["power_balance_assessed"] = dc_evidence_complete
+    if dc_evidence_complete && balance_err > balance_tol
         push!(findings, Finding(WARNING, "W.SOL.POWER_BALANCE", :solution, :network, nothing,
             "Network active-power balance error: |pg − pd − p_shunt − p_loss| = " *
             "$(_fmt_mw(balance_err)) (>1 % of load). " *
@@ -1733,7 +1856,9 @@ function solution_check(net::Dict{String,Any},
     # Residual warnings are failed assessed checks, unlike near-active bounds
     # or informational quality diagnostics. Their historical severity is retained.
     residual_failures = ("W.SOL.LOAD_RESIDUAL", "W.SOL.LOAD_MODEL_RESIDUAL",
-        "W.SOL.POWER_BALANCE", "W.SOL.NEG_LOSS", "W.SOL.IBR_PF_DEVIATION")
+        "W.SOL.POWER_BALANCE", "W.SOL.NEG_LOSS", "W.SOL.IBR_PF_DEVIATION",
+        "W.SOL.DC_OHM_RESIDUAL", "W.SOL.DC_LOSS_SHARE_MISMATCH",
+        "W.SOL.DC_VSET_RESIDUAL")
     failed = any(f -> f.section == :solution &&
         (f.severity == ERROR || f.code in residual_failures), findings)
     indeterminate = !isempty(missing) || any(f -> f.code in
@@ -1745,19 +1870,20 @@ function solution_check(net::Dict{String,Any},
     out
 end
 
-# Post-solve DC checks: signed line-to-ground voltages within their bounds, and
-# DC branch conductor currents within their thermal limit.
+# Post-solve DC checks: signed line-to-ground voltages within their bounds,
+# voltage-pair bounds and voltage-master setpoints met, and DC branch conductor
+# currents within their thermal limit.
 function _check_dc_solution(net, result, findings)
-    dc_bus_res = get(result, "dc_bus", Dict())
+    dc_bus_res = _record(result, "dc_bus")
     for (b, dcbus) in get(net, "dc_bus", Dict())
         dcbus isa Dict || continue
         terms = string.(get(dcbus, "terminal_names", String[]))
         vmin  = Float64.(get(dcbus, "v_dc_min", Float64[]))
         vmax  = Float64.(get(dcbus, "v_dc_max", Float64[]))
-        tres  = get(dc_bus_res, b, Dict())
+        tres  = _record(dc_bus_res, b)
         for (k, t) in enumerate(terms)
-            r = get(tres, t, nothing); r isa Dict || continue
-            v = get(r, "v_dc", NaN); isnan(v) && continue
+            r = get(tres, t, nothing); r isa AbstractDict || continue
+            v = _evidence(get(r, "v_dc", nothing)); isnan(v) && continue
             if k <= length(vmin) && v < vmin[k] - 1e-6
                 push!(findings, Finding(ERROR, "E.SOL.DC_VOLT_VIOLATION", :solution,
                     :dc_bus, b,
@@ -1772,15 +1898,80 @@ function _check_dc_solution(net, result, findings)
         end
     end
 
-    dc_br_res = get(result, "dc_branch", Dict())
+    # Voltage-PAIR bounds and voltage-master setpoints. A terminal can sit
+    # inside its own [v_dc_min, v_dc_max] band while the difference between two
+    # terminals is wrong, so these are checked on the difference itself, with
+    # the orientation the OPF uses (`_dc_exact_pair_references`). An exact
+    # bound (min == max) is the band of zero width.
+    solved(key) = _evidence(get(_record(_record(dc_bus_res, key[1]), key[2]), "v_dc", nothing))
+    pair_tol(x) = max(1e-6, 1e-6 * abs(x))
+    function check_pair!(b, family, from, to, orient, lo, hi)
+        d = orient * (solved(from) - solved(to))
+        isnan(d) && return nothing
+        lo = lo isa Real ? Float64(lo) : -Inf
+        hi = hi isa Real ? Float64(hi) : Inf
+        (d < lo - pair_tol(lo) || d > hi + pair_tol(hi)) || return nothing
+        push!(findings, Finding(ERROR, "E.SOL.DC_VOLT_VIOLATION", :solution, :dc_bus, b,
+            "dc_bus '$b': $(family) between '$(from[2])' and '$(to[2])' is " *
+            "$(round(d; digits=3)) V, outside [$(lo), $(hi)] V" *
+            (lo == hi ? " (an exact bound: the difference is stated outright)." : "."),
+            Dict{String,Any}("family"=>family, "terminal_from"=>from[2],
+                "terminal_to"=>to[2], "v_dc_difference"=>d, "min"=>lo, "max"=>hi,
+                "exact"=>lo == hi)))
+        return nothing
+    end
+    for (b, dcbus) in get(net, "dc_bus", Dict())
+        dcbus isa Dict || continue
+        b = String(b)
+        pole = get(dcbus, "pole", nothing)
+        role(t) = pole isa AbstractDict ? get(pole, t, "") : ""
+        terms = _terminal_list(get(dcbus, "terminal_names", String[]))
+        ret = _dc_return_terminal(dcbus)
+        lo = get(dcbus, "vdc_ln_min", nothing); hi = get(dcbus, "vdc_ln_max", nothing)
+        if (lo !== nothing || hi !== nothing) && ret !== nothing
+            for t in terms
+                t == ret && continue
+                orient = role(t) == "POSITIVE" ? 1.0 : role(t) == "NEGATIVE" ? -1.0 : 0.0
+                orient == 0.0 || check_pair!(b, "vdc_ln", (b, t), (b, ret), orient, lo, hi)
+            end
+        end
+        lo = get(dcbus, "vdc_ll_min", nothing); hi = get(dcbus, "vdc_ll_max", nothing)
+        if lo !== nothing || hi !== nothing
+            pos = [t for t in terms if role(t) == "POSITIVE"]
+            neg = [t for t in terms if role(t) == "NEGATIVE"]
+            (isempty(pos) || isempty(neg)) ||
+                check_pair!(b, "vdc_ll", (b, pos[1]), (b, neg[1]), 1.0, lo, hi)
+        end
+    end
+    for (id, inv) in get(net, "ibr", Dict())
+        (inv isa Dict && haskey(inv, "dc_bus") &&
+         get(inv, "dc_control", "P") == "V") || continue
+        b = _bus_id(inv["dc_bus"]); tm = _terminal_list(get(inv, "dc_terminal_map", String[]))
+        isempty(tm) && continue
+        v_set = let x = get(inv, "dc_v_set", nothing)
+            x isa Real ? Float64(x) : _dc_v_nom_port(net, b, tm)
+        end
+        v_set === nothing && continue
+        v_port = solved((b, tm[1])) - (length(tm) >= 2 ? solved((b, tm[2])) : 0.0)
+        isnan(v_port) && continue
+        abs(v_port - v_set) > pair_tol(v_set) || continue
+        push!(findings, Finding(WARNING, "W.SOL.DC_VSET_RESIDUAL", :solution, :ibr, String(id),
+            "ibr '$id' is a DC voltage master (dc_control = \"V\") with setpoint " *
+            "$(v_set) V, but the reported port voltage on dc_bus '$b' is " *
+            "$(round(v_port; digits=3)) V.",
+            Dict{String,Any}("dc_bus"=>b, "v_set"=>v_set, "v_port"=>v_port,
+                "residual"=>v_port - v_set)))
+    end
+
+    dc_br_res = _record(result, "dc_branch")
     for (id, br) in get(net, "dc_branch", Dict())
         br isa Dict || continue
         imax = Float64.(get(br, "i_max", Float64[]))
         isempty(imax) && continue
-        cres = get(dc_br_res, id, Dict())
+        cres = _record(dc_br_res, id)
         for (k, im) in enumerate(imax)
-            r = get(cres, string(k), nothing); r isa Dict || continue
-            i = get(r, "i_dc", NaN); isnan(i) && continue
+            r = get(cres, string(k), nothing); r isa AbstractDict || continue
+            i = _evidence(get(r, "i_dc", nothing)); isnan(i) && continue
             if abs(i) > im + 1e-6
                 push!(findings, Finding(ERROR, "E.SOL.DC_THERMAL_VIOLATION", :solution,
                     :dc_branch, id,
@@ -1789,6 +1980,62 @@ function _check_dc_solution(net, result, findings)
             end
         end
     end
+end
+
+# A reported scalar as evidence: a finite real number, or NaN for anything else
+# (absent, JSON null, a string, a Bool, a non-finite value). Checks read their
+# inputs through this, so malformed evidence is "unavailable", never an error
+# and never a zero.
+_evidence(x) = (x isa Real && !(x isa Bool) && isfinite(x)) ? Float64(x) : NaN
+
+# A nested result record, or an empty one when it is absent or not a record
+# (a JSON null, for instance). Lets evidence be read without a chain of guards.
+_record(d, key) = (r = d isa AbstractDict ? get(d, key, nothing) : nothing;
+                   r isa AbstractDict ? r : Dict{String,Any}())
+
+"""
+    _derived_dc_branch_loss(net, result) -> (loss, residuals)
+
+Ohmic loss of the DC branches OF THE CASE, as Σ r_k·i_k² over their resistive
+conductors, from the case resistances and the solved conductor currents. Zero
+when the case has none.
+
+The loss is deliberately NOT taken as Σ (v_from − v_to)·i. That product is the
+loss only if the reported voltage drop obeys Ohm's law, and a result is free to
+claim otherwise: 50 V and 10 A across a zero-ohm conductor would read as 500 W
+of "loss" that no resistance dissipates. So the resistance of the case decides
+the loss, and each conductor's reported drop is checked against r·i separately.
+`residuals` lists the conductors that fail that check as
+`(branch, conductor, reported_drop, expected_drop)`.
+"""
+function _derived_dc_branch_loss(net, result)
+    dc_bus_res = _record(result, "dc_bus")
+    dc_br_res  = _record(result, "dc_branch")
+    v(b, t) = _evidence(get(_record(_record(dc_bus_res, b), t), "v_dc", nothing))
+    total = 0.0
+    residuals = Tuple{String,Int,Float64,Float64}[]
+    for (id, br) in get(net, "dc_branch", Dict())
+        br isa AbstractDict || continue
+        bf = string(get(br, "dc_bus_from", "")); bt = string(get(br, "dc_bus_to", ""))
+        tmf = string.(get(br, "terminal_map_from", String[]))
+        tmt = string.(get(br, "terminal_map_to", String[]))
+        rv = get(br, "r", Float64[])
+        cres = _record(dc_br_res, id)
+        for k in 1:min(length(tmf), length(tmt))
+            i = _evidence(get(_record(cres, string(k)), "i_dc", nothing))
+            r = k <= length(rv) ? max(_evidence(rv[k]), 0.0) : 0.0
+            isnan(i) && continue
+            isnan(r) && (r = 0.0)
+            total += r * i^2
+            drop = v(bf, tmf[k]) - v(bt, tmt[k])
+            isnan(drop) && continue
+            expected = r * i
+            scale = max(abs(v(bf, tmf[k])), abs(v(bt, tmt[k])), abs(expected), 1.0)
+            abs(drop - expected) > 1e-3 * scale &&
+                push!(residuals, (string(id), k, drop, expected))
+        end
+    end
+    return total, residuals
 end
 
 # Active power dissipated by a passive branch is ≥ 0 by construction (series
@@ -1896,6 +2143,7 @@ function voltage_zone_summary(net::Dict{String,Any}, result::Dict{String,Any})
     end
 
     roles = _index_roles(net)
+    earth = _earth_labels(net)
     function return_only_bus(b)
         names = get(get(buses, b, Dict()), "terminal_names", nothing)
         names isa AbstractVector && !isempty(names) &&
@@ -1971,7 +2219,7 @@ function voltage_zone_summary(net::Dict{String,Any}, result::Dict{String,Any})
             # v_min/v_max are per-phase arrays; map each phase terminal to its
             # index so the bound for terminal t can be looked up.
             phase_ix = Dict{String,Int}()
-            for (k, t) in enumerate(t for t in Vector{String}(get(bus, "terminal_names", String[])) if t != nt)
+            for (k, t) in enumerate(t for t in Vector{String}(get(bus, "terminal_names", String[])) if t != nt && !(t in earth))
                 phase_ix[t] = k
             end
             _vb(v, t) = v === nothing ? nothing :

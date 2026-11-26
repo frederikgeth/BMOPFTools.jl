@@ -122,8 +122,14 @@ case-specific evidence; it does not validate every transformer configuration.
 | `ibr` | Dict | Per-IBR, per-phase current and produced power |
 | `transformer` | Dict | Per-transformer, per-winding-side currents |
 | `voltage_source` | Dict | Per-source, per-phase slack current and imported power |
+| `ground` | Dict | `bus => terminal => {cg_r, cg_i, cgm}` [A]: current flowing to earth at each perfectly grounded terminal |
+| `capacitor` | Dict | Per-bank terminal currents and delivered reactive power `q` [var] |
+| `dc_bus` | Dict | `dc_bus => terminal => {v_dc}` [V], signed pole voltage to earth |
+| `dc_branch` | Dict | `dc_branch => conductor => {i_dc}` [A], plus a `loss` entry (see [`losses`](@ref results-losses)) |
+| `modeled_volt_watt` | Dict | The Volt-watt cap each IBR coil was actually given (curve, base, smoothing mode), for auditing the controller model |
+| `opt_profile` | Dict | Optimization fingerprint of the solve: raw solver status, active sets, multipliers, in working units |
 | `initialisation` | Dict | Per-bus, per-terminal Ipopt start values (see below) |
-| `losses` | Dict | Network-total active/reactive losses; per-element losses live under each `line`/`transformer` (see below) |
+| `losses` | Dict | Network-total active/reactive losses; per-element losses live under each `line`/`transformer`/`dc_branch` (see below) |
 
 ## `bus` — voltages
 
@@ -286,6 +292,12 @@ constraint model (box `q_min`/`q_max` bounds, constant-power-factor coupling, th
 result["transformer"][xfmr_id]["fr"|"to"][k] => Dict
 ```
 
+An `n_winding` transformer is reported differently: its record has one key per
+winding, `"w1"` … `"wN"`, each mapping phase-leg index strings to
+`cr`/`ci`/`cm` (and `s`/`s_max` on a capped winding). It has no `"fr"`/`"to"`
+keys and no `"ground"` entry. The rest of this section describes the two-bus
+subtypes.
+
 Transformer results use winding-side keys `"fr"` and `"to"`, each mapping to a
 **positional index string** (`"1"`, `"2"`, ...) rather than a terminal name.
 The two winding sides may have different terminal maps (e.g. a wye_delta
@@ -301,7 +313,8 @@ input network.
     return path, so positions index only the **phase** conductors. For
     `open_delta_regulator` the positions index the **two regulators** (`"1"`,
     `"2"`), not the four bus terminals — the shared-phase straight-through wire
-    current is internal and not reported. In these cases position `k` does not
+    current is internal and not reported, and neither is the reference-bond
+    current of a `single_phase_autotransformer`. In these cases position `k` does not
     align with `terminal_map[k]`.
 
 | Field | Unit | Description |
@@ -309,8 +322,8 @@ input network.
 | `cr` | A | Real part of winding current |
 | `ci` | A | Imaginary part of winding current |
 | `cm` | A | Current magnitude: `√(cr² + ci²)` |
-| `s` | VA | Coil apparent power `\|V_coil·I_coil*\|`, on the winding whose nameplate cap is active (from/HV side). Recorded from the cap's own auxiliaries, so it is exactly the quantity the constraint bounds. |
-| `s_max` | VA | The per-winding nameplate cap applied to `s` (the per-phase share of `s_rating`). Present on the same winding as `s`. |
+| `s` | VA | Coil apparent power `\|V_coil·I_coil*\|`, on the winding whose nameplate cap is active (the from side, except `delta_wye`, whose wye coils are on the to side). Recorded from the cap's own auxiliaries, so it is exactly the quantity the constraint bounds. |
+| `s_max` | VA | The nameplate cap applied to `s` (see the [per-subtype share](@ref transformer-nameplate-cap)). Present on the same winding as `s`. |
 
 `s`/`s_max` appear only on the coil the nameplate cap is stamped on (see
 [current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits)); the
@@ -330,8 +343,8 @@ When the transformer's tap is a **free decision variable** (see
 
 | Field | Unit | Description |
 |---|---|---|
-| `tap` | — | Optimized dimensionless tap multiplier (`single_phase`, `delta_wye`, `wye_delta`) |
-| `tap_ratio` | — | Optimized regulation ratio — scalar (`single_phase_autotransformer`) or `[a₁, a₂]` (`open_delta_regulator`) |
+| `tap` | — | Optimized dimensionless tap multiplier (`single_phase`, `center_tap`, `delta_wye`, `wye_delta`) |
+| `tap_ratio` | — | Optimized regulation ratio — scalar (`single_phase_autotransformer`) or `[a₁, a₂]` (`open_delta_regulator`; an entry is `missing` for a regulator whose tap was fixed while the other was free) |
 | `tap_binding` | — | `true` when the optimized tap sits at a `tap_min`/`tap_max` bound (regulation range exhausted); per-regulator vector for `open_delta_regulator` |
 
 These keys are present **only** when the tap was free (`tap_min < tap_max`); a
@@ -346,12 +359,13 @@ terminal-current injections built during model construction. Because the
 injected currents sum to zero internally, the result is independent of the
 ground voltage reference.
 
-The top-level `losses` dict holds the network totals over all lines and
-transformers:
+The top-level `losses` dict holds the network totals over all lines,
+transformers, and **DC branches**:
 
 | Field | Unit | Description |
 |---|---|---|
 | `p_loss` | W | Total active power dissipated (≥ 0 for a passive network) |
+| `p_loss_dc` | W | The share of `p_loss` dissipated in DC branches (zero without a DC network). `p_loss − p_loss_dc` is the AC-network loss, which is what closes the AC power balance: a converter enters that balance through its AC injection, which already nets out its DC side. The post-solve validator does not trust this field: it recomputes the share as Σ r·i² from the case resistances and the solved branch currents, and checks each reported voltage drop against r·i |
 | `q_loss` | var | Net reactive absorption; **negative** when the network is net-capacitive (line charging, capacitor shunts) |
 
 The same identity is attached **per element** under each line and transformer as
@@ -367,6 +381,18 @@ result["transformer"][xfmr_id]["loss"]  => Dict
 | `p_loss` | W | Active power dissipated by this element (≥ 0; a negative value is non-physical and is flagged by `W.SOL.NEG_LOSS`) |
 | `q_loss` | var | Net reactive absorption (negative = element is net-capacitive, e.g. line charging or transformer magnetizing) |
 | `s_through` | VA | Throughput scale `Σ|V_t||I_t|` over the element's terminals, used to size numerical tolerances (`p_loss` is a difference of large near-equal terminal powers, so its cancellation noise scales with this) |
+
+A DC branch dissipates real power in its pole and return conductors. Its loss
+is the ohmic sum over its conductors, `Σₖ (v_from,k − v_to,k)·i_k`, reported as
+
+```
+result["dc_branch"][branch_id]["loss"]  => Dict("p_loss" => …)   # W
+```
+
+and included in `losses["p_loss"]`. (There is no reactive power on a DC
+conductor, so `q_loss` is unaffected.) With DC losses in the total, the power
+balance of a hybrid network closes: source injections minus load consumption
+equal `losses["p_loss"]`, converters being lossless.
 
 Switches are ideal (lossless) and carry no `"loss"` entry. The per-element
 sub-dicts are present only when the result was produced with the loss ledger

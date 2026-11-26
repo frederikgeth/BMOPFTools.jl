@@ -4,6 +4,182 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- OPF engine review (November 2026): correctness fixes found by a
+  line-by-line audit of the unbalanced IVR engine, each pinned by a regression
+  test and, where OpenDSS can express the case, by an OpenDSS oracle.
+  - **Per-unit voltage bases** are now assigned per galvanic zone. Buses joined
+    by lines, switches, regulators or autotransformers share one base; only an
+    isolating transformer changes it. Previously a regulator's `v_nom_*`
+    nameplate rescaled the downstream coordinates on top of its tap (a 5 %
+    boost solved as 10 %), and a line closing a loop between transformers of
+    unequal ratio joined buses with different bases, removing the circulating
+    current. SI solves were unaffected.
+  - **Line angle windows** (`va_diff_min`/`va_diff_max`) bound phase
+    conductors only. They were also stamped on the neutral, whose phasor
+    routinely rotates by tens of degrees along a healthy four-wire line, so
+    feasible cases were reported infeasible.
+  - **DELTA generators** follow the load geometry: two or three distinct
+    phase terminals, a two-terminal map is one coil (it was two anti-parallel
+    coils, doubling the unit), and a neutral terminal is rejected. Supplied
+    `p_min`/`p_max`/`q_min`/`q_max` vectors must have one entry per coil; a
+    short vector used to leave the remaining coils unbounded.
+  - **Losses include DC branches.** `result["losses"]["p_loss"]`,
+    `opf_total_loss` and `opf_element_loss` (new block `"dc_branch"`) count
+    DC-conductor I²R, and each `dc_branch` result carries `loss.p_loss`. A
+    loss objective could previously route current through a resistive DC tie
+    at no apparent cost.
+  - **DC voltage droop** acts on the pole-voltage magnitude, so a negative
+    pole sags under load like a positive one instead of rising.
+  - **Volt-watt with `p_ref = "P_AVAILABLE"`** divides the available power by
+    the number of coils, not phase terminals; a phase-to-phase single-phase
+    unit was capped at half its available power.
+  - **`solve_pf` requires a determined problem.** Generators and AC-only IBRs
+    need fixed active power, and reactive power that is fixed or set by a
+    constant power factor or Volt-var law; missing and one-sided bounds are
+    rejected instead of returning a start-point-dependent answer.
+  - **Feasibility OPF** penalizes slack in amperes in either unit system, so
+    the reported slack location no longer depends on `per_unit`.
+  - A capacitor without `v_nom` is rejected (the 1.0 fallback meant one volt
+    in SI and one per-unit voltage in per-unit). An IBR with an unsupported
+    topology is rejected instead of being left out of the network with a
+    warning. A shared-DC-link balance with `p_dc_min == p_dc_max` is one
+    equality row, `:ibr_dc_power_equality`. Apparent-power auxiliaries start
+    on their defining equalities.
+  - A **minimum power factor of exactly one** stamps the single equality
+    `:ibr_minimum_pf_equality` (`Q = 0`) instead of the opposing pair
+    `Q <= 0`, `-Q <= 0`, unless a pinned reactive box or a unity constant
+    power factor already states `Q = 0` for that coil. Limits below one keep
+    their two wedge rows. Likewise a shared-DC-link balance is not restated
+    when every coil's active power is pinned and already sums to it.
+  - A **two-terminal DELTA generator** applies the tighter of its
+    per-conductor `i_max` entries to its one coil current, whichever terminal
+    it is listed against.
+  - **IBR `p_min`/`p_max`/`q_min`/`q_max` vectors** must have one entry per
+    coil, as for generators; a short vector used to leave coils unbounded.
+    `solve_pf` checks determinacy coil by coil and counts a reactive control
+    law only where the engine stamps it (not Volt-var on `THREE_LEG`, not a
+    malformed curve). A multi-coil DC-coupled unit needs each coil's active
+    power fixed, since its DC side determines only their sum.
+  - **Open switches** no longer join voltage-base zones, and no longer trip
+    the same-base check of a custom scaling policy.
+  - **Dependent equality rows** are omitted only when static rows already
+    in the model imply them: a constant-power-factor equality over boxes that
+    pin it, and repeated DC voltage masters on one port (one reference row;
+    masters that disagree raise). Bounds supplied as live parameters never
+    count as pins, so a shared-DC-link balance stays in force when `p_max`
+    is a parameter. An ideal DC conductor between terminals fixed at
+    different voltages is rejected instead of carrying a spurious current.
+    `solve_pf` waives the active-power setpoint of a single-coil DC-coupled
+    unit only when its DC side supplies the determining equation (zero-width
+    private balance, droop, or one voltage master per port).
+  - **`solution_check` agrees with the engine again** on the semantics
+    changed here: line angle windows are assessed on phase conductors only;
+    the AC power balance no longer counts DC-branch loss twice (the result
+    reports that share as `losses.p_loss_dc`); a two-terminal DELTA
+    generator is checked as one coil against its tighter rating; and the
+    Volt-watt `P_AVAILABLE` cap is per coil.
+  - A flat Volt-var curve over a pinned reactive box is not restated. DC
+    voltage masters are grouped by electrical port, so masters joined by
+    zero-resistance conductors share one reference row.
+  - `solve_pf` confirms determinacy on the rows actually stamped, so a
+    coefficient provider that widens a fixed bound is rejected.
+  - `solution_check` derives the DC-branch loss share from the case and the
+    solved DC quantities (a reported `losses.p_loss_dc` is only
+    cross-checked), expects one power record per coil for line-to-line
+    devices, identifies neutrals by the case's declared labels, and skips
+    neutral and protective-earth conductors in line angle checks, resolving
+    terminal roles once per case. Integrity accepts one-entry bounds on a
+    two-terminal DELTA generator.
+  - DC voltage references are treated as a graph over electrical nodes: a
+    reference the others already imply (including the third side of a
+    triangle of ports on a bipolar bus) is not stamped, and one that
+    contradicts them raises. `solve_pf` rejects free voltage masters whose
+    ports close a loop, reading "free" from the built model, and requires a
+    standalone `dc_source` to be a fixed injection. Its resolved-row check
+    skips devices owned by a custom builder.
+  - Line angle windows honor declared phase labels: with
+    `terminal_conventions` present, a phase conductor named `n` is bounded;
+    the naming convention applies only to cases that declare no roles.
+  - `solution_check` reports missing DC voltages or branch currents as
+    `W.SOL.INCOMPLETE_RESULT` instead of passing the DC checks vacuously.
+  - A loop of ideal (zero-resistance) `dc_branch` conductors is rejected, as
+    ideal AC loops already are: its current could circulate undetermined.
+    Fixed DC terminal voltages seed the voltage-reference graph, so a master
+    that restates one is not stamped and one that contradicts it raises.
+  - Source-bus neutral grounding follows declared terminal roles: a source
+    phase named `n` is no longer grounded when `terminal_conventions`
+    declares it a phase.
+  - `solution_check` computes DC-branch loss as r·i² from the case
+    resistance and checks each reported drop against r·i, so a claimed drop
+    across a zero-ohm conductor cannot offset an AC imbalance. Malformed DC
+    evidence (absent or JSON null) is read as unavailable; the active-power
+    balance is then not assessed and the verification is indeterminate.
+  - New finding codes, so that what the builders reject is reported by
+    validation first, from shared detectors: `E.INT.IDEAL_LOOP` and
+    `E.INT.DC_IDEAL_LOOP` (loops of ideal conductors) and
+    `E.INT.DC_REFERENCE_CONFLICT` (contradictory exact DC voltages).
+    `W.DOM.BUS_LIMIT_NOT_APPLICABLE` reports sequence or phase-to-neutral
+    limits on a bus where the OPF cannot define them, and
+    `W.CONV.PHASE_NAMED_AS_NEUTRAL` a declared phase whose name reads as a
+    neutral. `solution_check` reports `W.SOL.DC_OHM_RESIDUAL` and
+    `W.SOL.DC_LOSS_SHARE_MISMATCH` under their own codes.
+  - **Breaking: ideal AC conductors must have a determined current.** The
+    OPF now rejects an ideal conductor (a closed switch pole, or a line
+    conductor with an all-zero impedance row) between two terminals that can
+    each supply any current — perfect grounds and source terminals — as it
+    already rejected parallel ideal conductors and rings. The usual instance
+    is the neutral pole of a four-wire switch between two buses with
+    perfectly grounded neutrals: it closes a loop through the earth and its
+    current was arbitrary. Validation reports it as `E.INT.IDEAL_LOOP`. The
+    conductor is redundant, so leave it out of the terminal maps, or run
+    `fix_case`: the new pass `apply_remove_earthed_ideal_conductors` (on by
+    default) removes it exactly and records the change in the manifest. It
+    runs after the two passes that can create the pattern. A radial feeder
+    of ideal neutral conductors between grounded buses, which failed in both
+    `solve_pf` and `solve_opf`, is now reported and repaired this way.
+  - Ideal transformers are part of the same rule. Two zero-leakage
+    transformers in parallel, or one bridged by a closed switch, state one
+    voltage relation twice and could share a load in any proportion; the
+    builders now reject them, and validation reports ideal `single_phase`
+    units as `E.INT.IDEAL_LOOP`. One ideal transformer on its path is
+    unaffected, with one exception that is now rejected too: an ideal
+    grounded-wye/delta unit connected directly to a voltage source, whose
+    zero-sequence current nothing determines. The rule is sufficient, not necessary: an ideal tie between
+    two voltage sources is rejected even when power setpoints on the second
+    source would pin its current.
+  - `fix_case` pads a line shunt matrix that is smaller than the conductor
+    count before removing a conductor, so each remaining shunt entry stays on
+    its conductor.
+  - A terminal declared as protective earth is not a phase in any per-phase
+    quantity: `v_min`/`v_max` and `vpn_*` take one entry per phase conductor,
+    `vpp_*` and `va_diff_*` one per pair of phase conductors, and the
+    sequence objective and reporting functions (`opf_sequence_voltage`,
+    `opf_vuf_term`, `opf_report_vuf`) transform the three phases of a bus
+    that also carries a neutral and a protective earth. The bound producers
+    and `solution_check` index the arrays the same way. **Breaking** for a
+    case that declares a protective-earth label and sized these arrays to
+    include it.
+  - `solution_check` verifies DC voltage-pair bounds (`vdc_ln_*`,
+    `vdc_ll_*`, reported as `E.SOL.DC_VOLT_VIOLATION`) and voltage-master
+    setpoints (new `W.SOL.DC_VSET_RESIDUAL`), which a result could miss while
+    every terminal stayed inside its own band.
+  - On the DC side ideal conductors, exact voltage-pair bounds
+    (`vdc_ln_min == vdc_ln_max`) and voltage masters share one reference
+    graph, so restatements are dropped and contradictions raise; a loop is
+    defined by current determinacy, so pinning the poles of an ideal
+    triangle no longer hides it and an ideal conductor between two perfect
+    grounds is a loop through the earth.
+  - Sequence and unbalance limits take their three phases from one
+    selection shared by preflight, builder and verifier, excluding a
+    declared protective-earth terminal; a three-phase bus with a `pe`
+    terminal used to skip the limit silently.
+  - `solution_check` tolerates null `dc_bus`/`dc_branch` result blocks, and
+    the solution report prints "not assessed" instead of a balance error
+    when DC evidence is missing.
+  - Open-delta regulators are unchanged: the bank does not connect its neutral
+    terminals, and neutral continuity past it stays an explicit line or
+    switch. Two OpenDSS cases (ideal and 0.5 ohm jumper) now pin this.
+
 - Add network-reduction tools: explicit-neutral Kron reduction
   (`kron_reduce_neutrals`, ported from PowerOptLab with its tests and
   cross-checked against the PSK-000008 boundary contract), and a prototype of

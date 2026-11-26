@@ -42,10 +42,15 @@ function _grounded_terminals(net::Dict{String,Any})
     end
     # Source-bus neutrals are pinned to 0 by the source; treat them as grounded
     # so they receive a ground-injection current and KCL like any other ground.
+    #
+    # "The neutral" follows the case's declared terminal roles: a conductor that
+    # `terminal_conventions` declares a phase is never grounded here because of
+    # its name (`_declared_bus_neutral`).
     buses = get(net, "bus", Dict())
+    roles = BMOPFTools._terminal_roles(net)
     for (_, vs) in get(net, "voltage_source", Dict())
         bus = get(vs, "bus", "")
-        nt  = BMOPFTools._neutral_terminal(get(buses, bus, Dict()))
+        nt  = BMOPFTools._declared_bus_neutral(roles, get(buses, bus, nothing))
         nt === nothing || push!(grounded, (bus, string(nt)))
     end
     grounded
@@ -110,10 +115,50 @@ const _xfmr_turns_ratio = BMOPFTools._xfmr_turns_ratio
 # Branch indexing shared by generator allocation, constraints, cost, and results.
 # A two-terminal SINGLE_PHASE device is one coil, including phase-to-phase and
 # reversed terminal maps. DELTA uses the next terminal as each coil's reference.
+#
+# A two-terminal DELTA map is ONE coil across that pair, as for loads
+# (`_delta_load_coils`). Walking it cyclically would stamp a second,
+# anti-parallel coil on the same two terminals and count the unit twice.
 function _generator_positions(tm, cfg, nlabels)
     cfg == "SINGLE_PHASE" && length(tm) == 2 && return ([1], 2)
-    cfg == "DELTA" && return (collect(eachindex(tm)), nothing)
+    cfg == "DELTA" && return (length(tm) == 2 ? [1] : collect(eachindex(tm)), nothing)
     return (_phase_positions(tm, nlabels), _neutral_pos(tm, nlabels))
+end
+
+"""
+    _validate_generator_geometry(gid, gen, net, nlabels)
+
+Reject generator records whose coil geometry or bound vectors do not describe
+the device the model would build.
+
+- A DELTA generator has two or three distinct **phase** terminals. A neutral is
+  not a delta coil endpoint; accepting one would close a fictitious coil through
+  the neutral conductor.
+- A supplied `p_min`/`p_max`/`q_min`/`q_max` vector has one entry per coil. A
+  shorter vector would leave the trailing coils as free, unbounded injections.
+"""
+function _validate_generator_geometry(gid, gen, net, nlabels)
+    tm  = Vector{String}(get(gen, "terminal_map", String[]))
+    cfg = get(gen, "configuration", "WYE")
+    fail(message) = throw(ArgumentError("Generator '$gid': $message"))
+    if cfg == "DELTA"
+        length(tm) in (2, 3) && length(unique(tm)) == length(tm) ||
+            fail("DELTA requires two or three distinct phase terminals.")
+        bus = get(get(net, "bus", Dict()), get(gen, "bus", ""), Dict{String,Any}())
+        neutral = BMOPFTools._neutral_terminal(bus)
+        any(t -> t in nlabels || t == neutral, tm) &&
+            fail("DELTA requires phase terminals only; a neutral is not a coil endpoint.")
+    end
+    cfg in ("WYE", "SINGLE_PHASE", "DELTA") || return nothing
+    ncoils = length(first(_generator_positions(tm, cfg, nlabels)))
+    for field in ("p_min", "p_max", "q_min", "q_max")
+        values = get(gen, field, nothing)
+        values isa AbstractVector || continue
+        (isempty(values) || length(values) == ncoils) || fail(
+            "$field has $(length(values)) entries but the device has $ncoils " *
+            "coil(s); supply one entry per coil.")
+    end
+    return nothing
 end
 
 """
@@ -356,6 +401,15 @@ function _apparent_power_limit!(model, vr_k, vi_k, cr_k, ci_k, slim::Union{Real,
     slim === nothing && return nothing
     p_v = @variable(model, base_name = "p_$(base_name)")
     q_v = @variable(model, base_name = "q_$(base_name)")
+    # Start the auxiliaries ON their defining equalities. Left at zero they
+    # make every power-link row start violated by the element's full loading
+    # (transformer nameplates are always enforced, so that is every transformer).
+    start(x) = x isa Real ? Float64(x) : JuMP.value(
+        v -> JuMP.is_fixed(v) ? JuMP.fix_value(v) : something(JuMP.start_value(v), 0.0), x)
+    v0r, v0i, c0r, c0i = start(vr_k), start(vi_k), start(cr_k), start(ci_k)
+    p0 = v0r*c0r + v0i*c0i; q0 = v0i*c0r - v0r*c0i
+    isfinite(p0) && JuMP.set_start_value(p_v, p0)
+    isfinite(q0) && JuMP.set_start_value(q_v, q0)
     p_link = @constraint(model, p_v == vr_k*cr_k + vi_k*ci_k)
     q_link = @constraint(model, q_v == vi_k*cr_k - vr_k*ci_k)
     circle = _soc_norm!(model, p_v, q_v, slim)
@@ -389,7 +443,8 @@ Returns `nothing` if none of these apply (e.g. the ENWL benchmark, which carries
 only `vpn_max` on a floating neutral): the caller then leaves the variable free.
 """
 function _terminal_vmax_to_ground(bus::Dict{String,Any}, terminal::String,
-                                  grounded::Set{Tuple{String,String}}, bid::String)
+                                  grounded::Set{Tuple{String,String}}, bid::String;
+                                  earth=Set{String}())
     (bid, terminal) in grounded && return 0.0
 
     neutral = BMOPFTools._neutral_terminal(bus)
@@ -403,7 +458,8 @@ function _terminal_vmax_to_ground(bus::Dict{String,Any}, terminal::String,
 
     # Phase terminal: find its index among the phase terminals (terminal_names
     # order, neutral excluded). v_min/v_max and vpn_max are per-phase arrays.
-    phase_terms = [t for t in get(bus, "terminal_names", String[]) if t != neutral]
+    phase_terms = [t for t in get(bus, "terminal_names", String[])
+                   if t != neutral && !(t in earth)]
     k = findfirst(==(terminal), phase_terms)
     k === nothing && return nothing
 

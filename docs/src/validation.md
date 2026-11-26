@@ -199,8 +199,31 @@ concern, so a failure points straight at the responsible component:
 | `pf_3wdg_dyn`, `pf_3wdg_dyn_unbalanced`, `pf_4wdg_dyyn`, `pf_3wdg_dyn_zgnd` | **n-winding with a DELTA winding** (`Dyn`/`Dyyn`, delta primary): winding count (3/4), neutral grounding (solid vs 0.5 Ω-shunt MV neutral), unbalanced loading, the `solve_pf`/feasibility-OPF paths, and per-unit. The delta coil is line-to-line (`delta_roll = -1` matches OpenDSS's 30° rotation; `r_winding`/`x_sc` on the delta coil base `n_ph·V_LL²/S`) |
 | `pf_center_tap_loaded`, `pf_center_tap_balanced_heavy`, `pf_center_tap_240`, `pf_center_tap_singleleg_pn`, `pf_center_tap_oneleg_extreme` | split-phase **coupled-coil** model under load — leg symmetry on a balanced heavy load, a 240 V phase-to-phase load, a single leg-to-neutral load, and an extreme one-leg load (see [Split-phase transformer depth](#Split-phase-transformer-depth)) |
 | `pf_autotransformer`, `pf_open_delta_reg` | step-voltage regulators / autotransformers and open-delta (ABBC) regulation |
+| `pf_mesh_unequal_ratio` † | a low-voltage **mesh closed across two transformers of unequal ratio**: the circulating current driven by the ratio mismatch, in SI and per-unit — the oracle for one voltage base per galvanic zone. `pf_autotransformer` is re-used the same way with a regulator nameplate voltage pair, which must not rescale the per-unit model |
+| `pf_4w_two_section` † | **neutral phasors along a two-section four-wire feeder** with single-phase loads on different phases: the neutral voltage rotates by tens of degrees between the two ends of a section while the phases barely move, so a line angle window must leave the solution unchanged |
+| `pf_delta_gen_1ph` † | a **two-terminal line-to-line generator** (`DELTA`, one coil), against OpenDSS's single-phase `Generator` across two phases; also the reference coil current for the test that its two per-conductor ratings act as one limit, whichever terminal the tighter one is listed against |
+| `pf_open_delta_neutral`, `pf_open_delta_neutral_jumper` † | an **open-delta regulator bank on a four-wire feeder whose downstream neutral is not earthed**. The bank does not connect its neutral terminals; the neutral is carried past it by an explicit jumper, ideal in the first deck and 0.5 Ω in the second. The second is the oracle against an implicit neutral bond, which would short the jumper and report no neutral rise |
 | `pf_cap_wye`, `pf_cap_delta` | fixed shunt **capacitor banks** (wye / delta) as a constant susceptance `B = q_rated/v_nom²`, validated against OpenDSS's own `Capacitor` solve in both SI and per-unit, and cross-checked against the equivalent `shunt` object |
 | `pf_pv_1ph`, `pf_pv_4leg` | IBR current injection at a pinned dispatch — single-phase and FOUR_LEG |
+
+† These decks live in
+[`test/data/opf_review_oracles/`](https://github.com/frederikgeth/BMOPFTools.jl/tree/main/test/data/opf_review_oracles)
+and are exercised by `test/opf_review_opendss_tests.jl`. They are kept apart from
+`pf_comparison/` because that folder is also swept by the `from_dss` round-trip
+harness, and so they are not counted in the generated inventory above.
+
+!!! note "Why these cases use an external oracle"
+    The engine has two cheap internal checks: solve in per-unit and in SI and
+    compare, or close a power balance. Both are blind to an error the two unit
+    systems *share* — a wrong coil count, a missing conductor, a constraint
+    applied to the wrong terminal. Each daggered case was written for a defect
+    of that kind, found in a review of the engine, and is therefore held
+    against OpenDSS instead. The design rule for new tests follows: prefer an
+    independent solver where the case can be expressed in one; fall back to a
+    closed-form answer; use per-unit-against-SI agreement only as a supplement.
+    Fixes with no OpenDSS counterpart at snapshot level (the DC network,
+    inverter control laws, the feasibility-slack metric) rest on closed-form
+    and power-balance oracles in `test/opf_review_regression_tests.jl`.
 
 Single-phase, FOUR_LEG per-phase, and FOUR_LEG AVERAGE-reference **smart-IBR
 droop** are additionally validated against OpenDSS `InvControl` (deadband, slope,

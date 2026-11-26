@@ -18,6 +18,7 @@ function domain_rules_check(net::Dict{String,Any},
     n_checks = Ref(0)
 
     _check_bus_voltage_bounds(net, findings, n_checks)
+    _check_bus_limit_applicability(net, findings, n_checks)
     _check_load_power_factor(net, findings, thresholds, n_checks)
     _check_generator_cost(net, findings, thresholds, n_checks)
     _check_line_impedance(net, findings, thresholds, n_checks)
@@ -82,6 +83,45 @@ function _check_bus_voltage_bounds(net, findings, n_checks)
             push!(findings, Finding(ERROR, "E.DOM.VNMAX_NEGATIVE", :domain_rules, :bus, id,
                 "Bus '$id': vn_max = $(vnmax) V is negative.",
                 Dict{String,Any}("vn_max" => vnmax)))
+        end
+    end
+end
+
+# Bus limits that the OPF cannot stamp on this bus. A sequence or unbalance
+# limit is defined over exactly three phases; a phase-to-neutral limit needs a
+# neutral to refer to. The OPF skips a limit it cannot define, so without this
+# report the limit would be absent from the model while present in the data.
+const _SEQUENCE_LIMIT_FIELDS = ("vpos_min", "vpos_max", "vneg_max", "vzero_max", "vuf_max")
+const _PHASE_NEUTRAL_LIMIT_FIELDS = ("vpn_min", "vpn_max")
+function _check_bus_limit_applicability(net, findings, n_checks)
+    # A malformed `terminal_conventions` block is reported by the conventions
+    # check; without usable roles this assessment is simply not made.
+    roles = _terminal_roles_or_nothing(net)
+    roles === nothing && return nothing
+    for (id, b) in get(net, "bus", Dict())
+        b isa Dict{String,Any} || continue
+        sequence = [f for f in _SEQUENCE_LIMIT_FIELDS if get(b, f, nothing) !== nothing]
+        to_neutral = [f for f in _PHASE_NEUTRAL_LIMIT_FIELDS if get(b, f, nothing) !== nothing]
+        (isempty(sequence) && isempty(to_neutral)) && continue
+        n_checks[] += 1
+        neutral = _declared_bus_neutral(roles, b)
+        phases = _sequence_phase_terminals(roles, b)
+        isempty(phases) && continue
+        if !isempty(sequence) && length(phases) != 3
+            push!(findings, Finding(WARNING, "W.DOM.BUS_LIMIT_NOT_APPLICABLE", :domain_rules,
+                :bus, id,
+                "Bus '$id': $(join(sequence, ", ")) is defined over three phases, but " *
+                "the bus has $(length(phases)). The OPF does not enforce it here.",
+                Dict{String,Any}("fields"=>sequence, "reason"=>"sequence_limit_needs_three_phases",
+                                 "n_phases"=>length(phases))))
+        end
+        if !isempty(to_neutral) && neutral === nothing
+            push!(findings, Finding(WARNING, "W.DOM.BUS_LIMIT_NOT_APPLICABLE", :domain_rules,
+                :bus, id,
+                "Bus '$id': $(join(to_neutral, ", ")) is a phase-to-neutral limit, but " *
+                "the bus has no neutral terminal. The OPF does not enforce it here.",
+                Dict{String,Any}("fields"=>to_neutral, "reason"=>"phase_to_neutral_limit_needs_neutral",
+                                 "n_phases"=>length(phases))))
         end
     end
 end

@@ -1,0 +1,54 @@
+! Open-delta regulator bank on a FOUR-WIRE feeder: neutral carried by a 0.5 ohm jumper.
+! (BMOPF subtype: open_delta_regulator, connection ABBC)
+!
+! Topology: src ──[open-delta bank]── reg ──[4-wire line]── lb
+!   reg1 across phases 1–2 (tap 1.05), reg2 across phases 2–3 (tap 1.025)
+!   phase 2 and the neutral pass straight through the bank
+!   unbalanced phase-to-neutral loads at lb; neutral earthed at the source ONLY
+!
+! Companion to pf_open_delta_neutral.dss with a FINITE neutral through-path:
+! the jumper past the bank has 0.5 ohm, so the downstream neutral rises by the
+! jumper drop. The regulator model must leave this explicit element alone; an
+! implicit ideal neutral bond inside it would short the jumper and report no
+! neutral rise at all.
+!
+! OpenDSS has no monolithic open-delta device, so the bank is two single-phase
+! line-to-line transformers and the two copper through-connections are
+! explicit low-resistance jumpers.
+
+Clear
+
+! Base frequency locked to 50 Hz (BMOPF's modeling frequency).
+Set DefaultBaseFreq=50
+
+New Circuit.pf_open_delta_neutral_jumper basekv=4.1569 pu=1.0 angle=0 phases=3 bus1=src.1.2.3 model=ideal
+
+New Reactor.g_src bus1=src.4 bus2=src.0 R=0.001 X=0 phases=1
+
+New Transformer.reg1 phases=1 windings=2
+~ wdg=1 bus=src.1.2 conn=delta kv=4.1569 %r=0.5 kva=500
+~ wdg=2 bus=reg.1.2 conn=delta kv=4.1569 %r=0.5 kva=500 tap=1.05
+~ xhl=1.0
+New Transformer.reg2 phases=1 windings=2
+~ wdg=1 bus=src.2.3 conn=delta kv=4.1569 %r=0.5 kva=500
+~ wdg=2 bus=reg.2.3 conn=delta kv=4.1569 %r=0.5 kva=500 tap=1.025
+~ xhl=1.0
+
+! Copper straight through the bank: the shared phase and the neutral.
+New Reactor.through_b bus1=src.2 bus2=reg.2 R=0.00001 X=0 phases=1
+New Reactor.through_n bus1=src.4 bus2=reg.4 R=0.5 X=0 phases=1
+
+New Line.l1 bus1=reg.1.2.3.4 bus2=lb.1.2.3.4 phases=4 length=1 units=none
+~ rmatrix=[0.3 | 0 0.3 | 0 0 0.3 | 0 0 0 0.3]
+~ xmatrix=[0.2 | 0 0.2 | 0 0 0.2 | 0 0 0 0.2]
+~ cmatrix=[0 | 0 0 | 0 0 0 | 0 0 0 0]
+
+New Load.lda bus1=lb.1.4 kv=2.4 kw=60 kvar=10 phases=1 model=1 Vminpu=0 Vmaxpu=2
+New Load.ldb bus1=lb.2.4 kv=2.4 kw=20 kvar=0  phases=1 model=1 Vminpu=0 Vmaxpu=2
+New Load.ldc bus1=lb.3.4 kv=2.4 kw=20 kvar=0  phases=1 model=1 Vminpu=0 Vmaxpu=2
+
+Set VoltageBases=[4.1569]
+CalcVoltageBases
+Set Tolerance=1e-8
+Set MaxIterations=100
+Solve
