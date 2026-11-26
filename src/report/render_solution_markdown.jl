@@ -64,7 +64,11 @@ function _sol_md_summary(r::SolutionReport, io::IO)
     isfinite(p_loss) && println(io, "| Total network losses (P) | $(_fmt_mw(p_loss)) |")
     isfinite(q_loss) && println(io, "| Total network losses (Q) | $(_fmt_mw(q_loss)) var |")
     isfinite(lf)     && println(io, "| Loss fraction | $(_fmt_pct(lf * 100)) |")
-    isfinite(bal)    && println(io, "| Active power balance error | $(_fmt_mw(bal)) |")
+    if get(d, "power_balance_assessed", true) === false
+        println(io, "| Active power balance error | not assessed (DC evidence missing) |")
+    elseif isfinite(bal)
+        println(io, "| Active power balance error | $(_fmt_mw(bal)) |")
+    end
     isfinite(q_bal)  && println(io, "| Reactive power balance error | $(_fmt_mw(q_bal)) var |")
 
     vn_v = get(d, "max_neutral_shift_v",   NaN)

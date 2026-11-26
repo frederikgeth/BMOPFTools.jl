@@ -403,11 +403,33 @@ function _declared_bus_neutral(roles::TerminalRoles, bus)
     bus isa Dict{String,Any} || return nothing
     explicit = get(bus, "neutral_terminal", nothing)
     explicit isa String && return explicit
+    # A malformed terminal list (not a list of strings) is another check's
+    # finding; here it simply yields no neutral.
+    names = get(bus, "terminal_names", String[])
+    (names isa AbstractVector && all(t -> t isa AbstractString, names)) || return nothing
     roles.inferred && return _neutral_terminal(bus)
-    for t in get(bus, "terminal_names", String[])
+    for t in names
         string(t) in roles.neutral && return string(t)
     end
     return nothing
+end
+
+"""
+    _sequence_phase_terminals(roles, bus) -> Vector{String}
+
+The terminals of `bus` that are PHASE conductors, in declaration order: every
+terminal except the bus neutral ([`_declared_bus_neutral`](@ref)) and any
+terminal with a declared protective-earth role. Sequence and unbalance limits
+are defined over exactly these when there are three of them. Preflight, the
+OPF builder and the solution verifier all take the phase set from here, so a
+limit cannot be applied by one and skipped by another.
+"""
+function _sequence_phase_terminals(roles::TerminalRoles, bus)
+    bus isa Dict{String,Any} || return String[]
+    names = get(bus, "terminal_names", String[])
+    (names isa AbstractVector && all(t -> t isa AbstractString, names)) || return String[]
+    neutral = _declared_bus_neutral(roles, bus)
+    return String[String(t) for t in names if t != neutral && !(String(t) in roles.earth)]
 end
 
 """

@@ -357,13 +357,32 @@ Where the rule is applied today:
 | `dc_converter_voltage_control` | the voltage references already recorded imply it. References form a graph over **electrical** DC nodes (terminals joined by zero-resistance conductors, or perfectly grounded, are one node), and only a spanning forest is independent: a second master on a port, a master across an ideal tie, and the third side of a triangle of ports (p−m, m−n, p−n) are all dependent. Terminals already fixed in the model (a perfect ground, equal voltage bounds) seed the graph, so a master that restates one is not stamped. A dependent reference that contradicts the others raises |
 | `dc_branch_voltage_drop` (ideal conductor) | both terminals are fixed at the same potential |
 
-Loops of **ideal conductors** are a different matter and are rejected rather
-than reduced. A zero-impedance loop has one implied voltage row *and* a current
-that can circulate around it at no cost, so dropping the row would still leave
-the branch currents undetermined. This holds on the AC side (lines and closed
-switches, see [zero impedance](@ref zero-impedance)) and on the DC side
-(`dc_branch` conductors with zero resistance), where every terminal already
-fixed at a potential counts as one node.
+**Ideal conductors need two separate checks.** An ideal conductor contributes
+a voltage relation ("its two ends are at one voltage") and a current that no
+impedance sets. These fail in different ways and are judged separately:
+
+- *Is the voltage relation new information?* That is the dependent-row
+  question above. On the DC side an ideal conductor is a reference with value
+  zero in the same graph as fixed terminals, exact pair bounds and voltage
+  masters: stamped when independent, omitted when implied, an error when
+  contradictory. On the AC side a line conductor with an all-zero impedance
+  row between two terminals that are both fixed (two grounded neutrals) has an
+  implied relation, which is omitted; a feeder of ideal neutral conductors
+  between grounded buses would otherwise accumulate one constant row per
+  section and defeat the solver.
+- *Is the current determined?* Only Kirchhoff's current law can fix it, and it
+  does so exactly when the ideal conductors form a forest over the nodes. A
+  loop leaves a circulating current free, and dropping a row does not cure
+  that, so loops are **rejected**, not reduced. On the DC side every perfectly
+  grounded terminal is one node, because a ground supplies any current: a
+  single ideal conductor between two grounds is a loop through the earth. A
+  terminal pinned by equal voltage bounds supplies no current and is an
+  ordinary node. On the AC side loops among lines and closed switches are
+  rejected (see [zero impedance](@ref zero-impedance)), but an ideal conductor
+  between two grounded terminals is accepted: four-wire switches and lines
+  between buses with grounded neutrals are ordinary practice, and the only
+  consequence is that the current reported for that one conductor carries no
+  meaning.
 
 Both conditions, and contradictory DC voltage references, are properties of
 the case and are reported by static validation before any model exists:

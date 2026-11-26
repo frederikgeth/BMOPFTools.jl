@@ -96,12 +96,8 @@ const _PHASE_NEUTRAL_LIMIT_FIELDS = ("vpn_min", "vpn_max")
 function _check_bus_limit_applicability(net, findings, n_checks)
     # A malformed `terminal_conventions` block is reported by the conventions
     # check; without usable roles this assessment is simply not made.
-    roles = try
-        _terminal_roles(net)
-    catch err
-        err isa ArgumentError || rethrow()
-        return nothing
-    end
+    roles = _terminal_roles_or_nothing(net)
+    roles === nothing && return nothing
     for (id, b) in get(net, "bus", Dict())
         b isa Dict{String,Any} || continue
         sequence = [f for f in _SEQUENCE_LIMIT_FIELDS if get(b, f, nothing) !== nothing]
@@ -109,10 +105,8 @@ function _check_bus_limit_applicability(net, findings, n_checks)
         (isempty(sequence) && isempty(to_neutral)) && continue
         n_checks[] += 1
         neutral = _declared_bus_neutral(roles, b)
-        names = get(b, "terminal_names", String[])
-        (names isa AbstractVector && all(t -> t isa AbstractString, names)) || continue
-        phases = [string(t) for t in names
-                  if string(t) != neutral && !(string(t) in roles.earth)]
+        phases = _sequence_phase_terminals(roles, b)
+        isempty(phases) && continue
         if !isempty(sequence) && length(phases) != 3
             push!(findings, Finding(WARNING, "W.DOM.BUS_LIMIT_NOT_APPLICABLE", :domain_rules,
                 :bus, id,

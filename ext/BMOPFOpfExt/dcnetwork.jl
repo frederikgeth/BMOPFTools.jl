@@ -14,18 +14,7 @@
 # ── Return-conductor recognition (DC analog of `_neutral_terminal`) ──────────
 # The DC return / neutral is the terminal whose pole role is METALLIC_RETURN;
 # fallback to a terminal named "m" (metallic return) or "n".
-function _dc_return_terminal(dcbus::Dict)
-    pole = get(dcbus, "pole", nothing)
-    if pole isa Dict
-        for (t, role) in pole
-            String(role) == "METALLIC_RETURN" && return String(t)
-        end
-    end
-    for t in string.(get(dcbus, "terminal_names", String[]))
-        lowercase(t) in ("m", "n") && return t
-    end
-    nothing
-end
+_dc_return_terminal(dcbus::Dict) = BMOPFTools._dc_return_terminal(dcbus)
 
 # Terminals with a given pole role, in terminal_names order.
 function _dc_terminals_with_role(dcbus::Dict, role::AbstractString)
@@ -175,6 +164,7 @@ function _add_dc_network_constraints!(model, net, vars;
     idc_br = vars[:idc_br]
     # A loop of ideal conductors is a property of the case; validation reports
     # it as E.INT.DC_IDEAL_LOOP from the same detector.
+    references = get!(() -> _dc_seeded_reference_graph(vars), vars, :dc_voltage_references)
     for loop in BMOPFTools._dc_ideal_loops(net)
         throw(ArgumentError("dc_branch '$(loop.branch)' conductor $(loop.conductor) " *
             "closes a loop of ideal (zero-resistance) DC conductors between " *
@@ -197,24 +187,20 @@ function _add_dc_network_constraints!(model, net, vars;
             if k <= length(rv) && rv[k] > 0
                 register(:dc_branch_voltage_drop, (id, k),
                     @constraint(model, i == (v_dc[kf] - v_dc[kt]) / rv[k]))
-            elseif !(JuMP.is_fixed(v_dc[kf]) && JuMP.is_fixed(v_dc[kt]))
-                # An ideal conductor: a voltage equality and a free current.
-                # (Loops of these were rejected above.)
-                register(:dc_branch_voltage_drop, (id, k),
-                    @constraint(model, v_dc[kf] == v_dc[kt]))   # ideal conductor
             else
-                # Both ends already fixed: the equality has no unknown left, so
-                # it is omitted — but only because it HOLDS. An ideal conductor
-                # between two different fixed potentials is a short circuit
-                # across a voltage difference; omitting the row there would
-                # report a finite current and a loss that no physics supports.
-                vf = JuMP.fix_value(v_dc[kf]); vt = JuMP.fix_value(v_dc[kt])
-                isapprox(vf, vt; atol=1e-9 * max(1.0, abs(vf), abs(vt))) ||
-                    throw(ArgumentError("dc_branch '$id' conductor $k: an ideal " *
-                        "(zero-resistance) conductor joins two terminals fixed at " *
-                        "different voltages ($vf and $vt in working units). Give " *
-                        "the conductor its resistance or reconcile the references " *
-                        "(E.INT.DC_REFERENCE_CONFLICT)."))
+                # An ideal conductor states that its two ends are at one
+                # voltage. Whether that statement is NEW is decided by the
+                # reference graph, which already holds the fixed terminals and
+                # the conductors and masters recorded so far: an independent
+                # statement gets its row, an implied one does not (it would be
+                # a dependent equality), and a contradictory one is an error.
+                # (Whether the conductor's CURRENT is determined is a separate
+                # matter: loops of ideal conductors were rejected above.)
+                if _dc_reference_add!(references, kf, kt, 0.0,
+                        "dc_branch '$id' conductor $k (an ideal conductor)")
+                    register(:dc_branch_voltage_drop, (id, k),
+                        @constraint(model, v_dc[kf] == v_dc[kt]))
+                end
             end
             # current flows from→to: leaves "from" (−i into node), enters "to" (+i)
             _dc_kcl_add!(kcl, bf, tmf[k], -i)
@@ -251,7 +237,7 @@ function _add_dc_network_constraints!(model, net, vars;
     end
 
     # ── Line-to-neutral / line-to-line magnitude bounds ─────────────────────
-    _add_dc_voltage_pair_bounds!(model, net, v_dc;
+    _add_dc_voltage_pair_bounds!(model, net, v_dc; vars=vars,
                                  constraint_context=constraint_context)
 end
 
@@ -295,12 +281,28 @@ function _bound_oriented_diff!(model, Δ, lo, hi, orient::Int;
     end
 end
 
+# An EXACT pair bound (lo == hi) is a voltage reference, not a band: it states
+# the difference of two terminal voltages outright. It goes through the
+# reference graph like a fixed terminal or a voltage master, so it is stamped
+# as ONE equality when it is new information, not at all when the references
+# already imply it (a voltage master on the same pair, say), and reported when
+# it contradicts them. Returns `true` when it handled the bound.
+function _dc_exact_pair!(model, vars, Δ, a, b, lo, hi, orient::Int, owner; on_equality)
+    (lo isa Real && hi isa Real && lo == hi) || return false
+    graph = get!(() -> _dc_seeded_reference_graph(vars), vars, :dc_voltage_references)
+    target = orient > 0 ? Float64(lo) : -Float64(lo)      # value of V(a) − V(b)
+    if _dc_reference_add!(graph, a, b, target, owner)
+        on_equality(@constraint(model, Δ == target))
+    end
+    return true
+end
+
 # Stamp line-to-neutral (pole−return) and line-to-line (positive−negative pole)
 # magnitude bounds. Orientation comes from the `pole` role map (POSITIVE pole sits
 # above the return, NEGATIVE pole below), so the bounds are LINEAR. A missing role
 # is a hard error (validation flags it first as E.DOM.DC_POLE_ROLE_REQUIRED) — we
 # never silently fall back to a nonconvex squared form.
-function _add_dc_voltage_pair_bounds!(model, net, v_dc;
+function _add_dc_voltage_pair_bounds!(model, net, v_dc; vars,
                                       constraint_context=nothing)
     register(family, index, cref) = _register_semantic_constraint!(
         constraint_context, family, index, cref)
@@ -318,6 +320,12 @@ function _add_dc_voltage_pair_bounds!(model, net, v_dc;
                 orient == 0 && error("dc_bus '$b': terminal '$t' needs a POSITIVE/" *
                     "NEGATIVE pole role to orient its line-to-neutral bound.")
                 Δ = @expression(model, v_dc[(b, t)] - v_dc[(b, ret)])
+                if _dc_exact_pair!(model, vars, Δ, (b, t), (b, ret), lnlo, lnhi, orient,
+                        "dc_bus '$b' vdc_ln bound on '$t'";
+                        on_equality=cref -> register(:dc_bus_voltage_ln_equality,
+                            (b, t, ret), cref))
+                    continue
+                end
                 _bound_oriented_diff!(model, Δ, lnlo, lnhi, orient;
                     on_upper=cref -> register(:dc_bus_voltage_ln_upper,
                         (b, t, ret), cref),
@@ -335,6 +343,10 @@ function _add_dc_voltage_pair_bounds!(model, net, v_dc;
                       "NEGATIVE pole role.")
             (haskey(v_dc, (b, pos[1])) && haskey(v_dc, (b, neg[1]))) || continue
             Δ = @expression(model, v_dc[(b, pos[1])] - v_dc[(b, neg[1])])
+            _dc_exact_pair!(model, vars, Δ, (b, pos[1]), (b, neg[1]), lllo, llhi, 1,
+                    "dc_bus '$b' vdc_ll bound";
+                    on_equality=cref -> register(:dc_bus_voltage_ll_equality,
+                        (b, pos[1], neg[1]), cref)) && continue
             _bound_oriented_diff!(model, Δ, lllo, llhi, 1;
                 on_upper=cref -> register(:dc_bus_voltage_ll_upper,
                     (b, pos[1], neg[1]), cref),
@@ -381,7 +393,7 @@ function _droop_breakpoints(v_set, k, p_ref, deadband, P_lo, P_hi)
 end
 
 """
-    _dc_seeded_reference_graph(vars, classes) -> _DCReferenceGraph
+    _dc_seeded_reference_graph(vars) -> _DCReferenceGraph
 
 The reference graph, seeded with every DC terminal whose voltage is already
 FIXED in the model (a perfect ground, or equal `v_dc_min`/`v_dc_max`). Those
@@ -389,13 +401,13 @@ are voltage references too: a master that restates one is dependent and is not
 stamped, and a master that contradicts one is reported when the model is built
 rather than left for the solver to find infeasible.
 """
-function _dc_seeded_reference_graph(vars, classes)
+function _dc_seeded_reference_graph(vars)
     graph = _DCReferenceGraph()
     v_dc = get(vars, :v_dc, Dict())
     for key in sort!(collect(keys(v_dc)))
         JuMP.is_fixed(v_dc[key]) || continue
-        _dc_reference_add!(graph, classes(key[1], key[2]), _DC_EARTH,
-            JuMP.fix_value(v_dc[key]), "The fixed voltage of DC terminal $key")
+        _dc_reference_add!(graph, key, _DC_EARTH, JuMP.fix_value(v_dc[key]),
+            "The fixed voltage of DC terminal $key")
     end
     return graph
 end
@@ -475,11 +487,9 @@ function _couple_converter_to_dc!(model, vars, inv_id, inv, p_ac_expr, smax,
         # bipolar bus) each restate what the others already fix. A dependent
         # reference is checked for consistency and not stamped; an inconsistent
         # one is a data error. `_dc_reference_add!` does the bookkeeping.
-        classes = get!(() -> _dc_node_classes(net), vars, :dc_node_classes)
-        graph = get!(() -> _dc_seeded_reference_graph(vars, classes), vars,
-                     :dc_voltage_references)
-        a = classes(b, tm[1])
-        c = length(tm) >= 2 ? classes(b, tm[2]) : _DC_EARTH
+        graph = get!(() -> _dc_seeded_reference_graph(vars), vars, :dc_voltage_references)
+        a = (b, tm[1])
+        c = length(tm) >= 2 ? (b, tm[2]) : _DC_EARTH
         independent = _dc_reference_add!(graph, a, c, v_set,
             "IBR '$inv_id' (dc_control=\"V\")")
         independent && register(:dc_converter_voltage_control,

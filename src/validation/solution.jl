@@ -107,7 +107,7 @@ function _canonical_solution_voltages(net, result, findings)
     # Missing components cannot be interpreted as zero injections or losses.
     for family in ("line", "switch", "load", "generator", "ibr", "voltage_source",
                    "capacitor", "dc_bus", "dc_branch")
-        block = get(result, family, Dict())
+        block = _record(result, family)        # a null block reads as empty
         for id in keys(get(net, family, Dict()))
             get(block, id, nothing) isa AbstractDict || push!(missing, "$family.$id")
         end
@@ -444,6 +444,7 @@ function solution_check(net::Dict{String,Any},
     # identify phase and neutral terminals exactly as the engine does, never by
     # a naming guess.
     device_labels = _neutral_labels(net)
+    sequence_roles = _terminal_roles(net)
 
     # ── Termination ──────────────────────────────────────────────────────────
     status = get(result, "termination_status", "UNKNOWN")
@@ -710,10 +711,9 @@ function solution_check(net::Dict{String,Any},
 
         t_res = get(bus_res, bid, nothing)
         t_res isa Dict || continue
-        nt = _neutral_terminal(bus)
-        tnames = get(bus, "terminal_names", String[])
-        phase_ts = [string(t) for t in tnames
-                    if string(t) != nt && lowercase(string(t)) != "n"]
+        # The same phase selection as the builder and preflight.
+        nt = _declared_bus_neutral(sequence_roles, bus)
+        phase_ts = _sequence_phase_terminals(sequence_roles, bus)
         if length(phase_ts) != 3
             push!(findings, Finding(WARNING, "W.SOL.LIMIT_UNASSESSED", :solution, :bus, bid,
                 "Sequence limits require a complete three-phase bus.",
@@ -1686,7 +1686,9 @@ function solution_check(net::Dict{String,Any},
     out["p_loss"]            = p_loss
     out["p_loss_dc"]         = p_loss_dc
     out["q_loss"]            = q_loss
-    out["power_balance_err"]  = balance_err
+    # Not assessed means not reported: with DC evidence missing the residual
+    # would be the omitted DC loss, not an imbalance.
+    out["power_balance_err"]  = dc_evidence_complete ? balance_err : NaN
     out["q_power_balance_err"] = q_balance_err
 
     out["power_balance_assessed"] = dc_evidence_complete
@@ -1867,7 +1869,7 @@ end
 # Post-solve DC checks: signed line-to-ground voltages within their bounds, and
 # DC branch conductor currents within their thermal limit.
 function _check_dc_solution(net, result, findings)
-    dc_bus_res = get(result, "dc_bus", Dict())
+    dc_bus_res = _record(result, "dc_bus")
     for (b, dcbus) in get(net, "dc_bus", Dict())
         dcbus isa Dict || continue
         terms = string.(get(dcbus, "terminal_names", String[]))
@@ -1891,7 +1893,7 @@ function _check_dc_solution(net, result, findings)
         end
     end
 
-    dc_br_res = get(result, "dc_branch", Dict())
+    dc_br_res = _record(result, "dc_branch")
     for (id, br) in get(net, "dc_branch", Dict())
         br isa Dict || continue
         imax = Float64.(get(br, "i_max", Float64[]))
@@ -1937,8 +1939,8 @@ the loss, and each conductor's reported drop is checked against r·i separately.
 `(branch, conductor, reported_drop, expected_drop)`.
 """
 function _derived_dc_branch_loss(net, result)
-    dc_bus_res = get(result, "dc_bus", Dict())
-    dc_br_res  = get(result, "dc_branch", Dict())
+    dc_bus_res = _record(result, "dc_bus")
+    dc_br_res  = _record(result, "dc_branch")
     v(b, t) = _evidence(get(_record(_record(dc_bus_res, b), t), "v_dc", nothing))
     total = 0.0
     residuals = Tuple{String,Int,Float64,Float64}[]

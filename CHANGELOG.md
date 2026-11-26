@@ -123,6 +123,23 @@ Initial General release candidate. Registration has not yet been requested.
     `W.CONV.PHASE_NAMED_AS_NEUTRAL` a declared phase whose name reads as a
     neutral. `solution_check` reports `W.SOL.DC_OHM_RESIDUAL` and
     `W.SOL.DC_LOSS_SHARE_MISMATCH` under their own codes.
+  - Ideal conductors are judged twice, separately: whether the voltage
+    relation is new, and whether the current is determined. An ideal AC line
+    conductor between two fixed terminals (an ideal neutral between grounded
+    buses) no longer stamps a constant row; a radial feeder of such sections
+    failed in both `solve_pf` and `solve_opf`. On the DC side ideal
+    conductors, exact voltage-pair bounds (`vdc_ln_min == vdc_ln_max`) and
+    voltage masters share one reference graph, so restatements are dropped
+    and contradictions raise; a loop is now defined by current determinacy,
+    so pinning the poles of an ideal triangle no longer hides it and an
+    ideal conductor between two perfect grounds is a loop through the earth.
+  - Sequence and unbalance limits take their three phases from one
+    selection shared by preflight, builder and verifier, excluding a
+    declared protective-earth terminal; a three-phase bus with a `pe`
+    terminal used to skip the limit silently.
+  - `solution_check` tolerates null `dc_bus`/`dc_branch` result blocks, and
+    the solution report prints "not assessed" instead of a balance error
+    when DC evidence is missing.
   - Open-delta regulators are unchanged: the bank does not connect its neutral
     terminals, and neutral continuity past it stays an explicit line or
     switch. Two OpenDSS cases (ideal and 0.5 ohm jumper) now pin this.

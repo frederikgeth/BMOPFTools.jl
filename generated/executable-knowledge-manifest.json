@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "3c7fcfec217c3dda4eca01602168ce3a3d7f9c2e2fb9fbede8a8159f0a99ec4d",
+  "corpus_sha256": "4bf338a35b7d5abe4a778f2550d267610715afacde9a8984c405a0d823445117",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -114,7 +114,7 @@
     },
     {
       "path": "docs/src/dev/opf_engine.md",
-      "sha256": "a1257fe7d354732120d12c1d143810397b0134f9501257e3a012ca8008f2f5b6"
+      "sha256": "aebfff941072d6880b62b540fa1dc55d26207b1461c46c91e8dc9676954fe751"
     },
     {
       "path": "docs/src/dev/versioning.md",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "28754957bee940d65ca900a01381fe295ea53e0624c37e307392b0c13b25c782"
+      "sha256": "836032d3f87041f1c8fccc6b29373fd87489a3be41651be69fca41195bc8bcea"
     },
     {
       "path": "docs/src/first_case.md",
@@ -254,11 +254,11 @@
     },
     {
       "path": "ext/BMOPFOpfExt/branch.jl",
-      "sha256": "e37e2c610ea9aab43bec3f5be51f6482b4d8ac29fb6f0fc235898087837d0263"
+      "sha256": "7c812e12c2c8881972dc61d94a2636b51792ba5e3ff36e27ebcb035f564f2574"
     },
     {
       "path": "ext/BMOPFOpfExt/bus.jl",
-      "sha256": "14102966e531b866c60057b2963710e5e3c640ebc2b3cd138136b6b721ddeb9f"
+      "sha256": "d71c7bb8291b8f376aec03b66fb7b0eca68a7855c4064928ceedb72bd8658de3"
     },
     {
       "path": "ext/BMOPFOpfExt/core.jl",
@@ -318,7 +318,7 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "b69461018404cb13acb8b4ec3d2bd78ebf27116629fb94746e4933b0b34e63e5"
+      "sha256": "2f4cedd5e70d001e48b233c86f327609d80554be2e6ab20ec7996de3d0d48bcd"
     },
     {
       "path": "knowledge/executable.toml",
@@ -442,7 +442,7 @@
     },
     {
       "path": "src/BMOPFTools.jl",
-      "sha256": "0a1b89277722e9733453a0dd1d05d94d60b7326d41076518f9a5bdf05ce6b036"
+      "sha256": "60ba0aced38dd8064ddd0e529c1cb19cf41669dd4cbb62529c67a7acc3e9be52"
     },
     {
       "path": "src/analysis/connectivity.jl",
@@ -670,7 +670,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "baa4da5be6f4da4c3f51d641d05ac360f36fedd808f901b7956d27e73c35343c"
+      "sha256": "0ee63f7aff88404285553c05b2d273a27c22ccd153a6e0b3776413918cc40055"
     },
     {
       "path": "src/report/formatting.jl",
@@ -686,7 +686,7 @@
     },
     {
       "path": "src/report/render_solution_markdown.jl",
-      "sha256": "d20ae9d3ec56722c989f7ecdb9cf5724df2db92e9988d19637d82f2b4f967766"
+      "sha256": "801336df1d19ac1ee880b5377c312374402ba800ad451f94e72672197e285666"
     },
     {
       "path": "src/report/render_terminal.jl",
@@ -706,15 +706,15 @@
     },
     {
       "path": "src/validation/domain_rules.jl",
-      "sha256": "40b2a8c1ff5caa763ed97d84051d447702816747fd769f500c18710cf1d2cf57"
+      "sha256": "a204336d2a4b7ba4e7c25b0f9e2e3ce38852734722a474d37261f67dcca263ad"
     },
     {
       "path": "src/validation/ideal_topology.jl",
-      "sha256": "8e2db9b193d84b53caee946e7892067ee2173b381915b3843730171c518d9059"
+      "sha256": "570024a24e120be230099ec06dbc3215957b9dde8ed09503066666a85910831f"
     },
     {
       "path": "src/validation/integrity.jl",
-      "sha256": "92a2fddaa7cb7a9e8ab3a9334238654d6eaa919036e0076246322bf86c77bb2a"
+      "sha256": "1a7bf7960a1fe5863ce7afa1e7b669f458e285951dc743e9dac080a43e4d7fb5"
     },
     {
       "path": "src/validation/power_factor.jl",
@@ -734,7 +734,7 @@
     },
     {
       "path": "src/validation/solution.jl",
-      "sha256": "176c913ff0d32905a1cd70e4372fa5adb5f32900354ac25b2cd95e0001b6efd7"
+      "sha256": "2098ac5677faf2e8af92ae20d5d8600eac9dcea50f0ea82b2293ff680834fc8b"
     },
     {
       "path": "src/validation/spec_conformance.jl",
@@ -1574,7 +1574,7 @@
     },
     {
       "path": "test/opf_review_regression_tests.jl",
-      "sha256": "e42274f9ea6ec5036f3e85e78323e1f9351620b968fc58e7ccf3d273bef777ea"
+      "sha256": "3e9f8a64ab219e42963b8ad2c8351465fc7d4825af273957a7bceec8470e6f6d"
     },
     {
       "path": "test/opf_tests.jl",

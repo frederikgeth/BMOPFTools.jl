@@ -24,6 +24,18 @@ _terminal_list(x) = (x isa AbstractVector && all(t -> t isa AbstractString, x)) 
     String[String(t) for t in x] : String[]
 _bus_id(x) = x isa AbstractString ? String(x) : ""
 
+# Terminal roles, or `nothing` when the case is too malformed to resolve them
+# (a bad `terminal_conventions` block, a `terminal_names` that is not a list).
+# Those defects are reported by the schema and conventions checks.
+function _terminal_roles_or_nothing(net)
+    try
+        return _terminal_roles(net)
+    catch err
+        err isa InterruptException && rethrow()
+        return nothing
+    end
+end
+
 # Set of perfectly-grounded (dc_bus, terminal): declared on the dc_bus, or a
 # dc_grounding with no/zero resistance.
 function _dc_grounded_terminals(net::Dict{String,Any})
@@ -130,20 +142,31 @@ end
 """
     _dc_ideal_loops(net) -> Vector{NamedTuple}
 
-Ideal (zero-resistance) `dc_branch` conductors that close a loop, each as
-`(branch, conductor, from, to)`. Branches are visited in sorted order, so the
-conductor named is the one that closes the loop in that order; removing any
-conductor of the loop, or giving it its resistance, opens it.
+Ideal (zero-resistance) `dc_branch` conductors whose CURRENT the network does
+not determine, each as `(branch, conductor, from, to)`.
 
-Every terminal the case fixes at a potential counts as ONE node: an ideal path
-between two fixed terminals closes the same kind of loop through their
-references. A conductor whose two ends are both fixed states nothing new (its
-equality is omitted when consistent) and is not an edge here.
+An ideal conductor carries a current that no resistance sets; only Kirchhoff's
+current law can fix it. KCL fixes the currents of a set of ideal conductors
+exactly when they form a forest over the DC nodes, where every **perfectly
+grounded** terminal is one and the same node (earth): a ground supplies
+whatever current is asked of it, so KCL says nothing there. A cycle — three
+ideal conductors in a triangle, two in parallel, or a single ideal conductor
+between two perfect grounds, which closes its loop through the earth — leaves a
+circulating current free.
+
+This is a statement about currents only. Whether a conductor's *voltage*
+relation is new information, implied, or contradictory is a separate question,
+answered by the reference graph (`_dc_reference_conflicts`): a terminal fixed
+by equal voltage bounds, for instance, has a known voltage but no free
+injection, so it is an ordinary node here.
+
+Branches are visited in sorted order; the conductor named is the one that
+closes the loop in that order.
 """
 function _dc_ideal_loops(net::Dict{String,Any})
     loops = NamedTuple{(:branch, :conductor, :from, :to),
                        Tuple{String,Int,Tuple{String,String},Tuple{String,String}}}[]
-    fixed = _dc_fixed_terminals(net)
+    grounded = _dc_grounded_terminals(net)
     known = _dc_known_terminals(net)
     parent = Dict{Tuple{String,String},Tuple{String,String}}()
     function root(x)
@@ -159,9 +182,8 @@ function _dc_ideal_loops(net::Dict{String,Any})
         br = branches[id]; br isa AbstractDict || continue
         for (k, a, b, ideal) in _dc_branch_conductors(br)
             (ideal && a in known && b in known) || continue
-            (haskey(fixed, a) && haskey(fixed, b)) && continue
-            ra = root(haskey(fixed, a) ? _DC_EARTH : a)
-            rb = root(haskey(fixed, b) ? _DC_EARTH : b)
+            ra = root(a in grounded ? _DC_EARTH : a)
+            rb = root(b in grounded ? _DC_EARTH : b)
             if ra == rb
                 push!(loops, (branch=id, conductor=k, from=a, to=b))
             else
@@ -241,35 +263,126 @@ function _dc_v_nom_port(net, b, tm)
     nothing
 end
 
+# The return terminal of a dc_bus: its METALLIC_RETURN pole, else a terminal
+# named "m" or "n".
+function _dc_return_terminal(dcbus::AbstractDict)
+    pole = get(dcbus, "pole", nothing)
+    if pole isa AbstractDict
+        for (t, role) in pole
+            role == "METALLIC_RETURN" && return String(t)
+        end
+    end
+    for t in _terminal_list(get(dcbus, "terminal_names", String[]))
+        lowercase(t) in ("m", "n") && return t
+    end
+    nothing
+end
+
+"""
+    _dc_exact_pair_references(net) -> Vector{NamedTuple}
+
+Voltage-pair bounds that are EXACT (`vdc_ln_min == vdc_ln_max`, or
+`vdc_ll_min == vdc_ll_max`), as the references they amount to:
+`(owner, from, to, value)` with `value = V(from) − V(to)`. An exact band is a
+statement of the difference itself, on the same footing as a fixed terminal or
+a voltage master. Orientation follows the pole roles, as in the OPF.
+"""
+function _dc_exact_pair_references(net::Dict{String,Any})
+    refs = NamedTuple{(:owner, :from, :to, :value),
+        Tuple{String,Tuple{String,String},Tuple{String,String},Float64}}[]
+    buses = get(net, "dc_bus", Dict())
+    for b in sort!(collect(String.(keys(buses))))
+        dcbus = buses[b]; dcbus isa AbstractDict || continue
+        pole = get(dcbus, "pole", nothing)
+        role(t) = pole isa AbstractDict ? get(pole, t, "") : ""
+        terms = _terminal_list(get(dcbus, "terminal_names", String[]))
+        ret = _dc_return_terminal(dcbus)
+        lo = get(dcbus, "vdc_ln_min", nothing); hi = get(dcbus, "vdc_ln_max", nothing)
+        if lo isa Real && hi isa Real && lo == hi && ret !== nothing
+            for t in terms
+                t == ret && continue
+                sign = role(t) == "POSITIVE" ? 1.0 : role(t) == "NEGATIVE" ? -1.0 : 0.0
+                sign == 0.0 && continue
+                push!(refs, (owner="dc_bus '$b' vdc_ln bound on '$t'",
+                             from=(b, t), to=(b, ret), value=sign * Float64(lo)))
+            end
+        end
+        lo = get(dcbus, "vdc_ll_min", nothing); hi = get(dcbus, "vdc_ll_max", nothing)
+        if lo isa Real && hi isa Real && lo == hi
+            pos = [t for t in terms if role(t) == "POSITIVE"]
+            neg = [t for t in terms if role(t) == "NEGATIVE"]
+            (isempty(pos) || isempty(neg)) && continue
+            push!(refs, (owner="dc_bus '$b' vdc_ll bound",
+                         from=(b, pos[1]), to=(b, neg[1]), value=Float64(lo)))
+        end
+    end
+    refs
+end
+
+"""
+    _dc_seed_references!(graph, net) -> Vector
+
+Record in `graph` every exact DC voltage the case states without a converter:
+each fixed terminal against earth, each ideal conductor as "its two ends are at
+one voltage", and each exact voltage-pair bound. Returns the conflicts met, as `_dc_reference_conflicts`
+describes them. The OPF seeds its own reference graph with the same call.
+"""
+function _dc_seed_references!(graph::_DCReferenceGraph, net::Dict{String,Any})
+    Conflict = NamedTuple{(:kind, :owner, :from, :to, :stated, :implied),
+        Tuple{Symbol,String,Tuple{String,String},Tuple{String,String},Float64,Float64}}
+    conflicts = Conflict[]
+    fixed = _dc_fixed_terminals(net)
+    for key in sort!(collect(keys(fixed)))
+        status, implied = _dc_reference_record!(graph, key, _DC_EARTH, fixed[key])
+        status == :conflict && push!(conflicts, (kind=:fixed_terminals,
+            owner="$(key[1]).$(key[2])", from=key, to=_DC_EARTH,
+            stated=fixed[key], implied=Float64(implied)))
+    end
+    known = _dc_known_terminals(net)
+    branches = get(net, "dc_branch", Dict())
+    for id in sort!(collect(String.(keys(branches))))
+        br = branches[id]; br isa AbstractDict || continue
+        for (k, a, b, ideal) in _dc_branch_conductors(br)
+            (ideal && a in known && b in known) || continue
+            status, implied = _dc_reference_record!(graph, a, b, 0.0)
+            status == :conflict && push!(conflicts, (kind=:ideal_conductor,
+                owner="$id.$k", from=a, to=b, stated=0.0, implied=Float64(implied)))
+        end
+    end
+    for ref in _dc_exact_pair_references(net)
+        (ref.from in known && ref.to in known) || continue
+        status, implied = _dc_reference_record!(graph, ref.from, ref.to, ref.value)
+        status == :conflict && push!(conflicts, (kind=:exact_pair_bound,
+            owner=ref.owner, from=ref.from, to=ref.to, stated=ref.value,
+            implied=Float64(implied)))
+    end
+    conflicts
+end
+
 """
     _dc_reference_conflicts(net) -> Vector{NamedTuple}
 
 Exact DC voltage statements in the case that contradict each other, each as
 `(kind, owner, from, to, stated, implied)`:
 
-- `:fixed_terminals` — two terminals joined by ideal conductors are fixed at
-  different voltages (`owner` is the terminal that disagrees);
+- `:fixed_terminals` — a terminal fixed at a voltage the references before it
+  already put elsewhere;
+- `:ideal_conductor` — a zero-resistance conductor (which states that its two
+  ends are at one voltage) between terminals the other references hold at
+  different voltages, for example 800 V and 700 V fixed by voltage bounds;
+- `:exact_pair_bound` — a `vdc_ln` or `vdc_ll` bound with equal minimum and
+  maximum states a difference the other references put elsewhere;
 - `:voltage_master` — a `dc_control = "V"` converter sets a port voltage that
-  the fixed terminals and the masters before it (in sorted order) already fix
-  at a different value.
+  the fixed terminals, the ideal conductors and the masters before it (in
+  sorted order) already fix at a different value.
 
-The references are the ones the OPF builds: fixed terminals first, then
-voltage masters, over nodes merged by ideal conductors.
+The references are the ones the OPF builds, in the same order: fixed
+terminals, ideal conductors, voltage masters.
 """
 function _dc_reference_conflicts(net::Dict{String,Any})
-    Conflict = NamedTuple{(:kind, :owner, :from, :to, :stated, :implied),
-        Tuple{Symbol,String,Tuple{String,String},Tuple{String,String},Float64,Float64}}
-    conflicts = Conflict[]
-    haskey(net, "dc_bus") || return conflicts
-    classes = _dc_node_classes(net)
+    haskey(net, "dc_bus") || return _dc_seed_references!(_DCReferenceGraph(), Dict{String,Any}())
     graph = _DCReferenceGraph()
-    fixed = _dc_fixed_terminals(net)
-    for key in sort!(collect(keys(fixed)))
-        status, implied = _dc_reference_record!(graph, classes(key...), _DC_EARTH, fixed[key])
-        status == :conflict && push!(conflicts, (kind=:fixed_terminals,
-            owner="$(key[1]).$(key[2])", from=key, to=_DC_EARTH,
-            stated=fixed[key], implied=Float64(implied)))
-    end
+    conflicts = _dc_seed_references!(graph, net)
     ibrs = get(net, "ibr", Dict())
     known = _dc_known_terminals(net)
     for id in sort!(collect(String.(keys(ibrs))))
@@ -282,34 +395,78 @@ function _dc_reference_conflicts(net::Dict{String,Any})
             s isa Real ? Float64(s) : _dc_v_nom_port(net, b, tm)
         end
         v_set === nothing && continue
-        a = classes(b, tm[1])
-        c = length(tm) >= 2 ? classes(b, tm[2]) : _DC_EARTH
+        a = (b, tm[1])
+        c = length(tm) >= 2 ? (b, tm[2]) : _DC_EARTH
         status, implied = _dc_reference_record!(graph, a, c, v_set)
         status == :conflict && push!(conflicts, (kind=:voltage_master, owner=id,
-            from=(b, tm[1]), to=length(tm) >= 2 ? (b, tm[2]) : _DC_EARTH,
-            stated=Float64(v_set), implied=Float64(implied)))
+            from=a, to=c, stated=Float64(v_set), implied=Float64(implied)))
     end
     conflicts
 end
 
 """
+    _ac_reference_terminals(net) -> Set{(bus, terminal)}
+
+AC terminals that can supply any current: perfectly grounded terminals, the
+neutral of every voltage-source bus (which the OPF grounds), and the terminals
+a voltage source fixes. Each has a free injection in the model (an earth
+current, or the source's slack current), so Kirchhoff's current law places no
+condition there. For the purpose of deciding whether ideal-conductor currents
+are determined they are all one node.
+"""
+function _ac_reference_terminals(net::Dict{String,Any})
+    refs = Set{Tuple{String,String}}()
+    buses = get(net, "bus", Dict())
+    for (bid, bus) in buses
+        bus isa Dict || continue
+        for t in _terminal_list(get(bus, "perfectly_grounded_terminals", String[]))
+            push!(refs, (String(bid), t))
+        end
+    end
+    roles = _terminal_roles_or_nothing(net)
+    for (_, vs) in get(net, "voltage_source", Dict())
+        vs isa Dict || continue
+        bus = _bus_id(get(vs, "bus", ""))
+        for t in _terminal_list(get(vs, "terminal_map", String[]))
+            push!(refs, (bus, t))
+        end
+        b = get(buses, bus, nothing)
+        nt = roles === nothing ? nothing : _declared_bus_neutral(roles, b)
+        nt === nothing || push!(refs, (bus, nt))
+    end
+    refs
+end
+
+"""
     _ac_ideal_loops(net) -> Vector{NamedTuple}
 
-Ideal AC conductors that close a loop, each as `(element, id, conductor, from,
-to)`. An ideal conductor is a closed switch conductor, or a line conductor
-whose whole impedance row is exactly zero (no self and no mutual impedance).
-Parallel ideal conductors and self-loops are loops. Lines are visited before
-switches, each in sorted order.
+Ideal AC conductors whose current the network does not determine, each as
+`(element, id, conductor, from, to)`. An ideal conductor is a closed switch
+conductor, or a line conductor whose whole impedance row is exactly zero (no
+self and no mutual impedance).
 
-This is the static counterpart of the check the OPF line and switch builders
-make while stamping. The two agree on the case as written; a coefficient
-provider that changes a line impedance at build time is seen only by the
-builder.
+A cycle of such conductors — two in parallel, a ring, a self-loop — has one
+dependent voltage relation and a current that can circulate around it
+undetermined.
+
+An ideal conductor between two terminals that are BOTH held at a fixed voltage
+(`_ac_reference_terminals`: perfect grounds and source terminals) is not
+reported. Its voltage relation is implied and the OPF omits it. Its current is
+indeed not determined, since both ends can supply any current; but a four-wire
+switch or line between two buses with grounded neutrals is ordinary modeling
+practice, and the only consequence is that the current reported for that one
+conductor is not meaningful. The DC side is stricter (`_dc_ideal_loops`).
+
+Lines are visited before switches, each in sorted order. This is the static
+counterpart of the check the OPF line and switch builders make while stamping.
+The two agree on the case as written; a coefficient provider that changes a
+line impedance at build time is seen only by the builder.
 """
 function _ac_ideal_loops(net::Dict{String,Any})
     Node = Tuple{String,String}
     loops = NamedTuple{(:element, :id, :conductor, :from, :to),
                        Tuple{String,String,Int,Node,Node}}[]
+    references = _ac_reference_terminals(net)
     parent = Dict{Node,Node}()
     function root(x)
         get!(parent, x, x)
@@ -320,6 +477,7 @@ function _ac_ideal_loops(net::Dict{String,Any})
         return x
     end
     function edge!(element, id, k, a, b)
+        (a in references && b in references) && return nothing   # implied row, see above
         ra, rb = root(a), root(b)
         ra == rb ? push!(loops, (element=element, id=id, conductor=k, from=a, to=b)) :
                    (parent[ra] = rb)

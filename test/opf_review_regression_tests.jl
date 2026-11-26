@@ -675,9 +675,11 @@
             net["dc_bus"]["dcB"] = merge(deepcopy(net["dc_bus"]["dcA"]),
                 D("v_dc_min" => [v_to, 0.0], "v_dc_max" => [v_to, 0.0]))
             net["dc_grounding"]["gB"] = D("dc_bus" => "dcB", "terminal" => "m", "r" => 0.0)
+            # The pole conductor only: the two returns are both perfectly
+            # grounded, and an ideal conductor between two grounds is a loop
+            # through the earth (tested separately).
             net["dc_branch"] = D("tie" => D("dc_bus_from" => "dcA", "dc_bus_to" => "dcB",
-                "terminal_map_from" => ["p", "m"], "terminal_map_to" => ["p", "m"],
-                "r" => [0.0, 0.0]))
+                "terminal_map_from" => ["p"], "terminal_map_to" => ["p"], "r" => [0.0]))
             net
         end
         for pu in (true, false)
@@ -1130,14 +1132,35 @@
         @test solved(solve_opf(poles(tree)))                       # a tree is fine
         @test_throws ArgumentError build_opf_model(poles(ring))     # a loop is not
         @test solved(solve_opf(poles(ring; r=0.1)))                 # resistive loop: fine
-        # An ideal path between two terminals fixed at one potential closes the
-        # same kind of loop through their references.
+        # Voltage rows and current determinacy are separate questions.
+        #
+        # Terminals pinned by equal voltage bounds have a known voltage but no
+        # free injection, so KCL still determines the current through an ideal
+        # path between them: not a loop. The second conductor's voltage
+        # relation is implied by the two pins, so only one row is stamped.
         pinned = poles(tree)
         for b in ("dcA", "dcC")
             pinned["dc_bus"][b]["v_dc_min"] = [800.0, 0.0]
             pinned["dc_bus"][b]["v_dc_max"] = [800.0, 0.0]
         end
-        @test_throws ArgumentError build_opf_model(pinned)
+        ctx = build_opf_model(pinned; per_unit=false)
+        @test family_rows(ctx, :dc_branch_voltage_drop) == 1
+        # Pinning every pole of the triangle removes all three voltage rows
+        # (each is implied) but not the circulating current: still a loop.
+        pinned_ring = poles(ring)
+        for b in ("dcA", "dcB", "dcC")
+            pinned_ring["dc_bus"][b]["v_dc_min"] = [800.0, 0.0]
+            pinned_ring["dc_bus"][b]["v_dc_max"] = [800.0, 0.0]
+        end
+        @test_throws ArgumentError build_opf_model(pinned_ring)
+        # One ideal conductor between two perfect grounds closes its loop
+        # through the earth: the split of the return current is undetermined.
+        earth_bond = poles(tree; r=0.1)
+        earth_bond["dc_branch"]["ret"] = D("dc_bus_from" => "dcA", "dc_bus_to" => "dcB",
+            "terminal_map_from" => ["m"], "terminal_map_to" => ["m"], "r" => [0.0])
+        @test_throws ArgumentError build_opf_model(earth_bond)
+        earth_bond["dc_branch"]["ret"]["r"] = [0.05]          # a real return conductor
+        @test solved(solve_opf(earth_bond))
     end
 
     @testset "fixed DC terminal voltages seed the reference graph" begin
@@ -1239,22 +1262,31 @@
             net
         end
         tree = [("dcA", "dcB"), ("dcB", "dcC")]; ring = vcat(tree, [("dcC", "dcA")])
-        pinned = poles(tree)
-        for b in ("dcA", "dcC")
-            pinned["dc_bus"][b]["v_dc_min"] = [800.0, 0.0]
-            pinned["dc_bus"][b]["v_dc_max"] = [800.0, 0.0]
+        function pin!(net, buses)
+            for b in buses
+                net["dc_bus"][b]["v_dc_min"] = [800.0, 0.0]
+                net["dc_bus"][b]["v_dc_max"] = [800.0, 0.0]
+            end
+            net
         end
+        earth_bond = poles(tree; r=0.1)
+        earth_bond["dc_branch"]["ret"] = D("dc_bus_from" => "dcA", "dc_bus_to" => "dcB",
+            "terminal_map_from" => ["m"], "terminal_map_to" => ["m"], "r" => [0.0])
         for (net, expected) in ((poles(tree), false), (poles(ring), true),
-                                (poles(ring; r=0.1), false), (pinned, true))
+                                (poles(ring; r=0.1), false),
+                                (pin!(poles(tree), ("dcA", "dcC")), false),     # currents determined
+                                (pin!(poles(ring), ("dcA", "dcB", "dcC")), true), # rows implied, loop remains
+                                (earth_bond, true))                              # loop through the earth
             found = integrity_codes(net)
             @test has(found, "E.INT.DC_IDEAL_LOOP") == expected
             @test builds(net) == !expected          # validation and builder agree
         end
         loop = only(f for f in integrity_codes(poles(ring)) if f.code == "E.INT.DC_IDEAL_LOOP")
         @test loop.component_id == "t3" && loop.detail["conductor"] == 1
-        @test loop.detail["closes_through_fixed_terminals"] == false
-        boundary = only(f for f in integrity_codes(pinned) if f.code == "E.INT.DC_IDEAL_LOOP")
-        @test boundary.detail["closes_through_fixed_terminals"] == true
+        @test loop.detail["closes_through_reference"] == false
+        boundary = only(f for f in integrity_codes(earth_bond) if f.code == "E.INT.DC_IDEAL_LOOP")
+        @test boundary.component_id == "ret"
+        @test boundary.detail["closes_through_reference"] == true
 
         # AC ideal loops: one closed switch (negative), two in parallel
         # (positive), one of them open (boundary), a zero-impedance line in
@@ -1357,6 +1389,131 @@
         @test ohm.detail["reported_drop_V"] ≈ 50.0 && ohm.detail["expected_drop_V"] == 0.0
         share = only(f for f in found if f.code == "W.SOL.DC_LOSS_SHARE_MISMATCH")
         @test share.detail["reported_p_loss_dc"] == 500.0 && share.detail["derived_p_loss_dc"] == 0.0
+    end
+
+    # ── 19. Sixth review ──────────────────────────────────────────────────────
+    @testset "ideal neutral conductors between grounded buses" begin
+        # A radial feeder of six sections: resistive phases, IDEAL neutral
+        # conductors, every bus neutral perfectly grounded. Each neutral
+        # voltage relation is 0 = 0 and must not be stamped.
+        function feeder(; neutral_ohm=0.0, sections=6)
+            names = ["b$k" for k in 0:sections]
+            buses = D(n => D("terminal_names" => ["a", "n"],
+                             "perfectly_grounded_terminals" => ["n"]) for n in names)
+            lines = D("l$k" => D("bus_from" => names[k], "bus_to" => names[k+1],
+                "terminal_map_from" => ["a", "n"], "terminal_map_to" => ["a", "n"],
+                "R_series_1_1" => 0.05, "X_series_1_1" => 0.03,
+                "R_series_2_2" => neutral_ohm, "X_series_2_2" => 0.0,
+                "R_series_1_2" => 0.0, "X_series_1_2" => 0.0) for k in 1:sections)
+            D("bus" => buses, "line" => lines,
+              "voltage_source" => D("s" => D("bus" => "b0", "terminal_map" => ["a", "n"],
+                  "v_magnitude" => [240.0, 0.0], "v_angle" => [0.0, 0.0], "cost" => [0.25])),
+              "load" => D("l" => D("bus" => names[end], "terminal_map" => ["a", "n"],
+                  "configuration" => "SINGLE_PHASE", "p_nom" => [2000.0], "q_nom" => [300.0])))
+        end
+        neutral_rows(ctx) = count(k -> k.family in (:line_voltage_drop_real, :line_voltage_drop_imag) &&
+                                       k.index[2] == 2, opf_object_keys(ctx; kind=:constraint))
+        @test neutral_rows(build_opf_model(feeder(); per_unit=false)) == 0
+        @test neutral_rows(build_opf_model(feeder(neutral_ohm=0.1); per_unit=false)) == 12
+        reference = solve_pf(feeder(neutral_ohm=0.1); per_unit=false)
+        for solver in (solve_pf, solve_opf), pu in (true, false)
+            result = solver(feeder(); per_unit=pu)
+            @test solved(result)
+            # Phase voltages do not depend on how the return current divides
+            # between an ideal neutral and the earth.
+            @test result["bus"]["b6"]["a"]["vm"] ≈ reference["bus"]["b6"]["a"]["vm"] rtol=1e-6
+        end
+        # Not an ideal loop in the reportable sense: the row is implied.
+        found = Finding[]; integrity_check(feeder(), found)
+        @test !any(f -> f.code == "E.INT.IDEAL_LOOP", found)
+        # An ideal conductor between two DIFFERENT fixed voltages is a short.
+        short = feeder(sections=1)
+        short["voltage_source"]["t"] = D("bus" => "b1", "terminal_map" => ["a", "n"],
+            "v_magnitude" => [230.0, 0.0], "v_angle" => [0.0, 0.0])
+        short["line"]["l1"]["R_series_1_1"] = 0.0; short["line"]["l1"]["X_series_1_1"] = 0.0
+        @test_throws ArgumentError build_opf_model(short; per_unit=false)
+    end
+
+    @testset "sequence limits use one phase selection" begin
+        # Three phases plus a grounded protective-earth conductor.
+        function with_earth(pe::Bool; vpos_max=220.0)
+            names = pe ? ["a", "b", "c", "pe"] : ["a", "b", "c"]
+            bus(limit) = merge(D("terminal_names" => names),
+                pe ? D("perfectly_grounded_terminals" => ["pe"]) : D(),
+                limit ? D("vpos_max" => vpos_max) : D())
+            net = D("bus" => D("src" => bus(false), "e" => bus(true)),
+                "line" => D("l" => merge(D("bus_from" => "src", "bus_to" => "e",
+                    "terminal_map_from" => ["a", "b", "c"], "terminal_map_to" => ["a", "b", "c"]),
+                    D("R_series_$(k)_$(k)" => 0.01 for k in 1:3))),
+                "voltage_source" => D("s" => D("bus" => "src", "terminal_map" => ["a", "b", "c"],
+                    "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2pi/3, 2pi/3])),
+                "load" => D("l" => D("bus" => "e", "terminal_map" => ["a", "b", "c"],
+                    "configuration" => "WYE", "p_nom" => fill(100.0, 3), "q_nom" => zeros(3))))
+            pe && (net["terminal_conventions"] =
+                D("phase" => ["a", "b", "c"], "neutral" => String[], "earth" => ["pe"]))
+            net
+        end
+        stamped(net) = any(k -> startswith(string(k.family), "bus_positive_sequence"),
+            opf_object_keys(build_opf_model(net; per_unit=false); kind=:constraint))
+        domain(net) = (found = Finding[]; domain_rules_check(net, found); found)
+        for pe in (false, true)
+            net = with_earth(pe)
+            # Preflight: three phases, so the limit applies; no warning.
+            @test !any(f -> f.code == "W.DOM.BUS_LIMIT_NOT_APPLICABLE", domain(net))
+            # Builder: the limit is stamped, and 230 V cannot meet a 220 V cap.
+            @test stamped(net)
+            @test !solved(solve_opf(net; per_unit=false))
+            # Verifier: a 230 V solution is assessed and found in violation.
+            free = solve_opf(with_earth(pe; vpos_max=250.0); per_unit=false)
+            @test solved(free)
+            found = Finding[]; solution_check(net, free, found)
+            @test !any(f -> f.code == "W.SOL.LIMIT_UNASSESSED", found)
+            @test any(f -> startswith(f.code, "E.SOL"), found)
+        end
+    end
+
+    @testset "an exact DC pair bound is a voltage reference" begin
+        exact(v) = D("vdc_ln_min" => v, "vdc_ln_max" => v)
+        station(units, v) = dc_station(units; bus_fields=exact(v))
+        masters = [("m$k", k == 1 ? master(800.0) : merge(master(800.0), fixed_p(100.0)))
+                   for k in 1:12]
+        ctx = build_opf_model(station(masters, 800.0); per_unit=false)
+        pair_rows = count(k -> startswith(string(k.family), "dc_bus_voltage_ln"),
+                          opf_object_keys(ctx; kind=:constraint))
+        # One row states the 800 V difference; the bound and the twelve
+        # masters do not restate it.
+        @test pair_rows + family_rows(ctx, :dc_converter_voltage_control) == 1
+        @test solved(solve_opf(station(masters, 800.0)))
+        # A master that contradicts the exact bound is a reference conflict,
+        # in validation and in the builder alike.
+        clash = station([("m1", master(790.0))], 800.0)
+        found = Finding[]; integrity_check(clash, found)
+        @test any(f -> f.code == "E.INT.DC_REFERENCE_CONFLICT", found)
+        @test_throws ArgumentError build_opf_model(clash; per_unit=false)
+        # A genuine band is still a pair of inequalities.
+        band = dc_station([("m1", master(800.0))];
+                          bus_fields=D("vdc_ln_min" => 700.0, "vdc_ln_max" => 900.0))
+        ctx = build_opf_model(band; per_unit=false)
+        @test family_rows(ctx, :dc_bus_voltage_ln_lower) == 1
+        @test family_rows(ctx, :dc_bus_voltage_ln_upper) == 1
+    end
+
+    @testset "solution_check: null result blocks and the report" begin
+        net = mvdc_tie(); good = solve_opf(deepcopy(net))
+        for block in ("dc_bus", "dc_branch")
+            hollow = deepcopy(good); hollow[block] = nothing
+            found = Finding[]; out = solution_check(net, hollow, found)
+            @test out["verification_status"] == "indeterminate"
+            @test out["power_balance_assessed"] == false
+            @test isnan(out["power_balance_err"])
+        end
+        # A balance that was not assessed is not printed as an error.
+        hollow = deepcopy(good); delete!(hollow, "dc_branch")
+        report = profile_solution(net, hollow)
+        io = IOBuffer(); BMOPFTools.render_solution_markdown(report, io)
+        text = String(take!(io))
+        @test occursin("not assessed", text)
+        @test !occursin(r"Active power balance error \| [0-9]", text)
     end
 
     @testset "unsupported IBR records are rejected, not skipped" begin

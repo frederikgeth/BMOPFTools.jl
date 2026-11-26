@@ -809,7 +809,7 @@ function _check_ideal_topology!(net::Dict{String,Any}, findings::Vector{Finding}
                 "remedy"=>"remove_redundant_ideal_conductor_or_supply_impedance")))
     end
     haskey(net, "dc_bus") || return nothing
-    fixed = _dc_fixed_terminals(net)
+    dc_grounded = _dc_grounded_terminals(net)
     for loop in _dc_ideal_loops(net)
         push!(findings, Finding(ERROR, "E.INT.DC_IDEAL_LOOP", :integrity,
             :dc_branch, loop.branch,
@@ -820,17 +820,25 @@ function _check_ideal_topology!(net::Dict{String,Any}, findings::Vector{Finding}
             Dict{String,Any}("conductor"=>loop.conductor,
                 "dc_bus_from"=>loop.from[1], "terminal_from"=>loop.from[2],
                 "dc_bus_to"=>loop.to[1], "terminal_to"=>loop.to[2],
-                "closes_through_fixed_terminals"=>
-                    (haskey(fixed, loop.from) || haskey(fixed, loop.to)),
+                "closes_through_reference"=>
+                    (loop.from in dc_grounded || loop.to in dc_grounded),
                 "remedy"=>"remove_redundant_ideal_conductor_or_supply_resistance")))
     end
     for conflict in _dc_reference_conflicts(net)
         master = conflict.kind == :voltage_master
+        conductor = conflict.kind == :ideal_conductor
+        pair = conflict.kind == :exact_pair_bound
         push!(findings, Finding(ERROR, "E.INT.DC_REFERENCE_CONFLICT", :integrity,
-            master ? :ibr : :dc_bus, master ? conflict.owner : conflict.from[1],
+            master ? :ibr : conductor ? :dc_branch : :dc_bus,
+            master ? conflict.owner : conductor ? String(first(split(conflict.owner, "."))) :
+                conflict.from[1],
             (master ?
                 "IBR '$(conflict.owner)' (dc_control=\"V\") sets $(conflict.stated) V " *
                 "across its DC port" :
+             conductor ?
+                "Ideal dc_branch conductor $(conflict.owner) holds its two ends at one voltage" :
+             pair ?
+                "The exact $(conflict.owner) sets $(conflict.stated) V" :
                 "DC terminal $(conflict.owner) is fixed at $(conflict.stated) V") *
             ", but the voltage references already in the case (terminals fixed by " *
             "grounding or equal bounds, ideal conductors, other voltage masters) fix " *
