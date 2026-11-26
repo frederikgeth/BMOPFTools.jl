@@ -345,6 +345,64 @@
         @test pu["voltage_source"]["s"]["p"]["qs"] ≈ si["voltage_source"]["s"]["p"]["qs"] rtol=1e-5
     end
 
+    # ── 10. Unity minimum power factor is one equality ───────────────────────
+    @testset "minimum power factor of exactly one stamps Q = 0 once" begin
+        function policy_net(pf_min)
+            path = joinpath(@__DIR__, "data", "ibr_minimum_pf", "curtailed.json")
+            net = JSON3.read(read(path, String), Dict{String,Any})
+            net["extras"]["bmopftools"]["minimum_power_factor"]["ibr"]["pv"]["pf_min"] = pf_min
+            net
+        end
+        families(ctx) = Set(k.family for k in opf_object_keys(ctx; kind=:constraint)
+                            if startswith(string(k.family), "ibr_minimum_pf"))
+        # Below unity the limit is a wedge |Q| <= tan(phi)·P: two rows.
+        @test families(build_opf_model(policy_net(0.8); per_unit=false)) ==
+              Set([:ibr_minimum_pf_generation, :ibr_minimum_pf_lower, :ibr_minimum_pf_upper])
+        # At unity the wedge closes to Q = 0: one equality, no opposing pair.
+        for pu in (true, false)
+            ctx = build_opf_model(policy_net(1.0); per_unit=pu)
+            @test families(ctx) ==
+                  Set([:ibr_minimum_pf_generation, :ibr_minimum_pf_equality])
+            optimize_opf!(ctx)
+            result = extract_result(ctx)
+            @test solved(result)
+            @test all(abs(coil["qg"]) < 1e-3 for coil in values(result["ibr"]["pv"]))
+        end
+    end
+
+    # ── 11. A source that is not solidly grounded ────────────────────────────
+    # The OPF earths the neutral of every voltage-source bus. The documented
+    # way to model an impedance-grounded supply is to keep the source on a bus
+    # of its own and place the grounding impedance on the next bus. The oracle
+    # is the series circuit: source 230 V, two 0.1 Ω conductors, the 0.5 Ω
+    # grounding resistor, and a 3 kW constant-power load, I·(230 − 0.7·I) = 3000.
+    @testset "impedance-grounded supply: source on its own bus" begin
+        fourwire(bf, bt) = merge(D("bus_from" => bf, "bus_to" => bt,
+            "terminal_map_from" => ["a", "b", "c", "n"],
+            "terminal_map_to" => ["a", "b", "c", "n"]),
+            D("R_series_$(k)_$(k)" => 0.1 for k in 1:4))
+        link = merge(D("bus_from" => "s", "bus_to" => "h",
+            "terminal_map_from" => ["a", "b", "c"], "terminal_map_to" => ["a", "b", "c"]),
+            D("R_series_$(k)_$(k)" => 0.0 for k in 1:3))
+        net = D("bus" => D("s" => D("terminal_names" => ["a", "b", "c"]),
+                "h" => D("terminal_names" => ["a", "b", "c", "n"]),
+                "e" => D("terminal_names" => ["a", "b", "c", "n"])),
+            "voltage_source" => D("vs" => D("bus" => "s", "terminal_map" => ["a", "b", "c"],
+                "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2pi/3, 2pi/3])),
+            "line" => D("link" => link, "feeder" => fourwire("h", "e")),
+            "shunt" => D("zg" => D("bus" => "h", "terminal_map" => ["n"], "G_1_1" => 1 / 0.5)),
+            "load" => D("la" => D("bus" => "e", "terminal_map" => ["a", "n"],
+                "configuration" => "SINGLE_PHASE", "p_nom" => [3000.0], "q_nom" => [0.0])))
+        current = (230.0 - sqrt(230.0^2 - 4 * 0.7 * 3000.0)) / (2 * 0.7)
+        for pu in (true, false)
+            result = solve_pf(deepcopy(net); per_unit=pu, solver_options=tight)
+            @test solved(result)
+            @test result["line"]["feeder"]["n"]["cm_fr"] ≈ current rtol=1e-6
+            @test result["bus"]["h"]["n"]["vm"] ≈ 0.5 * current rtol=1e-6
+            @test result["bus"]["e"]["n"]["vm"] ≈ 0.6 * current rtol=1e-6
+        end
+    end
+
     @testset "unsupported IBR records are rejected, not skipped" begin
         net = D("bus" => D("f" => bus2(), "t" => bus2()),
             "voltage_source" => D("s" => src2("f")),

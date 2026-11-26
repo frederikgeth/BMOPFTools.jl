@@ -400,12 +400,25 @@ still correct but the per-phase reference floats (the unphysical
 "unspecified neutral" model). See
 [Transformer primitive admittance](spec/transformer-admittance.md) for the matching bus-admittance form.
 
-The bank carries no winding on the **neutral**, and the model adds no tie
-between the neutral terminals of its two buses: only the shared phase is bonded.
-On a four-wire feeder the neutral conductor runs past the bank, so represent
-that continuity explicitly, for example with a neutral-only line or closed
-switch between the two buses. Without it the downstream neutral is a separate
-node.
+**The neutral passes straight through.** No winding of an open-delta bank
+touches the neutral, so on a four-wire feeder the neutral conductor runs past
+the bank unbroken. When both terminal maps include a neutral, the model bonds
+the two neutral terminals exactly as it bonds the shared phase — equal voltage
+and a free bond current:
+
+```math
+v_{b^\text{fr},n} = v_{b^\text{to},n}
+```
+
+The bond matters most when the downstream neutral is *not* earthed: it is then
+the only return path for phase-to-neutral load current, and without it those
+loads could not be supplied at all. When both neutral terminals are already
+held at a fixed potential (perfectly grounded, or on a voltage-source bus) the
+bond is redundant and carries no current. The system admittance builders
+([`ybus_passive`](@ref), [`ybus_augmented`](@ref)) fuse the same two nodes, so
+the OPF and the admittance view agree. A dedicated OpenDSS case
+(`pf_open_delta_neutral`, see [Validating the OPF engine](validation.md))
+pins this behavior.
 
 ## `n_winding` — general n-winding (ZB model, WYE and/or DELTA)
 

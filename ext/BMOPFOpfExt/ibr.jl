@@ -750,8 +750,16 @@ function _apply_ibr_phase!(ctx, inv_id, idx, p_expr, q_expr, U_vv, U_vw,
     if min_pf !== nothing
         sine = sqrt((1-min_pf)*(1+min_pf))
         register_constraint(:ibr_minimum_pf_generation, @constraint(model, p_expr >= 0))
-        register_constraint(:ibr_minimum_pf_upper, @constraint(model, min_pf*q_expr <= sine*p_expr))
-        register_constraint(:ibr_minimum_pf_lower, @constraint(model, -min_pf*q_expr <= sine*p_expr))
+        if sine == 0
+            # Unity minimum power factor: the wedge |Q| <= tan(phi)·P closes to
+            # the half-line Q = 0. Stamp it as ONE equality; the two wedge rows
+            # would read Q <= 0 and -Q <= 0, a pair with no interior and
+            # non-unique multipliers. `min_pf` is static policy data.
+            register_constraint(:ibr_minimum_pf_equality, @constraint(model, q_expr == 0))
+        else
+            register_constraint(:ibr_minimum_pf_upper, @constraint(model, min_pf*q_expr <= sine*p_expr))
+            register_constraint(:ibr_minimum_pf_lower, @constraint(model, -min_pf*q_expr <= sine*p_expr))
+        end
     end
 
     # Reactive capability remains hard under every control mode. Keep the live

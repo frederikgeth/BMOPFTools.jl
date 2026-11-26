@@ -37,6 +37,10 @@ The expectation for a new formulation, constraint, or element is therefore:
    against OpenDSSDirect, an analytic case, or an existing benchmark with a
    known solution. A constraint that only "looks right" is not enough; the
    feasibility/correctness of the model is the thing being benchmarked.
+   Prefer the **external** reference where one can express the case:
+   agreement between the per-unit and SI builds of this engine is a useful
+   supplement, but it cannot detect an error both builds share (see the
+   review oracles in [Validating the OPF](../validation.md)).
 
 !!! warning "Not a model zoo"
     It is **not in scope** to accumulate every state-of-the-art formulation here

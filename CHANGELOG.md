@@ -45,6 +45,15 @@ Initial General release candidate. Registration has not yet been requested.
     warning. A shared-DC-link balance with `p_dc_min == p_dc_max` is one
     equality row, `:ibr_dc_power_equality`. Apparent-power auxiliaries start
     on their defining equalities.
+  - **Open-delta regulators pass the neutral through.** When both terminal
+    maps include a neutral, the bank now bonds the two neutral terminals like
+    its shared phase, in the OPF and in `ybus_passive`/`ybus_augmented`.
+    Previously the downstream neutral was an island: a phase-to-neutral load
+    behind the bank had no return path unless both neutrals were earthed, and
+    the solve diverged. Checked against OpenDSS.
+  - A **minimum power factor of exactly one** stamps the single equality
+    `:ibr_minimum_pf_equality` (`Q = 0`) instead of the opposing pair
+    `Q <= 0`, `-Q <= 0`. Limits below one keep their two wedge rows.
 
 - Add network-reduction tools: explicit-neutral Kron reduction
   (`kron_reduce_neutrals`, ported from PowerOptLab with its tests and

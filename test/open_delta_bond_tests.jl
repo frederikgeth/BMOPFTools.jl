@@ -22,7 +22,10 @@ using Test, BMOPFTools, LinearAlgebra, JSON3
         for t in setdiff(["a", "b", "c"], [shared])
             @test y.index[("h", t)]!=y.index[("l", t)]
         end
-        @test y.index[("h", "n")]!=y.index[("l", "n")]
+        # The neutral is the bank's second copper through-connection: no
+        # winding touches it, so both neutral terminals are one node. (The
+        # OpenDSS oracle is test/data/opf_review_oracles/pf_open_delta_neutral.dss.)
+        @test y.index[("h", "n")]==y.index[("l", "n")]
         @test y.Y≈transpose(y.Y)
         # Explicit source-to-target alias recovers arbitrary conductor voltages.
         v=ComplexF64[230cis(0.21k)+k for k in eachindex(y.nodes)]
@@ -47,4 +50,10 @@ using Test, BMOPFTools, LinearAlgebra, JSON3
         "terminal_map_to"=>["return","x","y","z"])
     @test BMOPFTools._open_delta_bond(renamed;neutral_labels=Set(["return"])) ==
           (("h","y"),("l","y"))
+    @test BMOPFTools._open_delta_neutral_bond(renamed;neutral_labels=Set(["return"])) ==
+          (("h","return"),("l","return"))
+    # A three-wire bank has no neutral to carry through.
+    threewire=Dict{String,Any}("connection"=>"ABBC","bus_from"=>"h","bus_to"=>"l",
+        "terminal_map_from"=>["a","b","c"],"terminal_map_to"=>["a","b","c","n"])
+    @test BMOPFTools._open_delta_neutral_bond(threewire) === nothing
 end

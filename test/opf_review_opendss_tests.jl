@@ -152,3 +152,42 @@ end
         @test sum(coil["pg"] for coil in values(result["generator"]["g1"])) ≈ 8_000.0 rtol=1e-6
     end
 end
+
+function _net_open_delta_neutral()
+    # pf_open_delta_neutral.dss: the bank of `_net_open_delta_reg`, then a
+    # four-wire line to an unbalanced phase-to-neutral load. Only the source
+    # neutral is earthed (the OPF grounds a source-bus neutral itself).
+    net = _net_open_delta_reg()
+    delete!(net, "shunt")
+    net["bus"]["lb"] = Dict{String,Any}(
+        "terminal_names" => ["1", "2", "3", "n"], "neutral_terminal" => "n")
+    line = Dict{String,Any}("bus_from" => "reg", "bus_to" => "lb",
+        "terminal_map_from" => ["1", "2", "3", "n"],
+        "terminal_map_to" => ["1", "2", "3", "n"])
+    for k in 1:4
+        line["R_series_$(k)_$(k)"] = 0.3; line["X_series_$(k)_$(k)"] = 0.2
+    end
+    net["line"] = Dict{String,Any}("l1" => line)
+    load(phase, p, q) = Dict{String,Any}("bus" => "lb", "terminal_map" => [phase, "n"],
+        "configuration" => "SINGLE_PHASE", "p_nom" => [p], "q_nom" => [q])
+    net["load"] = Dict{String,Any}("lda" => load("1", 60_000.0, 10_000.0),
+        "ldb" => load("2", 20_000.0, 0.0), "ldc" => load("3", 20_000.0, 0.0))
+    return net
+end
+
+@testset "OpenDSS oracle — open-delta bank passes the neutral through" begin
+    V_ods = _ods_volts(joinpath(_REVIEW_ORACLE_DIR, "pf_open_delta_neutral.dss"))
+    # The premise: the load unbalance returns through the neutral, so the
+    # unearthed downstream neutral sits measurably away from earth.
+    @test abs(V_ods["lb.4"]) > 3.0
+    for per_unit in (true, false)
+        V_bm, result = _review_pf_volts(_net_open_delta_neutral(); per_unit)
+        # Regulator leakage is split differently between windings by the two
+        # tools (see the open-delta comparison above), hence rtol = 2e-3.
+        _cmp_volts(V_ods, V_bm; label="open-delta neutral pu=$per_unit: ",
+                   atol=1.0, rtol=2e-3)
+        @test V_bm["lb.4"] ≈ V_ods["lb.4"] atol=0.5
+        @test V_bm["reg.4"] ≈ V_bm["src.4"] atol=1e-6      # bonded through
+        @test result["line"]["l1"]["n"]["cm_fr"] > 5.0     # the return current
+    end
+end

@@ -522,11 +522,22 @@ phase and coming back through earth) closes at the source.
 
 !!! note "Modeling a source that is not solidly grounded"
     This rule means an impedance-grounded or ungrounded supply cannot be written
-    on the source bus itself. Put the source on its own bus and connect it to
-    the network through the element that sets the grounding — for example a
-    `delta_wye` transformer whose wye neutral is grounded through
-    `r/x_neutral_to` or an explicit `shunt` — so that the neutral of interest
-    lives on a bus without a voltage source.
+    on the source bus itself. Keep the grounding off that bus instead:
+
+    1. give the **source bus phase terminals only** (no neutral), so there is
+       no source-bus neutral for the engine to earth;
+    2. join it to the first network bus with a **three-wire link** (a line with
+       exact zero impedance is admissible);
+    3. connect that bus's neutral to earth through a `shunt` holding the
+       grounding admittance, or leave it unconnected for an ungrounded supply.
+
+    The source then fixes the phase-to-earth voltages, and all neutral current
+    returns through the grounding impedance. A 230 V source with a 0.5 Ω
+    grounding resistor feeding a 3 kW phase-to-neutral load over 0.1 Ω
+    conductors reproduces the series-circuit answer
+    $I\,(230 - 0.7\,I) = 3000$, i.e. 13.61 A and 6.8 V neutral-to-earth at the
+    grounding point (a regression test pins it). A transformer whose wye
+    neutral is grounded through `r/x_neutral_*` serves the same purpose.
 
     The passive admittance export ([`ybus_passive`](@ref)) deliberately does
     **not** apply this rule: it grounds only the terminals declared in
@@ -1850,6 +1861,11 @@ or droop targets can make the intersection infeasible.
 
 Constraint keys use families `ibr_minimum_pf_generation`,
 `ibr_minimum_pf_lower`, and `ibr_minimum_pf_upper`, indexed by `(ibr_id, coil)`.
+A limit of exactly one is the boundary case: the wedge
+$\lvert Q\rvert \le \tan\varphi\, P$ closes to the half-line $Q = 0$, $P \ge 0$.
+The two wedge rows would then read $Q \le 0$ and $-Q \le 0$, a pair with no
+interior and no unique multipliers, so the engine stamps the single equality
+`ibr_minimum_pf_equality` in their place (`ibr_minimum_pf_generation` is kept).
 The policy itself is fixed at model construction, not a live coefficient knob;
 rebuild to change it. Existing live P/Q/capability coefficients remain live.
 

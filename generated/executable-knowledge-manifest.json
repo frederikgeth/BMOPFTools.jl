@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "b7c59ce22f728eba4ba5c5b7c80f48f76309d884afeb5e1a7453ba43abfad91b",
+  "corpus_sha256": "74a9f6f0abdaf7eeadb098993add756897ea020e6ecb5ad317ceffc717ce895d",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -114,7 +114,7 @@
     },
     {
       "path": "docs/src/dev/opf_engine.md",
-      "sha256": "0cba31fe5e122518846489a17888453957055bac6a9c4fb42f85819c6ecb4c6c"
+      "sha256": "e131796cb9926648eed2680bc649362af94abba4780d27baf14d51c4450e8e02"
     },
     {
       "path": "docs/src/dev/versioning.md",
@@ -150,11 +150,11 @@
     },
     {
       "path": "docs/src/opf.md",
-      "sha256": "6fc5010542e9b28386dd1b6f5a58485a454c259353fd468fcceb94427148a9b0"
+      "sha256": "b3dedcd8c31e425b0935c53a8f76b79fc115e77d7c269a17b707f8772c6027c3"
     },
     {
       "path": "docs/src/opf_transformers.md",
-      "sha256": "fc383b50224a726d5abe3ca0ad3997d69627c62686a10c7f5e1f533431c2f3bd"
+      "sha256": "4258f20f680d4da3275d6031e7e740e5fae3665c2b7632d64ecddd24ef35854c"
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
@@ -234,7 +234,7 @@
     },
     {
       "path": "docs/src/validation.md",
-      "sha256": "7dbacc00a79dd30ed1f0c9f1ea610c561c58d5575b7db52113e81d8d11b55f25"
+      "sha256": "ef9cd1127fa02b6c6857229a48ba060a74b5983e5eab18b10046ea627c4efa22"
     },
     {
       "path": "examples/case_development.jl",
@@ -274,7 +274,7 @@
     },
     {
       "path": "ext/BMOPFOpfExt/ibr.jl",
-      "sha256": "0bdac083ea42196591ff5e6fb26da66827b85e5bd3f2286bdb6f2ca236e9702c"
+      "sha256": "0de1c4c1335822be84eb7575e475460af4cb245fbbbdaf464404a4357be47b1e"
     },
     {
       "path": "ext/BMOPFOpfExt/load.jl",
@@ -310,11 +310,11 @@
     },
     {
       "path": "ext/BMOPFOpfExt/transformer.jl",
-      "sha256": "b57277c5e5df65c257362e50048db29c9c1e2b1a1bf2b714af53db6a3f3f63f0"
+      "sha256": "e815cf221f415ad0294f1bcc2ad60975743e3ebb2836c1c4cb5ff9f08cdb77ad"
     },
     {
       "path": "ext/BMOPFOpfExt/variables.jl",
-      "sha256": "84d2490b0298de0b1813224899708ffa978cc0af27c6ccaaf7392b7082fefecc"
+      "sha256": "c1db531581a70c5049c10da49e7d9584a44c0f0a351f97762962365db3200afc"
     },
     {
       "path": "generated/finding-registry.json",
@@ -322,7 +322,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "a031eab3a5204e1d3ea200e8165b5c1b6c3b020ccaa2a409420b6cf0dbebdd07"
+      "sha256": "fa7984f36e8da8162ab86c7b760ab64c6eb30df933c100308c3a923710f68119"
     },
     {
       "path": "recipes/README.md",
@@ -642,7 +642,7 @@
     },
     {
       "path": "src/io/ybus.jl",
-      "sha256": "8cc2fa11dc6368b8961fdc6b311e5593ee1a9c0c2525f0dd2fa019edbe464ca1"
+      "sha256": "4b6a55c9db553500ba38348d145c9576ef5003b4b57c263573b35fcc7b27e93a"
     },
     {
       "path": "src/io/ybus_augmented.jl",
@@ -874,7 +874,7 @@
     },
     {
       "path": "test/data/opf_review_oracles/license.md",
-      "sha256": "8512db39eb21c32e7bbcbda47b6baf61b56090a2b802a9e1c88919e52e47432c"
+      "sha256": "7d30854ed432df00e9775e1d3520e7fdd4bf8c9e358d87c91601d18ca4b191e1"
     },
     {
       "path": "test/data/opf_review_oracles/pf_4w_two_section.dss",
@@ -887,6 +887,10 @@
     {
       "path": "test/data/opf_review_oracles/pf_mesh_unequal_ratio.dss",
       "sha256": "a2c78f735a8ca7f5007c76383362cb596002f4bdba60d0d5466161cf9a220150"
+    },
+    {
+      "path": "test/data/opf_review_oracles/pf_open_delta_neutral.dss",
+      "sha256": "b4b5c2187e04b71063ce6151ec271ad2650e4f1b36701de7ab1027e1d8536727"
     },
     {
       "path": "test/data/parameter_updates/stale_evaluation.jl",
@@ -1526,7 +1530,7 @@
     },
     {
       "path": "test/open_delta_bond_tests.jl",
-      "sha256": "a344d3974eab18b07243aa8c39ba1d44aec991a1c238761f1fcbbe7ba1cd6c96"
+      "sha256": "5e8b87d889e4ec538439f92c35a1db764961158b4f5f54414f91d0ed8d491b79"
     },
     {
       "path": "test/opendss_semantics_tests.jl",
@@ -1558,11 +1562,11 @@
     },
     {
       "path": "test/opf_review_opendss_tests.jl",
-      "sha256": "39289823de7947229789bfcfb087148de4a1ccc952ed83bd21a96aed959db9ef"
+      "sha256": "3ee872339107af418c4972b6016b753e3767fda33898a2884e324f148efd90ec"
     },
     {
       "path": "test/opf_review_regression_tests.jl",
-      "sha256": "3237e53453dad18585be024aebc16f372e9d8f404b5d0bf6237608316311e82c"
+      "sha256": "21489f486c3cac40f512b5bf690dc9945d5c7c8a69ef3a0f7e5b37af7bc75763"
     },
     {
       "path": "test/opf_tests.jl",

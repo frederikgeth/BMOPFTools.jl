@@ -244,6 +244,9 @@ function _ybus_nodes(net::Dict{String,Any}; config=_DEFAULT_CONFIG,
     for x in values(get(get(net,"transformer",Dict()),"open_delta_regulator",Dict()))
         a,b=_open_delta_bond(x;neutral_labels=_neutral_labels(net))
         _uf_union!(uf,a,b)
+        # The neutral conductor passes straight through the bank as well.
+        nb=_open_delta_neutral_bond(x;neutral_labels=_neutral_labels(net))
+        nb===nothing || _uf_union!(uf,nb...)
     end
 
     # 5. collapse grounded terminals onto the earth reference. Grounding is a
@@ -287,6 +290,26 @@ function _open_delta_bond(x; neutral_labels=nothing)
     pb=neutral_labels===nothing ? _phase_positions(b) : _phase_positions(b,neutral_labels)
     length(pa)==3 && length(pb)==3 || throw(ArgumentError("open-delta requires three phases on both sides"))
     ((string(x["bus_from"]),a[pa[shared]]),(string(x["bus_to"]),b[pb[shared]]))
+end
+
+"""
+    _open_delta_neutral_bond(x; neutral_labels=nothing) -> ((bus, t), (bus, t)) or nothing
+
+The neutral through-connection of an open-delta regulator bank, or `nothing`
+when either terminal map carries no neutral.
+
+An open-delta bank regulates two line-to-line voltages; no winding touches the
+neutral. On a four-wire feeder the neutral conductor therefore passes the bank
+unbroken, exactly like the phase common to both regulators. Without this bond
+the downstream neutral is an island: a phase-to-neutral load there has no
+return path unless the neutral happens to be earthed on both sides.
+"""
+function _open_delta_neutral_bond(x; neutral_labels=nothing)
+    a=string.(get(x,"terminal_map_from",String[]));b=string.(get(x,"terminal_map_to",String[]))
+    na=neutral_labels===nothing ? _neutral_pos(a) : _neutral_pos(a,neutral_labels)
+    nb=neutral_labels===nothing ? _neutral_pos(b) : _neutral_pos(b,neutral_labels)
+    (na===nothing || nb===nothing) && return nothing
+    ((string(x["bus_from"]),a[na]),(string(x["bus_to"]),b[nb]))
 end
 
 # ── primitive blocks ─────────────────────────────────────────────────────────

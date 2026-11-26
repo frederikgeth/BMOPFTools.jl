@@ -1426,8 +1426,9 @@ const _OPEN_DELTA_PAIRS = Dict{String,Tuple{Tuple{Int,Int},Tuple{Int,Int}}}(
     _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i)
 
 Monolithic open-delta regulator: two line-to-line regulating windings. Terminal
-arity (4,4): `["1","2","3","n"]` on both sides; the neutral carries no winding
-current. `tap_ratio` is `[a1, a2]` (per regulator); `regulator_type` shared.
+arity (4,4): `["1","2","3","n"]` on both sides. The neutral carries no winding
+current; it is bonded straight through the bank, like the phase common to both
+regulators. `tap_ratio` is `[a1, a2]` (per regulator); `regulator_type` shared.
 """
 function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_r, kcl_i;
                                     tap=nothing, branch_inj=nothing, scoil=nothing,
@@ -1562,5 +1563,33 @@ function _add_open_delta_regulator!(model, tid, xfmr, vr, vi, cr_xf, ci_xf, kcl_
         Iwr = cr_xf[(tid,"fr",3)]; Iwi = ci_xf[(tid,"fr",3)]
         kadd(b_fr, t_fr_s, -Iwr, -Iwi)
         kadd(b_to, t_to_s,  Iwr,  Iwi)
+    end
+
+    # ── Neutral straight-through ─────────────────────────────────────────────
+    # No winding of an open-delta bank touches the neutral, so on a four-wire
+    # feeder the neutral conductor passes the bank unbroken — the same
+    # zero-impedance through-branch as the shared phase: equal voltage on both
+    # sides plus a free bond current (index 4 on the "fr" side). Without it the
+    # downstream neutral is an island, and a phase-to-neutral load there has
+    # no return path unless both neutrals happen to be earthed.
+    neutral_bond = BMOPFTools._open_delta_neutral_bond(xfmr; neutral_labels=nlabels)
+    if neutral_bond !== nothing
+        key_fr, key_to = neutral_bond
+        Inr = cr_xf[(tid,"fr",4)]; Ini = ci_xf[(tid,"fr",4)]
+        both_fixed = all(JuMP.is_fixed, (vr[key_fr], vi[key_fr], vr[key_to], vi[key_to]))
+        if both_fixed
+            # Both neutrals are already held at a fixed potential (perfectly
+            # grounded or source-pinned). The voltage row would be vacuous and
+            # the bond current indeterminate against the two free earth
+            # currents, so the bond carries nothing.
+            fix(Inr, 0.0; force=true); fix(Ini, 0.0; force=true)
+        else
+            register(:transformer_galvanic_bond_real, (tid, :neutral),
+                @constraint(model, vr[key_fr] == vr[key_to]))
+            register(:transformer_galvanic_bond_imag, (tid, :neutral),
+                @constraint(model, vi[key_fr] == vi[key_to]))
+            kadd(key_fr[1], key_fr[2], -Inr, -Ini)
+            kadd(key_to[1], key_to[2],  Inr,  Ini)
+        end
     end
 end
