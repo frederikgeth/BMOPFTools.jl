@@ -55,9 +55,25 @@ function _wires_by_level(net::Dict{String,Any},
         # supplied by a delta secondary winding is three-wire by construction:
         # the transformer brings out no neutral that could have been removed.
         has_branch = wires != "no branch conductors represented"
-        delta_fed = any(get(get(net, "transformer", Dict()), "wye_delta", Dict())) do (_, t)
-            t isa AbstractDict && get(t, "bus_to", nothing) in level_set
+        # Delta-fed means EVERY transformer landing a secondary in this level
+        # is a wye-delta unit; one such unit does not vouch for feeders at the
+        # same nominal voltage that a wye secondary supplies.
+        n_delta = 0; n_other = 0
+        all_xfmr = get(net, "transformer", Dict())
+        for subtype in TRANSFORMER_SUBTYPES
+            group = all_xfmr isa AbstractDict ? get(all_xfmr, subtype, nothing) : nothing
+            group isa AbstractDict || continue
+            for (_, t) in group
+                t isa AbstractDict || continue
+                lands = subtype in WINDING_LIST_SUBTYPES ?
+                    any(w -> w.bus in level_set, _nw_windings(t)[2:end]) :
+                    get(t, "bus_to", nothing) in level_set &&
+                        !(get(t, "bus_from", nothing) in level_set)
+                lands || continue
+                subtype == "wye_delta" ? (n_delta += 1) : (n_other += 1)
+            end
         end
+        delta_fed = n_delta > 0 && n_other == 0
         out[label]["delta_fed"] = delta_fed
         if is_lv && n_with_n == 0 && length(ids) > 1 && has_branch && !delta_fed
             extra = isempty(implicit_loads) ? "" :
@@ -427,14 +443,19 @@ end
 # builders stamp y_n = 1/(R_n + jX_n) from that terminal to earth, so it is a
 # finite voltage reference for its galvanic island exactly like a one-terminal
 # grounding shunt. A side without a neutral terminal has no such branch (the
-# builders ignore the fields there), and n_winding grounding is an explicit
-# network shunt by contract.
+# builders ignore the fields there). Subtypes whose builders do not stamp the
+# branch at all are excluded: n_winding grounding is an explicit network shunt
+# by contract, and regulators and autotransformers do not read the fields.
+const _NEUTRAL_IMPEDANCE_SUBTYPES = ("single_phase", "center_tap", "wye_delta", "delta_wye")
+
 function _transformer_neutral_earthing(net)
     out = Dict{Tuple{String,String},Float64}()
     roles = _index_roles(net)
     for record in _connection_records(net)
         record.kind == "transformer" || continue
-        record.subtype in WINDING_LIST_SUBTYPES && continue
+        # Only these builders stamp the branch; regulators, autotransformers
+        # and n_winding units do not read the fields.
+        record.subtype in _NEUTRAL_IMPEDANCE_SUBTYPES || continue
         c = record.component
         c isa AbstractDict || continue
         for side in ("from", "to")

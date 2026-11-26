@@ -558,11 +558,15 @@ function _check_opendss_defaults(net::Dict{String,Any},
     n_hits = 0
     # Fingerprints come from the call's configuration ([provenance.dss_defaults]),
     # falling back to the packaged value key by key.
-    _f(key, default) = Float64(get(cfg, key, default))
+    # A malformed user value (a string, a non-finite number) falls back to the
+    # packaged one rather than aborting the analysis.
+    _f(key, default) = (v = get(cfg, key, default);
+        v isa Real && !(v isa Bool) && isfinite(v) ? Float64(v) : Float64(default))
     dss_normamps = _f("normamps", _DSS_NORMAMPS)
     dss_xhl_pu   = _f("xhl_pu", _DSS_XHL_PU)
     dss_rw_pu    = _f("rw_pu", _DSS_RW_PU)
     dss_pf       = _f("pf", _dss_defaults_cfg()["pf"])
+    0 < dss_pf <= 1 || (dss_pf = Float64(_dss_defaults_cfg()["pf"]))
     dss_pf_tan   = tan(acos(dss_pf))
     dss_kv_ll    = (_f("basekv_v", _DSS_KV_LL[1]), _f("kv_v", _DSS_KV_LL[2]))
 
@@ -777,8 +781,10 @@ A line meeting either condition gets an `I.PROV.LINE_SWITCH_LIKE` info finding.
 function _check_switch_like_lines(net::Dict{String,Any},
                                    findings::Vector{Finding};
                                    cfg::AbstractDict=_switch_like_cfg())::Dict{String,Any}
-    z_per_m = Float64(get(cfg, "z_per_m", _SWITCH_LIKE_Z_PER_M))
-    z_total = Float64(get(cfg, "z_total", _SWITCH_LIKE_Z_TOTAL))
+    _z(key, default) = (v = get(cfg, key, default);
+        v isa Real && !(v isa Bool) && isfinite(v) ? Float64(v) : Float64(default))
+    z_per_m = _z("z_per_m", _SWITCH_LIKE_Z_PER_M)
+    z_total = _z("z_total", _SWITCH_LIKE_Z_TOTAL)
     linecodes = get(net, "linecode", Dict())
     hits = Dict{String, Vector{String}}()   # line_id => reasons
 

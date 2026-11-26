@@ -255,6 +255,11 @@ using BMOPFTools
         conflict = base(); conflict["meta"] = Dict{String,Any}("crs" => "EPSG:4326")
         @test_throws ArgumentError sideload_coordinates!(conflict, csv; frame=:cartesian, units="m")
         @test !haskey(conflict["bus"]["b1"], "x")              # nothing written on refusal
+        # A declaration under another accepted key, at the root, conflicts too,
+        # and the refused call leaves the case untouched.
+        aliased = base(); aliased["coordinate_reference_system"] = "EPSG:4326"
+        @test_throws ArgumentError sideload_coordinates!(aliased, csv; frame=:cartesian, units="m")
+        @test !haskey(aliased, "meta")
     end
 
     @testset "an IBR on a series-path interior bus is an attachment" begin

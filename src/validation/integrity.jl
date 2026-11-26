@@ -459,6 +459,9 @@ function integrity_check(net::Dict{String,Any},
     function _shunts_to_earth(obj)
         obj isa AbstractDict || return false
         for prefix in ("G_from_", "B_from_", "G_to_", "B_to_")
+            # Malformed entries (null, strings) are reported by the schema and
+            # dimension checks; here they simply are not a reference.
+            all(v -> v isa Real, (v for (k, v) in obj if startswith(string(k), prefix))) || continue
             M = _pattern_keys_to_matrix(obj, prefix)
             M isa AbstractMatrix && !isempty(M) || continue
             scale = maximum(abs, M)

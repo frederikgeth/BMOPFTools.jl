@@ -94,8 +94,9 @@ function connectivity_analysis(net::Dict{String,Any},
     # the bank is a single branch of the bus graph, not a cycle. Units on the
     # SAME conductors are genuinely parallel and still close a loop.
     xfmr = get(net, "transformer", Dict())
-    bank_maps = Dict{Tuple{String,String},Vector{Vector{String}}}()
+    bank_maps = Dict{Tuple{String,String},Vector{Set{String}}}()
     bank_units = Dict{Tuple{String,String},Vector{String}}()
+    bank_neutrals = roles === nothing ? nothing : roles.neutral
     for subtype in TRANSFORMER_SUBTYPES
         subtype in WINDING_LIST_SUBTYPES && continue   # n_winding below
         sub = get(xfmr, subtype, nothing)
@@ -108,10 +109,14 @@ function connectivity_analysis(net::Dict{String,Any},
             if subtype in _BANKABLE_SUBTYPES && bf isa AbstractString &&
                     bt isa AbstractString && bf != bt
                 key = (String(bf), String(bt))
-                sig = _bank_unit_signature(t)
-                seen = get!(bank_maps, key, Vector{String}[])
+                sig = _bank_unit_signature(t, bank_neutrals)
+                seen = get!(bank_maps, key, Set{String}[])
                 units = get!(bank_units, key, String[])
-                if sig !== nothing && !isempty(seen) && !(sig in seen)
+                # A further leg lands on secondary phase conductors that no
+                # earlier unit already spans, in whole or in part of a pair:
+                # neither a subset nor a superset of an earlier unit's set.
+                if sig !== nothing && !isempty(seen) &&
+                        !any(s -> issubset(sig, s) || issubset(s, sig), seen)
                     push!(seen, sig); push!(units, string(id))
                     continue                     # another leg of the same bank
                 end
@@ -601,11 +606,19 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
         # A bank of single-phase units supplies the UNION of its legs: three
         # L-N units, or two open-delta units on (a,b) and (b,c), establish all
         # three phase conductors although each unit lands only one or two.
-        fed = Set{String}()
+        # The union is taken per bank, that is over units sharing one
+        # (bus_from, bus_to) pair; unrelated single-phase units elsewhere in
+        # the zone do not add up to a three-phase supply.
+        fed_by_pair = Dict{Any,Set{String}}()
         for (subtype, id) in z.feed
-            union!(fed, _xfmr_to_phases(subtype, id, z.buses))
+            rec = get(get(xfmr, subtype, Dict()), id, nothing)
+            pair = subtype in WINDING_LIST_SUBTYPES || !(rec isa AbstractDict) ? (subtype, id) :
+                (get(rec, "bus_from", nothing), get(rec, "bus_to", nothing))
+            union!(get!(fed_by_pair, pair, Set{String}()), _xfmr_to_phases(subtype, id, z.buses))
         end
-        supplied = max(supplied, length(fed))
+        for fed in values(fed_by_pair)
+            supplied = max(supplied, length(fed))
+        end
         supplied == 0 && continue   # no identifiable supply — cannot judge
 
         offenders = sort([bid for bid in z.buses if _bus_nphase(bid) > supplied])
@@ -753,8 +766,17 @@ function _dc_link_ac_groups(net)::Vector{Vector{String}}
     dc_buses = get(net, "dc_bus", Dict())
     dc_buses isa AbstractDict && !isempty(dc_buses) || return Vector{String}[]
     parent = Dict{String,String}(string(b) => string(b) for b in keys(dc_buses))
-    find(x) = (parent[x] == x ? x : (parent[x] = find(parent[x])))
-    for (_, br) in get(net, "dc_branch", Dict())
+    function find(x)                     # iterative, with path compression
+        root = x
+        while parent[root] != root; root = parent[root]; end
+        while parent[x] != root
+            parent[x], x = root, parent[x]
+        end
+        root
+    end
+    dc_branches = get(net, "dc_branch", Dict())
+    dc_branches isa AbstractDict || (dc_branches = Dict())
+    for (_, br) in dc_branches
         br isa AbstractDict || continue
         a = get(br, "dc_bus_from", nothing); c = get(br, "dc_bus_to", nothing)
         a isa AbstractString && c isa AbstractString &&
@@ -763,7 +785,9 @@ function _dc_link_ac_groups(net)::Vector{Vector{String}}
     end
     ac_buses = get(net, "bus", Dict())
     groups = Dict{String,Set{String}}()
-    for (_, inv) in get(net, "ibr", Dict())
+    ibrs = get(net, "ibr", Dict())
+    ibrs isa AbstractDict || (ibrs = Dict())
+    for (_, inv) in ibrs
         inv isa AbstractDict || continue
         d = get(inv, "dc_bus", nothing); b = get(inv, "bus", nothing)
         d isa AbstractString && b isa AbstractString &&
@@ -776,12 +800,19 @@ end
 # Single-phase unit subtypes that are banked in practice.
 const _BANKABLE_SUBTYPES = ("single_phase", "center_tap")
 
-# Ordered conductor signature of one unit. Two units with different signatures
-# between the same bus pair occupy different conductors: legs of one bank.
-function _bank_unit_signature(t)
+# Secondary PHASE conductors of one unit (its neutral is shared by every leg of
+# a bank and says nothing about which leg the unit is). Two units between the
+# same bus pair are legs of one bank when neither's phase set contains the
+# other's. A unit across conductors another unit already spans — the same
+# pair, or the two legs of a center-tapped winding — is paralleled there,
+# whatever its primary connection, and closes a loop.
+function _bank_unit_signature(t, neutral_labels=nothing)
     f = get(t, "terminal_map_from", nothing); to = get(t, "terminal_map_to", nothing)
     f isa AbstractVector && to isa AbstractVector || return nothing
-    vcat(sort!(string.(f)), ["|"], sort!(string.(to)))
+    all(x -> x isa AbstractString, to) || return nothing
+    is_neutral(x) = neutral_labels === nothing ? _is_convention_neutral(x) : x in neutral_labels
+    sig = Set{String}(string(x) for x in to if !is_neutral(string(x)))
+    isempty(sig) ? nothing : sig
 end
 
 """
@@ -841,8 +872,34 @@ function _classify_zones(net::Dict{String,Any})
         end
     end
 
+    # Branch evidence for the return path, gathered once per zone: a branch
+    # that carries a neutral is a metallic return; a branch that carries one
+    # phase alone leaves the earth as the only return.
+    zones = _galvanic_zones(net)
+    zone_of = Dict{String,Int}()
+    for (k, zone) in enumerate(zones), bid in zone
+        zone_of[bid] = k
+    end
+    n_single_wire = zeros(Int, length(zones)); n_with_neutral = zeros(Int, length(zones))
+    for kind in ("line", "switch"), (_, c) in get(net, kind, Dict())
+        c isa AbstractDict || continue
+        kind == "switch" && get(c, "open_switch", false) === true && continue
+        f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
+        f isa AbstractString && t isa AbstractString || continue
+        k = get(zone_of, f, 0)
+        k != 0 && k == get(zone_of, t, 0) || continue
+        tf = get(c, "terminal_map_from", nothing)
+        tf isa AbstractVector && !isempty(tf) || continue
+        nf = _neutral_terminal(get(buses, f, Dict{String,Any}()))
+        if any(x -> string(x) == nf || _is_convention_neutral(string(x)), tf)
+            n_with_neutral[k] += 1
+        elseif length(tf) == 1
+            n_single_wire[k] += 1
+        end
+    end
+
     out = NamedTuple[]
-    for zone in _galvanic_zones(net)
+    for (zone_index, zone) in enumerate(zones)
         phases = Set{String}()
         for bid in zone
             b  = get(buses, bid, Dict{String,Any}())
@@ -856,27 +913,7 @@ function _classify_zones(net::Dict{String,Any})
             end
         end
 
-        # Branch evidence for the return path: a branch that carries a neutral
-        # is a metallic return; a branch that carries one phase alone leaves
-        # the earth as the only return.
-        zoneset = Set(zone)
-        n_single_wire = 0; n_with_neutral = 0
-        for kind in ("line", "switch"), (_, c) in get(net, kind, Dict())
-            c isa AbstractDict || continue
-            kind == "switch" && get(c, "open_switch", false) === true && continue
-            f = get(c, "bus_from", nothing); t = get(c, "bus_to", nothing)
-            f in zoneset && t in zoneset || continue
-            tf = get(c, "terminal_map_from", nothing)
-            tf isa AbstractVector && !isempty(tf) || continue
-            nf = _neutral_terminal(get(buses, f, Dict{String,Any}()))
-            carries_n = any(x -> string(x) == nf || _is_convention_neutral(string(x)), tf)
-            if carries_n
-                n_with_neutral += 1
-            elseif length(tf) == 1
-                n_single_wire += 1
-            end
-        end
-        earth_return = n_single_wire > 0 && n_with_neutral == 0
+        earth_return = n_single_wire[zone_index] > 0 && n_with_neutral[zone_index] == 0
 
         feed = Tuple{String,String}[]
         for bid in zone

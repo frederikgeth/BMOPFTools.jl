@@ -44,11 +44,18 @@ function sideload_coordinates!(net::Dict{String,Any}, csv_path::AbstractString;
         isempty(strip(name)) && throw(ArgumentError("the Cartesian frame name must not be empty"))
         declaration = Dict{String,Any}("type" => "cartesian", "name" => String(strip(name)),
                                        "units" => first(parsed))
+        # Any frame declaration already present, under any accepted key at the
+        # root or in meta, must be this one: a second, different declaration
+        # would leave the case ambiguous after a seemingly successful load.
+        for (path, existing) in _coordinate_declarations(net, _SPATIAL_CRS_KEYS)
+            existing == declaration || throw(ArgumentError(
+                "the case already declares a coordinate frame at $path ($(repr(existing))); " *
+                "remove it before loading Cartesian coordinates"))
+        end
+        get(net, "meta", Dict{String,Any}()) isa AbstractDict ||
+            throw(ArgumentError("net[\"meta\"] must be an object"))
         meta = get!(net, "meta", Dict{String,Any}())
         meta isa AbstractDict || throw(ArgumentError("net[\"meta\"] must be an object"))
-        existing = get(meta, "crs", nothing)
-        existing === nothing || existing == declaration || throw(ArgumentError(
-            "net[\"meta\"][\"crs\"] already declares $(repr(existing)); remove it before loading Cartesian coordinates"))
         meta["crs"] = declaration
     elseif units !== nothing
         throw(ArgumentError("units apply to frame=:cartesian only"))

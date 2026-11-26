@@ -76,6 +76,14 @@ end
         @test isempty(rp.results[:connectivity]["transformer_banks"])
         # ...and one leg alone cannot supply a three-phase bus.
         @test "W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY" in _pg_codes(rp.findings)
+        # Units fed from different primary conductors but landing on the SAME
+        # secondary conductors are paralleled there: still a loop, not a bank.
+        tied = deepcopy(net)
+        st = tied["transformer"]["single_phase"]
+        st["reg2"]["terminal_map_to"] = copy(st["reg1"]["terminal_map_to"])
+        rt = _pg_analyze(tied)
+        @test "W.CONN.MESHED" in _pg_codes(rt.findings)
+        @test isempty(rt.results[:connectivity]["transformer_banks"])
 
         # Three line-to-neutral units form a wye bank.
         bank = Dict{String,Any}(
@@ -538,5 +546,155 @@ end
         f = Finding[]
         r = connectivity_analysis(net, f)
         @test !r["is_radial"] && "W.CONN.MESHED" in _pg_codes(f)
+    end
+
+    # ── Review regressions ──────────────────────────────────────────────────
+
+    @testset "a unit across the center-tap legs is parallel, not a bank leg" begin
+        net = _pg_sys("na_high_leg_open_delta")
+        net["transformer"]["single_phase"]["power"]["terminal_map_to"] = ["a", "b"]   # across the legs
+        f = Finding[]
+        r = connectivity_analysis(net, f)
+        @test !r["is_radial"] && "W.CONN.MESHED" in _pg_codes(f)
+        @test isempty(r["transformer_banks"])
+        @test isempty(BMOPFTools._high_leg_power_units(net))
+        @test isempty(voltage_level_analysis(net, Finding[])["mixed_phase_to_neutral_buses"])
+        # A leg-to-neutral unit beside the center tap is also within its span.
+        net["transformer"]["single_phase"]["power"]["terminal_map_to"] = ["a", "n"]
+        f = Finding[]
+        @test !connectivity_analysis(net, f)["is_radial"]
+        # Declared neutral labels are used for the leg comparison.
+        @test BMOPFTools._bank_unit_signature(Dict("terminal_map_from" => ["a","4"],
+            "terminal_map_to" => ["a","4"]), Set(["4"])) == Set(["a"])
+        @test BMOPFTools._bank_unit_signature(Dict("terminal_map_from" => ["a"],
+            "terminal_map_to" => ["n"])) === nothing
+    end
+
+    @testset "neutral impedance counts only where a builder stamps it" begin
+        island(subtype) = Dict{String,Any}(
+            "bus" => Dict{String,Any}("p" => Dict{String,Any}("terminal_names" => ["a","n"]),
+                                      "s" => Dict{String,Any}("terminal_names" => ["a","n"])),
+            "transformer" => Dict{String,Any}(subtype => Dict{String,Any}("t" => Dict{String,Any}(
+                "bus_from" => "p", "bus_to" => "s", "terminal_map_from" => ["a","n"],
+                "terminal_map_to" => ["a","n"], "v_nom_from" => 240.0, "v_nom_to" => 240.0,
+                "s_rating" => 1e4, "r_neutral_from" => 5.0))))
+        @test haskey(BMOPFTools._transformer_neutral_earthing(island("single_phase")), ("p", "n"))
+        for subtype in ("single_phase_autotransformer", "open_delta_regulator")
+            net = island(subtype)
+            @test isempty(BMOPFTools._transformer_neutral_earthing(net))
+            f = Finding[]; integrity_check(net, f)
+            @test "E.INT.NO_VOLTAGE_REFERENCE" in _pg_codes(f)
+        end
+    end
+
+    @testset "malformed input does not abort the profiler" begin
+        net = _pg_sys("eu_tn_four_wire")
+        net["transformer"]["wye_delta"] = nothing
+        net["dc_bus"] = Dict{String,Any}("d" => Dict{String,Any}("terminal_names" => ["p","n"]))
+        net["dc_branch"] = nothing; net["ibr"] = nothing
+        @test _pg_analyze(net) isa SummaryReport
+
+        # A center-tap record that is a Dict of another value type.
+        net = _pg_sys("na_high_leg_open_delta")
+        net["transformer"]["single_phase"]["power"] =
+            Dict{String,Any}(net["transformer"]["single_phase"]["power"])
+        net["transformer"]["single_phase"] = Dict{String,Any}("power" =>
+            Dict{String,Union{String,Vector{String},Float64}}(
+                k => v for (k, v) in net["transformer"]["single_phase"]["power"]))
+        @test BMOPFTools._high_leg_power_units(net) == Set([("single_phase", "power")])
+
+        # Malformed threshold values fall back to the packaged ones.
+        cfg = load_config()
+        cfg["provenance"]["dss_defaults"]["pf"] = "0.9"
+        cfg["provenance"]["dss_defaults"]["normamps"] = NaN
+        cfg["provenance"]["switch_like"]["z_total"] = "tiny"
+        f = Finding[]
+        @test provenance_analysis(_pg_sys("eu_tn_four_wire"), f; config=cfg) isa Dict
+        cfg["provenance"]["dss_defaults"]["pf"] = 1.7
+        @test provenance_analysis(_pg_sys("eu_tn_four_wire"), Finding[]; config=cfg) isa Dict
+    end
+
+    @testset "delta-fed means every feeder of the level" begin
+        # A delta island and a wye-fed three-wire feeder at the same nominal voltage.
+        net = _pg_sys("it_delta_island_capacitive")
+        eu = _pg_sys("eu_tn_four_wire")
+        net["bus"]["w0"] = Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+            "perfectly_grounded_terminals" => ["n"])
+        net["bus"]["w1"] = Dict{String,Any}("terminal_names" => ["a","b","c","n"])
+        dy = deepcopy(eu["transformer"]["delta_wye"]["sub"])
+        dy["bus_from"] = "mv"; dy["bus_to"] = "w0"
+        net["transformer"]["delta_wye"] = Dict{String,Any}("dy" => dy)
+        net["line"]["w"] = Dict{String,Any}("bus_from" => "w0", "bus_to" => "w1", "linecode" => "cable",
+            "length" => 60.0, "terminal_map_from" => ["a","b","c"], "terminal_map_to" => ["a","b","c"])
+        f = Finding[]
+        r = provenance_analysis(net, f)
+        @test !r["wires_by_level"]["LV_231V"]["delta_fed"]
+        @test "I.PROV.KRON_LIKELY" in _pg_codes(f)
+    end
+
+    @testset "supplied phases are united per bank, not per zone" begin
+        # Two unrelated single-phase units on phases a and b feed two buses of
+        # one LV zone; a three-phase bus behind them is not supplied.
+        net = Dict{String,Any}(
+            "bus" => Dict{String,Any}(
+                "mv" => Dict{String,Any}("terminal_names" => ["a","b","c","n"], "perfectly_grounded_terminals" => ["n"]),
+                "l1" => Dict{String,Any}("terminal_names" => ["a","b","c","n"]),
+                "l2" => Dict{String,Any}("terminal_names" => ["a","b","c","n"]),
+                "l3" => Dict{String,Any}("terminal_names" => ["a","b","c","n"])),
+            "voltage_source" => Dict{String,Any}("s" => Dict{String,Any}("bus" => "mv",
+                "terminal_map" => ["a","b","c"], "v_magnitude" => fill(7200.0, 3), "v_angle" => [0.0, -2π/3, 2π/3])),
+            "transformer" => Dict{String,Any}("single_phase" => Dict{String,Any}(
+                "t$p" => Dict{String,Any}("bus_from" => "mv", "bus_to" => b,
+                    "terminal_map_from" => [p, "n"], "terminal_map_to" => [p, "n"],
+                    "v_nom_from" => 7200.0, "v_nom_to" => 120.0)
+                for (p, b) in (("a", "l1"), ("b", "l2"), ("c", "l3")))),
+            "line" => Dict{String,Any}(
+                "x" => Dict{String,Any}("bus_from" => "l1", "bus_to" => "l2",
+                    "terminal_map_from" => ["a","b","c","n"], "terminal_map_to" => ["a","b","c","n"]),
+                "y" => Dict{String,Any}("bus_from" => "l2", "bus_to" => "l3",
+                    "terminal_map_from" => ["a","b","c","n"], "terminal_map_to" => ["a","b","c","n"])))
+        f = Finding[]
+        connectivity_analysis(net, f)
+        hit = only(x for x in f if x.code == "W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY")
+        @test hit.detail["supplied_phases"] == 1
+    end
+
+    @testset "a long DC chain is one link" begin
+        net = _pg_sys("eu_tn_four_wire")
+        n = 20_000
+        net["dc_bus"] = Dict{String,Any}("d$k" => Dict{String,Any}("terminal_names" => ["p","n"]) for k in 1:n)
+        net["dc_branch"] = Dict{String,Any}("c$k" => Dict{String,Any}("dc_bus_from" => "d$k",
+            "dc_bus_to" => "d$(k+1)") for k in 1:n-1)
+        net["ibr"] = Dict{String,Any}(
+            "c1" => Dict{String,Any}("bus" => "lv1", "dc_bus" => "d1"),
+            "c2" => Dict{String,Any}("bus" => "lv2", "dc_bus" => "d$n"))
+        @test BMOPFTools._dc_link_ac_groups(net) == [["lv1", "lv2"]]
+    end
+
+    # ── Noise budget on decks an independent engine solves ──────────────────
+    #
+    # Every deck in test/data/pf_comparison (and the SWER feeder) is solved by
+    # OpenDSS in the power-flow comparison tests: these are valid networks. The
+    # profiler may comment on them, but an ERROR on one is a false flag, and
+    # the warning count is a budget: raise it only with a reason.
+    @testset "noise budget on OpenDSS-validated decks" begin
+        own(f) = first(f.code, 2) in ("E.", "W.", "I.")
+        decks = sort!([f for f in readdir(_PG_PF) if endswith(f, ".dss")])
+        @test length(decks) >= 30
+        # The one known exception: the deck leaves a PV terminal on OpenDSS
+        # node 0, which the import does not materialize at that bus.
+        known_errors = Dict("pf_pv_1ph.dss" => ["E.INT.UNKNOWN_TERMINAL"])
+        total_warnings = 0; worst = 0
+        cases = vcat([(d, () -> _pg_dss(d)) for d in decks],
+                     [("SWER", () -> _pg_dss("../SWER/Master.dss"))])
+        for (name, load) in cases
+            report = _pg_analyze(load())
+            errs = sort!([f.code for f in errors(report) if own(f)])
+            @test errs == get(known_errors, name, String[])
+            n = count(own, warnings(report))
+            total_warnings += n; worst = max(worst, n)
+        end
+        @test worst <= 7                       # measured: 7 (pf_zip_delta.dss)
+        @test total_warnings <= 95             # measured: 87 over 38 cases
     end
 end

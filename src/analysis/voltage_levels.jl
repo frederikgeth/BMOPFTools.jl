@@ -150,7 +150,7 @@ end
 
 # A 1-phase winding is connected phase-to-phase when its terminal map spans two
 # phase conductors with no neutral — so its v_nom is a line-to-line voltage.
-function _winding_phase_to_phase(net, t::Dict{String,Any}, key::String)::Bool
+function _winding_phase_to_phase(net, t::AbstractDict, key::String)::Bool
     tm = get(t, key, nothing)
     tm isa AbstractVector || return false
     bid=get(t,key=="terminal_map_from" ? "bus_from" : "bus_to",nothing)
@@ -171,16 +171,26 @@ function _high_leg_power_units(net::Dict{String,Any})::Set{Tuple{String,String}}
     xfmr = get(net, "transformer", Dict())
     ct = get(xfmr, "center_tap", nothing); sp = get(xfmr, "single_phase", nothing)
     ct isa AbstractDict && sp isa AbstractDict || return out
-    lighting = Set{Tuple{String,String}}()
+    # Secondary legs of the center-tapped units, per (bus_from, bus_to) pair.
+    lighting = Dict{Tuple{String,String},Set{String}}()
     for (_, t) in ct
         t isa AbstractDict || continue
         f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
-        f isa AbstractString && b isa AbstractString && push!(lighting, (f, b))
+        tm = get(t, "terminal_map_to", nothing)
+        f isa AbstractString && b isa AbstractString && tm isa AbstractVector &&
+            length(tm) == 3 || continue
+        union!(get!(lighting, (f, b), Set{String}()), (string(tm[1]), string(tm[3])))
     end
     isempty(lighting) && return out
     for (id, t) in sp
         t isa AbstractDict || continue
-        (get(t, "bus_from", nothing), get(t, "bus_to", nothing)) in lighting || continue
+        legs = get(lighting, (get(t, "bus_from", nothing), get(t, "bus_to", nothing)), nothing)
+        legs === nothing && continue
+        tm = get(t, "terminal_map_to", nothing)
+        tm isa AbstractVector || continue
+        # The power unit must reach a conductor beyond the two legs. A unit
+        # across the legs themselves is paralleled with the lighting winding.
+        any(x -> !(string(x) in legs), tm) || continue
         _winding_phase_to_phase(net, t, "terminal_map_to") && push!(out, ("single_phase", string(id)))
     end
     out
