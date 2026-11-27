@@ -189,7 +189,12 @@ transformer ratios. Three cases need care when reading it:
   that terminal is on, followed through the terminal maps of lines and closed
   switches (a terminal called `b` that is fed from the source's `a` carries the
   angle of `a`):
-  the third conductor must come out at √3 times the leg level. Primaries on the
+  the third conductor must come out at √3 times the leg level, with each
+  secondary voltage taken as the traced primary phasor times the unit's declared
+  turns ratio. When the directions fit but the power unit's secondary amplitude
+  is not the bank's line-to-line voltage (a wrong rating, or a weak source
+  phase), the status is `amplitude_mismatch`: not a high leg, and reported as
+  `W.VOLT.XFMR_RATIO` with `secondary_amplitude_ratio`. Primaries on the
   same phase, a line-to-line beside a line-to-neutral primary, or one reversed
   winding do not close the delta and are ordinary level conflicts. Phase
   labels are never evidence of an angle: behind another transformer (two legs

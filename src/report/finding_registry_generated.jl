@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "4cabb830385bc271fcc4e920efc910520d37101350aab83e0ec525e800e21519"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "90db41d59824a739d344383888f35be9aabe66f5681c886af7210b7baab7592e"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -306,7 +306,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="VOLT",
         catalogue_section="VOLT",
         section_title="voltage levels",
-        meaning="A transformer's `v_nom` turns ratio disagrees (>10 %) with the voltage ratio of the levels it actually connects — ratio and placement are inconsistent. The power unit of a high-leg delta bank is checked against the bank's line-to-line voltage (twice the leg level set by the center-tapped unit; `basis = high_leg_line_to_line`).",
+        meaning="A transformer's `v_nom` turns ratio disagrees (>10 %) with the voltage ratio of the levels it actually connects — ratio and placement are inconsistent. The power unit of a high-leg delta bank is checked against the bank's line-to-line voltage (twice the leg voltage of the center-tapped unit; `basis = high_leg_line_to_line`): its secondary amplitude, from the traced primary phasor and its declared turns ratio, must be within 10 % (`secondary_amplitude_ratio`), so both a wrong rating and a weak source phase are reported.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1953,7 +1953,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="INT",
         catalogue_section="INT",
         section_title="structural integrity",
-        meaning="A galvanic island (transformer windings are separations) with no source, perfect grounding, grounding shunt, line shunt admittance to earth as the admittance builders stamp it (modeled line capacitance: an unearthed delta or IT island is referenced through it; one impedance source per line — inline totals, else the linecode scaled by length — and only the block over the mapped conductors, with omitted entries of a sparsely declared matrix read as zero, so a shunt entry the engine never stamps is not a reference), or transformer neutral impedance (`r/x_neutral_from`/`to` on a side that has a neutral terminal — impedance and resonant earthing), or a load written against earth (WYE or one-terminal SINGLE_PHASE with no neutral in its map) with nonzero demand — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island. A second form (`detail[\"scope\"] = \"conductor_group\"`; the first has `\"island\"`) is raised when the island has a reference that does not reach every conductor: a group of terminals joined to each other by lines, windings and devices, but to no earthed conductor, can shift together. An earth shunt on a separately carried neutral does not reference delta-connected phases that nothing connects to that neutral.",
+        meaning="A galvanic island (transformer windings are separations) with no source, perfect grounding, grounding shunt, line shunt admittance to earth as the admittance builders stamp it (modeled line capacitance: an unearthed delta or IT island is referenced through it; one impedance source per line — inline totals, else the linecode scaled by length — and only the block over the mapped conductors, with omitted entries of a sparsely declared matrix read as zero, so a shunt entry the engine never stamps is not a reference), or transformer neutral impedance (`r/x_neutral_from`/`to` on a side that has a neutral terminal — impedance and resonant earthing), or a coil written against earth (WYE or one-terminal SINGLE_PHASE with no neutral in its map) whose power is given: a load coil with nonzero demand, or a generator coil with fixed, nonzero output — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island. A second form (`detail[\"scope\"] = \"conductor_group\"`; the first has `\"island\"`) is raised when the island has a reference that does not reach every conductor: a group of terminals joined to each other by lines, windings and devices, but to no earthed conductor, can shift together. An earth shunt on a separately carried neutral does not reference delta-connected phases that nothing connects to that neutral.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

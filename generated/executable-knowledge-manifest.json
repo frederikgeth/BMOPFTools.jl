@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "66eb8a069051ceb69ad9e0bb69dba670e44c4aecded930aa41d325a67d63cd5a",
+  "corpus_sha256": "10ccd7ab8c160175fc7876a42fad48fc1702d8842766641f23478ba8625f78b4",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "4cabb830385bc271fcc4e920efc910520d37101350aab83e0ec525e800e21519"
+      "sha256": "90db41d59824a739d344383888f35be9aabe66f5681c886af7210b7baab7592e"
     },
     {
       "path": "docs/src/first_case.md",
@@ -318,7 +318,7 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "86747db483a0fc85022da0449b719392b14e86351b7a8feda11a35eec11cffe1"
+      "sha256": "83c36fc087c7886b357268d9134df81b43b051b4f8b6af8eb03a941c1ea169b9"
     },
     {
       "path": "knowledge/executable.toml",
@@ -534,7 +534,7 @@
     },
     {
       "path": "src/analysis/voltage_levels.jl",
-      "sha256": "60c73c98515885ff3415d94ee7c71b0ca883fb8fd9def0a19406c23cd62ea4c3"
+      "sha256": "c59f9d219a0dc47a8f0c170b5e270530970c16cdb9e6bb0e7e2a222b93014596"
     },
     {
       "path": "src/analysis/winding_limit_coverage.jl",
@@ -670,7 +670,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "f9a39be2e027496fba684687aedcc662009c3bc8a0fc854e4e13c2f4eaba2179"
+      "sha256": "8fd307d943c42cbbb358a6ca70f5b95cb0d681de542c69b3e0dacaf85c85e509"
     },
     {
       "path": "src/report/formatting.jl",
@@ -714,7 +714,7 @@
     },
     {
       "path": "src/validation/integrity.jl",
-      "sha256": "1fd29c5892948944d23f94a8fa2c12ddee62886b9f101337b7020f4e9554705d"
+      "sha256": "8fbacec955779e03402bd4715f7c20e5c59f3e7689a388a0122e094b29b69749"
     },
     {
       "path": "src/validation/power_factor.jl",

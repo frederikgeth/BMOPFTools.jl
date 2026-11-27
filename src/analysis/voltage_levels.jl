@@ -136,13 +136,15 @@ function voltage_level_analysis(net::Dict{String,Any},
     # (high-leg delta); the reported level is the center-tapped leg voltage.
     result["high_leg_units"] = sort!([b.id for b in high_leg_banks])
     result["high_leg_banks"] = [Dict{String,Any}("power_unit" => b.id, "lighting_unit" => b.lighting,
-        "bus_from" => b.bus_from, "bus_to" => b.bus_to, "high_leg" => b.high, "status" => b.status)
+        "bus_from" => b.bus_from, "bus_to" => b.bus_to, "high_leg" => b.high, "status" => b.status,
+        "secondary_amplitude_ratio" => b.amplitude_ratio)
         for b in high_leg_banks]
-    result["mixed_phase_to_neutral_buses"] = sort!(unique!(String[b.bus_to for b in high_leg_banks]))
+    result["mixed_phase_to_neutral_buses"] = sort!(unique!(String[b.bus_to for b in high_leg_banks
+                                                                  if b.status == "verified"]))
 
     # Check: non-transformer edges crossing voltage levels
     _check_level_crossing_lines(net, assigned_level, findings)
-    _check_transformer_ratio_consistency(net, assigned_level, findings; high_leg=high_leg)
+    _check_transformer_ratio_consistency(net, assigned_level, findings; banks=high_leg_banks)
 
     result
 end
@@ -179,7 +181,10 @@ end
 # rating is deliberately not used here; `_check_high_leg_ratio` checks it.
 #
 # Returns one record per identified power unit, resolved once per network:
-# `(id, bus_from, bus_to, lighting, high, status)`. `status` is "verified", or
+# `(id, bus_from, bus_to, lighting, high, status, amplitude_ratio)`. A unit
+# whose primaries point the right way but whose secondary amplitude is not the
+# bank's line-to-line voltage has status "amplitude_mismatch": it is not a
+# high leg, it is kept out of level propagation, and the ratio check reports it. `status` is "verified", or
 # "unverified" when the primary phasors are not established: no voltage source
 # declares the angle of the conductor each winding terminal is on, as followed
 # through the terminal maps of lines and closed switches. Phase labels are
@@ -187,8 +192,8 @@ end
 # unverified unit is kept out of level propagation rather than raised as a
 # false conflict, is reported with that status, and is not called a high leg.
 function _high_leg_banks(net::Dict{String,Any})
-    out = NamedTuple{(:id, :bus_from, :bus_to, :lighting, :high, :status),
-                     Tuple{String,String,String,String,Vector{String},String}}[]
+    out = NamedTuple{(:id, :bus_from, :bus_to, :lighting, :high, :status, :amplitude_ratio),
+                     Tuple{String,String,String,String,Vector{String},String,Union{Float64,Nothing}}}[]
     xfmr = get(net, "transformer", Dict())
     xfmr isa AbstractDict || return out
     ct = get(xfmr, "center_tap", nothing); sp = get(xfmr, "single_phase", nothing)
@@ -269,14 +274,19 @@ function _high_leg_banks(net::Dict{String,Any})
         end
         conductor_angle((String(bus), String(t)))
     end
-    function direction(bus, tm)
+    # Phasor across a winding's two terminals, or nothing when it is not
+    # established or has no direction (both terminals at the same phasor).
+    function winding(bus, tm)
         a = phasor(bus, tm[1]); b = phasor(bus, tm[2])
         (a === nothing || b === nothing) && return nothing
         p = a - b
-        # Relative to the larger terminal: a winding across two conductors at
-        # (nearly) the same phasor has no direction.
         scale = max(abs(a), abs(b))
-        scale > 0 && abs(p) > 1e-6 * scale ? p / abs(p) : nothing
+        scale > 0 && abs(p) > 1e-6 * scale ? p : nothing
+    end
+    ratio(t) = begin
+        vf = get(t, "v_nom_from", nothing); vt = get(t, "v_nom_to", nothing)
+        vf isa Real && vt isa Real && isfinite(vf) && isfinite(vt) && vf > 0 && vt > 0 ?
+            Float64(vt) / Float64(vf) : nothing
     end
 
     for id in sort!(collect(keys(sp)))
@@ -296,17 +306,35 @@ function _high_leg_banks(net::Dict{String,Any})
             # One end on a leg, the other on a new conductor: a unit across the
             # two legs is paralleled with the lighting winding instead.
             length(shared) == 1 && length(fresh) == 1 || continue
-            u1 = direction(String(f), u.from); u2 = direction(String(f), string.(tf))
-            if u1 === nothing || u2 === nothing
-                push!(out, (id=string(id), bus_from=String(f), bus_to=String(b), lighting=u.id,
-                            high=fresh, status="unverified"))
+            record(status, amplitude) = (id=string(id), bus_from=String(f), bus_to=String(b),
+                lighting=u.id, high=fresh, status=status, amplitude_ratio=amplitude)
+            p1 = winding(String(f), u.from); p2 = winding(String(f), string.(tf))
+            r1 = ratio(get(ct, u.id, Dict())); r2 = ratio(t)
+            if p1 === nothing || p2 === nothing || r1 === nothing || r2 === nothing
+                push!(out, record("unverified", nothing))
                 break
             end
-            v_shared = shared[1] == legs[1] ? u1 : -u1          # in units of the leg level
-            v_fresh = to[1] == shared[1] ? v_shared - 2 * u2 : v_shared + 2 * u2
-            abs(abs(v_fresh) / sqrt(3.0) - 1) <= 0.1 || continue
-            push!(out, (id=string(id), bus_from=String(f), bus_to=String(b), lighting=u.id,
-                        high=fresh, status="verified"))
+            # Secondary voltages as the declared ratios make them from the
+            # traced primary phasors: the legs at ±leg, the power winding at
+            # `across`. The delta closes only if both the direction and the
+            # amplitude of the power winding fit.
+            leg = r1 * p1; across = r2 * p2
+            placed(a) = (v_shared = shared[1] == legs[1] ? leg : -leg;
+                         to[1] == shared[1] ? v_shared - a : v_shared + a)
+            fits(a) = abs(abs(placed(a)) / (sqrt(3.0) * abs(leg)) - 1) <= 0.1
+            amplitude = abs(across) / (2 * abs(leg))
+            if fits(across)
+                push!(out, record("verified", amplitude))
+            elseif fits(2 * abs(leg) * across / abs(across))
+                # Right direction, wrong amplitude: the primaries would close a
+                # delta, but this unit's secondary voltage is not the bank's
+                # line-to-line voltage (its rating, or the magnitude of the
+                # phase it is fed from). Not a high leg; the ratio check
+                # reports it.
+                push!(out, record("amplitude_mismatch", amplitude))
+            else
+                continue
+            end
             break
         end
     end
@@ -550,10 +578,31 @@ end
 # unit fixes the scalar bus nominal), but its own ratio is still checked: its
 # secondary closes the delta across the bank's line-to-line voltage, which is
 # twice the leg level the lighting unit establishes.
-function _check_high_leg_ratio(roles, id, t, assigned, findings)
-    f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
-    vf_bus = get(assigned, f, nothing); leg = get(assigned, b, nothing)
-    vf_ref = get(t, "v_nom_from", nothing); vt_ref = get(t, "v_nom_to", nothing)
+function _check_high_leg_ratio(roles, id, t, assigned, findings, bank)
+    leg = get(assigned, get(t, "bus_to", nothing), nothing)
+    vt_ref = get(t, "v_nom_to", nothing)
+    if bank.amplitude_ratio !== nothing
+        # Traced primary phasors and declared turns ratios give the secondary
+        # amplitude this unit actually produces, against the bank's
+        # line-to-line voltage (twice the leg voltage of the lighting unit).
+        abs(bank.amplitude_ratio - 1) > 0.1 || return
+        push!(findings, Finding(WARNING, "W.VOLT.XFMR_RATIO",
+            :voltage_levels, :transformer, id,
+            "Transformer '$id' is connected as the power unit of a high-leg delta bank, but its " *
+            "secondary voltage is $(round(100 * bank.amplitude_ratio, digits=1)) % of the bank's " *
+            "line-to-line voltage (twice the leg voltage set by center-tapped unit " *
+            "'$(bank.lighting)'): the delta does not close. Check its voltage ratings and the " *
+            "magnitude of the phase it is fed from.",
+            Dict{String,Any}("id" => id, "basis" => "high_leg_line_to_line",
+                "secondary_amplitude_ratio" => bank.amplitude_ratio, "lighting_unit" => bank.lighting,
+                "leg_level_v" => leg, "bank_line_to_line_v" => leg isa Real ? 2 * leg : nothing,
+                "v_nom_to" => vt_ref isa Real ? Float64(vt_ref) : nothing, "status" => bank.status)))
+        return
+    end
+    # Phasors not established: fall back to the nominal levels of the two buses.
+    f = get(t, "bus_from", nothing)
+    vf_bus = get(assigned, f, nothing)
+    vf_ref = get(t, "v_nom_from", nothing)
     all(v -> v isa Real && isfinite(v) && v > 0, (vf_bus, leg, vf_ref, vt_ref)) || return
     # Phase-to-phase primary: both terminals are phases under the resolved roles.
     tf = get(t, "terminal_map_from", nothing)
@@ -572,21 +621,23 @@ function _check_high_leg_ratio(roles, id, t, assigned, findings)
         "ratio $(round(actual, digits=4))).",
         Dict{String,Any}("id" => id, "turns_ratio" => expected, "bus_ratio" => actual,
             "basis" => "high_leg_line_to_line", "leg_level_v" => leg,
-            "bank_line_to_line_v" => 2 * leg, "v_nom_to" => Float64(vt_ref))))
+            "bank_line_to_line_v" => 2 * leg, "v_nom_to" => Float64(vt_ref), "status" => bank.status)))
 end
 
 function _check_transformer_ratio_consistency(net::Dict{String,Any},
                                                assigned::Dict{String,Float64},
                                                findings::Vector{Finding};
-                                               high_leg=_high_leg_power_units(net))
+                                               banks=_high_leg_banks(net))
     xfmr = get(net, "transformer", Dict())
     roles = _index_roles(net)
+    high_leg = _high_leg_power_units(banks)
+    bank_of = Dict(b.id => b for b in banks)
     for subtype in TRANSFORMER_SUBTYPES
         sub = get(xfmr, subtype, nothing)
         sub isa Dict || continue
         for (id, t) in sub
             if (subtype, string(id)) in high_leg
-                _check_high_leg_ratio(roles, string(id), t, assigned, findings)
+                _check_high_leg_ratio(roles, string(id), t, assigned, findings, bank_of[string(id)])
                 continue
             end
             f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)

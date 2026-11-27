@@ -1014,12 +1014,32 @@ end
                 "y" => Dict{String,Any}("bus" => "x", "terminal_map" => ["c","n"], "configuration" => "SINGLE_PHASE",
                     "p_nom" => [50.0], "q_nom" => [0.0])))).groups
         @test coils == [[("x", "a"), ("x", "b")]]            # c is referenced through its own load; a-b float
-        # A generator written against earth is not counted: its power is a
-        # decision variable, so a shift of its terminals is absorbed by dispatch.
-        gen = deepcopy(net)
-        gen["generator"] = Dict{String,Any}("g" => Dict{String,Any}("bus" => "it1", "terminal_map" => ["a"],
-            "configuration" => "SINGLE_PHASE", "p_max" => [1000.0], "q_max" => [500.0], "cost" => [0.1]))
-        @test length(groups(gen)) == 1
+        # Generators follow the same per-coil rule. A coil whose bounds force
+        # both P and Q to zero carries no current at any voltage: it neither
+        # ties its phase to the earthed neutral nor references anything.
+        gen(tm; pmin=0.0, pmax=0.0, qmin=0.0, qmax=0.0, bounds=true) = begin
+            out = deepcopy(net)
+            g = Dict{String,Any}("bus" => "it1", "terminal_map" => tm,
+                "configuration" => "SINGLE_PHASE", "cost" => [0.1])
+            bounds && merge!(g, Dict{String,Any}("p_min" => [pmin], "p_max" => [pmax],
+                                                 "q_min" => [qmin], "q_max" => [qmax]))
+            out["generator"] = Dict{String,Any}("g" => g)
+            out
+        end
+        @test length(groups(gen(["a", "n"]))) == 1                    # fixed at zero: floats
+        @test length(groups(gen(["a"]))) == 1                         # against earth, fixed at zero
+        @test isempty(groups(gen(["a", "n"]; pmax=1000.0)))           # can produce: a tie
+        @test isempty(groups(gen(["a", "n"]; qmin=-200.0)))           # reactive range alone is a term
+        @test isempty(groups(gen(["a", "n"]; pmin=500.0, pmax=500.0)))# fixed nonzero output
+        # Against earth, a generator references its phase only when its output
+        # is given: with a dispatch range a voltage shift is absorbed by P and Q.
+        @test length(groups(gen(["a"]; pmax=1000.0))) == 1             # a range pins nothing
+        @test isempty(groups(gen(["a"]; pmin=500.0, pmax=500.0)))      # P and Q fixed, P nonzero
+        @test length(groups(gen(["a"]; pmin=500.0, pmax=500.0, qmin=-10.0, qmax=10.0))) == 1   # Q free
+        @test length(groups(gen(["a"]; bounds=false))) == 1            # no bounds: free
+        @test isempty(groups(gen(["a", "n"]; bounds=false)))          # no bounds: not forced to zero
+        # A fixed-zero generator stamps nothing into the Ybus either.
+        @test floats_lin(gen(["a", "n"]), phases)
 
         # The ISLAND test reads the same evidence. On the bare delta fixture, with
         # no other tie anywhere, the load is the island's reference...
@@ -1181,6 +1201,35 @@ end
         jpn["voltage_source"]["grid"]["v_magnitude"][3] *= 0.4
         @test isempty(bank(jpn))
         @test "E.VOLT.LEVEL_MISMATCH" in _pg_codes(_pg_analyze(jpn).findings)
+        # Amplitudes count as well as directions. In the North American bank the
+        # two primaries are line-to-neutral, so reducing the power unit's source
+        # phase to 40 % leaves every direction intact and shrinks its secondary
+        # to 40 % of the line-to-line voltage: the delta does not close.
+        weak = _pg_sys("na_high_leg_open_delta")
+        weak["voltage_source"]["grid"]["v_magnitude"][2] *= 0.4
+        b = only(bank(weak))
+        @test b["status"] == "amplitude_mismatch"
+        @test b["secondary_amplitude_ratio"] ≈ 0.4 rtol = 1e-6
+        rep = _pg_analyze(weak)
+        r = only(f for f in rep.findings if f.code == "W.VOLT.XFMR_RATIO")
+        @test r.component_id == "power" && r.detail["status"] == "amplitude_mismatch"
+        @test isempty(rep.results[:voltage_levels]["mixed_phase_to_neutral_buses"])
+        split = only(f for f in rep.findings if f.code == "I.PROV.SPLIT_PHASE_ZONE")
+        @test isempty(split.detail["high_leg"]) && split.detail["other_phases"] == ["c"]
+        # The same reading for a wrong rating: 480 V in a 120/240 V bank.
+        rated = _pg_sys("na_high_leg_open_delta")
+        rated["transformer"]["single_phase"]["power"]["v_nom_to"] = 480.0
+        b = only(bank(rated))
+        @test b["status"] == "amplitude_mismatch"
+        @test b["secondary_amplitude_ratio"] ≈ 2.0 rtol = 1e-6
+        # Boundary: within 10 % in the resulting high-leg voltage is still verified.
+        near = _pg_sys("na_high_leg_open_delta")
+        near["voltage_source"]["grid"]["v_magnitude"][2] *= 0.95
+        @test only(bank(near))["status"] == "verified"
+        # A missing or non-positive rating cannot be checked: unverified.
+        norating = _pg_sys("na_high_leg_open_delta")
+        delete!(norating["transformer"]["single_phase"]["power"], "v_nom_to")
+        @test only(bank(norating))["status"] == "unverified"
         # A uniform change of magnitude changes no direction: still a delta.
         jpn = _pg_sys("jp_three_wire_v_connection")
         jpn["voltage_source"]["grid"]["v_magnitude"] .*= 0.9

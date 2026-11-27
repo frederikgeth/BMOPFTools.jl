@@ -107,6 +107,18 @@ using JuMP, Ipopt
         @test vmag(solve(net), "svc", "c") ≈ 360.0 rtol = 0.03          # in phase: 120 V + 240 V
     end
 
+    @testset "a weak source phase on the power unit does not close the delta" begin
+        net = sys("na_high_leg_open_delta")
+        net["voltage_source"]["grid"]["v_magnitude"][2] *= 0.4
+        rep = report(net)
+        @test only(rep.results[:voltage_levels]["high_leg_banks"])["status"] == "amplitude_mismatch"
+        @test "W.VOLT.XFMR_RATIO" in [f.code for f in rep.findings]
+        res = solve(net)
+        @test vmag(res, "svc", "a") ≈ 120.0 rtol = 0.03
+        # 120 V legs and a 96 V power winding: about 110 V, not sqrt(3) x 120 V.
+        @test vmag(res, "svc", "c") ≈ 110.0 rtol = 0.05
+    end
+
     @testset "an unbalanced source magnitude breaks the V-connection's delta" begin
         net = sys("jp_three_wire_v_connection")
         net["voltage_source"]["grid"]["v_magnitude"][3] *= 0.4

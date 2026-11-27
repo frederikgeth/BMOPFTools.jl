@@ -44,7 +44,8 @@ What counts as a tie to the reference:
 | `perfectly_grounded_terminals` on a bus | a zero-impedance tie |
 | a `voltage_source` | pins each of its terminals, and the neutral of its bus |
 | a `shunt` row with a nonzero sum (for example a one-terminal earth electrode) | a finite tie, for that terminal |
-| a WYE or one-terminal SINGLE_PHASE load with no neutral in its map, on a phase with nonzero demand | a tie for that phase terminal: the solver writes the load against earth. A zero-power load draws no current and ties nothing; a generator written this way is not counted, because its power is a decision variable |
+| a WYE or one-terminal SINGLE_PHASE load with no neutral in its map, on a phase with nonzero demand | a tie for that phase terminal: the solver writes the load against earth |
+| a generator written the same way, with both P and Q fixed and not both zero | the same. A generator with a dispatch range is not a reference: a shift of its terminal voltages is absorbed by its output |
 | line shunt admittance to earth (`G/B_from/to`, the line's capacitance), as the engine stamps it: from the linecode scaled by length, or from the line itself when it carries inline impedance; over the mapped conductors only | a finite tie at both ends |
 | a transformer's `r_neutral_*` / `x_neutral_*` on a side with a neutral terminal | a finite tie at the winding's star point |
 
@@ -53,8 +54,9 @@ phases to each other and not to earth, so it does not count.
 
 A tie references only the conductors it reaches. Conductors are grouped by the
 elements that fix voltage differences between them: a line conductor end to
-end, the terminals of one winding, the two ends of a load coil that draws
-power (a zero-power coil draws no current at any voltage and ties nothing), two shunt
+end, the terminals of one winding, the two ends of an active load or generator
+coil (a zero-power load coil, or a generator coil fixed at zero output, carries
+no current at any voltage and ties nothing), two shunt
 terminals with a nonzero admittance entry between them (listing a terminal in a
 shunt's map connects it to nothing), the terminal pairs a capacitor bank
 actually stamps. Each group needs

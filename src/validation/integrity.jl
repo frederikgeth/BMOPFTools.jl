@@ -21,16 +21,17 @@ that neutral. The phases can then shift together without changing any equation.
 
 A *conductor group* is a set of `(bus, terminal)` nodes joined by elements that
 fix voltage differences between them: a line or closed switch conductor, a
-mutual line-shunt entry, the two ends of a load coil with nonzero demand, the
-terminals of one generator, IBR or
+mutual line-shunt entry, the two ends of an active load or generator coil
+(nonzero demand; bounds that do not force zero output), the terminals of one
+IBR or
 capacitor, two shunt terminals with a nonzero admittance entry between them,
 the terminals of one transformer winding side (both sides for the galvanically
 continuous subtypes). A group is referenced when one of its nodes is tied to
 earth: a perfectly grounded terminal, a voltage-source terminal or the neutral
 of a source bus, a shunt or stamped line-shunt row with a nonzero sum, a
-transformer neutral impedance, or a load written against earth (WYE or
-one-terminal SINGLE_PHASE with no neutral in its map) on a phase where its
-demand is nonzero. Declared terminals that no element
+transformer neutral impedance, or a coil written against earth (WYE or
+one-terminal SINGLE_PHASE with no neutral in its map) whose power is given: a
+load coil with nonzero demand, a generator coil with fixed, nonzero output. Declared terminals that no element
 touches are not groups (they are `W.INT.UNUSED_BUS_TERMINAL`).
 """
 _unreferenced_conductor_groups(net) = _conductor_reference(net).groups
@@ -138,29 +139,46 @@ function _conductor_reference(net)
             i <= size(B, 1) && j <= size(B, 2) && B[i, j] != 0 && tie!(node(b, tm[i]), node(b, tm[j]))
         end
     end
-    # Generators and IBRs tie all their terminals (THREE_LEG is line-to-line,
-    # SINGLE_PHASE is phase-to-reference terminal, FOUR_LEG is phase-to-neutral).
-    for kind in ("generator", "ibr"), (_, c) in table(kind)
+    # IBRs tie all their terminals (THREE_LEG is line-to-line, SINGLE_PHASE is
+    # phase-to-reference terminal, FOUR_LEG is phase-to-neutral).
+    for (_, c) in table("ibr")
         c isa AbstractDict && tie_all!(get(c, "bus", nothing), get(c, "terminal_map", nothing))
     end
-    # A load is a set of coils, read as the solver reads them, and each coil
-    # counts only where it contributes a voltage-dependent term: a coil whose
-    # demand is zero draws no current at any voltage, so it neither ties its
-    # two terminals together nor references anything.
+    # A load or generator is a set of coils, read as the solver reads them:
     #   SINGLE_PHASE, two terminals  one coil between them
     #   DELTA                        one coil per phase pair (cyclic for three)
     #   WYE / one-terminal           one coil per phase, to the neutral in the
     #                                map, or to earth when the map holds none
     #                                (the phase-to-reference voltage is used)
+    # A coil counts only where it contributes a voltage-dependent term. A coil
+    # that carries no current at any voltage neither ties its two ends together
+    # nor references anything: a load coil whose demand is zero, a generator
+    # coil whose bounds force both P and Q to zero.
     engine_neutrals = try _neutral_labels(net) catch; nothing end
-    for (_, c) in table("load")
+    number(v, k) = v isa AbstractVector && k <= length(v) && v[k] isa Real && isfinite(v[k]) ? Float64(v[k]) : nothing
+    load_active(c) = k -> (p = number(get(c, "p_nom", nothing), k); q = number(get(c, "q_nom", nothing), k);
+                           (p !== nothing && !iszero(p)) || (q !== nothing && !iszero(q)))
+    function generator_active(c)
+        forced_zero(lo, hi, k) = (a = number(get(c, lo, nothing), k); b = number(get(c, hi, nothing), k);
+                                  a !== nothing && b !== nothing && iszero(a) && iszero(b))
+        k -> !(forced_zero("p_min", "p_max", k) && forced_zero("q_min", "q_max", k))
+    end
+    # A coil written against EARTH is a reference only when its power is given:
+    # a load always is; a generator only when both P and Q are fixed (and not
+    # both zero). With a dispatch range, a common shift of the terminal
+    # voltages is absorbed by the output instead of being pinned.
+    function generator_pins(c)
+        fixed(lo, hi, k) = (a = number(get(c, lo, nothing), k); b = number(get(c, hi, nothing), k);
+                            a !== nothing && b !== nothing && a == b ? a : nothing)
+        k -> (p = fixed("p_min", "p_max", k); q = fixed("q_min", "q_max", k);
+              p !== nothing && q !== nothing && !(iszero(p) && iszero(q)))
+    end
+    for (kind, activity, pinning) in (("load", load_active, load_active),
+                                      ("generator", generator_active, generator_pins)), (_, c) in table(kind)
         c isa AbstractDict || continue
         b = get(c, "bus", nothing); tm = get(c, "terminal_map", nothing)
         b isa AbstractString && strs(tm) && !isempty(tm) || continue
-        p = get(c, "p_nom", nothing); q = get(c, "q_nom", nothing)
-        nonzero(v, k) = v isa AbstractVector && k <= length(v) && v[k] isa Real &&
-            isfinite(v[k]) && !iszero(v[k])
-        active(k) = nonzero(p, k) || nonzero(q, k)
+        active = activity(c); pins = pinning(c)
         cfg = uppercase(string(get(c, "configuration", "WYE")))
         if cfg == "DELTA"
             pairs = length(tm) == 2 ? [(tm[1], tm[2])] :
@@ -174,8 +192,11 @@ function _conductor_reference(net)
             npos = engine_neutrals === nothing ? _neutral_pos(tm) : _neutral_pos(tm, engine_neutrals)
             phases = [k for k in eachindex(tm) if k != npos]
             for (idx, k) in enumerate(phases)
-                active(idx) || continue
-                npos === nothing ? earth!(b, tm[k]) : tie!(node(b, tm[k]), node(b, tm[npos]))
+                if npos === nothing
+                    pins(idx) && earth!(b, tm[k])
+                else
+                    active(idx) && tie!(node(b, tm[k]), node(b, tm[npos]))
+                end
             end
         end
     end
