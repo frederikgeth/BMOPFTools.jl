@@ -280,13 +280,14 @@ function _high_leg_banks(net::Dict{String,Any})
         conductor_angle((String(bus), String(t)))
     end
     # Phasor across a winding's two terminals, or nothing when it is not
-    # established or has no direction (both terminals at the same phasor).
+    # established. Both terminals at the same phasor (one source conductor on
+    # both ends) is an established result: exactly zero, with no direction.
     function winding(bus, tm)
         a = phasor(bus, tm[1]); b = phasor(bus, tm[2])
         (a === nothing || b === nothing) && return nothing
         p = a - b
         scale = max(abs(a), abs(b))
-        scale > 0 && abs(p) > 1e-6 * scale ? p : nothing
+        scale > 0 && abs(p) > 1e-6 * scale ? p : zero(p)
     end
     # Secondary volts per primary volt as the solver builds the unit: the
     # nameplate ratio N0 = v_nom_from / v_nom_to times the `tap` multiplier is
@@ -329,8 +330,15 @@ function _high_leg_banks(net::Dict{String,Any})
                 lighting=u.id, high=fresh, status=status, amplitude_ratio=amplitude, amplitude_range=range)
             p1 = winding(String(f), u.from); p2 = winding(String(f), string.(tf))
             r1 = ratio(get(ct, u.id, Dict())); r2 = ratio(t)
-            if p1 === nothing || p2 === nothing || r1 === nothing || r2 === nothing
+            if p1 === nothing || p2 === nothing || r1 === nothing || r2 === nothing || iszero(p1)
                 push!(out, record("unverified", nothing))
+                break
+            end
+            if iszero(p2)
+                # The power winding's primary is fed from one conductor on
+                # both ends: no voltage across it, so none on its secondary,
+                # at any tap. The delta cannot close; the ratio check reports it.
+                push!(out, record("amplitude_mismatch", 0.0))
                 break
             end
             # Secondary voltages as the declared ratios make them from the
@@ -629,8 +637,11 @@ function _check_high_leg_ratio(roles, id, t, assigned, findings, bank)
             "Transformer '$id' is connected as the power unit of a high-leg delta bank, but its " *
             "secondary voltage is $(round(100 * bank.amplitude_ratio, digits=1)) % of the bank's " *
             "line-to-line voltage (twice the leg voltage set by center-tapped unit " *
-            "'$(bank.lighting)'): the delta does not close. Check its voltage ratings and the " *
-            "magnitude of the phase it is fed from.",
+            "'$(bank.lighting)'): the delta does not close. " *
+            (iszero(bank.amplitude_ratio) ?
+                "Both primary terminals are fed from the same source conductor, so there is no " *
+                "voltage across the winding. Check its primary terminal map." :
+                "Check its voltage ratings and the magnitude of the phase it is fed from."),
             Dict{String,Any}("id" => id, "basis" => "high_leg_line_to_line",
                 "secondary_amplitude_ratio" => bank.amplitude_ratio,
                 "secondary_amplitude_range" => bank.amplitude_range === nothing ? nothing : collect(bank.amplitude_range),

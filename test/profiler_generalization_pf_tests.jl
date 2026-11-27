@@ -174,6 +174,35 @@ using JuMP, Ipopt
         @test all(hypot(ro["ibr"]["pv"][t]["cri"], ro["ibr"]["pv"][t]["cii"]) < 1e-3 for t in ("a", "b"))
     end
 
+    @testset "a zero Volt-var curve at zero output ties nothing" begin
+        net = sys("it_delta_island_unreferenced")
+        net["bus"]["it1"]["terminal_names"] = ["a", "b", "c", "n"]
+        net["bus"]["it1"]["perfectly_grounded_terminals"] = ["n"]
+        @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(net))]
+        net["control_profile"] = Dict{String,Any}("cp" => Dict{String,Any}("volt_var" => Dict{String,Any}(
+            "breakpoints" => [207.0, 220.0, 240.0, 253.0], "q_limits" => [0.0, 0.0])))
+        net["ibr"] = Dict{String,Any}("pv" => Dict{String,Any}("bus" => "it1", "terminal_map" => ["a", "b", "n"],
+            "topology" => "FOUR_LEG", "prime_mover" => "PV", "s_max" => [3000.0, 3000.0],
+            "p_min" => [0.0, 0.0], "p_max" => [0.0, 0.0], "q_min" => [-500.0, -500.0],
+            "q_max" => [500.0, 500.0], "control_profile" => "cp"))
+        # The inverter changes nothing: the phases still float.
+        @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(net))]
+        res = solve(net)
+        @test all(hypot(res["ibr"]["pv"][t]["cri"], res["ibr"]["pv"][t]["cii"]) < 1e-6 for t in ("a", "b"))
+    end
+
+    @testset "a power winding fed from one conductor has no secondary voltage" begin
+        net = sys("jp_three_wire_v_connection")
+        net["line"]["main2"]["terminal_map_from"] = ["a", "b", "b"]
+        delete!(net["load"], "shop_motor")
+        rep = report(net)
+        @test only(rep.results[:voltage_levels]["high_leg_banks"])["status"] == "amplitude_mismatch"
+        @test "W.VOLT.XFMR_RATIO" in [f.code for f in rep.findings]
+        res = solve(net)
+        @test vpp(res, "shop", "b", "c") < 0.1               # a 200 V winding with nothing across it
+        @test vmag(res, "shop", "a") ≈ 100.0 rtol = 0.03
+    end
+
     @testset "an unbalanced source magnitude breaks the V-connection's delta" begin
         net = sys("jp_three_wire_v_connection")
         net["voltage_source"]["grid"]["v_magnitude"][3] *= 0.4

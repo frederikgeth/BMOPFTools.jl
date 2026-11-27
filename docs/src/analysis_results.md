@@ -201,7 +201,9 @@ transformer ratios. Three cases need care when reading it:
   primaries are never a bank, whatever the resulting magnitude. When the
   directions fit but the amplitude does not (a wrong rating, or a weak source
   phase), the status is `amplitude_mismatch`: not a high leg, and reported as
-  `W.VOLT.XFMR_RATIO` with `secondary_amplitude_ratio`. Primaries on the
+  `W.VOLT.XFMR_RATIO` with `secondary_amplitude_ratio`. A power winding whose
+  two primary terminals trace to the same source conductor has no voltage
+  across it: the same status, with a ratio of zero. Primaries on the
   same phase, a line-to-line beside a line-to-neutral primary, or one reversed
   winding do not close the delta and are ordinary level conflicts. Phase
   labels are never evidence of an angle: behind another transformer (two legs

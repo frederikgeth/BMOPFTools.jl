@@ -211,7 +211,19 @@ function _conductor_reference(net)
             hi !== nothing && iszero(hi) || return false
             (lo !== nothing && iszero(lo)) || min_pf
         end
-        coil_zero(k; whole::Bool=false) = forced_to_zero(c, k; whole) || (q_follows_p && p_is_zero(k))
+        # A Volt-var law is an equality too: Q = base * f(U). With both
+        # `q_limits` at zero the curve is zero at every voltage, so Q is zero
+        # and the coil's current follows P alone. Read as the solver resolves
+        # it: a constant power factor takes precedence, THREE_LEG carries no
+        # droop, and a malformed or unsupported object falls back to the box.
+        vv = cp isa AbstractDict ? get(cp, "volt_var", nothing) : nothing
+        volt_var_zero = constant_pf === nothing && topo != "THREE_LEG" && vv isa AbstractDict &&
+            (bp = get(vv, "breakpoints", nothing); ql = get(vv, "q_limits", nothing);
+             bp isa AbstractVector && length(bp) == 4 && all(x -> x isa Real && isfinite(x), bp) &&
+             ql isa AbstractVector && length(ql) == 2 && all(x -> x isa Real && iszero(x), ql)) &&
+            get(vv, "q_unit", "VA_FRACTION") == "VA_FRACTION" && get(vv, "q_ref", "VAR_MAX") == "VAR_MAX"
+        coil_zero(k; whole::Bool=false) = forced_to_zero(c, k; whole) ||
+            ((q_follows_p || volt_var_zero) && p_is_zero(k))
         if topo == "SINGLE_PHASE"
             coil_zero(1; whole=true) || tie!(node(b, tm[1]), node(b, tm[2]))
         elseif topo == "THREE_LEG"

@@ -1099,6 +1099,30 @@ end
         @test !isempty(first(BMOPFTools._power_factor_config_check!(minpf(0.0, 0.0), Finding[])))   # the policy resolves
         @test length(groups(minpf(0.0, 0.0))) == 1
         @test isempty(groups(minpf(0.0, 2000.0)))
+        # A Volt-var law is an equality as well. With both q_limits at zero
+        # the curve is zero at every voltage: Q is zero, and with P pinned at
+        # zero the coil carries nothing.
+        vvar(ql; extra...) = begin
+            out = ibr(["a", "n"], "SINGLE_PHASE"; p_min=[0.0], p_max=[0.0], q_min=[-500.0], q_max=[500.0],
+                      control_profile="cp", extra...)
+            out["control_profile"] = Dict{String,Any}("cp" => Dict{String,Any}("volt_var" => Dict{String,Any}(
+                "breakpoints" => [207.0, 220.0, 240.0, 253.0], "q_limits" => ql)))
+            out
+        end
+        @test length(groups(vvar([0.0, 0.0]))) == 1
+        @test isempty(groups(vvar([-0.44, 0.44])))                # a real curve: Q responds to voltage
+        @test isempty(groups(vvar([0.0, 0.44])))                  # one side is enough
+        @test isempty(groups(vvar([0.0, 0.0]; p_max=[2000.0])))   # P can flow
+        # Read as the solver resolves it: a malformed or unsupported law falls
+        # back to the box, and THREE_LEG carries no droop.
+        short = vvar([0.0, 0.0]); short["control_profile"]["cp"]["volt_var"]["breakpoints"] = [207.0, 253.0]
+        @test isempty(groups(short))
+        other = vvar([0.0, 0.0]); other["control_profile"]["cp"]["volt_var"]["q_ref"] = "VAR_AVAILABLE"
+        @test isempty(groups(other))
+        odd_vv = vvar([0.0, 0.0]); odd_vv["control_profile"]["cp"]["volt_var"] = "flat"
+        @test isempty(groups(odd_vv))
+        three = vvar([0.0, 0.0]); three["ibr"]["pv"]["topology"] = "THREE_LEG"
+        @test isempty(groups(three))
         # A profile with no power-factor law leaves the Q range free.
         free = pfc(1.0); free["control_profile"]["cp"] = Dict{String,Any}()
         @test isempty(groups(free))
@@ -1317,6 +1341,22 @@ end
         bad = _pg_sys("na_high_leg_open_delta")
         bad["transformer"]["single_phase"]["power"]["tap"] = 0.0
         @test only(bank(bad))["status"] == "unverified"
+        # A power winding fed from one source conductor on both ends has no
+        # voltage across it. That is an established result, not a missing one.
+        same = _pg_sys("jp_three_wire_v_connection")
+        same["line"]["main2"]["terminal_map_from"] = ["a", "b", "b"]       # p2.c is the source's b
+        b = only(bank(same))
+        @test b["status"] == "amplitude_mismatch" && b["secondary_amplitude_ratio"] == 0.0
+        rep = _pg_analyze(same)
+        r = only(f for f in rep.findings if f.code == "W.VOLT.XFMR_RATIO")
+        @test r.component_id == "pole_shop_power" && r.detail["secondary_amplitude_ratio"] == 0.0
+        @test isempty(rep.results[:voltage_levels]["mixed_phase_to_neutral_buses"])
+        # The intact fixture is unaffected, and a zero-voltage LIGHTING primary
+        # (no leg voltage to compare with) stays unverified.
+        @test only(bank(_pg_sys("jp_three_wire_v_connection")))["status"] == "verified"
+        dead = _pg_sys("jp_three_wire_v_connection")
+        dead["line"]["main2"]["terminal_map_from"] = ["a", "a", "c"]
+        @test only(bank(dead))["status"] == "unverified"
         # A free tap (tap_min < tap_max) is a range, and `tap` only its start,
         # clamped into the bounds. Every position misses: a mismatch, although
         # the absent `tap` would read as 1.0.
