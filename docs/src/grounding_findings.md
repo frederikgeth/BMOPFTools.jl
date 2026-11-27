@@ -54,9 +54,10 @@ phases to each other and not to earth, so it does not count.
 
 A tie references only the conductors it reaches. Conductors are grouped by the
 elements that fix voltage differences between them: a line conductor end to
-end, the terminals of one winding, the two ends of an active load or generator
-coil (a zero-power load coil, or a generator coil fixed at zero output, carries
-no current at any voltage and ties nothing), two shunt
+end, the terminals of one winding, the two ends of an active load, generator or
+IBR coil (a zero-power load coil, or a generator or inverter coil whose bounds
+or ratings force zero current, carries no current at any voltage and ties
+nothing), two shunt
 terminals with a nonzero admittance entry between them (listing a terminal in a
 shunt's map connects it to nothing), the terminal pairs a capacitor bank
 actually stamps. Each group needs

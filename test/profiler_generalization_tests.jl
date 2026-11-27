@@ -1038,6 +1038,39 @@ end
         @test length(groups(gen(["a"]; pmin=500.0, pmax=500.0, qmin=-10.0, qmax=10.0))) == 1   # Q free
         @test length(groups(gen(["a"]; bounds=false))) == 1            # no bounds: free
         @test isempty(groups(gen(["a", "n"]; bounds=false)))          # no bounds: not forced to zero
+        # A zero rating leaves a coil no room even when its P/Q bounds allow dispatch.
+        for (key, value) in (("s_max", [0.0]), ("i_max", [0.0, 0.0]), ("i_max", [0.0]), ("s_max", 0.0))
+            g = gen(["a", "n"]; pmax=1000.0); g["generator"]["g"][key] = value
+            @test length(groups(g)) == 1
+        end
+        g = gen(["a", "n"]; pmax=1000.0); g["generator"]["g"]["s_max"] = [2000.0]
+        @test isempty(groups(g))
+
+        # IBRs follow the same rule, coil by coil and by topology. An offline
+        # phase-to-neutral inverter (P and Q pinned at zero) carries no current.
+        ibr(tm, topo; extra...) = begin
+            out = deepcopy(net)
+            out["ibr"] = Dict{String,Any}("pv" => merge(Dict{String,Any}("bus" => "it1", "terminal_map" => tm,
+                "topology" => topo, "prime_mover" => "PV", "s_max" => [3000.0]),
+                Dict{String,Any}(string(k) => v for (k, v) in extra)))
+            out
+        end
+        @test isempty(groups(ibr(["a", "n"], "SINGLE_PHASE")))                     # online: a tie
+        offline = ibr(["a", "n"], "SINGLE_PHASE"; p_min=[0.0], p_max=[0.0], q_min=[0.0], q_max=[0.0])
+        @test length(groups(offline)) == 1 && floats_lin(offline, phases)
+        @test length(groups(ibr(["a", "n"], "SINGLE_PHASE"; s_max=[0.0]))) == 1    # zero apparent power
+        @test length(groups(ibr(["a", "n"], "SINGLE_PHASE"; i_max=[50.0, 0.0]))) == 1   # one current, tightest entry
+        @test isempty(groups(ibr(["a", "n"], "SINGLE_PHASE"; p_min=[0.0], p_max=[0.0], q_min=[-500.0], q_max=[500.0])))
+        # FOUR_LEG: one coil per phase to the neutral; one live phase suffices here.
+        four_off = ibr(["a","b","c","n"], "FOUR_LEG"; s_max=fill(1000.0, 3),
+            p_min=fill(0.0, 3), p_max=fill(0.0, 3), q_min=fill(0.0, 3), q_max=fill(0.0, 3))
+        @test length(groups(four_off)) == 1
+        four_one = deepcopy(four_off); four_one["ibr"]["pv"]["q_max"] = [0.0, 0.0, 300.0]
+        @test isempty(groups(four_one))
+        four_rated = ibr(["a","b","c","n"], "FOUR_LEG"; s_max=[0.0, 0.0, 0.0])
+        @test length(groups(four_rated)) == 1
+        # THREE_LEG is line-to-line: never a tie to the neutral, online or not.
+        @test length(groups(ibr(["a","b","c"], "THREE_LEG"))) == 1
         # A fixed-zero generator stamps nothing into the Ybus either.
         @test floats_lin(gen(["a", "n"]), phases)
 
@@ -1222,6 +1255,18 @@ end
         b = only(bank(rated))
         @test b["status"] == "amplitude_mismatch"
         @test b["secondary_amplitude_ratio"] ≈ 2.0 rtol = 1e-6
+        # Geometry and amplitude are tested independently. Both primaries on
+        # a-n are in phase; choosing the power winding's secondary so that the
+        # third conductor happens to land at sqrt(3) x 120 V does not make a
+        # delta (its line-to-line voltages would be 240, 87.85 and 327.85 V).
+        coincidence = _pg_sys("na_high_leg_open_delta")
+        pw = coincidence["transformer"]["single_phase"]["power"]
+        pw["terminal_map_from"] = ["a", "n"]; pw["v_nom_to"] = 87.85
+        @test isempty(bank(coincidence))
+        rep = _pg_analyze(coincidence)
+        @test "E.VOLT.LEVEL_MISMATCH" in _pg_codes(rep.findings)
+        @test isempty(rep.results[:voltage_levels]["mixed_phase_to_neutral_buses"])
+        @test isempty(only(f for f in rep.findings if f.code == "I.PROV.SPLIT_PHASE_ZONE").detail["high_leg"])
         # Boundary: within 10 % in the resulting high-leg voltage is still verified.
         near = _pg_sys("na_high_leg_open_delta")
         near["voltage_source"]["grid"]["v_magnitude"][2] *= 0.95

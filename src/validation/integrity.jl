@@ -21,10 +21,10 @@ that neutral. The phases can then shift together without changing any equation.
 
 A *conductor group* is a set of `(bus, terminal)` nodes joined by elements that
 fix voltage differences between them: a line or closed switch conductor, a
-mutual line-shunt entry, the two ends of an active load or generator coil
-(nonzero demand; bounds that do not force zero output), the terminals of one
-IBR or
-capacitor, two shunt terminals with a nonzero admittance entry between them,
+mutual line-shunt entry, the two ends of an active load, generator or IBR coil
+(nonzero demand; bounds and ratings that do not force zero current), the
+terminal pairs a capacitor stamps, two shunt terminals with a nonzero
+admittance entry between them,
 the terminals of one transformer winding side (both sides for the galvanically
 continuous subtypes). A group is referenced when one of its nodes is tied to
 earth: a perfectly grounded terminal, a voltage-source terminal or the neutral
@@ -139,11 +139,6 @@ function _conductor_reference(net)
             i <= size(B, 1) && j <= size(B, 2) && B[i, j] != 0 && tie!(node(b, tm[i]), node(b, tm[j]))
         end
     end
-    # IBRs tie all their terminals (THREE_LEG is line-to-line, SINGLE_PHASE is
-    # phase-to-reference terminal, FOUR_LEG is phase-to-neutral).
-    for (_, c) in table("ibr")
-        c isa AbstractDict && tie_all!(get(c, "bus", nothing), get(c, "terminal_map", nothing))
-    end
     # A load or generator is a set of coils, read as the solver reads them:
     #   SINGLE_PHASE, two terminals  one coil between them
     #   DELTA                        one coil per phase pair (cyclic for three)
@@ -158,10 +153,54 @@ function _conductor_reference(net)
     number(v, k) = v isa AbstractVector && k <= length(v) && v[k] isa Real && isfinite(v[k]) ? Float64(v[k]) : nothing
     load_active(c) = k -> (p = number(get(c, "p_nom", nothing), k); q = number(get(c, "q_nom", nothing), k);
                            (p !== nothing && !iszero(p)) || (q !== nothing && !iszero(q)))
-    function generator_active(c)
-        forced_zero(lo, hi, k) = (a = number(get(c, lo, nothing), k); b = number(get(c, hi, nothing), k);
-                                  a !== nothing && b !== nothing && iszero(a) && iszero(b))
-        k -> !(forced_zero("p_min", "p_max", k) && forced_zero("q_min", "q_max", k))
+    # A dispatchable coil (generator or IBR) is forced to zero current when its
+    # P and Q bounds are both pinned at zero, or when a rating leaves it no
+    # room at all: an apparent-power or current limit of zero. `whole` reads a
+    # rating as one number for the device (a single-coil unit, whose current
+    # is limited by the tightest of its entries).
+    function forced_to_zero(c, k; whole::Bool=false)
+        pinned(lo, hi) = (a = number(get(c, lo, nothing), k); b = number(get(c, hi, nothing), k);
+                          a !== nothing && b !== nothing && iszero(a) && iszero(b))
+        pinned("p_min", "p_max") && pinned("q_min", "q_max") && return true
+        for key in ("s_max", "i_max")
+            v = get(c, key, nothing)
+            if v isa Real
+                isfinite(v) && iszero(v) && return true
+            elseif v isa AbstractVector && !isempty(v) && all(x -> x isa Real && isfinite(x), v)
+                all(iszero, v) && return true
+                whole && key == "i_max" && iszero(minimum(v)) && return true
+                !whole && k <= length(v) && iszero(v[k]) && return true
+                length(v) == 1 && iszero(v[1]) && return true
+            end
+        end
+        false
+    end
+    generator_active(c) = k -> !forced_to_zero(c, k)
+    # IBR coils, by topology, as the solver builds them: SINGLE_PHASE is one
+    # coil from the phase to its reference terminal, THREE_LEG one coil per
+    # cyclic phase pair, FOUR_LEG one coil per phase to the neutral. An offline
+    # unit (P and Q pinned at zero, or a zero rating) carries no current and
+    # ties nothing.
+    for (_, c) in table("ibr")
+        c isa AbstractDict || continue
+        b = get(c, "bus", nothing); tm = get(c, "terminal_map", nothing)
+        b isa AbstractString && strs(tm) && length(tm) >= 2 || continue
+        topo = uppercase(string(get(c, "topology", "FOUR_LEG")))
+        if topo == "SINGLE_PHASE"
+            forced_to_zero(c, 1; whole=true) || tie!(node(b, tm[1]), node(b, tm[2]))
+        elseif topo == "THREE_LEG"
+            n = length(tm)
+            pairs = n == 2 ? [(1, 2)] : [(k, mod1(k + 1, n)) for k in 1:n]
+            for (k, (i, j)) in enumerate(pairs)
+                forced_to_zero(c, k) || tie!(node(b, tm[i]), node(b, tm[j]))
+            end
+        else
+            npos = engine_neutrals === nothing ? _neutral_pos(tm) : _neutral_pos(tm, engine_neutrals)
+            npos === nothing && (npos = length(tm))      # FOUR_LEG: the neutral is the last terminal
+            for (idx, k) in enumerate([k for k in eachindex(tm) if k != npos])
+                forced_to_zero(c, idx) || tie!(node(b, tm[k]), node(b, tm[npos]))
+            end
+        end
     end
     # A coil written against EARTH is a reference only when its power is given:
     # a load always is; a generator only when both P and Q are fixed (and not

@@ -191,8 +191,11 @@ transformer ratios. Three cases need care when reading it:
   angle of `a`):
   the third conductor must come out at √3 times the leg level, with each
   secondary voltage taken as the traced primary phasor times the unit's declared
-  turns ratio. When the directions fit but the power unit's secondary amplitude
-  is not the bank's line-to-line voltage (a wrong rating, or a weak source
+  turns ratio. Geometry and amplitude are separate conditions: the primaries'
+  directions must close the delta at the bank's own line-to-line amplitude, and
+  the power unit's secondary must be that amplitude within 10 %. In-phase
+  primaries are never a bank, whatever the resulting magnitude. When the
+  directions fit but the amplitude does not (a wrong rating, or a weak source
   phase), the status is `amplitude_mismatch`: not a high leg, and reported as
   `W.VOLT.XFMR_RATIO` with `secondary_amplitude_ratio`. Primaries on the
   same phase, a line-to-line beside a line-to-neutral primary, or one reversed

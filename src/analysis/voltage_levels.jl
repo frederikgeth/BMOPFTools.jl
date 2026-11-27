@@ -323,17 +323,23 @@ function _high_leg_banks(net::Dict{String,Any})
                          to[1] == shared[1] ? v_shared - a : v_shared + a)
             fits(a) = abs(abs(placed(a)) / (sqrt(3.0) * abs(leg)) - 1) <= 0.1
             amplitude = abs(across) / (2 * abs(leg))
-            if fits(across)
+            # Two independent conditions. Geometry: with the bank's own
+            # line-to-line amplitude the primaries' directions put the third
+            # conductor at sqrt(3) times the leg. Amplitude: this winding's
+            # secondary is that line-to-line voltage. Testing only the
+            # resulting magnitude would accept in-phase primaries whose
+            # winding happens to add up to the same number.
+            geometry = fits(2 * abs(leg) * across / abs(across))
+            geometry || continue
+            if abs(amplitude - 1) <= 0.1
                 push!(out, record("verified", amplitude))
-            elseif fits(2 * abs(leg) * across / abs(across))
+            else
                 # Right direction, wrong amplitude: the primaries would close a
                 # delta, but this unit's secondary voltage is not the bank's
                 # line-to-line voltage (its rating, or the magnitude of the
                 # phase it is fed from). Not a high leg; the ratio check
                 # reports it.
                 push!(out, record("amplitude_mismatch", amplitude))
-            else
-                continue
             end
             break
         end
