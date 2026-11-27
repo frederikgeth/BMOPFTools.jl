@@ -73,8 +73,8 @@ Summarize load voltage-dependence and emit OPF-formulation flags:
 - `I.LOAD.EXP_ZIP_EQUIVALENT` — exponential loads with only integer exponents
   {0,1,2}; these can be represented as ZIP, keeping the OPF quadratic.
 - `W.LOAD.NL_NO_VMIN` — voltage-dependent loads on buses without any lower
-  voltage magnitude bound; the OPF squared-voltage variable then relies on a
-  default floor rather than an engineering bound.
+  voltage magnitude bound; the OPF then uses a log-magnitude load voltage with
+  no floor, so no engineering bound limits the load's voltage range.
 """
 function load_model_analysis(net::Dict{String,Any},
                              findings::Vector{Finding})::Dict{String,Any}
@@ -113,8 +113,8 @@ function load_model_analysis(net::Dict{String,Any},
             :load, nothing,
             "$(length(nl_no_vmin)) voltage-dependent load(s) sit on buses without " *
             "a lower voltage magnitude bound (v_min/vpn_min/vpp_min); the OPF " *
-            "squared-voltage variable will use a default floor rather than an " *
-            "engineering bound: $(join(sort(nl_no_vmin), ", ")).",
+            "load model then has no voltage floor and no engineering bound on " *
+            "the load's voltage range: $(join(sort(nl_no_vmin), ", ")).",
             Dict{String,Any}("loads" => sort(nl_no_vmin))))
     end
 

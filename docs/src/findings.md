@@ -264,7 +264,7 @@ and [`load_model_analysis`](@ref) (`load_models` pass).
 | Code | Sev | Trigger & rationale |
 |---|---|---|
 | `I.LOAD.EXP_ZIP_EQUIVALENT` | I | One or more `exponential` loads have all exponents in $\{0, 1, 2\}$. These can be represented losslessly as `zip` (or the named `constant_power`/`constant_current`/`constant_impedance` models), keeping the OPF quadratic. The `loads` detail key lists the affected load IDs. |
-| `W.LOAD.NL_NO_VMIN` | W | One or more voltage-dependent loads sit on buses without any lower voltage magnitude bound (`v_min`, `vpn_min`, or `vpp_min`). The OPF squared-voltage variable $W$ will rely on the default floor bound ($0.5\,V^{\text{nom}}$) rather than an engineering limit. For loads with $\gamma < 2$ or $\alpha^I/\alpha^Z \neq 0$ the power expression grows unboundedly as voltage falls; an explicit lower bound is strongly recommended. |
+| `W.LOAD.NL_NO_VMIN` | W | One or more voltage-dependent loads sit on buses without any lower voltage magnitude bound (`v_min`, `vpn_min`, or `vpp_min`). The OPF then models the load voltage through a log-magnitude variable with no floor, so no engineering limit keeps the load in the voltage range where its model is valid. For loads with $\gamma < 2$ or $\alpha^I/\alpha^Z \neq 0$ the power expression grows unboundedly as voltage falls; an explicit lower bound is strongly recommended. |
 
 ## RED — redundancy
 

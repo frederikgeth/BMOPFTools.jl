@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "53bafceff6a9a6e54abd67a70b0a1de2507d41e4deba9d591b1aa87c0c754cf6"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "58083bd57046c3b7becf5dc82bcbd49589d32bc4b45a709c4b2f834269b7610f"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -1161,7 +1161,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="LOAD",
         catalogue_section="LOAD",
         section_title="load model validation & analysis",
-        meaning="One or more voltage-dependent loads sit on buses without any lower voltage magnitude bound (`v_min`, `vpn_min`, or `vpp_min`). The OPF squared-voltage variable \$W\$ will rely on the default floor bound (\$0.5\\,V^{\\text{nom}}\$) rather than an engineering limit. For loads with \$\\gamma < 2\$ or \$\\alpha^I/\\alpha^Z \\neq 0\$ the power expression grows unboundedly as voltage falls; an explicit lower bound is strongly recommended.",
+        meaning="One or more voltage-dependent loads sit on buses without any lower voltage magnitude bound (`v_min`, `vpn_min`, or `vpp_min`). The OPF then models the load voltage through a log-magnitude variable with no floor, so no engineering limit keeps the load in the voltage range where its model is valid. For loads with \$\\gamma < 2\$ or \$\\alpha^I/\\alpha^Z \\neq 0\$ the power expression grows unboundedly as voltage falls; an explicit lower bound is strongly recommended.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
