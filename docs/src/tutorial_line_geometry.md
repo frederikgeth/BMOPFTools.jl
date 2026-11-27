@@ -4,7 +4,7 @@
 types placed at coordinates — and compiling them into linecode impedance
 matrices, OpenDSS-style but with the full multi-conductor matrix retained.*
 
-A linecode's `R_series`/`X_series`/`B` matrices are usually the *output* of a
+A linecode's `R_series`/`X_series` and shunt (`B_from`/`B_to`) matrices are usually the *output* of a
 physics calculation over the line's cross-section: which conductors, made of
 what, hanging or buried where. BMOPF stores that construction data first-class
 in two library objects, and derives linecodes from them:
@@ -41,8 +41,8 @@ construction (as below) rather than carrying unit fields around.
 ## Design decisions worth knowing
 
 - **Every conductor maps to a terminal.** The compiled matrix is the full
-  primitive matrix of the circuit conductors, in listing order — there is no
-  Kron-elimination pathway. Grounding is a *bus* property
+  primitive matrix of the circuit conductors, in listing order —
+  `compile_linecode` has no Kron-elimination pathway. Grounding is a *bus* property
   (`perfectly_grounded_terminals`), not something baked into impedance data.
   This is deliberate: the four-wire OPF retains the neutral, and eliminating
   it presumes the very `V_n = 0` the model is there to question.
@@ -57,15 +57,18 @@ construction (as below) rather than carrying unit fields around.
   to well under 1 % — but note **OpenDSS defaults to `deri`**, so set that
   when cross-validating against OpenDSS geometry lines.
 - **Cross-defaults are recorded.** As in OpenDSS: `r_ac = 1.02·r_dc`,
-  `gmr = 0.7788·radius` (solid round), `cap_radius = radius`. Every applied
-  default lands in `derivation.defaults_applied`, so a dataset audit can see
-  which numbers were assumed rather than supplied.
+  `gmr = 0.7788·radius` (solid round), and `radius` from `gmr` when only the
+  latter is given. For cables, `eps_r`, `gmr_strand` and `tape_lap` also have
+  defaults. Each of these lands in `derivation.defaults_applied`, so a dataset
+  audit can see which numbers were assumed rather than supplied. `cap_radius`
+  silently defaults to `radius` and is not listed there; the earth model and
+  resistivity used are recorded as values in `derivation`.
 - **GMR vs radii.** `gmr` enters the series (magnetic) terms — using it there
   incorporates the internal inductance implicitly (`gmr = e^{-μᵣ/4}·radius` for
   a solid round conductor), so the engine adds **no separate internal-reactance
   term**; adding one on top of GMR would double-count it. (In the 40–1000 Hz
   power band this is exactly OpenDSS's convention too, which is why the
-  cross-check below matches to five significant figures; the double-counting
+  OpenDSS comparison in the test suite agrees closely; the double-counting
   critique in the impedance-modeling literature concerns a different,
   higher-frequency code path.) `cap_radius` (default `radius`) enters the
   electrostatic terms; mixing GMR into capacitance is the classic implementation
@@ -144,6 +147,37 @@ Negative `y` is burial depth (CIM convention). At 50/60 Hz the earth-return
 depth (~850 m) dwarfs any burial depth, so the same formulations apply
 above and below ground; `modified_carson` ignores height entirely.
 
+## Operating temperature
+
+A wire's `r_ac` is stated at `temperature_ref` (default 20 °C). Give the wire
+a temperature coefficient `alpha_20` (1/K) and the geometry a `temperature`
+(°C), and the compile uses the resistance at that operating temperature and
+records it in `derivation`. Without `alpha_20`, or without a geometry
+`temperature`, the reference resistance is used unchanged.
+
+```@example geom
+net["wire_data"]["phase"]["alpha_20"] = 0.00403          # aluminum
+hot = deepcopy(net["line_geometry"]["synthetic_overhead"])
+hot["temperature"] = 75.0
+net["line_geometry"]["synthetic_overhead_75c"] = hot
+compile_linecode(net, "synthetic_overhead_75c")
+r20 = net["linecode"]["synthetic_overhead"]["R_series_1_1"]
+r75 = net["linecode"]["synthetic_overhead_75c"]["R_series_1_1"]
+round(r75 / r20, digits=3)
+```
+
+The ratio is below the conductor's own `1 + α·ΔT` because the self resistance
+also contains the temperature-independent earth-return term.
+
+## Compiling in bulk, and without a network
+
+[`compile_linecodes!`](@ref)`(net; force=false)` compiles every geometry in
+the case that has no linecode of the same name yet, and returns the compiled
+ids. `compile_linecode(net, geometry_id; id="other_name")` writes the result
+under a different linecode id. [`overhead_line_constants`](@ref) is the
+underlying numerical routine: it takes plain vectors of resistances, GMRs,
+radii and coordinates and returns the matrices, with no network dictionary.
+
 ## Matrices from elsewhere: FEM, datasheets, imports
 
 Geometry compilation is one *producer* of linecodes, not a privileged one. A
@@ -195,8 +229,9 @@ enum and no conversion pathway. Consistency rules:
 - exports re-express inline lines as a 1 m section carrying the totals
   (numerically exact for PMD/OpenDSS, whose lines are per-length × length).
 
-This replaces the old `length = 1` workaround — which the provenance pass
-detects and now recommends migrating.
+A linecode used with `length = 1` to smuggle in section totals is the
+workaround this replaces; the provenance pass detects it and recommends
+migrating.
 
 ## Validity domain of the analytical models
 
@@ -209,7 +244,7 @@ has a guard (a `W.DOM.*` finding + compile-time warning — see the
 |---|---|---|
 | Carson series truncation (`modified_carson`, `full_carson`) | k = √(ωμ₀/ρ)·S ≪ 1 — true for distribution spacings at 50/60 Hz (< 1 % vs the full series, Kersting & Green 2011) | `W.DOM.GEOM_CARSON_VALIDITY` at k > 0.25 |
 | Height-independence of `modified_carson` | equivalent return depth Dₑ = 658.87·√(ρ/f) m (≈ 850 m at 60 Hz/100 Ω·m) dwarfs conductor heights and burial depths | implicit in the above |
-| Buried conductors treated at the surface | burial depth ≪ earth skin depth (δ = √(2ρ/(ωμ₀)) ≈ 650 m at 60 Hz/100 Ω·m; the Deri complex-depth magnitude \|p\| = √(ρ/(ωμ₀)) ≈ 459 m is the same scale); the rigorous theory is Pollaczek (1926)/Saad et al. (1996), needed only beyond power frequency | `W.DOM.GEOM_BURIED_EARTH_MODEL` |
+| Buried conductors treated at the surface (`modified_carson` has no guard: it ignores height) | burial depth ≪ earth skin depth (δ = √(2ρ/(ωμ₀)) ≈ 650 m at 60 Hz/100 Ω·m; the Deri complex-depth magnitude \|p\| = √(ρ/(ωμ₀)) ≈ 459 m is the same scale); the rigorous theory is Pollaczek (1926)/Saad et al. (1996), needed only beyond power frequency | `W.DOM.GEOM_BURIED_EARTH_MODEL` for buried conductors with `full_carson` |
 | Deri complex-depth images | \|y\| ≪ \|p\|, p = √(ρ/jωμ₀) (Deri et al. 1981) | `W.DOM.GEOM_BURIED_EARTH_MODEL` (depth > 0.1·\|p\|) |
 | Constant r_ac, GMR-based internal inductance | f below the critical skin frequency f_crit = ρ_c/(π r² μ₀) (Jensen et al. 2001) | `W.DOM.WIRE_SKIN_FREQUENCY` |
 | Perfect-earth electrostatics (capacitance) | always at power frequency (no Carson analogue exists electrostatically) | — |
@@ -218,7 +253,11 @@ Both 50 and 60 Hz are computed exactly from ω — no constant in the engine is
 frequency-specific, `frequency` is a **required** field on every geometry,
 and nothing is ever rescaled between frequencies (there is no analogue of
 OpenDSS's `DefaultBaseFreq`). `meta.frequency`, when present, is check-only:
-mismatching objects raise `W.DOM.FREQUENCY_MISMATCH`.
+mismatching objects raise `W.DOM.FREQUENCY_MISMATCH`, and geometries compiled
+at different frequencies within one case raise `W.DOM.MIXED_FREQUENCY`. A
+line that references a missing wire type or geometry raises
+`E.INT.UNKNOWN_WIRE_DATA` or `E.INT.UNKNOWN_LINE_GEOMETRY`, and a geometry
+that cannot be re-derived raises `W.PROV.GEOMETRY_UNCOMPILABLE`.
 
 Realizability of the construction data is validated separately (impossible:
 GMR > radius, overlapping conductor circles, non-nesting cable layers →
@@ -276,11 +315,13 @@ establish a new scientific applicability domain.
 
 ## Deferred / future work
 
-- A public Kron-reduction transform (the internal one backs cable shields
-  and unit tests only).
+- Kron reduction inside the compile. The shield reduction is internal; to
+  eliminate circuit neutrals from a whole network, deliberately and with
+  provenance, use [`kron_reduce_neutrals`](@ref) (see
+  [Network reduction](network_reduction.md)).
 - Sector-shaped LV cable corrections (BS 7870 / VDE 0295 actual areas,
   geometric-center distances).
 - A LineCableModels.jl import bridge for `source="fem"` linecodes.
 - Preserving OpenDSS geometry objects through `from_dss` (PowerIO currently
   flattens them to matrices upstream).
-- Seasonal ratings; temperature-sensitivity sweeps.
+- Seasonal ratings.

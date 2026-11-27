@@ -182,7 +182,7 @@ have an opt-in [fix-recipe](augmentation.md#fix) conversion.
 | `line` between voltage levels | **transformer** | per-unit elision of the ideal transformer | `W.PROV.LINE_BRIDGES_VOLTAGE_LEVELS` |
 | near-zero-`Z` `line` | **switch** | admittance-solver placeholder | `apply_low_impedance_to_switch` fix |
 | tiny placeholder leakage | exact-zero / real `%Z` | admittance solver forbids zero | `W.DOM.XFMR_LOW_IMPEDANCE` + `apply_snap_transformer_impedance` |
-| 3 × single-phase `voltage_source` | one polyphase **source** | OpenDSS `Circuit` + per-phase `VSource` | per-phase merge + `W.PROV.SOURCE_*` |
+| 3 × single-phase `voltage_source` | one polyphase **source** | OpenDSS `Circuit` + per-phase `VSource` | imported as one source; its phase arrangement is classified by `W.PROV.SOURCE_*` |
 | grounding `shunt` (tiny Z) | a **perfect ground** | impedance placeholder for a bonded neutral | `apply_perfect_grounding` fix |
 
 Two principles keep these projections safe, the same ones that govern ingest:
@@ -233,5 +233,5 @@ distribution datasets — the catalog of real abuses), [ref. 2](methodology.md#r
 and [ref. 17](methodology.md#refs) (why the transformer and the conductor-level
 model cannot be dissolved), and [ref. 23](methodology.md#refs)/[ref. 27](methodology.md#refs)
 (the CIM asset-first precedent), with [ref. 26](methodology.md#refs) (constant-`Z`
-load ≡ shunt admittance) and [ref. 28](methodology.md#refs) (IBR-based
+load ≡ shunt admittance) and [ref. 28](methodology.md#refs) (inverter-based
 resources as a distinct asset class) grounding specific rows.

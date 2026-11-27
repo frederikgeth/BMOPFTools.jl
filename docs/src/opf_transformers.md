@@ -88,7 +88,9 @@ $\sum_k N_k I_k = 0$) with no inversion and no singularity. This holds for *all*
 subtypes and is covered by the "ideal (zero-impedance) transformers" tests.
 (The separate `transformer_yprim`/`nwinding_yprim` **admittance export** is the
 one place that genuinely inverts $Z$. An ideal coupling has no admittance form,
-so there it warns and exports the singular, shunt-only block.)
+so that export throws for leakage at or below its cutoff; use `ybus_augmented`
+for the bordered representation, or `shunt_only=true` to inspect the no-load
+part alone.)
 
 ## `single_phase` — per-phase YY, Γ-equivalent
 

@@ -257,8 +257,9 @@ three distinct objects, and the evidence does not support the strong form.
   with a nontrivial orbit* — genuinely interchangeable resources. A balanced load
   (or a single-phase PV) on a symmetric network has a **unique** symmetric (or
   determinate) solution; there is no orbit, so nothing for the symmetry to make
-  non-unique. Consistent with that, the barrier-iteration counts are identical
-  whether the impedance is transposed or geometric, balanced load or unbalanced:
+  non-unique. Consistent with that, the barrier-iteration counts printed below
+  are the same for the transposed and the geometric impedance, and unbalanced
+  loading changes them by at most an iteration or so:
 
 ```@example imp
 const MOI = JuMP.MOI
@@ -282,7 +283,8 @@ end
   interchangeable *decisions*: e.g. identical-cost single-phase resources on
   symmetric phases, whose optimal dispatch split is then a continuum. That is a
   real degeneracy — and BMOPFTools already flags one instance of it, identical
-  generator cost vectors, as a dispatch-degeneracy finding. Note it is *cost*
+  generator cost vectors, as the dispatch-degeneracy finding
+  `W.BENCH.GEN_DEGENERATE_COST`. Note it is *cost*
   symmetry there; asymmetric impedance breaks the *network* side of such
   symmetries, giving each phase a distinct sensitivity and a unique optimal
   split. This is the defensible version of "asymmetry helps": it removes a source

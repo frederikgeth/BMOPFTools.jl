@@ -303,8 +303,8 @@ shunt again sits across winding 2's coil. Tap optimization is **not** supported 
 `n_winding` (the ratios are fixed).
 
 This is the general form of the loss model: the leakage is a **star of per-winding arms**
-(referred to winding 1) meeting at a common core node, with the no-load shunt at that
-node. It generalizes the [two-winding picture](#The-loss-equivalent-circuit) — where the
+(referred to winding 1) meeting at a common core node, with the no-load shunt across
+winding 2's coil. It generalizes the [two-winding picture](#The-loss-equivalent-circuit) — where the
 two arms in series *are* the single short-circuit impedance — to $n$ windings, where each
 unordered pair $(i,j)$ has
 its own short-circuit reactance $\textcolor{brown}{x_{\text{sc}}}[i,j]$ (the field `x_sc`
@@ -385,10 +385,10 @@ stamped in rectangular form ([`transformer.jl`](https://github.com/frederikgeth/
 
 ### Reconciliation notes
 
-!!! note "Known approximation — Yd/Dy tap referral"
-    Under a non-nominal tap the delta-arm leakage referral is held at nominal (a
-    ~0.3–0.5 % approximation); `single_phase`/`center_tap` reproduce the tap-scaled
-    leakage exactly. Exact Yd/Dy tap referral is deferred.
+!!! note "Yd/Dy tap referral is exact"
+    Under a non-nominal tap the short-circuit impedance referred to the tapped
+    side scales as tap², matching OpenDSS; see
+    [Transformer models](../transformer_models.md).
 
 !!! warning "n-winding and loss detail beyond the PDF"
     The general `n_winding` transformer, the per-winding no-load magnetizing shunt
