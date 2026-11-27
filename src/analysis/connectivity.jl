@@ -110,6 +110,7 @@ function connectivity_analysis(net::Dict{String,Any},
         end
     end
     result["transformer_banks"] = [g for g in banks.groups if length(g["units"]) > 1]
+    result["undetermined_transformer_banks"] = banks.undetermined
     result["transformer_bank_groups"] = banks.groups
 
     # n-winding transformers: connect winding 1's bus to every other winding's.
@@ -665,7 +666,7 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
             rec = get(get(xfmr, subtype, Dict()), id, nothing)
             pair = subtype in WINDING_LIST_SUBTYPES || !(rec isa AbstractDict) ? (subtype, id) :
                 (bf = get(rec, "bus_from", nothing);
-                 (bf isa AbstractString ? supply_point(String(bf), get(rec, "terminal_map_from", nothing)) : bf,
+                 (bf isa AbstractString ? supply_point.key(String(bf), get(rec, "terminal_map_from", nothing)) : bf,
                   get(rec, "bus_to", nothing)))
             union!(get!(fed_by_pair, pair, Set{String}()), _xfmr_to_phases(subtype, id, z.buses))
         end
@@ -895,6 +896,7 @@ function _transformer_bank_groups(net)
     roles = _index_roles(net)
     neutrals = roles === nothing ? nothing : roles.neutral
     pairs = Dict{Tuple{Vector{String},String},Vector{Any}}()
+    by_secondary = Dict{String,Vector{Any}}()
     supply = _supply_point(net)
     for subtype in _BANKABLE_SUBTYPES
         sub = get(xfmr, subtype, nothing)
@@ -904,10 +906,12 @@ function _transformer_bank_groups(net)
             bf = get(t, "bus_from", nothing); bt = get(t, "bus_to", nothing)
             bf isa AbstractString && bt isa AbstractString && bf != bt || continue
             sig = _bank_unit_signature(t, neutrals)
-            from = supply(String(bf), get(t, "terminal_map_from", nothing))
+            tf = get(t, "terminal_map_from", nothing)
+            from = supply.key(String(bf), tf)
             String(bt) in from && continue
             push!(get!(pairs, (from, String(bt)), Any[]),
                   (subtype=subtype, id=string(id), sig=sig))
+            push!(get!(by_secondary, String(bt), Any[]), (id=string(id), bus=String(bf), terminals=tf, from=from))
         end
     end
     for key in sort!(collect(keys(pairs)))
@@ -940,64 +944,106 @@ function _transformer_bank_groups(net)
             "n_branches" => (isempty(legs) ? 0 : 1) + length(parallel) +
                             count(u -> u.sig === nothing, units)))
     end
-    (merged=merged, groups=groups)
+    # Units on one secondary bus whose primaries are joined on some but not all
+    # of a winding's conductors: not grouped, and not known to be separate.
+    undetermined = Dict{String,Any}[]
+    for bt in sort!(collect(keys(by_secondary)))
+        units = sort!(by_secondary[bt], by = u -> u.id)
+        for i in 1:length(units), j in i+1:length(units)
+            a, b = units[i], units[j]
+            a.from == b.from && continue
+            (supply.partial(a.bus, a.terminals, b.bus) || supply.partial(b.bus, b.terminals, a.bus)) || continue
+            push!(undetermined, Dict{String,Any}("bus_to" => bt, "units" => [a.id, b.id],
+                "primary_buses" => sort!(unique!([a.bus, b.bus])), "reason" => "partial_primary_tie"))
+        end
+    end
+    (merged=merged, groups=groups, undetermined=undetermined)
 end
 
-# The supply point of a winding: a canonical bus id for every bus its phase
-# conductors reach through closed switches. The units of a transformer bank
-# share a primary supply point, not necessarily a bus id: a primary disconnect
-# between them leaves the bank what it was. A switch counts only when it
-# carries EVERY phase conductor the winding uses (labels are followed through
-# the switch's terminal maps): a neutral bond, or a tie on a phase the winding
-# does not use, joins nothing, and two units on separate feeds stay separate.
-# Returns `supply(bus, terminals)`: the sorted list of ALL buses the winding
-# reaches, its own first among equals only by name. Two windings share a
-# supply point when the lists are equal; a single representative bus would
-# let two different reaches collide on a name. A winding with no phase
-# terminal, or one whose map cannot be read, stays at its own bus.
+# Conductors as a union-find over (bus, terminal) nodes: two nodes are one
+# conductor when a branch of one of the given `kinds` maps them onto each
+# other (position k of `terminal_map_from` onto position k of
+# `terminal_map_to`). Open switches join nothing. This is the one place the
+# profiler follows a conductor from bus to bus; labels are never compared.
+# Returns `(find, parent)`: `find(node)` is the group's representative, and
+# `parent` holds every node a branch touched.
+function _conductor_groups(net; kinds=("line", "switch"))
+    Node = Tuple{String,String}
+    parent = Dict{Node,Node}()
+    function find(x)
+        haskey(parent, x) || (parent[x] = x)
+        root = x
+        while parent[root] != root; root = parent[root]; end
+        while parent[x] != root
+            parent[x], x = root, parent[x]
+        end
+        root
+    end
+    for kind in kinds
+        table = get(net, kind, nothing)
+        table isa AbstractDict || continue
+        for (_, c) in table
+            c isa AbstractDict || continue
+            kind == "switch" && get(c, "open_switch", false) === true && continue
+            a = get(c, "bus_from", nothing); b = get(c, "bus_to", nothing)
+            tf = get(c, "terminal_map_from", nothing); tt = get(c, "terminal_map_to", nothing)
+            a isa AbstractString && b isa AbstractString && tf isa AbstractVector && tt isa AbstractVector ||
+                continue
+            for k in 1:min(length(tf), length(tt))
+                tf[k] isa AbstractString && tt[k] isa AbstractString || continue
+                ra = find((String(a), String(tf[k]))); rb = find((String(b), String(tt[k])))
+                ra == rb || (parent[ra] = rb)
+            end
+        end
+    end
+    (find, parent)
+end
+
+# Conductor-level evidence of where a transformer's primary winding is
+# supplied from, for deciding whether units on different primary buses are one
+# bank.
+#
+# Conductors are followed through closed switches only, terminal by terminal,
+# by the switch's own terminal maps (a label may change across a switch; the
+# conductor does not). A winding's **supply point** is the set of buses at
+# which EVERY one of its primary terminals, the neutral included, is present
+# on the same conductors. Two units share a supply point when those sets are
+# equal: a full primary disconnect between them leaves the bank what it was.
+#
+# Anything less is not grouped. A tie that carries some but not all of a
+# winding's conductors (one phase of two, the phases without the neutral) is a
+# **partial** tie: the units stay separate branches and the pair is reported as
+# undetermined. A tie on conductors neither winding uses, or a neutral bond
+# alone, is no evidence at all.
+#
+# The result does not depend on bus names, switch direction or terminal
+# labels: it is built from conductor groups, never from a representative bus.
 function _supply_point(net)
+    Node = Tuple{String,String}
+    find, parent = _conductor_groups(net; kinds=("switch",))
+    buses_of = Dict{Node,Set{String}}()            # conductor group => buses it is present at
+    for n in collect(keys(parent)); push!(get!(buses_of, find(n), Set{String}()), n[1]); end
     roles = _index_roles(net)
     is_return(x) = roles === nothing ? _is_convention_neutral(x) : (x in roles.neutral || x in roles.earth)
-    crossings = Dict{String,Vector{Tuple{String,Dict{String,String}}}}()
-    switches = get(net, "switch", nothing)
-    if switches isa AbstractDict
-        for id in sort!(collect(keys(switches)))
-            sw = switches[id]
-            sw isa AbstractDict && get(sw, "open_switch", false) !== true || continue
-            a = get(sw, "bus_from", nothing); b = get(sw, "bus_to", nothing)
-            tf = get(sw, "terminal_map_from", nothing); tt = get(sw, "terminal_map_to", nothing)
-            a isa AbstractString && b isa AbstractString && tf isa AbstractVector && tt isa AbstractVector &&
-                length(tf) == length(tt) && all(x -> x isa AbstractString, tf) &&
-                all(x -> x isa AbstractString, tt) || continue
-            push!(get!(crossings, String(a), []), (String(b), Dict{String,String}(zip(string.(tf), string.(tt)))))
-            push!(get!(crossings, String(b), []), (String(a), Dict{String,String}(zip(string.(tt), string.(tf)))))
-        end
-    end
-    cache = Dict{Tuple{String,Vector{String}},Vector{String}}()
-    function supply(bus::AbstractString, terminals)
+    readable(terminals) = terminals isa AbstractVector && !isempty(terminals) &&
+        all(x -> x isa AbstractString, terminals)
+    present(bus, t) = haskey(parent, (bus, t)) ? buses_of[find((bus, t))] : Set{String}((bus,))
+    # Sorted list of the buses every primary terminal of the winding reaches.
+    function key(bus::AbstractString, terminals)
         bus = String(bus)
-        isempty(crossings) && return [bus]
-        terminals isa AbstractVector && all(x -> x isa AbstractString, terminals) || return [bus]
-        phases = sort!(unique!([String(t) for t in terminals if !is_return(t)]))
-        isempty(phases) && return [bus]
-        get!(cache, (bus, phases)) do
-            seen = Set{Tuple{String,Vector{String}}}([(bus, phases)])
-            queue = [(bus, phases)]
-            reached = Set{String}()
-            while !isempty(queue)
-                at, labels = popfirst!(queue)
-                push!(reached, at)
-                for (other, map) in get(crossings, at, ())
-                    all(l -> haskey(map, l), labels) || continue
-                    state = (other, sort!([map[l] for l in labels]))
-                    state in seen && continue
-                    push!(seen, state); push!(queue, state)
-                end
-            end
-            sort!(collect(reached))
-        end
+        (isempty(parent) || !readable(terminals)) && return [bus]
+        sort!(collect(intersect((present(bus, String(t)) for t in terminals)...)))
     end
-    supply
+    # True when a PHASE conductor of the winding at `bus` is present at
+    # `other`. Asked about two units whose supply points differ: one crossing
+    # phase conductor then makes the pair a partial tie, even where one of the
+    # two windings crosses whole (the bank's other winding does not).
+    function partial(bus::AbstractString, terminals, other::AbstractString)
+        bus = String(bus); other = String(other)
+        (isempty(parent) || !readable(terminals) || bus == other) && return false
+        any(t -> !is_return(t) && other in present(bus, String(t)), terminals)
+    end
+    (key=key, partial=partial)
 end
 
 # Single-phase unit subtypes that are banked in practice.

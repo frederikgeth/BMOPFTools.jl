@@ -55,9 +55,10 @@ phases to each other and not to earth, so it does not count.
 A tie references only the conductors it reaches. Conductors are grouped by the
 elements that fix voltage differences between them: a line conductor end to
 end, the terminals of one winding, the two ends of an active load, generator or
-IBR coil (a zero-power load coil, or a generator or inverter coil whose bounds,
-ratings, power-factor control, an all-zero Volt-var curve, a zero Volt-watt cap or a zero DC-link balance force zero current, carries no current at any
-voltage and ties nothing), two shunt
+IBR coil (a zero-power load coil, or a generator coil whose bounds or ratings
+force zero current, carries no current at any voltage and ties nothing; an
+inverter coil is left out only when the constraints the solver stamps on it
+prove the same, see below), two shunt
 terminals with a nonzero admittance entry between them (listing a terminal in a
 shunt's map connects it to nothing), the terminal pairs a capacitor bank
 actually stamps. Each group needs
@@ -66,6 +67,16 @@ with no winding or load between that neutral and the phases, leaves the phases
 free to shift together; `E.INT.NO_VOLTAGE_REFERENCE` then names the floating
 group (`detail["scope"] = "conductor_group"`), although the island as a whole
 has a reference.
+
+!!! note "When an inverter counts as a connection"
+    An inverter coil ties its two terminals unless its constraints force both
+    its active and its reactive power to zero at every voltage. The profiler
+    reads those constraints from the same rules the solver builds them from:
+    the P and Q bounds, a constant or minimum power factor, a Volt-var or
+    Volt-watt law whose base or curve is zero, a zero rating, and the balance
+    of an isolated DC link across the coils. A limit that depends on voltage
+    (a real droop curve, the apparent-power circle) is not used: a coil is
+    never dropped on a guess.
 
 ## A floating neutral
 

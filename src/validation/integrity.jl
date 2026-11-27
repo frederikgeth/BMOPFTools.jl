@@ -176,16 +176,17 @@ function _conductor_reference(net)
         false
     end
     generator_active(c) = k -> !forced_to_zero(c, k)
-    # IBR coils, by topology, as the solver builds them: SINGLE_PHASE is one
-    # coil from the phase to its reference terminal, THREE_LEG one coil per
-    # cyclic phase pair, FOUR_LEG one coil per phase to the neutral. An offline
-    # unit (P and Q pinned at zero, or a zero rating) carries no current and
-    # ties nothing.
+    # IBR coils are read through the rules the solver builds them from
+    # (`_ibr_control_rules`): the coil terminal pairs by topology, the active
+    # control law after precedence, the droop bases, the DC coupling. A coil
+    # is left out only when those constraints PROVE it carries no current at
+    # any voltage (`_ibr_coil_states`): both its powers forced to zero. Every
+    # other coil ties its two terminals. A FOUR_LEG coil against earth (no
+    # neutral in the map) references its phase only when both its powers are
+    # fixed at one nonzero point, as for a generator.
     #
-    # The reactive power of an inverter is not always free within its box. A
-    # constant power factor makes Q a fixed multiple of P, and a minimum power
-    # factor bounds |Q| by a multiple of P: under either, a coil whose active
-    # power is zero carries no current, whatever its Q range says.
+    # A record the rules cannot read is not a reason to report a floating
+    # conductor: all its terminals are then tied together.
     profiles = table("control_profile")
     minimum_pf = try
         first(_power_factor_config_check!(net, Finding[]))
@@ -195,123 +196,25 @@ function _conductor_reference(net)
     for (id, c) in table("ibr")
         c isa AbstractDict || continue
         b = get(c, "bus", nothing); tm = get(c, "terminal_map", nothing)
-        b isa AbstractString && strs(tm) && length(tm) >= 2 || continue
-        topo = uppercase(string(get(c, "topology", "FOUR_LEG")))
-        cp = get(profiles, get(c, "control_profile", nothing), nothing)
-        constant_pf = try _constant_pf_value(cp) catch; nothing end
-        policy = minimum_pf isa AbstractDict ? get(minimum_pf, string(id), nothing) : nothing
-        q_follows_p = constant_pf !== nothing || (policy !== nothing && hasproperty(policy, :pf_min) &&
-                                                   policy.pf_min isa Real && policy.pf_min > 0)
-        min_pf = policy !== nothing && hasproperty(policy, :pf_min) && policy.pf_min isa Real && policy.pf_min > 0
-        # Only the P box counts, as in the solver: `p_avail` is the base of a
-        # droop curve, not a bound. A minimum power factor adds P >= 0, so a
-        # zero upper bound alone then pins P.
-        # The effective range of a coil's active power, from every constraint
-        # the solver stamps on it: its own box, P >= 0 under a minimum power
-        # factor, and the isolated DC-link balance (`dc_link_coupled`, no
-        # `dc_bus`) on the SUM of the coil powers, `p_dc_min <= sum(P) <=
-        # p_dc_max`, both defaulting to zero. The balance leaves coil k what
-        # the other coils' boxes allow: with every coil at P >= 0 and a zero
-        # balance, each coil is at zero whatever its own upper bound.
-        n_coils = topo == "SINGLE_PHASE" ? 1 : topo == "THREE_LEG" ? (length(tm) == 2 ? 1 : length(tm)) :
-                  length(tm) - 1
-        # A Volt-watt law caps P at base * f(U), with f >= 0. A zero base is a
-        # zero cap at every voltage: no available power under P_AVAILABLE (a
-        # missing `p_avail` reads as zero there), a zero or missing `s_max` or
-        # `p_max` entry under the other references, or `p_limits` both zero.
-        # Read as the solver resolves the law: not beside a constant power
-        # factor, not on THREE_LEG, and not when the object is unsupported.
-        vw = cp isa AbstractDict ? get(cp, "volt_watt", nothing) : nothing
-        vw_ref = constant_pf === nothing && topo != "THREE_LEG" && vw isa AbstractDict &&
-            (bp = get(vw, "breakpoints", nothing); pl = get(vw, "p_limits", nothing);
-             bp isa AbstractVector && length(bp) == 2 && all(x -> x isa Real && isfinite(x), bp) &&
-             pl isa AbstractVector && length(pl) == 2 && all(x -> x isa Real && isfinite(x), pl)) &&
-            get(vw, "p_unit", "VA_FRACTION") == "VA_FRACTION" &&
-            get(vw, "p_ref", "S_MAX") in ("S_MAX", "P_MAX", "P_AVAILABLE") ? get(vw, "p_ref", "S_MAX") : nothing
-        function volt_watt_zero(k)
-            vw_ref === nothing && return false
-            all(iszero, vw["p_limits"]) && return true
-            vw_ref == "P_AVAILABLE" && return (pa = get(c, "p_avail", nothing); !(pa isa Real) || iszero(pa))
-            # The base as the solver reads it: entry k of the rating, a scalar
-            # being its one entry, and zero where there is none. An omitted
-            # optional `p_max` is therefore a zero base under P_MAX.
-            rating = get(c, vw_ref == "S_MAX" ? "s_max" : "p_max", Float64[])
-            rating isa Real && (rating = [rating])
-            rating isa AbstractVector && all(x -> x isa Real && isfinite(x), rating) || return false
-            k > length(rating) || iszero(rating[k])
+        b isa AbstractString && strs(tm) && !isempty(tm) || continue
+        rules = try
+            policy = minimum_pf isa AbstractDict ? get(minimum_pf, string(id), nothing) : nothing
+            engine_neutrals === nothing ? nothing :
+                _ibr_control_rules(c, profiles, engine_neutrals, policy)
+        catch
+            nothing
         end
-        function p_box(k)
-            local lo = number(get(c, "p_min", nothing), k)
-            local hi = number(get(c, "p_max", nothing), k)
-            lo = lo === nothing ? -Inf : lo; hi = hi === nothing ? Inf : hi
-            volt_watt_zero(k) && (hi = min(hi, 0.0))
-            min_pf && (lo = max(lo, 0.0))
-            # A constant power factor below one ties the two powers of a coil
-            # by the solver's law sign(pf) |pf| Q + sin(phi) P = 0, that is
-            # P = m Q with m = -sign(pf) |pf| / sin(phi). The Q box therefore
-            # maps onto a P range, sign included: a one-sided Q box gives a
-            # one-sided P range. This comes before the DC balance, which sees
-            # each coil's range as it really is.
-            if constant_pf isa Real && 0 < abs(constant_pf) < 1
-                local qlo = number(get(c, "q_min", nothing), k)
-                local qhi = number(get(c, "q_max", nothing), k)
-                qlo = qlo === nothing ? -Inf : qlo; qhi = qhi === nothing ? Inf : qhi
-                m = -sign(constant_pf) * abs(constant_pf) / sqrt((1 - abs(constant_pf)) * (1 + abs(constant_pf)))
-                image(q) = iszero(q) ? 0.0 : m * q          # 0 * Inf is not a bound
-                lo = max(lo, min(image(qlo), image(qhi))); hi = min(hi, max(image(qlo), image(qhi)))
-            end
-            (lo, hi)
+        if rules === nothing
+            for t in tm[2:end]; tie!(node(b, tm[1]), node(b, t)); end
+            continue
         end
-        dc_range = let dlo = get(c, "p_dc_min", 0.0), dhi = get(c, "p_dc_max", 0.0)
-            get(c, "dc_link_coupled", false) === true && !haskey(c, "dc_bus") &&
-                dlo isa Real && dhi isa Real && isfinite(dlo) && isfinite(dhi) ? (Float64(dlo), Float64(dhi)) : nothing
-        end
-        function p_is_zero(k)
-            local (lo, hi) = p_box(k)
-            if dc_range !== nothing
-                others = [p_box(j) for j in 1:n_coils if j != k]
-                lo = max(lo, dc_range[1] - sum(x -> x[2], others; init=0.0))
-                hi = min(hi, dc_range[2] - sum(x -> x[1], others; init=0.0))
-            end
-            tol = 1e-9 * max(1.0, abs(lo), abs(hi))
-            isfinite(lo) && isfinite(hi) && abs(lo) <= tol && abs(hi) <= tol
-        end
-        # A Volt-var law is an equality too: Q = base * f(U). With both
-        # `q_limits` at zero the curve is zero at every voltage, so Q is zero
-        # and the coil's current follows P alone. Read as the solver resolves
-        # it: a constant power factor takes precedence, THREE_LEG carries no
-        # droop, and a malformed or unsupported object falls back to the box.
-        vv = cp isa AbstractDict ? get(cp, "volt_var", nothing) : nothing
-        volt_var_zero = constant_pf === nothing && topo != "THREE_LEG" && vv isa AbstractDict &&
-            (bp = get(vv, "breakpoints", nothing); ql = get(vv, "q_limits", nothing);
-             bp isa AbstractVector && length(bp) == 4 && all(x -> x isa Real && isfinite(x), bp) &&
-             ql isa AbstractVector && length(ql) == 2 && all(x -> x isa Real && iszero(x), ql)) &&
-            get(vv, "q_unit", "VA_FRACTION") == "VA_FRACTION" && get(vv, "q_ref", "VAR_MAX") == "VAR_MAX"
-        # A coil carries no current when its effective P and its effective Q
-        # are both zero, each by whichever constraint fixes it: the box, a
-        # control law, the DC-link balance. A constant power factor below one
-        # works both ways (Q pinned at zero forces P to zero).
-        function q_pinned_zero(k)
-            local lo = number(get(c, "q_min", nothing), k)
-            local hi = number(get(c, "q_max", nothing), k)
-            lo !== nothing && hi !== nothing && iszero(lo) && iszero(hi)
-        end
-        p_zero(k) = p_is_zero(k)
-        q_zero(k) = q_pinned_zero(k) || ((q_follows_p || volt_var_zero) && p_zero(k))
-        coil_zero(k; whole::Bool=false) = forced_to_zero(c, k; whole) || (p_zero(k) && q_zero(k))
-        if topo == "SINGLE_PHASE"
-            coil_zero(1; whole=true) || tie!(node(b, tm[1]), node(b, tm[2]))
-        elseif topo == "THREE_LEG"
-            n = length(tm)
-            pairs = n == 2 ? [(1, 2)] : [(k, mod1(k + 1, n)) for k in 1:n]
-            for (k, (i, j)) in enumerate(pairs)
-                coil_zero(k) || tie!(node(b, tm[i]), node(b, tm[j]))
-            end
-        else
-            npos = engine_neutrals === nothing ? _neutral_pos(tm) : _neutral_pos(tm, engine_neutrals)
-            npos === nothing && (npos = length(tm))      # FOUR_LEG: the neutral is the last terminal
-            for (idx, k) in enumerate([k for k in eachindex(tm) if k != npos])
-                coil_zero(idx) || tie!(node(b, tm[k]), node(b, tm[npos]))
+        states = _ibr_coil_states(rules)
+        for (k, (positive, reference)) in enumerate(rules.coils)
+            states[k] === :zero && continue
+            if reference === nothing
+                states[k] === :fixed && earth!(b, positive)
+            else
+                tie!(node(b, positive), node(b, reference))
             end
         end
     end

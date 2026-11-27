@@ -66,6 +66,19 @@ Initial General release candidate. Registration has not yet been requested.
   - **Conductor-level reference.** `E.INT.NO_VOLTAGE_REFERENCE` is also raised
     for a group of conductors that no element ties to the earthed ones, even
     when its island has a reference elsewhere (`detail["scope"]`).
+  - **One reading of an inverter.** The control rules of an IBR (coil
+    terminals, precedence between power factor and droop, droop bases, DC
+    coupling) live in `src/validation/ibr_rules.jl` and are used by both the
+    OPF/PF builder and the reference check. An inverter coil is left out of
+    the reference graph only when those constraints force both its powers to
+    zero, which an independent LP test checks by minimizing and maximizing
+    each coil's P and Q.
+  - **Banks across primary buses.** Units on different primary buses are one
+    bank only when closed switches carry every primary conductor of each
+    winding between them. Partial ties are listed in
+    `undetermined_transformer_banks` and give a high-leg status of
+    `undetermined`; the verdicts are tested for invariance under bus renaming,
+    switch reversal and terminal relabeling.
   - **Fixtures.** `test/data/profiler_systems`: North American MGN with
     split-phase service, high-leg open delta, European TN four-wire, unearthed
     delta island (referenced and not), Japanese three-wire with V-connection,

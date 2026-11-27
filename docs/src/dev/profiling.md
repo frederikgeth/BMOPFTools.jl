@@ -48,6 +48,16 @@ Rules that follow from this structure:
   free of errors and warnings; `test/profiler_generalization_tests.jl` enforces
   it.
 
+- **Do not re-derive what the solver stamps.** A check that depends on how a
+  device is modeled reads the same rules the builder does. For inverters that
+  is `src/validation/ibr_rules.jl`; `test/ibr_rules_tests.jl` holds the
+  profiler's conclusions against an independent LP. A single solve that
+  returns zero current shows zero is feasible, not that it is forced.
+- **Follow conductors, not labels or bus names.** `_conductor_groups` is the
+  one place a conductor is followed from bus to bus. A verdict must survive
+  renaming a bus, reversing a switch and relabeling a terminal; the bank tests
+  in `test/profiler_generalization_tests.jl` apply those rewrites to every case.
+
 ## Semantics and data quality come first
 
 The value of this pipeline is **faithful semantics and high data quality**, not

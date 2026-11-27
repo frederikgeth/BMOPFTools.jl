@@ -216,7 +216,7 @@ function _high_leg_banks(net::Dict{String,Any})
         f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
         tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
         f isa AbstractString && b isa AbstractString && strs(tm, 3) && strs(tf, 2) || continue
-        push!(get!(lighting, (supply(String(f), tf), String(b)), Any[]),
+        push!(get!(lighting, (supply.key(String(f), tf), String(b)), Any[]),
               (id=string(id), to=string.(tm), from=string.(tf), bus_from=String(f)))
     end
     isempty(lighting) && return out
@@ -235,29 +235,7 @@ function _high_leg_banks(net::Dict{String,Any})
     function phasor(bus, t)
         if conductor_angle === nothing
             Node = Tuple{String,String}
-            parent = Dict{Node,Node}()
-            function find(x)
-                haskey(parent, x) || (parent[x] = x)
-                root = x
-                while parent[root] != root; root = parent[root]; end
-                while parent[x] != root
-                    parent[x], x = root, parent[x]
-                end
-                root
-            end
-            for kind in ("line", "switch"), (_, c) in get(net, kind, Dict())
-                c isa AbstractDict || continue
-                kind == "switch" && get(c, "open_switch", false) === true && continue
-                bf = get(c, "bus_from", nothing); bt = get(c, "bus_to", nothing)
-                tf = get(c, "terminal_map_from", nothing); tt = get(c, "terminal_map_to", nothing)
-                bf isa AbstractString && bt isa AbstractString && tf isa AbstractVector &&
-                    tt isa AbstractVector || continue
-                for k in 1:min(length(tf), length(tt))
-                    tf[k] isa AbstractString && tt[k] isa AbstractString || continue
-                    ra = find((String(bf), String(tf[k]))); rb = find((String(bt), String(tt[k])))
-                    ra == rb || (parent[ra] = rb)
-                end
-            end
+            find, parent = _conductor_groups(net)
             # The declared phasor is magnitude AND angle: a winding across two
             # conductors of unequal magnitude does not point where their angles
             # alone would put it.
@@ -342,8 +320,27 @@ function _high_leg_banks(net::Dict{String,Any})
         f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
         f isa AbstractString && b isa AbstractString || continue
         tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
-        units = get(lighting, (supply(String(f), tf), String(b)), nothing)
-        units === nothing && continue
+        strs(tf, 2) || continue
+        units = get(lighting, (supply.key(String(f), tf), String(b)), nothing)
+        if units === nothing
+            # A lighting unit on the same secondary bus whose primary is joined
+            # to this one on some conductors only: neither one bank nor known
+            # to be two. Reported, and kept out of level propagation like any
+            # unit whose bank cannot be established.
+            for (key, candidates) in lighting, u in candidates
+                key[2] == String(b) || continue
+                (supply.partial(String(f), tf, u.bus_from) || supply.partial(u.bus_from, u.from, String(f))) || continue
+                tm2 = get(t, "terminal_map_to", nothing)
+                strs(tm2, 2) && !any(is_return, tm2) || continue
+                legs = (u.to[1], u.to[3])
+                count(x -> x in legs, tm2) == 1 || continue
+                push!(out, (id=string(id), bus_from=String(f), bus_to=String(b), lighting=u.id,
+                            high=[String(x) for x in tm2 if !(x in legs)], status="undetermined",
+                            amplitude_ratio=nothing, amplitude_range=nothing))
+                break
+            end
+            continue
+        end
         strs(tm, 2) && strs(tf, 2) || continue
         to = string.(tm)
         any(is_return, to) && continue                 # the power unit is phase-to-phase

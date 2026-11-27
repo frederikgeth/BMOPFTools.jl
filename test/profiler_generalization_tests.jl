@@ -1346,6 +1346,133 @@ end
         @test BMOPFTools._unreferenced_conductor_groups(bad) isa Vector
     end
 
+    @testset "banks across primary buses need conductor-level evidence" begin
+        # The open-delta bank with its two units on different primary buses,
+        # joined (or not) by a switch. `feeds = 1`: pole2 hangs off pole through
+        # the switch alone. `feeds = 2`: pole2 has its own line from the
+        # substation, so the two primaries are separately fed.
+        bank(net) = voltage_level_analysis(net, Finding[])["high_leg_banks"]
+        build(tie; feeds=1, open=false) = begin
+            out = _pg_sys("na_high_leg_open_delta")
+            out["bus"]["pole2"] = deepcopy(out["bus"]["pole"])
+            out["transformer"]["single_phase"]["power"]["bus_from"] = "pole2"
+            feeds == 2 && (out["line"]["main2"] = merge(deepcopy(out["line"]["main"]), Dict{String,Any}("bus_to" => "pole2")))
+            tie === nothing || (out["switch"] = Dict{String,Any}("tie" => Dict{String,Any}(
+                "bus_from" => "pole", "bus_to" => "pole2", "terminal_map_from" => copy(tie),
+                "terminal_map_to" => copy(tie), "open_switch" => open, "i_max" => fill(100.0, length(tie)))))
+            out
+        end
+        # What a case reports: (bank membership, undetermined pairs, phase cycles, high-leg statuses).
+        verdict(net) = begin
+            c = _pg_analyze(net).results[:connectivity]
+            (banks = sort!([g["units"] for g in c["transformer_banks"]]),
+             undetermined = sort!([g["units"] for g in c["undetermined_transformer_banks"]]),
+             cycles = c["n_extra_edges"],
+             high_leg = sort!([(b["power_unit"], b["status"]) for b in bank(net)]))
+        end
+        one = [["lighting", "power"]]; none = Vector{String}[]
+        full = ["a", "b", "c", "n"]
+        cases = [
+            # A full primary disconnect leaves the bank what it was.
+            ("full disconnect",              build(full),             (banks=one,  undetermined=none, cycles=0, high_leg=[("power", "verified")])),
+            ("full tie, two feeds",          build(full; feeds=2),    (banks=one,  undetermined=none, cycles=1, high_leg=[("power", "verified")])),
+            # Partial ties: some conductor of a winding crosses, not all of them.
+            ("phases a and b, no neutral",   build(["a", "b"]; feeds=2), (banks=none, undetermined=one, cycles=2, high_leg=[("power", "undetermined")])),
+            ("phase a only",                 build(["a"]; feeds=2),      (banks=none, undetermined=one, cycles=2, high_leg=[("power", "undetermined")])),
+            ("phase a and neutral",          build(["a", "n"]; feeds=2), (banks=none, undetermined=one, cycles=2, high_leg=[("power", "undetermined")])),
+            # No evidence: a conductor neither winding uses, a neutral bond, an open switch, no switch.
+            ("unused phase c",               build(["c"]; feeds=2),   (banks=none, undetermined=none, cycles=2, high_leg=Tuple{String,String}[])),
+            ("neutral bond",                 build(["n"]; feeds=2),   (banks=none, undetermined=none, cycles=1, high_leg=Tuple{String,String}[])),
+            ("open disconnect",              build(full; feeds=2, open=true), (banks=none, undetermined=none, cycles=1, high_leg=Tuple{String,String}[])),
+            ("no switch",                    build(nothing; feeds=2), (banks=none, undetermined=none, cycles=1, high_leg=Tuple{String,String}[])),
+        ]
+        for (name, net, expected) in cases
+            @testset "$name" begin
+                @test verdict(net) == expected
+            end
+        end
+        # A full disconnect is the fixture again: same levels, nothing reported.
+        rep = _pg_analyze(build(full)); base = _pg_analyze(_pg_sys("na_high_leg_open_delta"))
+        @test isempty(errors(rep)) && isempty(warnings(rep))
+        @test rep.results[:voltage_levels]["bus_voltage_map"]["svc"] ≈ base.results[:voltage_levels]["bus_voltage_map"]["svc"]
+        @test isempty(rep.results[:connectivity]["dangling_buses"])
+        g = only(rep.results[:connectivity]["transformer_banks"])
+        @test g["supply_buses"] == ["pole", "pole2"]
+        # Crossed phases at the disconnect: still one bank by connection, but
+        # the phasor trace follows the conductors and does not certify it.
+        crossed = build(full); crossed["switch"]["tie"]["terminal_map_to"] = ["b", "a", "c", "n"]
+        @test !any(b -> b["status"] == "verified", bank(crossed))
+        # A neutral bond across the bank itself (primary to secondary) changes nothing.
+        bonded = _pg_sys("na_high_leg_open_delta")
+        bonded["switch"] = Dict{String,Any}("bond" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "svc",
+            "terminal_map_from" => ["n"], "terminal_map_to" => ["n"], "open_switch" => false, "i_max" => [100.0]))
+        @test verdict(bonded) == (banks=one, undetermined=none, cycles=0, high_leg=[("power", "verified")])
+
+        # Invariance. None of the verdicts may depend on how the case is written:
+        # the name of a bus, the direction of a switch, the label of a terminal.
+        rename_bus(net, old, new) = begin
+            out = deepcopy(net)
+            out["bus"][new] = pop!(out["bus"], old)
+            for kind in ("line", "switch"), c in values(get(out, kind, Dict()))
+                for k in ("bus_from", "bus_to"); c[k] == old && (c[k] = new); end
+            end
+            for sub in values(out["transformer"]), t in values(sub)
+                for k in ("bus_from", "bus_to"); t[k] == old && (t[k] = new); end
+            end
+            for kind in ("shunt", "load", "voltage_source"), c in values(get(out, kind, Dict()))
+                c["bus"] == old && (c["bus"] = new)
+            end
+            out
+        end
+        reverse_switches(net) = begin
+            out = deepcopy(net)
+            for sw in values(get(out, "switch", Dict()))
+                sw["bus_from"], sw["bus_to"] = sw["bus_to"], sw["bus_from"]
+                sw["terminal_map_from"], sw["terminal_map_to"] = sw["terminal_map_to"], sw["terminal_map_from"]
+            end
+            out
+        end
+        # Rename one terminal of one bus everywhere it is referenced, and
+        # declare the new label's role so that it still means what it meant.
+        relabel(net, bus, old, new) = begin
+            out = deepcopy(net)
+            swap(v) = [x == old ? new : x for x in v]
+            b = out["bus"][bus]; b["terminal_names"] = swap(b["terminal_names"])
+            haskey(b, "perfectly_grounded_terminals") && (b["perfectly_grounded_terminals"] = swap(b["perfectly_grounded_terminals"]))
+            for kind in ("line", "switch"), c in values(get(out, kind, Dict()))
+                c["bus_from"] == bus && (c["terminal_map_from"] = swap(c["terminal_map_from"]))
+                c["bus_to"] == bus && (c["terminal_map_to"] = swap(c["terminal_map_to"]))
+            end
+            for sub in values(out["transformer"]), t in values(sub)
+                t["bus_from"] == bus && (t["terminal_map_from"] = swap(t["terminal_map_from"]))
+                t["bus_to"] == bus && (t["terminal_map_to"] = swap(t["terminal_map_to"]))
+            end
+            for kind in ("shunt", "load", "voltage_source"), c in values(get(out, kind, Dict()))
+                c["bus"] == bus && (c["terminal_map"] = swap(c["terminal_map"]))
+            end
+            role = old in out["terminal_conventions"]["neutral"] ? "neutral" : "phase"
+            push!(out["terminal_conventions"][role], new)
+            out
+        end
+        variants = [
+            ("pole2 sorts first",  net -> rename_bus(net, "pole2", "a_pole2")),
+            ("pole sorts last",    net -> rename_bus(net, "pole", "z_pole")),
+            ("both renamed",       net -> rename_bus(rename_bus(net, "pole", "m2"), "pole2", "m1")),
+            ("switch reversed",    reverse_switches),
+            ("phase b relabeled",  net -> relabel(net, "pole2", "b", "x")),
+            ("phase a relabeled",  net -> relabel(net, "pole2", "a", "y")),
+            ("neutral relabeled",  net -> relabel(net, "pole2", "n", "m")),
+            ("reversed, renamed, relabeled",
+                net -> relabel(rename_bus(reverse_switches(net), "pole2", "a_pole2"), "a_pole2", "b", "x")),
+        ]
+        for (name, net, expected) in cases, (variant, transform) in variants
+            haskey(net, "switch") || variant != "switch reversed" || continue
+            @testset "$name — $variant" begin
+                @test verdict(transform(net)) == expected
+            end
+        end
+    end
+
     @testset "high-leg identification follows the primary winding phasors" begin
         bank(net) = voltage_level_analysis(net, Finding[])["high_leg_banks"]
         base = _pg_sys("na_high_leg_open_delta")
@@ -1534,114 +1661,6 @@ end
         loose["voltage_source"]["far"] = merge(deepcopy(loose["voltage_source"]["grid"]), Dict{String,Any}("bus" => "pole"))
         delete!(loose["voltage_source"], "grid")
         @test only(bank(loose))["status"] == "unverified"
-        # A primary disconnect between the two units does not split the bank:
-        # primary buses joined by a closed switch are one supply point.
-        behind(; open=false) = begin
-            out = _pg_sys("na_high_leg_open_delta")
-            out["bus"]["pole2"] = deepcopy(out["bus"]["pole"])
-            out["switch"] = Dict{String,Any}("disc" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "pole2",
-                "terminal_map_from" => ["a", "b", "c", "n"], "terminal_map_to" => ["a", "b", "c", "n"],
-                "open_switch" => open, "i_max" => fill(100.0, 4)))
-            out["transformer"]["single_phase"]["power"]["bus_from"] = "pole2"
-            out
-        end
-        b = only(bank(behind()))
-        @test b["status"] == "verified" && b["power_unit"] == "power" && b["bus_from"] == "pole2"
-        rep = _pg_analyze(behind()); base = _pg_analyze(_pg_sys("na_high_leg_open_delta"))
-        @test isempty(errors(rep)) && isempty(warnings(rep))
-        @test rep.results[:voltage_levels]["bus_voltage_map"]["svc"] ≈ base.results[:voltage_levels]["bus_voltage_map"]["svc"]
-        @test rep.results[:connectivity]["is_radial"]
-        @test only(rep.results[:connectivity]["transformer_banks"])["units"] == ["lighting", "power"]
-        @test isempty(rep.results[:connectivity]["dangling_buses"])
-        # The switch maps conductors, and the trace follows them: crossed
-        # phases at the disconnect change the bank's geometry.
-        crossed = behind(); crossed["switch"]["disc"]["terminal_map_to"] = ["b", "a", "c", "n"]
-        @test !any(b -> b["status"] == "verified", bank(crossed))
-        # An open disconnect: two separate supply points, no bank.
-        @test isempty(bank(behind(open=true)))
-        @test isempty(_pg_analyze(behind(open=true)).results[:connectivity]["transformer_banks"])
-        # Only a switch that carries a phase conductor joins supply points. A
-        # closed neutral bond across the bank changes nothing...
-        bonded = _pg_sys("na_high_leg_open_delta")
-        bonded["switch"] = Dict{String,Any}("bond" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "svc",
-            "terminal_map_from" => ["n"], "terminal_map_to" => ["n"], "open_switch" => false, "i_max" => [100.0]))
-        rep = _pg_analyze(bonded)
-        @test only(bank(bonded))["status"] == "verified"
-        @test only(rep.results[:connectivity]["transformer_banks"])["units"] == ["lighting", "power"]
-        @test !("W.CONN.MESHED" in _pg_codes(rep.findings)) && rep.results[:connectivity]["is_radial"]
-        # ...and a neutral bond between two separately fed primaries does not
-        # make them one bank: the phase cycle through the two feeds stays.
-        twofeeds(; bond=false, phases=false) = begin
-            out = behind(open=true); delete!(out, "switch")
-            out["line"]["main2"] = merge(deepcopy(out["line"]["main"]), Dict{String,Any}("bus_to" => "pole2"))
-            tm = phases ? ["a", "b", "c", "n"] : ["n"]
-            if bond
-                out["switch"] = Dict{String,Any}("bond" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "pole2",
-                    "terminal_map_from" => tm, "terminal_map_to" => copy(tm),
-                    "open_switch" => false, "i_max" => fill(100.0, length(tm))))
-            end
-            out
-        end
-        for net in (twofeeds(), twofeeds(bond=true))
-            rep = _pg_analyze(net)
-            @test "W.CONN.MESHED" in _pg_codes(rep.findings)
-            @test isempty(rep.results[:connectivity]["transformer_banks"])
-            @test isempty(bank(net))
-        end
-        @test only(_pg_analyze(twofeeds(bond=true, phases=true)).results[:connectivity]["transformer_banks"])["units"] ==
-              ["lighting", "power"]
-        # A switch joins two supply points only for a winding whose phase
-        # conductors it all carries. A tie on a phase neither primary uses
-        # (they are on a and b) merges nothing and adds its own cycle; a tie
-        # carrying both phases makes the two units one bank.
-        tied(tm) = begin
-            out = twofeeds()
-            out["switch"] = Dict{String,Any}("tie" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "pole2",
-                "terminal_map_from" => tm, "terminal_map_to" => copy(tm), "open_switch" => false,
-                "i_max" => fill(100.0, length(tm))))
-            out
-        end
-        extra(net) = _pg_analyze(net).results[:connectivity]["n_extra_edges"]
-        @test extra(twofeeds()) == 1
-        @test extra(tied(["c"])) == 2
-        @test isempty(_pg_analyze(tied(["c"])).results[:connectivity]["transformer_banks"]) && isempty(bank(tied(["c"])))
-        @test extra(tied(["a", "b"])) == 1
-        @test only(_pg_analyze(tied(["a", "b"])).results[:connectivity]["transformer_banks"])["units"] == ["lighting", "power"]
-        # One primary's phase alone is not enough for the other unit.
-        @test isempty(_pg_analyze(tied(["a"])).results[:connectivity]["transformer_banks"])
-        # Grouping does not depend on bus names. With a phase-a-only tie the
-        # lighting unit reaches both poles and the power unit only its own:
-        # different reaches, whichever pole sorts first.
-        renamed_bus(net, old, new) = begin
-            out = deepcopy(net)
-            out["bus"][new] = pop!(out["bus"], old)
-            for kind in ("line", "switch"), c in values(get(out, kind, Dict()))
-                for k in ("bus_from", "bus_to"); c[k] == old && (c[k] = new); end
-            end
-            for sub in values(out["transformer"]), t in values(sub)
-                for k in ("bus_from", "bus_to"); t[k] == old && (t[k] = new); end
-            end
-            for kind in ("shunt", "load"), c in values(get(out, kind, Dict()))
-                c["bus"] == old && (c["bus"] = new)
-            end
-            out
-        end
-        for net in (tied(["a"]), renamed_bus(tied(["a"]), "pole2", "a_pole2"), renamed_bus(tied(["a"]), "pole", "z_pole"))
-            rep = _pg_analyze(net)
-            @test isempty(rep.results[:connectivity]["transformer_banks"])
-            @test rep.results[:connectivity]["n_extra_edges"] == 2
-            @test isempty(bank(net))
-        end
-        for net in (tied(["a", "b"]), renamed_bus(tied(["a", "b"]), "pole2", "a_pole2"))
-            g = only(_pg_analyze(net).results[:connectivity]["transformer_banks"])
-            @test g["units"] == ["lighting", "power"] && length(g["supply_buses"]) == 2
-            @test only(bank(net))["status"] == "verified"
-        end
-        # Labels are followed through the switch: `b` arriving as `x` is still b.
-        relabeled = behind(); relabeled["bus"]["pole2"]["terminal_names"] = ["a", "x", "c", "n"]
-        relabeled["switch"]["disc"]["terminal_map_to"] = ["a", "x", "c", "n"]
-        relabeled["transformer"]["single_phase"]["power"]["terminal_map_from"] = ["x", "n"]
-        @test only(_pg_analyze(relabeled).results[:connectivity]["transformer_banks"])["units"] == ["lighting", "power"]
         # A free tap (tap_min < tap_max) is a range, and `tap` only its start,
         # clamped into the bounds. Every position misses: a mismatch, although
         # the absent `tap` would read as 1.0.
