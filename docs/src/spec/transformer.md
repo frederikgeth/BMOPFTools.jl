@@ -312,7 +312,7 @@ keyed `"i_j"`), and the star arms are recovered from that matrix
 ($\textcolor{brown}{x_{\text{sc}}}[i,j]=\textcolor{red}{X_i}+\textcolor{red}{X_j}$ for a
 symmetric star):
 
-![n-winding star (leakage) equivalent, referred to winding 1: each winding contributes a leakage arm to a common core node, the no-load shunt sits at the core, and each winding pair (i,j) has its own short-circuit reactance x_sc[i,j] = X_i + X_j.](assets/nwinding_loss.svg)
+![n-winding star (leakage) equivalent, referred to winding 1: each winding contributes a leakage arm to a common core node, the no-load shunt is modeled across winding 2's coil (the figure draws it at the core node), and each winding pair (i,j) has its own short-circuit reactance x_sc[i,j] = X_i + X_j.](assets/nwinding_loss.svg)
 
 So for more than two windings there is **no single "short-circuit reactance"** — only a
 matrix of pairwise short-circuits, which is exactly what the `x_sc` field records.

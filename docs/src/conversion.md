@@ -225,7 +225,9 @@ BMOPF conventions:
   (`prime_mover = "PV"`) together
   with a `control_profile` for its control law, for example a `power_factor`
   profile for a fixed-PF unit. Both arrive through the `extras` fold described
-  above.
+  above. A PV system connected to node 0 is a known gap: its `terminal_map`
+  keeps the label `"0"` while the bus carries `n_ref`, so integrity reports
+  `E.INT.UNKNOWN_TERMINAL` until the map is corrected by hand.
 - **No slack price** — the imported `voltage_source` is left without a `cost`;
   the [augmentation pass](augmentation.md) supplies one (below).
 

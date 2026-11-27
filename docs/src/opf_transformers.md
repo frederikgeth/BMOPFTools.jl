@@ -226,9 +226,9 @@ At zero leakage both forms give the ideal $U_\text{hv} = N u_1 = N u_2$.
 
 `wye_delta` has the wye on the from side, `delta_wye` the delta on the from
 side. Each core leg $k$ links one wye coil (phase $k$ to the star point) with
-one delta coil (between two delta terminals). Because nominal voltages are
-given as phase-to-neutral equivalents on both sides, the coil ratio carries the
-$\sqrt3$ of the delta connection:
+one delta coil (between two delta terminals). Nominal voltages are given on the
+same basis on both sides (line-to-line nameplate values by convention), so the
+coil ratio carries the $\sqrt3$ of the delta connection:
 
 $$n_\text{eff} = \begin{cases} \sqrt{3}/N & \text{Yd} \\ N\sqrt{3} & \text{Dy} \end{cases}
 \qquad\text{(delta coil volts per wye coil volt)}$$

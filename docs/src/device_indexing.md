@@ -59,8 +59,8 @@ Current limits `i_max` follow the conductors, not the power arrays:
 
 | Fields | One entry per |
 |:--|:--|
-| `v_magnitude`, `v_angle` | terminal, in `terminal_map` order. A trailing run of already perfectly grounded terminals may be omitted; an ungrounded phase may not |
-| `p_min/max`, `q_min/max`, `cost` | phase, in phase order, with the neutral excluded even when the reference arrays include it |
+| `v_magnitude`, `v_angle` | terminal, in `terminal_map` order; the two arrays have equal length. A trailing run of already perfectly grounded terminals may be omitted; an ungrounded phase may not |
+| `p_min/max`, `q_min/max`, `cost` | phase, in phase order, with the neutral excluded even when the reference arrays include it. A source with `DELTA` configuration is not length-checked |
 
 ### Buses
 
@@ -100,6 +100,10 @@ and `W.CONV.TERMINAL_ROLES_INFERRED` is raised.
   `E.TMAP.DEVICE_ROLES`. It is never counted as a phase.
 - An implicit-reference `WYE` (no neutral in its map) raises
   `W.INT.WYE_WITHOUT_NEUTRAL`. No implicit return is inferred.
+- Duplicate terminals in a map and a neutral in a `DELTA` map have their own
+  diagnostics.
+- Load-model coefficient families that the chosen `model` does not read are
+  reported for information.
 - OpenDSS intake uses `n_ref` for a separate, perfectly grounded node-0
   return. A bus may carry both the conductor neutral `n` and `n_ref`; each
   device map selects its own return, and `n` remains the bus neutral for

@@ -73,8 +73,8 @@ Summarize load voltage-dependence and emit OPF-formulation flags:
 - `I.LOAD.EXP_ZIP_EQUIVALENT` — exponential loads with only integer exponents
   {0,1,2}; these can be represented as ZIP, keeping the OPF quadratic.
 - `W.LOAD.NL_NO_VMIN` — voltage-dependent loads on buses without any lower
-  voltage magnitude bound; the OPF then uses a log-magnitude load voltage with
-  no floor, so no engineering bound limits the load's voltage range.
+  voltage magnitude bound; the OPF load model then has no voltage floor, so no
+  engineering bound limits the load's voltage range.
 """
 function load_model_analysis(net::Dict{String,Any},
                              findings::Vector{Finding})::Dict{String,Any}

@@ -183,8 +183,7 @@ After `enforce_kcl!(ctx)`, `opf_diagnostic_schema(ctx).semantic_blocks` lists
 the engine's paired coordinates and residuals: rectangular real/imaginary
 voltage and current pairs, active/reactive power pairs, and their paired KCL,
 voltage-drop, device-power, transformer, switch, and source equations when
-present. Each entry is a record (of the internal type `OpfSemanticBlock`, which
-you read but do not construct) holding its ordered members, canonical component
+present. Each entry is an `OpfSemanticBlock` holding its ordered members, canonical component
 labels, physical quantity and unit, model-to-canonical transform, and
 residual-set contract.
 

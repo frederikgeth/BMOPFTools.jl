@@ -42,7 +42,7 @@ construction (as below) rather than carrying unit fields around.
 
 - **Every conductor maps to a terminal.** The compiled matrix is the full
   primitive matrix of the circuit conductors, in listing order —
-  `compile_linecode` has no Kron-elimination pathway. Grounding is a *bus* property
+  `compile_linecode` performs no Kron elimination of circuit conductors. Grounding is a *bus* property
   (`perfectly_grounded_terminals`), not something baked into impedance data.
   This is deliberate: the four-wire OPF retains the neutral, and eliminating
   it presumes the very `V_n = 0` the model is there to question.
@@ -253,10 +253,11 @@ Both 50 and 60 Hz are computed exactly from ω — no constant in the engine is
 frequency-specific, `frequency` is a **required** field on every geometry,
 and nothing is ever rescaled between frequencies (there is no analogue of
 OpenDSS's `DefaultBaseFreq`). `meta.frequency`, when present, is check-only:
-mismatching objects raise `W.DOM.FREQUENCY_MISMATCH`, and geometries compiled
-at different frequencies within one case raise `W.DOM.MIXED_FREQUENCY`. A
-line that references a missing wire type or geometry raises
-`E.INT.UNKNOWN_WIRE_DATA` or `E.INT.UNKNOWN_LINE_GEOMETRY`, and a geometry
+mismatching objects raise `W.DOM.FREQUENCY_MISMATCH`. When `meta.frequency`
+is absent, geometries and derivations that disagree on frequency raise
+`W.DOM.MIXED_FREQUENCY`. A geometry conductor that names a missing `wire_data`
+id raises `E.INT.UNKNOWN_WIRE_DATA`, a linecode whose `line_geometry`
+back-reference is missing raises `E.INT.UNKNOWN_LINE_GEOMETRY`, and a geometry
 that cannot be re-derived raises `W.PROV.GEOMETRY_UNCOMPILABLE`.
 
 Realizability of the construction data is validated separately (impossible:

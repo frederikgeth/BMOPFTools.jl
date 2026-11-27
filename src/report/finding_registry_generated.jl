@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "58083bd57046c3b7becf5dc82bcbd49589d32bc4b45a709c4b2f834269b7610f"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "72550e62371093bffad25b17417e7eaa16b9ae427feee17b04947ca4fdcb163a"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -1161,7 +1161,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="LOAD",
         catalogue_section="LOAD",
         section_title="load model validation & analysis",
-        meaning="One or more voltage-dependent loads sit on buses without any lower voltage magnitude bound (`v_min`, `vpn_min`, or `vpp_min`). The OPF then models the load voltage through a log-magnitude variable with no floor, so no engineering limit keeps the load in the voltage range where its model is valid. For loads with \$\\gamma < 2\$ or \$\\alpha^I/\\alpha^Z \\neq 0\$ the power expression grows unboundedly as voltage falls; an explicit lower bound is strongly recommended.",
+        meaning="One or more voltage-dependent loads sit on buses without any lower voltage magnitude bound (`v_min`, `vpn_min`, or `vpp_min`). The OPF load model then has no voltage floor (a linear current law for pure constant-impedance loads, a log-magnitude form otherwise), so no engineering limit keeps the load in the voltage range where its model is valid. For loads with \$\\gamma < 2\$ or \$\\alpha^I/\\alpha^Z \\neq 0\$ the power expression grows unboundedly as voltage falls; an explicit lower bound is strongly recommended.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

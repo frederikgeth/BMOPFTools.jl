@@ -50,7 +50,7 @@ show_block(net["bus"]["lv0"])
 
 The medium-voltage bus is three-wire. The transformer's low-voltage bus has
 four terminals, and `perfectly_grounded_terminals` pins its neutral to exactly
-0 V: the substation earthing. The buses further down the feeder have a
+0 V: the substation grounding. The buses further down the feeder have a
 neutral terminal with no grounding, so their neutral voltage is free to rise
 under unbalanced load.
 

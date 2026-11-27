@@ -221,7 +221,7 @@ The repository-local [barrier benchmark instructions](https://github.com/frederi
 provide deterministic DER augmentation, warmed repeated comparisons, provenance,
 and serialized verification evidence. They include the 498-bus reproduction
 command and instructions for retaining the slow-case comparison. No new preset
-API is required. See also [power-base sensitivity](tutorial_units.md#Power-base-sensitivity).
+API is required. See also [power-base sensitivity](numerical_workflows.md#Power-base-sensitivity).
 
 ### Ipopt settings worth experimenting with
 

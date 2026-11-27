@@ -51,7 +51,7 @@ more windings, the inventory holds separate winding-1 → winding-k relations
 and the aggregate label has no single clock.
 
 **Coil voltages.** The relation concerns ideal, balanced, three-phase winding
-voltages with positive real turns ratios. Loaded voltage drops are not part of
+voltages with positive real turns ratios and taps. Loaded voltage drops are not part of
 it. For a wye, coil `k` is the mapped phase voltage minus the identified
 neutral (or the implicit zero reference). For a delta, it is the voltage of
 mapped terminal `k` minus that of another terminal:
@@ -68,6 +68,8 @@ removes the arbitrary common-mode voltage.
 **Clock.** For each paired coil, the ratio `u_reference[k] / u_target[k]` is
 reduced to a pure rotation. All three coils must agree. The displacement is
 the angle of that rotation and the clock is `−displacement/30° mod 12`.
+Clock 0 is a valid result: a supported zero displacement, as for a Yy bank
+with matching maps. Yy banks with permuted maps are evaluated the same way.
 
 With default `a/b/c` maps, both `wye_delta` and `delta_wye` give a −30° target
 displacement, clock 1. Three consequences follow:
@@ -117,7 +119,8 @@ statuses.
   transition and adds a `phase_relation` record for that direction.
 - Terminal and Markdown reports label the value as an *effective* relation.
   `render_ascii_tree` derives the label for the direction it traverses.
-- All three accept the optional `phase_order` map. [`analyze`](@ref) uses the
+- `inventory_analysis`, `voltage_level_analysis` and `render_ascii_tree`
+  accept the optional `phase_order` map. [`analyze`](@ref) uses the
   conventional label sets only; call the individual passes to supply your own
   correspondence.
 

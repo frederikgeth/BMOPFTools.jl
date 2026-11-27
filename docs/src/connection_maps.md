@@ -12,9 +12,10 @@ roles. Neither pass repairs, reorders or truncates a map.
 ## The two questions
 
 1. **Does each endpoint exist and have a usable shape?** Unknown buses and
-   terminals raise `E.INT.UNKNOWN_BUS` and `E.INT.UNKNOWN_TERMINAL`. Missing
-   or non-string bus identifiers and empty or malformed maps raise
-   `E.INT.CONNECTION_SHAPE`. The evidence names the endpoint or the winding
+   terminals raise `E.INT.UNKNOWN_BUS` and `E.INT.UNKNOWN_TERMINAL`. Entries that
+   are not objects, missing or non-string bus identifiers, and empty or
+   malformed maps raise `E.INT.CONNECTION_SHAPE`. Duplicate terminals within
+   one map have their own diagnostic. The evidence names the endpoint or the winding
    index.
 2. **Do the conductor roles at each position make sense for this element?**
    The answer depends on the element, as the table shows.
@@ -41,7 +42,8 @@ information.
 
 What is not valid is a phase at one end meeting a neutral at the other at the
 same position. That raises `E.TMAP.PHASE_TO_NEUTRAL`, with both endpoint
-records and the offending position.
+records and the offending position. A map that repeats the neutral at every
+position raises it too, alongside the duplicate-terminal diagnostic.
 
 ### Transformers: each winding on its own terms
 

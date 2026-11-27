@@ -23,7 +23,8 @@ Transformers are covered by four pages, each with one job:
     `center_tap` for a 120/240 V split-phase service. A step voltage regulator
     is `single_phase_autotransformer` (one phase) or `open_delta_regulator`.
     A three-phase wye-wye unit is `single_phase` with three-phase terminal
-    maps (one YY winding pair per phase) or a two-winding `n_winding`. Use
+    maps (one YY winding pair per phase; this raises the conformance
+    warning `W.SPEC.XFMR_TMAP_ARITY`) or a two-winding `n_winding`. Use
     `n_winding` for three or more windings.
 
 ## Supported subtypes
@@ -129,7 +130,9 @@ winding-2 magnetizing shunt, and the `rneut`/`xneut` grounding branch.
 `export_yprim` calls for you. Three caveats for consumers:
 
 - **Unknown subtypes**: `transformer_yprim` throws; `export_yprim` warns and
-  omits the device.
+  omits the device. An ideal unit is different: its error is not caught, so
+  one ideal transformer aborts `export_yprim` and `write_yprim` for the whole
+  network.
 - **Regulators** (`single_phase_autotransformer`, `open_delta_regulator`): the
   shared-bushing / shared-phase galvanic tie is an OPF **topological** constraint,
   not part of the device primitive (the exported block is the Yan et al. (2018)

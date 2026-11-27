@@ -44,7 +44,7 @@ reads `v_nom`** (there is nothing voltage-dependent to anchor), and every
 other model requires a strictly positive `v_nom` — it is the voltage at which
 the load consumes exactly its nameplate. `v_nom` and the coefficients are
 arrays with one entry per sub-load; a length-one array is broadcast to all of
-them. ZIP coefficients that are absent default to ``(0, 0, 1)`` — constant
+them. A ZIP family that is absent altogether defaults to ``(0, 0, 1)`` — constant
 power — and the solver does not require them to sum to one: a sum away from
 one only raises [`W.LOAD.ZIP_SUM`](findings.md), and the load then draws that
 multiple of its nameplate at `v_nom`. An `exponential` load with integer

@@ -210,7 +210,8 @@ A bus carries `terminal_names`, optionally `perfectly_grounded_terminals`,
 and optional voltage-magnitude bounds in four flavors: phase-to-ground
 (`v_min`/`v_max`), phase-to-neutral (`vpn_*`), phase-to-phase (`vpp_*`)
 and sequence (`vpos_min`/`vpos_max`, plus the maximum-only `vneg_max` and
-`vzero_max` on the negative- and zero-sequence magnitudes). `v_min`/`v_max` and `vpn_min`/`vpn_max` are
+`vzero_max` on the negative- and zero-sequence magnitudes, and the
+dimensionless voltage-unbalance-factor cap `vuf_max`). `v_min`/`v_max` and `vpn_min`/`vpn_max` are
 **per-phase arrays** (one element per phase terminal, in `terminal_names` order,
 neutral excluded); `vpp_min`/`vpp_max` are **per-pair arrays** (one element per
 unordered phase pair, in `(i<j)` order). A terminal declared as protective
@@ -334,8 +335,9 @@ the sub-load voltage; `v_nom` (V) is the voltage at which it draws exactly
 | `zip` | `v_nom`; `alpha_z`, `alpha_i`, `alpha_p` (active) and `beta_z`, `beta_i`, `beta_p` (reactive) | coefficients are not required to sum to 1 (`W.LOAD.ZIP_SUM`) |
 | `exponential` | `v_nom`; `gamma_p`, `gamma_q` | integer exponents are solved as the equivalent ZIP terms |
 
-`v_nom` and the coefficients are scalars, length-one arrays, or one entry per
-sub-load. The equations are in the [load specification](spec/load.md), and
+`v_nom` and the coefficients are arrays: length one (broadcast to every
+sub-load) or one entry per sub-load. The solver tolerates a bare scalar, but
+it is not schema-valid. The equations are in the [load specification](spec/load.md), and
 [Choosing and identifying a load model](@ref load-models) covers when each
 model is defensible.
 
@@ -541,9 +543,10 @@ model-level contract (conventions, approximations, nameplate cap) and
 | `open_delta_regulator` | (4, 4) | monolithic open-delta: two line-to-line regulating windings + galvanic straight-through | per-regulator `r/x_series_*`; `connection`, `tap_ratio` (len 2), `regulator_type` |
 | `n_winding` | winding list (no `bus_from`/`bus_to`) | ZB short-circuit matrix referred to winding 1, WYE and/or DELTA windings | per-winding `r_winding` (Ω), pairwise `x_sc["i_j"]` (Ω), `g/b_no_load` (S) |
 
-The arities are the data-model conformance values for the full three-phase
-shape; reduced-phase maps are covered by the
-[connection-map rules](connection_maps.md).
+The arities are the data-model conformance values. Other coil counts, such
+as a three-phase bank written as one `single_phase` entry, are covered by the
+[connection-map rules](connection_maps.md) and raise
+`W.SPEC.XFMR_TMAP_ARITY`.
 
 Fields shared across subtypes, beyond the impedances:
 
@@ -553,7 +556,7 @@ Fields shared across subtypes, beyond the impedances:
 | `tap_min`, `tap_max` | same | With `tap_min < tap_max` the tap becomes a continuous OPF variable |
 | `tap_ratio`, `tap_ratio_min`, `tap_ratio_max` | the two regulator subtypes | Regulator ratio and its optional optimization bounds |
 | `i_max_from`, `i_max_to` | all two-bus subtypes | Winding current limits (A) |
-| `r_neutral_from`, `x_neutral_from`, `r_neutral_to`, `x_neutral_to` | `single_phase`, `wye_delta`, `delta_wye` | Impedance from a winding's neutral point to earth (OpenDSS `rneut`/`xneut`), Ω |
+| `r_neutral_from`, `x_neutral_from`, `r_neutral_to`, `x_neutral_to` | `single_phase`, `center_tap`, `wye_delta`, `delta_wye` | Impedance from a winding's neutral point to earth (OpenDSS `rneut`/`xneut`), Ω |
 | `no_load_shunt` | all | Explicit core branch `{winding, g, b}`, per coil in S; the preferred form for new data, and mutually exclusive with `g/b_no_load` on one unit |
 | `s_rating` | all | Nameplate (VA): the impedance base, and for two-bus subtypes a loading cap (see [the nameplate cap](@ref transformer-nameplate-cap)) |
 
@@ -596,10 +599,10 @@ loading correctly produces different voltages on the two legs.
 **`wye_delta`/`delta_wye`**: a per-winding T-model behind the ideal Yd/Dy
 transform, matching the OpenDSS / PMD reference loss network.  Each winding
 carries its own series impedance (`r/x_series_from`, `r/x_series_to`).
-`v_nom_from` and `v_nom_to` enter only through their ratio, so give both on the
-**same basis**: the two line-to-line nameplate voltages (`11000` and `415`, as
-[`from_dss`](@ref) writes them) or the two phase-to-neutral equivalents. The √3
-introduced by the delta connection is applied inside the model, in the
+`v_nom_from` and `v_nom_to` are the **line-to-line nameplate voltages**
+(`11000` and `415`, as [`from_dss`](@ref) writes them); the impedance bases and
+the exporters use them as such. The OPF constraints use only their ratio, and
+the √3 introduced by the delta connection is applied inside the model, in the
 effective turns ratio `n_eff`.  The older single `r_series`/`x_series` (a
 wye-referred lump, delta winding ideal) is accepted as legacy shorthand and
 migrated onto the **wye** winding's fields (`_from` for `wye_delta`, `_to` for
