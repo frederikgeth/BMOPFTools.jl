@@ -230,7 +230,7 @@ harness, and so they are not counted in the generated inventory above.
 The same decks hold the **profiler** to account. Every deck in
 `pf_comparison/` (and the SWER feeder) is solved by OpenDSS, so `analyze` must
 report no error on them and a bounded number of warnings: the noise-budget test
-in `test/profiler_generalization_tests.jl`. One exception is recorded there by
+in `test/profiler_consolidation_tests.jl`. One exception is recorded there by
 name (`pf_pv_1ph`, `E.INT.UNKNOWN_TERMINAL`, an import artifact), so a new error
 on any other deck fails the test. The profiler's
 own system-type verdicts (voltage levels, high-leg banks, which island is

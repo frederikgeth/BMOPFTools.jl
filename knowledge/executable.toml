@@ -260,6 +260,7 @@ source_paths = [
   "test/data/connection_maps/role_swap.json",
   "test/data/connection_maps/README.md",
   "src/validation/integrity.jl",
+  "src/validation/voltage_reference.jl",
   "src/validation/domain_rules.jl",
   "docs/src/device_indexing.md",
   "docs/src/conventions.md",
