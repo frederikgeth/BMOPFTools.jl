@@ -1,0 +1,1150 @@
+{
+    "ranking_policy": "spatial-review-priority/v2",
+    "caution": "Reviewer dispositions are assertions with provenance, not validation or repairs. Resolved items remain visible. Unknown frames never become map coordinates.",
+    "coordinate_context": {
+        "caution": "Named coordinate fields fix axis order. Unsupported or conflicting frames are not transformed. Accuracy and provenance are reported metadata, not independent survey evidence.",
+        "n_metric_eligible_buses": 13,
+        "issues": [
+        ],
+        "bus_issue_counts": {
+        },
+        "datum": "GDA2020",
+        "axis_order": [
+            "longitude",
+            "latitude"
+        ],
+        "units": "degrees",
+        "bus_issue_witness_limit": 20,
+        "frame": "geographic:GDA2020",
+        "distance_basis": "great-circle length on a sphere of radius 6371008.8 m",
+        "unit_scale_to_m": null,
+        "n_with_reported_accuracy": 0,
+        "n_buses": 13,
+        "bus_issue_witnesses": [
+        ],
+        "status": "declared_wgs84",
+        "provenance_counts": {
+            "unspecified": 13
+        },
+        "declarations": [
+            {
+                "path": "meta.crs",
+                "value": "EPSG:7844"
+            }
+        ]
+    },
+    "category_counts": {
+        "context_only": 2,
+        "data_inconsistency": 4,
+        "needs_information": 0,
+        "review_candidate": 0
+    },
+    "scope": "M3 discrepancy candidates and non-regularization-only M1 length contexts; coordinate and coincidence inventories remain in the spatial report.",
+    "analysis_settings": {
+        "max_series_hops": 8,
+        "enabled": true,
+        "witness_limit": 20,
+        "long_span_threshold_m": 10000,
+        "proximity_radius_m": 1,
+        "max_review_candidates": 5000,
+        "review_enabled": true,
+        "proximity_enabled": true,
+        "discrepancy_enabled": true,
+        "max_topology_pairs": 100000,
+        "route_endpoint_tolerance_m": 5,
+        "max_candidate_pairs": 1000000
+    },
+    "count_scope": "Captured observations only; context is not an issue count. Categories describe automated evidence; confirmation requires a separate reviewer disposition.",
+    "presentation_counts": {
+        "attention": 4,
+        "reviewed": 0,
+        "context": 2
+    },
+    "review_status_counts": {
+        "recorded": 1,
+        "unreviewed": 5
+    },
+    "calibration": "Supplied networks and labeled synthetic expectations; no human-adjudicated real-world precision or recall.",
+    "queue_truncated": false,
+    "grouping_policy": "Exact first sorted evidence location within a declared frame; missing geometry groups by primary asset identity. No snapping, bus merging or transitive proximity clustering.",
+    "queue_complete": true,
+    "analysis_fingerprint": "c9c948c925e021cc04419049510237d0edb925b843b581dabfc33161dfde1750",
+    "items": [
+        {
+            "assessment": {
+                "inspect": "Compare physical versus electrical length, units, coordinate accuracy and source records.",
+                "error_probability": null,
+                "explanation": "The declared values conflict with supported length semantics or geometry.",
+                "observation": "A length declaration is invalid, below its applicable endpoint bound, or several times above it.",
+                "category": "data_inconsistency",
+                "voltage_context": null,
+                "uncertainty": "The responsible field is unresolved; accuracy and provenance still matter."
+            },
+            "review": {
+                "status": "unreviewed",
+                "disposition": "unreviewed"
+            },
+            "bus_ids": [
+                "p09",
+                "p10"
+            ],
+            "ranking_reason": "invalid_or_inconsistent_length",
+            "item_id": "review-134f12ac077aa332a09834a4308a50bbac1a8e7a2109f4cff086b651c8f9c831",
+            "geometry_coverage": {
+                "n_identified_buses": 2,
+                "all_identified_buses_located": true,
+                "n_evidence_points": 2,
+                "n_buses_with_eligible_coordinates": 2,
+                "subject_list_complete": true
+            },
+            "code": "R.LINE_LENGTH_CONTEXT",
+            "coordinate_evidence": {
+                "p10": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                },
+                "p09": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                }
+            },
+            "location_id": "location-3eb6a52d0371623400b172a3ab4a58bc6b8da08e1a88dae7d68d0219237d3127",
+            "evidence_fingerprint": "7d1775b95c7c1b36934c5349a4f3cfc6951ffddc0fbfa53839f7e29cda745152",
+            "components": [
+                {
+                    "kind": "line",
+                    "id": "s10"
+                }
+            ],
+            "check": "length_context",
+            "evidence": {
+                "line_id": "s10",
+                "route_geometry_status": "inapplicable",
+                "length_scales_impedance": true,
+                "comparison_length_m": 52,
+                "contexts": [
+                    "shorter_than_chord"
+                ],
+                "comparison_basis": "declared_length",
+                "recomputed_route_length_m": null,
+                "chord_excess_threshold_m": 7.908910220636483e7,
+                "bus_to": "p10",
+                "chord_m": 1.5817820441272965e7,
+                "source_references": {
+                },
+                "code": "R.LINE_LENGTH_CONTEXT",
+                "bus_from": "p09",
+                "chord_check": {
+                    "tolerance_m": 1.5817820441272967e6,
+                    "status": "failed",
+                    "basis": "declared_length",
+                    "difference_m": -1.5817768441272965e7
+                },
+                "stored_route_length_m": null,
+                "electrical_length_regularized": false,
+                "declared_physical_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                },
+                "route_length_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                },
+                "declared_length_m": 52,
+                "route_geometry_reason": "no_route",
+                "physical_length_m": null,
+                "physical_route_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                }
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        0,
+                        0
+                    ],
+                    [
+                        153.02456120961767,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            },
+            "priority": 3,
+            "impact": {
+                "n_identified_buses": 2,
+                "n_identified_components": 1,
+                "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                "n_directly_attached_loads": 2,
+                "subjects_complete": true
+            },
+            "location": {
+                "coordinate": [
+                    0,
+                    0
+                ],
+                "units": "degrees",
+                "status": "located",
+                "frame": "geographic:GDA2020"
+            },
+            "geometry_basis": "eligible_referenced_bus_locations",
+            "local_geometry": null,
+            "evidence_class": "declaration_inconsistency"
+        },
+        {
+            "assessment": {
+                "inspect": "Compare physical versus electrical length, units, coordinate accuracy and source records.",
+                "error_probability": null,
+                "explanation": "The declared values conflict with supported length semantics or geometry.",
+                "observation": "A length declaration is invalid, below its applicable endpoint bound, or several times above it.",
+                "category": "data_inconsistency",
+                "voltage_context": null,
+                "uncertainty": "The responsible field is unresolved; accuracy and provenance still matter."
+            },
+            "review": {
+                "decision": {
+                    "evidence_refs": [
+                        "drawing:sheet-14"
+                    ],
+                    "schema_version": "spatial-cleanup-review/v1",
+                    "recorded_at": "2026-11-26T03:00:00Z",
+                    "item_id": "review-2021221d763169f8c319463f1a8d088d43c1414aba84a708de316a8281cbe96c",
+                    "disposition": "confirmed_issue",
+                    "analysis_fingerprint": "c9c948c925e021cc04419049510237d0edb925b843b581dabfc33161dfde1750",
+                    "reviewer": "j.doe",
+                    "rationale": "Length 520 m is a typing error; drawing sheet 14 gives 52 m.",
+                    "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c",
+                    "evidence_fingerprint": "30649f9e2d70a414066054f0471cad94775f59c2381f41edd7cde6a486669e51"
+                },
+                "status": "recorded",
+                "disposition": "confirmed_issue"
+            },
+            "bus_ids": [
+                "p06",
+                "p07"
+            ],
+            "ranking_reason": "invalid_or_inconsistent_length",
+            "item_id": "review-2021221d763169f8c319463f1a8d088d43c1414aba84a708de316a8281cbe96c",
+            "geometry_coverage": {
+                "n_identified_buses": 2,
+                "all_identified_buses_located": true,
+                "n_evidence_points": 2,
+                "n_buses_with_eligible_coordinates": 2,
+                "subject_list_complete": true
+            },
+            "code": "R.LINE_LENGTH_CONTEXT",
+            "coordinate_evidence": {
+                "p07": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                },
+                "p06": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                }
+            },
+            "location_id": "location-80fc5f280f124f1d0f9cf8f2573041e0e6fc1b0d26a0bfa1a022bbec113432d9",
+            "evidence_fingerprint": "30649f9e2d70a414066054f0471cad94775f59c2381f41edd7cde6a486669e51",
+            "components": [
+                {
+                    "kind": "line",
+                    "id": "s07"
+                }
+            ],
+            "check": "length_context",
+            "evidence": {
+                "line_id": "s07",
+                "route_geometry_status": "inapplicable",
+                "length_scales_impedance": true,
+                "comparison_length_m": 520,
+                "contexts": [
+                    "far_longer_than_chord"
+                ],
+                "comparison_basis": "declared_length",
+                "recomputed_route_length_m": null,
+                "chord_excess_threshold_m": 250.00018038223132,
+                "bus_to": "p07",
+                "chord_m": 50.000036076446264,
+                "source_references": {
+                },
+                "code": "R.LINE_LENGTH_CONTEXT",
+                "bus_from": "p06",
+                "chord_check": {
+                    "tolerance_m": 5.000003607644627,
+                    "status": "passed",
+                    "basis": "declared_length",
+                    "difference_m": 469.99996392355376
+                },
+                "stored_route_length_m": null,
+                "electrical_length_regularized": false,
+                "declared_physical_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                },
+                "route_length_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                },
+                "declared_length_m": 520,
+                "route_geometry_reason": "no_route",
+                "physical_length_m": null,
+                "physical_route_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                }
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        153.02304080641179,
+                        -27.47
+                    ],
+                    [
+                        153.0235476074804,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            },
+            "priority": 3,
+            "impact": {
+                "n_identified_buses": 2,
+                "n_identified_components": 1,
+                "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                "n_directly_attached_loads": 2,
+                "subjects_complete": true
+            },
+            "location": {
+                "coordinate": [
+                    153.02304080641179,
+                    -27.47
+                ],
+                "units": "degrees",
+                "status": "located",
+                "frame": "geographic:GDA2020"
+            },
+            "geometry_basis": "eligible_referenced_bus_locations",
+            "local_geometry": null,
+            "evidence_class": "declaration_inconsistency"
+        },
+        {
+            "assessment": {
+                "inspect": "Compare physical versus electrical length, units, coordinate accuracy and source records.",
+                "error_probability": null,
+                "explanation": "The declared values conflict with supported length semantics or geometry.",
+                "observation": "A length declaration is invalid, below its applicable endpoint bound, or several times above it.",
+                "category": "data_inconsistency",
+                "voltage_context": null,
+                "uncertainty": "The responsible field is unresolved; accuracy and provenance still matter."
+            },
+            "review": {
+                "status": "unreviewed",
+                "disposition": "unreviewed"
+            },
+            "bus_ids": [
+                "p10",
+                "p11"
+            ],
+            "ranking_reason": "invalid_or_inconsistent_length",
+            "item_id": "review-b8518be2dc7964f53b90a69cdb717b1b9f5057cb9ebdcba8e6d28a5aec0557d1",
+            "geometry_coverage": {
+                "n_identified_buses": 2,
+                "all_identified_buses_located": true,
+                "n_evidence_points": 2,
+                "n_buses_with_eligible_coordinates": 2,
+                "subject_list_complete": true
+            },
+            "code": "R.LINE_LENGTH_CONTEXT",
+            "coordinate_evidence": {
+                "p10": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                },
+                "p11": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                }
+            },
+            "location_id": "location-3eb6a52d0371623400b172a3ab4a58bc6b8da08e1a88dae7d68d0219237d3127",
+            "evidence_fingerprint": "14b82b36087ac549dfeb9ea09de636cb320e2a58f1035a5a6e9438daaacb9445",
+            "components": [
+                {
+                    "kind": "line",
+                    "id": "s11"
+                }
+            ],
+            "check": "length_context",
+            "evidence": {
+                "line_id": "s11",
+                "route_geometry_status": "inapplicable",
+                "length_scales_impedance": true,
+                "comparison_length_m": 52,
+                "contexts": [
+                    "shorter_than_chord"
+                ],
+                "comparison_basis": "declared_length",
+                "recomputed_route_length_m": null,
+                "chord_excess_threshold_m": 7.908947269068977e7,
+                "bus_to": "p11",
+                "chord_m": 1.5817894538137954e7,
+                "source_references": {
+                },
+                "code": "R.LINE_LENGTH_CONTEXT",
+                "bus_from": "p10",
+                "chord_check": {
+                    "tolerance_m": 1.5817894538137955e6,
+                    "status": "failed",
+                    "basis": "declared_length",
+                    "difference_m": -1.5817842538137954e7
+                },
+                "stored_route_length_m": null,
+                "electrical_length_regularized": false,
+                "declared_physical_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                },
+                "route_length_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                },
+                "declared_length_m": 52,
+                "route_geometry_reason": "no_route",
+                "physical_length_m": null,
+                "physical_route_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                }
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        0,
+                        0
+                    ],
+                    [
+                        153.02557481175492,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            },
+            "priority": 3,
+            "impact": {
+                "n_identified_buses": 2,
+                "n_identified_components": 1,
+                "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                "n_directly_attached_loads": 2,
+                "subjects_complete": true
+            },
+            "location": {
+                "coordinate": [
+                    0,
+                    0
+                ],
+                "units": "degrees",
+                "status": "located",
+                "frame": "geographic:GDA2020"
+            },
+            "geometry_basis": "eligible_referenced_bus_locations",
+            "local_geometry": null,
+            "evidence_class": "declaration_inconsistency"
+        },
+        {
+            "assessment": {
+                "inspect": "Compare physical versus electrical length, units, coordinate accuracy and source records.",
+                "error_probability": null,
+                "explanation": "The declared values conflict with supported length semantics or geometry.",
+                "observation": "A length declaration is invalid, below its applicable endpoint bound, or several times above it.",
+                "category": "data_inconsistency",
+                "voltage_context": null,
+                "uncertainty": "The responsible field is unresolved; accuracy and provenance still matter."
+            },
+            "review": {
+                "status": "unreviewed",
+                "disposition": "unreviewed"
+            },
+            "bus_ids": [
+                "p02",
+                "p03"
+            ],
+            "ranking_reason": "invalid_or_inconsistent_length",
+            "item_id": "review-fb15500cbee7d2914bcfc3e2282163023f79737efa2865aa8d984a6f40579859",
+            "geometry_coverage": {
+                "n_identified_buses": 2,
+                "all_identified_buses_located": true,
+                "n_evidence_points": 2,
+                "n_buses_with_eligible_coordinates": 2,
+                "subject_list_complete": true
+            },
+            "code": "R.LINE_LENGTH_CONTEXT",
+            "coordinate_evidence": {
+                "p03": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                },
+                "p02": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                }
+            },
+            "location_id": "location-f7ce4f0c5a70d8eaa342180b82e5f25cb18fbf7f0c8433b320d89569c05e77c6",
+            "evidence_fingerprint": "db8184c40dcaf8d525beb46f828c316ab9c0f3de33fd1d40a730f8e29d8fb8b9",
+            "components": [
+                {
+                    "kind": "line",
+                    "id": "s03"
+                }
+            ],
+            "check": "length_context",
+            "evidence": {
+                "line_id": "s03",
+                "route_geometry_status": "inapplicable",
+                "length_scales_impedance": true,
+                "comparison_length_m": 0.052,
+                "contexts": [
+                    "shorter_than_chord"
+                ],
+                "comparison_basis": "declared_length",
+                "recomputed_route_length_m": null,
+                "chord_excess_threshold_m": 250.00018039478283,
+                "bus_to": "p03",
+                "chord_m": 50.00003607895657,
+                "source_references": {
+                },
+                "code": "R.LINE_LENGTH_CONTEXT",
+                "bus_from": "p02",
+                "chord_check": {
+                    "tolerance_m": 5.000003607895657,
+                    "status": "failed",
+                    "basis": "declared_length",
+                    "difference_m": -49.94803607895657
+                },
+                "stored_route_length_m": null,
+                "electrical_length_regularized": false,
+                "declared_physical_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                },
+                "route_length_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                },
+                "declared_length_m": 0.052,
+                "route_geometry_reason": "no_route",
+                "physical_length_m": null,
+                "physical_route_check": {
+                    "tolerance_m": null,
+                    "status": "inapplicable",
+                    "difference_m": null
+                }
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        153.02101360213726,
+                        -27.47
+                    ],
+                    [
+                        153.0215204032059,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            },
+            "priority": 3,
+            "impact": {
+                "n_identified_buses": 2,
+                "n_identified_components": 1,
+                "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                "n_directly_attached_loads": 2,
+                "subjects_complete": true
+            },
+            "location": {
+                "coordinate": [
+                    153.02101360213726,
+                    -27.47
+                ],
+                "units": "degrees",
+                "status": "located",
+                "frame": "geographic:GDA2020"
+            },
+            "geometry_basis": "eligible_referenced_bus_locations",
+            "local_geometry": null,
+            "evidence_class": "declaration_inconsistency"
+        },
+        {
+            "assessment": {
+                "inspect": "Compare geographic extent and source routing if unexpected for this case.",
+                "error_probability": null,
+                "explanation": "The threshold provides context; it is not an engineering limit.",
+                "observation": "A span exceeds the configured absolute review threshold.",
+                "category": "context_only",
+                "voltage_context": null,
+                "uncertainty": "A long span alone is not evidence of incorrect length or connectivity."
+            },
+            "review": {
+                "status": "unreviewed",
+                "disposition": "unreviewed"
+            },
+            "bus_ids": [
+                "p10",
+                "p11"
+            ],
+            "ranking_reason": "absolute_span_review_threshold",
+            "item_id": "review-2dcded4f8e42258d9d4ae5089259781f5541fff987b3225c92523cb87e2af490",
+            "geometry_coverage": {
+                "n_identified_buses": 2,
+                "all_identified_buses_located": true,
+                "n_evidence_points": 2,
+                "n_buses_with_eligible_coordinates": 2,
+                "subject_list_complete": true
+            },
+            "code": "S.LONG_BRANCH_SPAN",
+            "coordinate_evidence": {
+                "p10": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                },
+                "p11": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                }
+            },
+            "location_id": "location-3eb6a52d0371623400b172a3ab4a58bc6b8da08e1a88dae7d68d0219237d3127",
+            "evidence_fingerprint": "8416be3168b038ef238eb9ef27d6957eb58be7687633c7f0d1187d6efd2d4376",
+            "components": [
+                {
+                    "kind": "line",
+                    "id": "s11"
+                }
+            ],
+            "check": "branch_spans",
+            "evidence": {
+                "span_m": 1.5817894538137954e7,
+                "farthest_buses": [
+                    "p10",
+                    "p11"
+                ],
+                "branch": {
+                    "component_id": "s11",
+                    "linecode": "abc",
+                    "kind": "line",
+                    "ports": [
+                        {
+                            "terminal_map": [
+                                "a",
+                                "b",
+                                "c",
+                                "n"
+                            ],
+                            "bus": "p10"
+                        },
+                        {
+                            "terminal_map": [
+                                "a",
+                                "b",
+                                "c",
+                                "n"
+                            ],
+                            "bus": "p11"
+                        }
+                    ],
+                    "open_switch": null
+                },
+                "code": "S.LONG_BRANCH_SPAN",
+                "threshold_m": 10000
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        0,
+                        0
+                    ],
+                    [
+                        153.02557481175492,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            },
+            "priority": 1,
+            "impact": {
+                "n_identified_buses": 2,
+                "n_identified_components": 1,
+                "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                "n_directly_attached_loads": 2,
+                "subjects_complete": true
+            },
+            "location": {
+                "coordinate": [
+                    0,
+                    0
+                ],
+                "units": "degrees",
+                "status": "located",
+                "frame": "geographic:GDA2020"
+            },
+            "geometry_basis": "eligible_referenced_bus_locations",
+            "local_geometry": null,
+            "evidence_class": "representation_context"
+        },
+        {
+            "assessment": {
+                "inspect": "Compare geographic extent and source routing if unexpected for this case.",
+                "error_probability": null,
+                "explanation": "The threshold provides context; it is not an engineering limit.",
+                "observation": "A span exceeds the configured absolute review threshold.",
+                "category": "context_only",
+                "voltage_context": null,
+                "uncertainty": "A long span alone is not evidence of incorrect length or connectivity."
+            },
+            "review": {
+                "status": "unreviewed",
+                "disposition": "unreviewed"
+            },
+            "bus_ids": [
+                "p09",
+                "p10"
+            ],
+            "ranking_reason": "absolute_span_review_threshold",
+            "item_id": "review-f12f8810d39ffaac3005822fa934c17c33a80950ced43ba5eb615e589dc309b9",
+            "geometry_coverage": {
+                "n_identified_buses": 2,
+                "all_identified_buses_located": true,
+                "n_evidence_points": 2,
+                "n_buses_with_eligible_coordinates": 2,
+                "subject_list_complete": true
+            },
+            "code": "S.LONG_BRANCH_SPAN",
+            "coordinate_evidence": {
+                "p10": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                },
+                "p09": {
+                    "coordinate_provenance": "unspecified",
+                    "metric_eligible": true,
+                    "issues": [
+                    ],
+                    "coordinate_accuracy_m": null
+                }
+            },
+            "location_id": "location-3eb6a52d0371623400b172a3ab4a58bc6b8da08e1a88dae7d68d0219237d3127",
+            "evidence_fingerprint": "ecd5713eeedb58b7eb17e7383890b7e239906e4fbeff40992260a3cb3426cd35",
+            "components": [
+                {
+                    "kind": "line",
+                    "id": "s10"
+                }
+            ],
+            "check": "branch_spans",
+            "evidence": {
+                "span_m": 1.5817820441272965e7,
+                "farthest_buses": [
+                    "p09",
+                    "p10"
+                ],
+                "branch": {
+                    "component_id": "s10",
+                    "linecode": "abc",
+                    "kind": "line",
+                    "ports": [
+                        {
+                            "terminal_map": [
+                                "a",
+                                "b",
+                                "c",
+                                "n"
+                            ],
+                            "bus": "p09"
+                        },
+                        {
+                            "terminal_map": [
+                                "a",
+                                "b",
+                                "c",
+                                "n"
+                            ],
+                            "bus": "p10"
+                        }
+                    ],
+                    "open_switch": null
+                },
+                "code": "S.LONG_BRANCH_SPAN",
+                "threshold_m": 10000
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        0,
+                        0
+                    ],
+                    [
+                        153.02456120961767,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            },
+            "priority": 1,
+            "impact": {
+                "n_identified_buses": 2,
+                "n_identified_components": 1,
+                "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                "n_directly_attached_loads": 2,
+                "subjects_complete": true
+            },
+            "location": {
+                "coordinate": [
+                    0,
+                    0
+                ],
+                "units": "degrees",
+                "status": "located",
+                "frame": "geographic:GDA2020"
+            },
+            "geometry_basis": "eligible_referenced_bus_locations",
+            "local_geometry": null,
+            "evidence_class": "representation_context"
+        }
+    ],
+    "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c",
+    "decision_audit": {
+        "records": [
+            {
+                "evidence_refs": [
+                    "drawing:sheet-14"
+                ],
+                "schema_version": "spatial-cleanup-review/v1",
+                "recorded_at": "2026-11-26T03:00:00Z",
+                "item_id": "review-2021221d763169f8c319463f1a8d088d43c1414aba84a708de316a8281cbe96c",
+                "disposition": "confirmed_issue",
+                "analysis_fingerprint": "c9c948c925e021cc04419049510237d0edb925b843b581dabfc33161dfde1750",
+                "reviewer": "j.doe",
+                "rationale": "Length 520 m is a typing error; drawing sheet 14 gives 52 m.",
+                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c",
+                "evidence_fingerprint": "30649f9e2d70a414066054f0471cad94775f59c2381f41edd7cde6a486669e51"
+            }
+        ],
+        "invalid_records": [
+        ],
+        "unmatched_records": [
+        ],
+        "n_invalid_records": 0,
+        "policy": "Latest UTC timestamp, strict case/config/evidence binding; ties conflict. Unmatched does not mean resolved.",
+        "n_unmatched_records": 0
+    },
+    "schema_version": "spatial-cleanup-review/v1",
+    "reason": "completed_within_declared_scope",
+    "ranking_scope": "Captured candidates only. Ordinal priority, directly attached load count, identified component count, then stable item ID; not an error probability or electrical impact estimate.",
+    "n_items": 6,
+    "locations": [
+        {
+            "bus_ids": [
+                "p09",
+                "p10",
+                "p11"
+            ],
+            "category_counts": {
+                "context_only": 2,
+                "data_inconsistency": 2,
+                "needs_information": 0,
+                "review_candidate": 0
+            },
+            "n_identified_buses": 3,
+            "n_identified_components": 2,
+            "max_item_directly_attached_loads": 2,
+            "location_id": "location-3eb6a52d0371623400b172a3ab4a58bc6b8da08e1a88dae7d68d0219237d3127",
+            "codes": [
+                "R.LINE_LENGTH_CONTEXT",
+                "S.LONG_BRANCH_SPAN"
+            ],
+            "components": [
+                {
+                    "kind": "line",
+                    "id": "s10"
+                },
+                {
+                    "kind": "line",
+                    "id": "s11"
+                }
+            ],
+            "item_ids": [
+                "review-134f12ac077aa332a09834a4308a50bbac1a8e7a2109f4cff086b651c8f9c831",
+                "review-2dcded4f8e42258d9d4ae5089259781f5541fff987b3225c92523cb87e2af490",
+                "review-b8518be2dc7964f53b90a69cdb717b1b9f5057cb9ebdcba8e6d28a5aec0557d1",
+                "review-f12f8810d39ffaac3005822fa934c17c33a80950ced43ba5eb615e589dc309b9"
+            ],
+            "priority": 3,
+            "location": {
+                "coordinate": [
+                    0,
+                    0
+                ],
+                "units": "degrees",
+                "status": "located",
+                "frame": "geographic:GDA2020"
+            },
+            "disposition_counts": {
+                "unreviewed": 4
+            },
+            "evidence_classes": [
+                "declaration_inconsistency",
+                "representation_context"
+            ]
+        },
+        {
+            "bus_ids": [
+                "p06",
+                "p07"
+            ],
+            "category_counts": {
+                "context_only": 0,
+                "data_inconsistency": 1,
+                "needs_information": 0,
+                "review_candidate": 0
+            },
+            "n_identified_buses": 2,
+            "n_identified_components": 1,
+            "max_item_directly_attached_loads": 2,
+            "location_id": "location-80fc5f280f124f1d0f9cf8f2573041e0e6fc1b0d26a0bfa1a022bbec113432d9",
+            "codes": [
+                "R.LINE_LENGTH_CONTEXT"
+            ],
+            "components": [
+                {
+                    "kind": "line",
+                    "id": "s07"
+                }
+            ],
+            "item_ids": [
+                "review-2021221d763169f8c319463f1a8d088d43c1414aba84a708de316a8281cbe96c"
+            ],
+            "priority": 3,
+            "location": {
+                "coordinate": [
+                    153.02304080641179,
+                    -27.47
+                ],
+                "units": "degrees",
+                "status": "located",
+                "frame": "geographic:GDA2020"
+            },
+            "disposition_counts": {
+                "confirmed_issue": 1
+            },
+            "evidence_classes": [
+                "declaration_inconsistency"
+            ]
+        },
+        {
+            "bus_ids": [
+                "p02",
+                "p03"
+            ],
+            "category_counts": {
+                "context_only": 0,
+                "data_inconsistency": 1,
+                "needs_information": 0,
+                "review_candidate": 0
+            },
+            "n_identified_buses": 2,
+            "n_identified_components": 1,
+            "max_item_directly_attached_loads": 2,
+            "location_id": "location-f7ce4f0c5a70d8eaa342180b82e5f25cb18fbf7f0c8433b320d89569c05e77c6",
+            "codes": [
+                "R.LINE_LENGTH_CONTEXT"
+            ],
+            "components": [
+                {
+                    "kind": "line",
+                    "id": "s03"
+                }
+            ],
+            "item_ids": [
+                "review-fb15500cbee7d2914bcfc3e2282163023f79737efa2865aa8d984a6f40579859"
+            ],
+            "priority": 3,
+            "location": {
+                "coordinate": [
+                    153.02101360213726,
+                    -27.47
+                ],
+                "units": "degrees",
+                "status": "located",
+                "frame": "geographic:GDA2020"
+            },
+            "disposition_counts": {
+                "unreviewed": 1
+            },
+            "evidence_classes": [
+                "declaration_inconsistency"
+            ]
+        }
+    ],
+    "max_review_candidates": 5000,
+    "status": "assessed",
+    "n_captured_before_queue_limit": 6,
+    "disposition_counts": {
+        "accepted_modeling": 0,
+        "unreviewed": 5,
+        "confirmed_issue": 1,
+        "deferred": 0,
+        "needs_information": 0,
+        "resolved": 0
+    },
+    "coverage": {
+        "route_overlaps": {
+            "n_observed": 0,
+            "capture_complete": true,
+            "scan_complete": false,
+            "reason": "no_routes",
+            "n_captured": 0,
+            "scope": "Exactly equal nonzero WGS84 vertex-to-vertex segments, allowing reversal; partial collinear overlap and crossings are unassessed.",
+            "status": "inapplicable",
+            "domain_counts": {
+                "n_invalid_routes": 0,
+                "n_valid_wgs84_routes": 0,
+                "n_routes": 0,
+                "n_segments_checked": 0,
+                "n_unsupported_routes": 0
+            }
+        },
+        "route_defects": {
+            "n_observed": 0,
+            "capture_complete": true,
+            "scan_complete": false,
+            "reason": "no_routes",
+            "n_captured": 0,
+            "scope": "Malformed route geometry, zero or retraced WGS84 segments, and segment lengths above the configured span threshold.",
+            "status": "inapplicable",
+            "domain_counts": {
+                "n_invalid_routes": 0,
+                "n_valid_wgs84_routes": 0,
+                "n_routes": 0,
+                "n_unsupported_routes": 0
+            }
+        },
+        "source_intervals": {
+            "n_observed": 0,
+            "capture_complete": true,
+            "scan_complete": false,
+            "reason": "no_explicit_source_intervals",
+            "n_captured": 0,
+            "scope": "Exact repeated string IDs in meta.source_interval or meta.backbone_extension.source_interval, grouped separately by namespace.",
+            "status": "inapplicable",
+            "domain_counts": {
+                "n_invalid_interval_declarations": 0,
+                "n_declared_intervals": 0
+            }
+        },
+        "nearby_topology": {
+            "n_observed": 0,
+            "capture_complete": true,
+            "scan_complete": true,
+            "reason": "completed",
+            "n_captured": 0,
+            "scope": "Metric-eligible bus pairs within the proximity radius, including zero distance, without any direct branch declaration.",
+            "status": "assessed",
+            "domain_counts": {
+                "n_endpoint_like_pairs_observed": 0
+            }
+        },
+        "branch_spans": {
+            "n_observed": 2,
+            "capture_complete": true,
+            "scan_complete": true,
+            "reason": "completed",
+            "n_captured": 2,
+            "scope": "All-port metric spans of lines, switches and supported transformer types above the configured absolute threshold.",
+            "status": "assessed",
+            "domain_counts": {
+                "n_assessed_components": 12,
+                "n_components_with_unavailable_distance": 0
+            }
+        },
+        "route_endpoints": {
+            "n_observed": 0,
+            "capture_complete": true,
+            "scan_complete": false,
+            "reason": "no_routes",
+            "n_captured": 0,
+            "scope": "Valid WGS84 route endpoints compared with metric-eligible WGS84 buses, orientation independent; nearby alternatives are unassigned candidates.",
+            "status": "inapplicable",
+            "domain_counts": {
+                "n_endpoint_comparisons": 0,
+                "n_invalid_routes": 0,
+                "n_routes_with_unavailable_bus_coordinates": 0,
+                "n_valid_wgs84_routes": 0,
+                "n_routes": 0,
+                "n_unsupported_routes": 0
+            }
+        },
+        "series_paths": {
+            "n_observed": 0,
+            "capture_complete": true,
+            "scan_complete": true,
+            "reason": "completed",
+            "n_captured": 0,
+            "scope": "Line-only paths of 2 to max_series_hops edges with degree-two interiors and endpoint-chord detour at most max(configured route endpoint tolerance, 10 percent).",
+            "status": "assessed",
+            "domain_counts": {
+                "n_lines_with_unavailable_distance": 0,
+                "n_eligible_direct_lines": 12
+            }
+        },
+        "length_context": {
+            "n_observed": 4,
+            "capture_complete": true,
+            "scan_complete": true,
+            "reason": "completed",
+            "n_captured": 4,
+            "status": "assessed"
+        }
+    }
+}

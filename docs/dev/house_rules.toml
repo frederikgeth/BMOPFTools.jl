@@ -1,0 +1,5 @@
+[domain_rules]
+pf_min = 0.85
+
+[operational.feeder_length.LV]
+reach_long_m = 600.0

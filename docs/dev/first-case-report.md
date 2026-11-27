@@ -1,7 +1,7 @@
 # BMOPF Network Summary: case_development_example
 
-**Generated:** 2026-11-26 10:01:52  
-**Findings:** 0 errors · 2 warnings · 12 info  
+**Generated:** 2026-11-27 08:31:57  
+**Findings:** 0 errors · 1 warnings · 12 info  
 **Convention:** LV_230V: 4-wire; 1 grounding point(s); series-only line model
 
 ---
@@ -109,8 +109,6 @@ inapplicable: No switch records.
 Farthest bus from the nearest supply boundary (declared line lengths; up to 10 zones):
 - source: 200.0 m (from the zone anchor: 200.0 m)
 
-> 🟡 **[W.OPS.IMPORT_DEPENDENT]** Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.01 MW).
-
 ## 6. Infeasibility Pre-flight
 
 | Check | Result |
@@ -201,12 +199,9 @@ Farthest bus from the nearest supply boundary (declared line lengths; up to 10 z
 
 ## 9. Data Quality Summary
 
-**Total findings:** 14 (0 errors, 2 warnings, 12 info)
+**Total findings:** 13 (0 errors, 1 warnings, 12 info)
 
 ### 🟡 Warnings
-
-- **[W.OPS.IMPORT_DEPENDENT]** `network`  
-  Network is heavily import-dependent: local generation capacity (0.0 MW) is less than 5% of total load (0.01 MW).
 
 - **[W.CONV.TERMINAL_ROLES_INFERRED]** `network`  
   No terminal_conventions block: legacy bus-name inference is used where terminal names can be assessed.

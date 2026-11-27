@@ -1,0 +1,535 @@
+{
+    "coordinate_context": {
+        "caution": "Named coordinate fields fix axis order. Unsupported or conflicting frames are not transformed. Accuracy and provenance are reported metadata, not independent survey evidence.",
+        "n_metric_eligible_buses": 13,
+        "issues": [
+        ],
+        "bus_issue_counts": {
+        },
+        "datum": "GDA2020",
+        "axis_order": [
+            "longitude",
+            "latitude"
+        ],
+        "units": "degrees",
+        "bus_issue_witness_limit": 20,
+        "frame": "geographic:GDA2020",
+        "n_with_reported_accuracy": 0,
+        "distance_basis": "great-circle length on a sphere of radius 6371008.8 m",
+        "unit_scale_to_m": null,
+        "n_buses": 13,
+        "bus_issue_witnesses": [
+        ],
+        "status": "declared_wgs84",
+        "provenance_counts": {
+            "unspecified": 13
+        },
+        "declarations": [
+            {
+                "path": "meta.crs",
+                "value": "EPSG:7844"
+            }
+        ]
+    },
+    "type": "FeatureCollection",
+    "review_schema_version": "spatial-cleanup-review/v1",
+    "scope": "M3 discrepancy candidates and non-regularization-only M1 length contexts; coordinate and coincidence inventories remain in the spatial report.",
+    "queue_complete": true,
+    "n_items_without_wgs84_geometry": 0,
+    "features": [
+        {
+            "type": "Feature",
+            "id": "review-134f12ac077aa332a09834a4308a50bbac1a8e7a2109f4cff086b651c8f9c831",
+            "properties": {
+                "assessment": {
+                    "uncertainty": "The responsible field is unresolved; accuracy and provenance still matter.",
+                    "error_probability": null,
+                    "explanation": "The declared values conflict with supported length semantics or geometry.",
+                    "observation": "A length declaration is invalid, below its applicable endpoint bound, or several times above it.",
+                    "category": "data_inconsistency",
+                    "voltage_context": null,
+                    "inspect": "Compare physical versus electrical length, units, coordinate accuracy and source records."
+                },
+                "review": {
+                    "status": "unreviewed",
+                    "disposition": "unreviewed"
+                },
+                "bus_ids": [
+                    "p09",
+                    "p10"
+                ],
+                "ranking_reason": "invalid_or_inconsistent_length",
+                "geometry_coverage": {
+                    "n_identified_buses": 2,
+                    "all_identified_buses_located": true,
+                    "n_evidence_points": 2,
+                    "n_buses_with_eligible_coordinates": 2,
+                    "subject_list_complete": true
+                },
+                "code": "R.LINE_LENGTH_CONTEXT",
+                "coordinate_evidence": {
+                    "p10": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    },
+                    "p09": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    }
+                },
+                "location_id": "location-3eb6a52d0371623400b172a3ab4a58bc6b8da08e1a88dae7d68d0219237d3127",
+                "evidence_fingerprint": "7d1775b95c7c1b36934c5349a4f3cfc6951ffddc0fbfa53839f7e29cda745152",
+                "components": [
+                    {
+                        "kind": "line",
+                        "id": "s10"
+                    }
+                ],
+                "priority": 3,
+                "analysis_fingerprint": "c9c948c925e021cc04419049510237d0edb925b843b581dabfc33161dfde1750",
+                "impact": {
+                    "n_identified_buses": 2,
+                    "n_identified_components": 1,
+                    "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                    "n_directly_attached_loads": 2,
+                    "subjects_complete": true
+                },
+                "geometry_basis": "eligible_referenced_bus_locations",
+                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        0,
+                        0
+                    ],
+                    [
+                        153.02456120961767,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            }
+        },
+        {
+            "type": "Feature",
+            "id": "review-2021221d763169f8c319463f1a8d088d43c1414aba84a708de316a8281cbe96c",
+            "properties": {
+                "assessment": {
+                    "uncertainty": "The responsible field is unresolved; accuracy and provenance still matter.",
+                    "error_probability": null,
+                    "explanation": "The declared values conflict with supported length semantics or geometry.",
+                    "observation": "A length declaration is invalid, below its applicable endpoint bound, or several times above it.",
+                    "category": "data_inconsistency",
+                    "voltage_context": null,
+                    "inspect": "Compare physical versus electrical length, units, coordinate accuracy and source records."
+                },
+                "review": {
+                    "decision": {
+                        "evidence_refs": [
+                            "drawing:sheet-14"
+                        ],
+                        "schema_version": "spatial-cleanup-review/v1",
+                        "recorded_at": "2026-11-26T03:00:00Z",
+                        "item_id": "review-2021221d763169f8c319463f1a8d088d43c1414aba84a708de316a8281cbe96c",
+                        "disposition": "confirmed_issue",
+                        "analysis_fingerprint": "c9c948c925e021cc04419049510237d0edb925b843b581dabfc33161dfde1750",
+                        "reviewer": "j.doe",
+                        "rationale": "Length 520 m is a typing error; drawing sheet 14 gives 52 m.",
+                        "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c",
+                        "evidence_fingerprint": "30649f9e2d70a414066054f0471cad94775f59c2381f41edd7cde6a486669e51"
+                    },
+                    "status": "recorded",
+                    "disposition": "confirmed_issue"
+                },
+                "bus_ids": [
+                    "p06",
+                    "p07"
+                ],
+                "ranking_reason": "invalid_or_inconsistent_length",
+                "geometry_coverage": {
+                    "n_identified_buses": 2,
+                    "all_identified_buses_located": true,
+                    "n_evidence_points": 2,
+                    "n_buses_with_eligible_coordinates": 2,
+                    "subject_list_complete": true
+                },
+                "code": "R.LINE_LENGTH_CONTEXT",
+                "coordinate_evidence": {
+                    "p07": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    },
+                    "p06": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    }
+                },
+                "location_id": "location-80fc5f280f124f1d0f9cf8f2573041e0e6fc1b0d26a0bfa1a022bbec113432d9",
+                "evidence_fingerprint": "30649f9e2d70a414066054f0471cad94775f59c2381f41edd7cde6a486669e51",
+                "components": [
+                    {
+                        "kind": "line",
+                        "id": "s07"
+                    }
+                ],
+                "priority": 3,
+                "analysis_fingerprint": "c9c948c925e021cc04419049510237d0edb925b843b581dabfc33161dfde1750",
+                "impact": {
+                    "n_identified_buses": 2,
+                    "n_identified_components": 1,
+                    "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                    "n_directly_attached_loads": 2,
+                    "subjects_complete": true
+                },
+                "geometry_basis": "eligible_referenced_bus_locations",
+                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        153.02304080641179,
+                        -27.47
+                    ],
+                    [
+                        153.0235476074804,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            }
+        },
+        {
+            "type": "Feature",
+            "id": "review-b8518be2dc7964f53b90a69cdb717b1b9f5057cb9ebdcba8e6d28a5aec0557d1",
+            "properties": {
+                "assessment": {
+                    "uncertainty": "The responsible field is unresolved; accuracy and provenance still matter.",
+                    "error_probability": null,
+                    "explanation": "The declared values conflict with supported length semantics or geometry.",
+                    "observation": "A length declaration is invalid, below its applicable endpoint bound, or several times above it.",
+                    "category": "data_inconsistency",
+                    "voltage_context": null,
+                    "inspect": "Compare physical versus electrical length, units, coordinate accuracy and source records."
+                },
+                "review": {
+                    "status": "unreviewed",
+                    "disposition": "unreviewed"
+                },
+                "bus_ids": [
+                    "p10",
+                    "p11"
+                ],
+                "ranking_reason": "invalid_or_inconsistent_length",
+                "geometry_coverage": {
+                    "n_identified_buses": 2,
+                    "all_identified_buses_located": true,
+                    "n_evidence_points": 2,
+                    "n_buses_with_eligible_coordinates": 2,
+                    "subject_list_complete": true
+                },
+                "code": "R.LINE_LENGTH_CONTEXT",
+                "coordinate_evidence": {
+                    "p10": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    },
+                    "p11": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    }
+                },
+                "location_id": "location-3eb6a52d0371623400b172a3ab4a58bc6b8da08e1a88dae7d68d0219237d3127",
+                "evidence_fingerprint": "14b82b36087ac549dfeb9ea09de636cb320e2a58f1035a5a6e9438daaacb9445",
+                "components": [
+                    {
+                        "kind": "line",
+                        "id": "s11"
+                    }
+                ],
+                "priority": 3,
+                "analysis_fingerprint": "c9c948c925e021cc04419049510237d0edb925b843b581dabfc33161dfde1750",
+                "impact": {
+                    "n_identified_buses": 2,
+                    "n_identified_components": 1,
+                    "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                    "n_directly_attached_loads": 2,
+                    "subjects_complete": true
+                },
+                "geometry_basis": "eligible_referenced_bus_locations",
+                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        0,
+                        0
+                    ],
+                    [
+                        153.02557481175492,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            }
+        },
+        {
+            "type": "Feature",
+            "id": "review-fb15500cbee7d2914bcfc3e2282163023f79737efa2865aa8d984a6f40579859",
+            "properties": {
+                "assessment": {
+                    "uncertainty": "The responsible field is unresolved; accuracy and provenance still matter.",
+                    "error_probability": null,
+                    "explanation": "The declared values conflict with supported length semantics or geometry.",
+                    "observation": "A length declaration is invalid, below its applicable endpoint bound, or several times above it.",
+                    "category": "data_inconsistency",
+                    "voltage_context": null,
+                    "inspect": "Compare physical versus electrical length, units, coordinate accuracy and source records."
+                },
+                "review": {
+                    "status": "unreviewed",
+                    "disposition": "unreviewed"
+                },
+                "bus_ids": [
+                    "p02",
+                    "p03"
+                ],
+                "ranking_reason": "invalid_or_inconsistent_length",
+                "geometry_coverage": {
+                    "n_identified_buses": 2,
+                    "all_identified_buses_located": true,
+                    "n_evidence_points": 2,
+                    "n_buses_with_eligible_coordinates": 2,
+                    "subject_list_complete": true
+                },
+                "code": "R.LINE_LENGTH_CONTEXT",
+                "coordinate_evidence": {
+                    "p03": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    },
+                    "p02": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    }
+                },
+                "location_id": "location-f7ce4f0c5a70d8eaa342180b82e5f25cb18fbf7f0c8433b320d89569c05e77c6",
+                "evidence_fingerprint": "db8184c40dcaf8d525beb46f828c316ab9c0f3de33fd1d40a730f8e29d8fb8b9",
+                "components": [
+                    {
+                        "kind": "line",
+                        "id": "s03"
+                    }
+                ],
+                "priority": 3,
+                "analysis_fingerprint": "c9c948c925e021cc04419049510237d0edb925b843b581dabfc33161dfde1750",
+                "impact": {
+                    "n_identified_buses": 2,
+                    "n_identified_components": 1,
+                    "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                    "n_directly_attached_loads": 2,
+                    "subjects_complete": true
+                },
+                "geometry_basis": "eligible_referenced_bus_locations",
+                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        153.02101360213726,
+                        -27.47
+                    ],
+                    [
+                        153.0215204032059,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            }
+        },
+        {
+            "type": "Feature",
+            "id": "review-2dcded4f8e42258d9d4ae5089259781f5541fff987b3225c92523cb87e2af490",
+            "properties": {
+                "assessment": {
+                    "uncertainty": "A long span alone is not evidence of incorrect length or connectivity.",
+                    "error_probability": null,
+                    "explanation": "The threshold provides context; it is not an engineering limit.",
+                    "observation": "A span exceeds the configured absolute review threshold.",
+                    "category": "context_only",
+                    "voltage_context": null,
+                    "inspect": "Compare geographic extent and source routing if unexpected for this case."
+                },
+                "review": {
+                    "status": "unreviewed",
+                    "disposition": "unreviewed"
+                },
+                "bus_ids": [
+                    "p10",
+                    "p11"
+                ],
+                "ranking_reason": "absolute_span_review_threshold",
+                "geometry_coverage": {
+                    "n_identified_buses": 2,
+                    "all_identified_buses_located": true,
+                    "n_evidence_points": 2,
+                    "n_buses_with_eligible_coordinates": 2,
+                    "subject_list_complete": true
+                },
+                "code": "S.LONG_BRANCH_SPAN",
+                "coordinate_evidence": {
+                    "p10": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    },
+                    "p11": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    }
+                },
+                "location_id": "location-3eb6a52d0371623400b172a3ab4a58bc6b8da08e1a88dae7d68d0219237d3127",
+                "evidence_fingerprint": "8416be3168b038ef238eb9ef27d6957eb58be7687633c7f0d1187d6efd2d4376",
+                "components": [
+                    {
+                        "kind": "line",
+                        "id": "s11"
+                    }
+                ],
+                "priority": 1,
+                "analysis_fingerprint": "c9c948c925e021cc04419049510237d0edb925b843b581dabfc33161dfde1750",
+                "impact": {
+                    "n_identified_buses": 2,
+                    "n_identified_components": 1,
+                    "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                    "n_directly_attached_loads": 2,
+                    "subjects_complete": true
+                },
+                "geometry_basis": "eligible_referenced_bus_locations",
+                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        0,
+                        0
+                    ],
+                    [
+                        153.02557481175492,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            }
+        },
+        {
+            "type": "Feature",
+            "id": "review-f12f8810d39ffaac3005822fa934c17c33a80950ced43ba5eb615e589dc309b9",
+            "properties": {
+                "assessment": {
+                    "uncertainty": "A long span alone is not evidence of incorrect length or connectivity.",
+                    "error_probability": null,
+                    "explanation": "The threshold provides context; it is not an engineering limit.",
+                    "observation": "A span exceeds the configured absolute review threshold.",
+                    "category": "context_only",
+                    "voltage_context": null,
+                    "inspect": "Compare geographic extent and source routing if unexpected for this case."
+                },
+                "review": {
+                    "status": "unreviewed",
+                    "disposition": "unreviewed"
+                },
+                "bus_ids": [
+                    "p09",
+                    "p10"
+                ],
+                "ranking_reason": "absolute_span_review_threshold",
+                "geometry_coverage": {
+                    "n_identified_buses": 2,
+                    "all_identified_buses_located": true,
+                    "n_evidence_points": 2,
+                    "n_buses_with_eligible_coordinates": 2,
+                    "subject_list_complete": true
+                },
+                "code": "S.LONG_BRANCH_SPAN",
+                "coordinate_evidence": {
+                    "p10": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    },
+                    "p09": {
+                        "coordinate_provenance": "unspecified",
+                        "metric_eligible": true,
+                        "issues": [
+                        ],
+                        "coordinate_accuracy_m": null
+                    }
+                },
+                "location_id": "location-3eb6a52d0371623400b172a3ab4a58bc6b8da08e1a88dae7d68d0219237d3127",
+                "evidence_fingerprint": "ecd5713eeedb58b7eb17e7383890b7e239906e4fbeff40992260a3cb3426cd35",
+                "components": [
+                    {
+                        "kind": "line",
+                        "id": "s10"
+                    }
+                ],
+                "priority": 1,
+                "analysis_fingerprint": "c9c948c925e021cc04419049510237d0edb925b843b581dabfc33161dfde1750",
+                "impact": {
+                    "n_identified_buses": 2,
+                    "n_identified_components": 1,
+                    "scope": "Referenced subjects only; counts can be lower bounds when member evidence is truncated. No downstream or electrical severity estimate.",
+                    "n_directly_attached_loads": 2,
+                    "subjects_complete": true
+                },
+                "geometry_basis": "eligible_referenced_bus_locations",
+                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+            },
+            "geometry": {
+                "coordinates": [
+                    [
+                        0,
+                        0
+                    ],
+                    [
+                        153.02456120961767,
+                        -27.47
+                    ]
+                ],
+                "type": "MultiPoint"
+            }
+        }
+    ]
+}

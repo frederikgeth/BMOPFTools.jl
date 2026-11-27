@@ -1,0 +1,291 @@
+# BMOPF Network Summary: eu_tn_four_wire
+
+**Generated:** 2026-11-27 08:32:19  
+**Findings:** 0 errors · 1 warnings · 8 info  
+**Convention:** MV_5.8kV: no branch conductors represented; LV_231V: 4-wire; 1 grounding point(s); series-only line model
+
+---
+
+
+**Assessment coverage:** 0 assessed, 2 indeterminate, 1 skipped, 3 not applicable (of 6 tracked checks; not a validation score).
+- structural schema: skipped for 1 of 1 document(s) — unsupported schema structural validation skipped (1)
+- boundary distance: indeterminate for 1 of 2 galvanic zone(s) — unresolved boundary (1)
+- feeder threshold: indeterminate for 1 of 2 galvanic zone(s) — unresolved boundary (1)
+
+## 1. Component Inventory
+
+| Component | Count | Notes |
+|-----------|------:|-------|
+| bus | 5 |  |
+| line | 3 |  |
+| linecode | 1 |  |
+| voltage_source | 1 |  |
+| load | 4 | 25.0 kW, 8.2 kvar |
+| generator | 0 | capacity: 0.0 W |
+| shunt | 0 |  |
+| switch | 0 |  |
+| transformer | 1 | Dyn1×1 |
+| ibr | 0 | capacity: 0.0 MVA |
+| control_profile | 0 |  |
+
+## 2. Voltage Levels
+
+**Voltage levels identified:** 2
+
+Nominal phase-to-reference magnitudes; balanced three-phase line-to-line values are √3 times these values.
+
+| Level | Nominal | Buses | Lines | Loads | Generators |
+|-------|---------|------:|------:|------:|-----------:|
+| MV_5.8kV | 5.77 kV | 1 | 0 | 0 | 0 |
+| LV_231V | 231.0 V | 4 | 3 | 4 | 0 |
+
+**Transformer transitions:**
+
+- `sub`: MV_5.8kV → LV_231V (delta_wye, effective Dyn1)
+
+## 3. Connectivity & Topology
+
+| Property | Value |
+|----------|-------|
+| Connected components | 1 |
+| Fully connected | true |
+| Topology | Radial |
+| Mean degree | 1.6 |
+| Max degree | 3 |
+| Degree-1 buses | 3 |
+| Tree depth (max hops) | 3 |
+
+### Physical branch structure
+
+| Scope | Buses | Components | Branches | Simple cycles | Parallel excess | Total cycle rank |
+|---|---:|---:|---:|---:|---:|---:|
+| Whole network | 5 | 1 | 4 | 0 | 0 | 0 |
+| Tier LV_231V | 4 | 1 | 3 | 0 | 0 | 0 |
+| Tier MV_5.8kV | 1 | 1 | 0 | 0 | 0 | 0 |
+
+Transformer-mediated cycle rank: 0; cross-tier branches: 1; skipped invalid branches: 0.
+
+Galvanic zones: 2; zones with simple cycles: 0; zones incident to multiple isolating transformers: 0.
+
+### Mapped conductor paths
+
+19 declared bus terminals; 12 mapped line/closed-switch conductor edges; 7 terminal-path components; 0 incomplete branch maps. Transformer winding ports bound these paths; winding conversion is unassessed.
+
+Load terminals in paths without a source or transformer port: 0.
+
+### Switch-state bus graph
+
+inapplicable: No switch records.
+
+### Switch-state mapped conductor paths
+
+inapplicable: No switch records.
+
+> 🟡 **[W.CONN.DANGLING]** 1 bus(es) are degree-1 with no attached load, generator, shunt, capacitor, ibr, or source.
+
+## 4. Diversity & Variance
+
+**Overall symmetry score:** LOW
+
+### load
+
+| Parameter | Min | Max | CV | n |
+|-----------|-----|-----|----|---|
+| p_nom | 2500.0 | 5200.0 | 0.25 | 6 |
+| q_nom | 822.0 | 1710.0 | 0.25 | 6 |
+
+### line
+
+| Parameter | Min | Max | CV | n |
+|-----------|-----|-----|----|---|
+| length | 25.0 | 150.0 | 0.664 | 3 |
+
+> 🔵 **[I.DIV.LOAD_UNIFORM_MODEL]** All 4 loads use the constant_power model — no load exercises voltage dependence (ZIP/exponential); the case does not test voltage-dependent load behavior.
+
+## 5. Loading & Operational Summary
+
+| | Value |
+|--|-------|
+| Total load P | 25.0 kW |
+| Total load Q | 8.2 kvar |
+| Total gen capacity | 0.0 W |
+| Generation/load ratio | 0.0% |
+
+
+Transformer nameplate comparison (nominal load estimate):
+
+Radial component estimates (1):
+
+| ID | Nameplate | Nominal demand/nameplate (est.) |
+|---|---|---:|
+| sub | 400.0 kVA | 6.6% |
+
+
+Farthest bus from the nearest supply boundary (declared line lengths; up to 10 zones):
+- mv: 0.0 m (from the zone anchor: 0.0 m)
+
+Supply-boundary distance unassessed for 1 zone(s): unresolved boundary (1). Supported boundaries: voltage sources and untapped two-port n-winding, single-phase, wye-delta and delta-wye transformers with consistent voltage bases.
+
+## 6. Infeasibility Pre-flight
+
+| Check | Result |
+|-------|--------|
+| Import dependent | true |
+| Constraint conflicts | 0 |
+| Buses without voltage bounds | 5 |
+| Single point of failure | true |
+| TPIA status | not_run |
+
+**Nominal transformer coil headroom (estimate):**
+
+At each load's nominal voltage; losses, mutual coupling and neutral displacement omitted. Signed P/Q are summed per coil. This is not a feasibility or infeasibility certificate.
+
+| Transformer | Coil (from) | Nominal S (VA) | Cap (VA) | Headroom (VA) |
+|---|---|---:|---:|---:|
+| sub | unassessed: unsupported_transformer_subtype | — | — | — |
+
+> 🔵 **[I.PRE.XFMR_COIL_UNASSESSED]** Transformer 'sub' nominal coil headroom is unassessed: unsupported_transformer_subtype.
+> 🔵 **[I.PRE.NO_VOLT_BOUNDS]** 5 bus(es) have no voltage magnitude bounds — voltage will be unconstrained at these buses.
+> 🔵 **[I.PRE.SINGLE_SOURCE]** Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
+
+## 7. Provenance & Model Conventions
+
+**Inferred convention:** MV_5.8kV: no branch conductors represented; LV_231V: 4-wire; 1 grounding point(s); series-only line model
+
+| Voltage level | Wires | Buses with neutral |
+|---------------|-------|-------------------:|
+| MV_5.8kV | no branch conductors represented | 0 / 1 |
+| LV_231V | 4-wire | 4 / 4 |
+
+| Neutral grounding | Value |
+|-------------------|------:|
+| Buses with neutral | 4 |
+| Neutral branches | 3 |
+| Grounding points | 1 |
+| Neutral sections | 1 |
+| Floating sections | 0 |
+
+**Linecode impedance classification:**
+
+| Verdict | Count |
+|---------|------:|
+| exactly_balanced | 1 |
+
+**Line model topology:**
+
+| Topology | Count |
+|----------|------:|
+| pure series | 1 |
+
+**OpenDSS default fingerprints:** none detected ✓
+
+**Earthing system per galvanic zone:**
+
+| Zone | Buses | Wires | Star point | Downstream earths | Likely system |
+|------|------:|-------|------------|------------------:|---------------|
+| 5.77 kV | 1 | no branch conductors represented | perfect (0 Ω) | 0 | grounded infeed reference; protective-earthing system indeterminate |
+| 231.0 V | 4 | 4-wire | perfect (0 Ω) | 0 | grounded infeed reference; protective-earthing system indeterminate |
+
+> 🔵 **[I.PROV.SEQ_DERIVED]** 1 linecode(s) have a balanced phase block and an explicit extra conductor. Sequence input materialized by a converter, separately supplied neutral parameters, transposition or physical symmetry can explain this. Inspect that conductor's coupling and grounding: cable.
+> 🔵 **[I.PROV.LINE_MODEL_UNIFORM]** All 1 line-model definition(s) use a single, consistent model: pure series impedance. Shunt charging is neglected network-wide — expected for LV / short-cable networks, but worth confirming for feeders with long MV/HV overhead or underground-cable sections.
+
+## 8. Spec Conformance & Benchmark Readiness
+
+| Spec conformance | Value |
+|------------------|------:|
+| Conformance issues | 0 |
+| Voltage sources (spec requires 1) | 1 |
+
+| Structural integrity | Value |
+|----------------------|------:|
+| Reference issues | 0 |
+| Dimension issues | 0 |
+| Galvanic islands | 2 |
+| Islands without voltage reference | 0 |
+| Line impedance spread | 6.0× |
+
+| Benchmark readiness | Value |
+|---------------------|------:|
+| Objective well-posed | false |
+| Only slack generation | false |
+| Buses with any \|V\| bound | 0.0% |
+| Buses with v\_min/v\_max (phase-to-ground) | 0.0% |
+| Buses with vpn / vpp / vpos bounds | 0 / 0 / 0 |
+| Lines with thermal limits | 100.0% |
+| Generators with no DOF (p\_min≈p\_max) | 0 |
+| Generators with zero cost (dispatchable) | 0 |
+| Same-cost generator pairs (≤1 hop) | 0 |
+| Loads with zero p\_nom | 0 |
+
+**Augmentation needed:**
+
+- no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs
+- no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground)
+- no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF
+
+> 🔵 **[I.BENCH.AUGMENTATION]** Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+
+## 9. Data Quality Summary
+
+**Total findings:** 9 (0 errors, 1 warnings, 8 info)
+
+### 🟡 Warnings
+
+- **[W.CONN.DANGLING]** `bus`  
+  1 bus(es) are degree-1 with no attached load, generator, shunt, capacitor, ibr, or source.
+
+
+### 🔵 Info
+
+- **[I.DIV.LOAD_UNIFORM_MODEL]** `load`  
+  All 4 loads use the constant_power model — no load exercises voltage dependence (ZIP/exponential); the case does not test voltage-dependent load behavior.
+
+- **[I.PROV.SEQ_DERIVED]** `linecode`  
+  1 linecode(s) have a balanced phase block and an explicit extra conductor. Sequence input materialized by a converter, separately supplied neutral parameters, transposition or physical symmetry can explain this. Inspect that conductor's coupling and grounding: cable.
+
+  <details><summary>How to read this</summary>
+
+  **Likely meaning:**
+
+  - Sequence values can define the phase block of a larger matrix. A converter can materialize extra conductors from sequence input, or neutral parameters can be supplied separately; conductor count alone does not select the construction method.
+  - A transposition or phase-symmetry assumption averaged out the geometric coupling.
+
+  **Why it matters:**
+
+  - The inspected three-conductor series block contains no phase-pair geometric asymmetry. Coupling to additional conductors, grounding, shunts and other equipment can still create unbalance.
+  - 1 of these matrices retain conductors outside the inspected phase block. A neutral can remain explicit; inspect its coupling and grounding before drawing conclusions about phase-to-neutral unbalance or recovery.
+
+  **Other explanations:**
+
+  - A physically symmetric arrangement (e.g. trefoil or triplex cable) gives nearly this pattern.
+
+  **What to check:**
+
+  - Compare with the source sequence values, conductor geometry or transposition specification.
+  - For unbalance or neutral studies, inspect retained conductors and their coupling. Use geometry-based data (`compile_linecode` from `line_geometry`) when the omitted geometric asymmetry matters.
+
+  **Learn more:** [Sequence-derived matrices and Z₁/Z₀ recovery](https://frederikgeth.github.io/BMOPFTools.jl/dev/methodology/) · [The line-impedance fidelity ladder](https://frederikgeth.github.io/BMOPFTools.jl/dev/semantic_modeling/#impedance-ladder)
+
+  *A hint to review, not a verified cause; gather evidence before changing the model. Full record: `explain_finding(f)` or the JSON report.*
+
+  </details>
+
+- **[I.PROV.LINE_MODEL_UNIFORM]** `linecode`  
+  All 1 line-model definition(s) use a single, consistent model: pure series impedance. Shunt charging is neglected network-wide — expected for LV / short-cable networks, but worth confirming for feeders with long MV/HV overhead or underground-cable sections.
+
+- **[I.PRE.XFMR_COIL_UNASSESSED]** `sub`  
+  Transformer 'sub' nominal coil headroom is unassessed: unsupported_transformer_subtype.
+
+- **[I.PRE.NO_VOLT_BOUNDS]** `bus`  
+  5 bus(es) have no voltage magnitude bounds — voltage will be unconstrained at these buses.
+
+- **[I.PRE.SINGLE_SOURCE]** `network`  
+  Network has a single voltage source — single point of failure. Infeasibility of the source makes the entire network infeasible.
+
+- **[I.SCHEMA.VERSION_UNKNOWN]** `network`  
+  Spec version 'unknown' has no bundled JSON Schema; structural validation skipped. Unknown-field catalog still runs.
+
+- **[I.BENCH.AUGMENTATION]** `network`  
+  Case needs augmentation to be a non-trivial OPF benchmark: no priced slack or generator — the generation-cost objective is degenerate; add a cost to the voltage source at the source bus (augment_case does this by default) or dispatchable DERs; no voltage magnitude bounds on any bus — voltage is unconstrained; add v_min/v_max (phase-to-ground); no phase-to-neutral or sequence voltage bounds (vpn_*/vpos_*) — sequence bounds also improve solver robustness for 4-wire OPF.
+
+
