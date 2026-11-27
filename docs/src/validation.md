@@ -194,6 +194,8 @@ concern, so a failure points straight at the responsible component:
 | `pf_1ph_freeneutral`, `pf_1ph_impedanceneutral`, `pf_1ph_perfectneutral` | neutral grounding: floating, grounding-reactor (Z = 0.2 Ω), and perfectly grounded |
 | `pf_zip_1ph`, `pf_zip_3ph`, `pf_zip_delta`, `pf_exp_1ph`, `pf_delta_load` | voltage-dependent load models — ZIP (distinct P/Q fractions), exponential (γ), and delta (line-to-line) connection |
 | `pf_1ph_xfmr`, `pf_yd_xfmr`, `pf_dy_xfmr`, `pf_center_tap_xfmr` | transformer windings/vector groups: YY, Yd, Dy, and split-phase center-tap |
+| `pf_dy_xfmr_rneut`, `pf_dy_xfmr_tap` | a Dy unit whose **only earth path is its internal neutral impedance** (`rneut`/`xneut` → `r_neutral_to`/`x_neutral_to`, 2 + j1 Ω, with no external grounding reactor), and a Dy unit at a **fixed off-nominal tap** (`taps=` → `tap`). The first is also the oracle for the profiler: OpenDSS solves it, so `analyze` must not report its low-voltage island as unreferenced |
+| `pf_3wdg_unequal_kva` | a three-winding unit with **unequal winding ratings**, which separates two readings of the per-winding `%R` base (winding 1's rating in OpenDSS, each winding's own in the importer). It records an open disagreement at primitive-admittance level and is used by the importer regression tests, not as a voltage oracle |
 | `pf_combined_3ph_split` | **source-bus angle offset**: one MV source feeding a 3-phase Dy *and* a split-phase center-tap transformer, solved both at the baseline angle and at a non-zero (+17°) source angle (see [Source-angle convention](#Source-angle-convention) below) |
 | `pf_3wdg_nwinding`, `pf_3wdg_nwinding_unbalanced`, `pf_4wdg_nwinding` | **general n-winding** transformer (all-wye), 3- and 4-winding, against OpenDSS's own multi-winding solve — exact ZB leakage (all pairwise reactances, no star approximation), balanced and unbalanced loading, SI and per-unit |
 | `pf_3wdg_dyn`, `pf_3wdg_dyn_unbalanced`, `pf_4wdg_dyyn`, `pf_3wdg_dyn_zgnd` | **n-winding with a DELTA winding** (`Dyn`/`Dyyn`, delta primary): winding count (3/4), neutral grounding (solid vs 0.5 Ω-shunt MV neutral), unbalanced loading, the `solve_pf`/feasibility-OPF paths, and per-unit. The delta coil is line-to-line (`delta_roll = -1` matches OpenDSS's 30° rotation; `r_winding`/`x_sc` on the delta coil base `n_ph·V_LL²/S`) |
@@ -224,6 +226,19 @@ harness, and so they are not counted in the generated inventory above.
     Fixes with no OpenDSS counterpart at snapshot level (the DC network,
     inverter control laws, the feasibility-slack metric) rest on closed-form
     and power-balance oracles in `test/opf_review_regression_tests.jl`.
+
+The same decks hold the **profiler** to account. Every deck in
+`pf_comparison/` (and the SWER feeder) is solved by OpenDSS, so `analyze` must
+report no error on them and a bounded number of warnings: the noise-budget test
+in `test/profiler_generalization_tests.jl`. One exception is recorded there by
+name (`pf_pv_1ph`, `E.INT.UNKNOWN_TERMINAL`, an import artifact), so a new error
+on any other deck fails the test. The profiler's
+own system-type verdicts (voltage levels, high-leg banks, which island is
+referenced) are checked against `solve_pf` on the JSON fixtures in
+[`test/data/profiler_systems/`](https://github.com/frederikgeth/BMOPFTools.jl/tree/main/test/data/profiler_systems),
+and its reading of inverter constraints against an independent linear program
+(`test/ibr_rules_tests.jl`), because a single solve that returns zero current
+shows zero is feasible, not that it is forced.
 
 Single-phase, FOUR_LEG per-phase, and FOUR_LEG AVERAGE-reference **smart-IBR
 droop** are additionally validated against OpenDSS `InvControl` (deadband, slope,

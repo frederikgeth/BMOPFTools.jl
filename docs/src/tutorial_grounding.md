@@ -345,10 +345,15 @@ link, don't duplicate.
   zero-impedance return path (§3). Defensible for substation earthing mats
   and dense multi-grounded systems; not for a rod at the end of a feeder —
   model that as a `shunt` and let the solver tell you what it carries.
-- **A floating neutral is not an error** — it is a modeling statement that
-  the only return is metallic. Expect NEV, bound it with `vn_max`, and expect
-  [`ybus_passive`](@ref) to show the corresponding null mode if nothing ties
-  the group to earth (§4).
+- **A neutral with few earths is not an error** — it is a modeling statement
+  that the return is mostly metallic. Expect NEV and bound it with `vn_max`.
+  A neutral section with **no** path to earth at all is different: its
+  potential is undefined, [`ybus_passive`](@ref) shows the corresponding null
+  mode, and [`analyze`](@ref) reports it as `E.PROV.FLOATING_NEUTRAL` when
+  loads or generators use it (`W.PROV.FLOATING_NEUTRAL` when nothing does).
+  One grounding shunt, a perfect grounding, a source that references the
+  neutral, or a transformer neutral impedance removes the finding (§4;
+  [Grounding and neutral findings explained](grounding_findings.md)).
 - **Kron-reduce only what is genuinely pinned to zero volts** (§5). If you
   ingest three-wire data that was reduced upstream, the assumption arrived
   with it. The [`provenance Findings`](findings.md) prompt review of likely

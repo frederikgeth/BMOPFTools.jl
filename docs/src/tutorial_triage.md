@@ -19,7 +19,11 @@ made sense in the source tool. The reflex responses — ignore all warnings, or
 defects, the second destroys provenance and can change the physics. This
 tutorial works a deliberately messy case end to end and builds the habit the
 [judgment spine](choose_tutorial.md#The-judgment-spine) starts with:
-**triage**. Every block runs at build time.
+**triage**. The blocks are shown as code and are not executed by the
+documentation build (the dataset is external), so the counts quoted in the text
+are illustrative of one run. For an executed walk through the same loop on a
+bundled case, start with
+[Profile your first messy case](tutorial_profile_messy_case.md).
 
 !!! note "Prerequisites"
     Only `BMOPFTools` — nothing here needs a solver. The
@@ -246,8 +250,10 @@ tiers, applied at scale. Two gates then say whether the result is ready for
 its intended use:
 
 ```julia
-pre = infeasibility_preflight(ready, report3.findings)
-rdy = benchmark_readiness_check(ready, report3.findings)
+# analyze has already run both gates: read their results from the report.
+# (Calling the passes again with report3.findings would append duplicates.)
+pre = report3.results[:preflight]
+rdy = report3.results[:benchmark]
 println("preflight keys : ", sort(collect(keys(pre))))
 println("readiness keys : ", sort(collect(keys(rdy))))
 for s in get(rdy, "suggestions", String[])

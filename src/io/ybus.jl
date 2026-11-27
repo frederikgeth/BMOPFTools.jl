@@ -149,11 +149,25 @@ function _line_z_complex(line::Dict{String,Any}, linecodes::AbstractDict)
     (complex.(R .* len, X .* len), size(R, 1))
 end
 
+# Leading n×n block of a sparse-keyed matrix, zero-padded: an omitted entry is
+# zero, exactly as the OPF stamp reads it (`_stamp_shunt!`).
+function _zero_padded_block(M, n::Int)
+    out = zeros(eltype(M), n, n)
+    r = min(n, size(M, 1)); c = min(n, size(M, 2))
+    out[1:r, 1:c] .= M[1:r, 1:c]
+    out
+end
+
 # π-shunt admittance (S) of a line, from- and to-side, as complex or nothing.
+# G and B may be declared with different extents (sparse keys); both are
+# zero-padded to the larger one.
 function _line_shunt_complex(line::Dict{String,Any}, linecodes::AbstractDict)
-    _cx(G, B) = (G === nothing && B === nothing) ? nothing :
-        complex.(G === nothing ? zeros(size(B)...) : G,
-                 B === nothing ? zeros(size(G)...) : B)
+    function _cx(G, B)
+        G === nothing && B === nothing && return nothing
+        n = max(G === nothing ? 0 : size(G, 1), B === nothing ? 0 : size(B, 1))
+        complex.(G === nothing ? zeros(n, n) : _zero_padded_block(G, n),
+                 B === nothing ? zeros(n, n) : _zero_padded_block(B, n))
+    end
     if _line_has_inline_z(line)
         Yfr = _cx(_pattern_keys_to_matrix(line, "G_from_"), _pattern_keys_to_matrix(line, "B_from_"))
         Yto = _cx(_pattern_keys_to_matrix(line, "G_to_"),   _pattern_keys_to_matrix(line, "B_to_"))
@@ -309,7 +323,8 @@ function _line_yprim(line::Dict{String,Any}, linecodes::AbstractDict)
     n == 0 && return (_Node[], zeros(ComplexF64, 0, 0))
     ys = inv(Z[1:n, 1:n])                          # series admittance (S)
     Yfr, Yto = _line_shunt_complex(line, linecodes)
-    trunc(M) = M === nothing ? zeros(ComplexF64, n, n) : ComplexF64.(M[1:n, 1:n])
+    # Sparse shunt declarations are zero-padded to the conductor count.
+    trunc(M) = M === nothing ? zeros(ComplexF64, n, n) : ComplexF64.(_zero_padded_block(M, n))
     y_fr = trunc(Yfr); y_to = trunc(Yto)
     Y = zeros(ComplexF64, 2n, 2n)
     Y[1:n, 1:n]         .= ys .+ y_fr

@@ -728,7 +728,7 @@ The following augmentation tasks are **not** handled by `augment_case`:
 
 - **Reactive load (`q_nom`)** — existing reactive demand is preserved as-is.
   If loads were imported with `pf = 0.88` OpenDSS defaults
-  (flagged by `I.PROV.OPENDSS_DEFAULT_PF`) the values should be reviewed
+  (flagged by `I.PROV.DSS_DEFAULT_PF`) the values should be reviewed
   before treating them as benchmark data.
 
 - **Transformer `s_max`** — `s_rating` already plays this role; the solver

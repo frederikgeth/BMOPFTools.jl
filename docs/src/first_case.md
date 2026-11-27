@@ -37,11 +37,13 @@ Informational Findings can describe deliberate assumptions or useful context;
 they are not all instructions to change the model. To print the report locally,
 run `render(case_report, stdout)`.
 
-For this fixture, `W.OPS.IMPORT_DEPENDENT` flags the reliance on grid supply,
-and `W.CONV.TERMINAL_ROLES_INFERRED` reports that terminal roles use legacy
-name inference rather than an explicit convention declaration. Decide whether
-those assumptions suit your intended study; a later successful solve does not
-resolve these input-model questions.
+For this fixture, `W.CONV.TERMINAL_ROLES_INFERRED` reports that terminal roles
+use legacy name inference rather than an explicit convention declaration.
+Decide whether that assumption suits your intended study; a later successful
+solve does not resolve an input-model question. The feeder declares no
+generator and no IBR, so it imports all its power by construction:
+`case_report.results[:operational]["passive_feeder"]` records that fact and no
+warning is raised for it.
 
 The same code accepts your own BMOPF file: replace `fixture` with its path.
 For OpenDSS intake, continue with the [conversion guide](conversion.md).

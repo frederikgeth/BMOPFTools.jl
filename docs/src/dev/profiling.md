@@ -1,10 +1,62 @@
-# Profiling pipeline: priorities
+# Profiling pipeline: structure and priorities
 
 The profiling pipeline is the analysis side of BMOPFTools: [`analyze`](../analysis.md)
 turns a network into a `SummaryReport` of [`Finding`](../findings.md)s, and
-[`profile_solution`](../results.md) turns a solved case into a `SolutionReport`.
+`profile_solution` ([result reference](../results.md)) turns a solved case into a `SolutionReport`.
 This page sets the priorities for contributions to that pipeline — what makes a
 good new finding, and what is currently out of scope.
+
+## What runs, in order
+
+[`analyze`](../analysis.md) calls the passes below in this order, each
+appending to one finding log and returning one result dict. A new check
+belongs in the pass that owns its subject; a new pass is rarely the right
+answer.
+
+| Order | `results` key | Source | Hosts |
+|---|---|---|---|
+| 1 | `:inventory` | `analysis/inventory.jl` | component counts, transformer phase labels |
+| 2 | `:voltage_levels` | `analysis/voltage_levels.jl` | level propagation, high-leg units, ratio consistency |
+| 3 | `:connectivity` | `analysis/connectivity.jl` | graph, banks, DC links, zone classification, supply-phase consistency, switch scenarios, and the whole **spatial** pass (`analysis/spatial*.jl`) |
+| 4 | `:diversity` | `analysis/diversity.jl` | load and line parameter spread |
+| 5 | `:operational` | `analysis/operational.jl` | loading, limit coverage, feeder reach (`analysis/feeder_reach.jl`) |
+| 6 | `:load_models` | `analysis/load_models.jl` | load-law inventory |
+| 7 | `:provenance` | `analysis/provenance/*.jl` | linecodes, wires, grounding, earthing zones, tool-default fingerprints |
+| 8 | `:preflight` | `infeasibility/preflight.jl` | adequacy, bound conflicts, coil headroom |
+| 9–15 | `:schema` … `:benchmark` | `validation/*.jl` | schema, completeness, domain rules, redundancy, integrity, spec conformance, benchmark readiness |
+| — | `:assessment` | `report/assessment_coverage.jl` | which tracked checks were assessed |
+| last | `:consolidation` | `report/finding_consolidation.jl` | roll-up and subsumption of the finding log |
+
+Rules that follow from this structure:
+
+- **A pass emits one Finding per affected component.** Do not aggregate inside
+  a check to reduce noise; the consolidation step does that for every code, and
+  `expand_findings` restores the per-component records.
+- **One root cause, one Finding.** If a new check restates what another already
+  says about the same component, add the pair to `_SUBSUMED_BY` rather than
+  emitting both.
+- **Thresholds come from the `config` argument.** Read them from the call's
+  configuration with a packaged fallback; a module-level constant cannot be
+  overridden per study.
+- **Resolve the neutral through the case's terminal roles**
+  (`_case_neutral_labels`), not through the name `n`.
+- **Name the domain.** A check that applies only to some system types returns
+  an explicit inapplicable or indeterminate result outside them; it does not
+  guess. New system types get a fixture in `test/data/profiler_systems` and a
+  row in [System types and regional practice](../tutorial_system_types.md).
+- **Keep the report quiet on a clean case.** The regional fixtures must stay
+  free of errors and warnings; `test/profiler_generalization_tests.jl` enforces
+  it.
+
+- **Do not re-derive what the solver stamps.** A check that depends on how a
+  device is modeled reads the same rules the builder does. For inverters that
+  is `src/validation/ibr_rules.jl`; `test/ibr_rules_tests.jl` holds the
+  profiler's conclusions against an independent LP. A single solve that
+  returns zero current shows zero is feasible, not that it is forced.
+- **Follow conductors, not labels or bus names.** `_conductor_groups` is the
+  one place a conductor is followed from bus to bus. A verdict must survive
+  renaming a bus, reversing a switch and relabeling a terminal; the bank tests
+  in `test/profiler_generalization_tests.jl` apply those rewrites to every case.
 
 ## Semantics and data quality come first
 

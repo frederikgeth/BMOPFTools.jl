@@ -1,0 +1,324 @@
+{
+ "name": "na_mgn_split_phase",
+ "meta": {
+  "license": "CC-BY-4.0",
+  "description": "Original synthetic teaching fixture, not calibrated to a utility population. 12.47 kV multi-grounded-neutral primary, single-phase lateral, 120/240 V split-phase service"
+ },
+ "terminal_conventions": {
+  "phase": [
+   "a",
+   "b",
+   "c"
+  ],
+  "neutral": [
+   "n"
+  ],
+  "earth": []
+ },
+ "bus": {
+  "sub": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "perfectly_grounded_terminals": [
+    "n"
+   ]
+  },
+  "p1": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ]
+  },
+  "p2": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ]
+  },
+  "lat": {
+   "terminal_names": [
+    "b",
+    "n"
+   ]
+  },
+  "svc": {
+   "terminal_names": [
+    "a",
+    "b",
+    "n"
+   ]
+  }
+ },
+ "voltage_source": {
+  "grid": {
+   "bus": "sub",
+   "terminal_map": [
+    "a",
+    "b",
+    "c"
+   ],
+   "v_magnitude": [
+    7200.0,
+    7200.0,
+    7200.0
+   ],
+   "v_angle": [
+    0.0,
+    -2.0943951023931953,
+    2.0943951023931953
+   ]
+  }
+ },
+ "linecode": {
+  "primary": {
+   "R_series_1_1": 0.0003,
+   "X_series_1_1": 0.00030000000000000003,
+   "R_series_1_2": 4.9999999999999996e-05,
+   "X_series_1_2": 0.0001,
+   "R_series_1_3": 4.9999999999999996e-05,
+   "X_series_1_3": 0.0001,
+   "R_series_1_4": 4.9999999999999996e-05,
+   "X_series_1_4": 0.0001,
+   "R_series_2_1": 4.9999999999999996e-05,
+   "X_series_2_1": 0.0001,
+   "R_series_2_2": 0.0003,
+   "X_series_2_2": 0.00030000000000000003,
+   "R_series_2_3": 4.9999999999999996e-05,
+   "X_series_2_3": 0.0001,
+   "R_series_2_4": 4.9999999999999996e-05,
+   "X_series_2_4": 0.0001,
+   "R_series_3_1": 4.9999999999999996e-05,
+   "X_series_3_1": 0.0001,
+   "R_series_3_2": 4.9999999999999996e-05,
+   "X_series_3_2": 0.0001,
+   "R_series_3_3": 0.0003,
+   "X_series_3_3": 0.00030000000000000003,
+   "R_series_3_4": 4.9999999999999996e-05,
+   "X_series_3_4": 0.0001,
+   "R_series_4_1": 4.9999999999999996e-05,
+   "X_series_4_1": 0.0001,
+   "R_series_4_2": 4.9999999999999996e-05,
+   "X_series_4_2": 0.0001,
+   "R_series_4_3": 4.9999999999999996e-05,
+   "X_series_4_3": 0.0001,
+   "R_series_4_4": 0.0003,
+   "X_series_4_4": 0.00030000000000000003,
+   "i_max": [
+    300.0,
+    300.0,
+    300.0,
+    300.0
+   ]
+  },
+  "lateral": {
+   "R_series_1_1": 0.0003,
+   "X_series_1_1": 0.00030000000000000003,
+   "R_series_1_2": 4.9999999999999996e-05,
+   "X_series_1_2": 0.0001,
+   "R_series_2_1": 4.9999999999999996e-05,
+   "X_series_2_1": 0.0001,
+   "R_series_2_2": 0.0003,
+   "X_series_2_2": 0.00030000000000000003,
+   "i_max": [
+    150.0,
+    150.0
+   ]
+  }
+ },
+ "line": {
+  "main1": {
+   "bus_from": "sub",
+   "bus_to": "p1",
+   "terminal_map_from": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "terminal_map_to": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "linecode": "primary",
+   "length": 400.0
+  },
+  "main2": {
+   "bus_from": "p1",
+   "bus_to": "p2",
+   "terminal_map_from": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "terminal_map_to": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "linecode": "primary",
+   "length": 400.0
+  },
+  "tap": {
+   "bus_from": "p1",
+   "bus_to": "lat",
+   "terminal_map_from": [
+    "b",
+    "n"
+   ],
+   "terminal_map_to": [
+    "b",
+    "n"
+   ],
+   "linecode": "lateral",
+   "length": 250.0
+  }
+ },
+ "shunt": {
+  "gnd_p1": {
+   "bus": "p1",
+   "terminal_map": [
+    "n"
+   ],
+   "G_1_1": 0.04,
+   "B_1_1": 0.0
+  },
+  "gnd_p2": {
+   "bus": "p2",
+   "terminal_map": [
+    "n"
+   ],
+   "G_1_1": 0.04,
+   "B_1_1": 0.0
+  },
+  "gnd_lat": {
+   "bus": "lat",
+   "terminal_map": [
+    "n"
+   ],
+   "G_1_1": 0.04,
+   "B_1_1": 0.0
+  },
+  "gnd_svc": {
+   "bus": "svc",
+   "terminal_map": [
+    "n"
+   ],
+   "G_1_1": 0.04,
+   "B_1_1": 0.0
+  }
+ },
+ "transformer": {
+  "center_tap": {
+   "pole": {
+    "bus_from": "lat",
+    "bus_to": "svc",
+    "terminal_map_from": [
+     "b",
+     "n"
+    ],
+    "terminal_map_to": [
+     "a",
+     "n",
+     "b"
+    ],
+    "v_nom_from": 7200.0,
+    "v_nom_to": 120.0,
+    "s_rating": 25000.0,
+    "r_series_from": 10.368,
+    "x_series_from": 31.104,
+    "r_series_to": 0.00288,
+    "x_series_to": 0.00864
+   }
+  }
+ },
+ "load": {
+  "house_a": {
+   "bus": "svc",
+   "terminal_map": [
+    "a",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    3000.0
+   ],
+   "q_nom": [
+    986.1
+   ],
+   "v_nom": [
+    120.0
+   ]
+  },
+  "house_b": {
+   "bus": "svc",
+   "terminal_map": [
+    "b",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    2000.0
+   ],
+   "q_nom": [
+    657.4
+   ],
+   "v_nom": [
+    120.0
+   ]
+  },
+  "range": {
+   "bus": "svc",
+   "terminal_map": [
+    "a",
+    "b"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    4000.0
+   ],
+   "q_nom": [
+    1314.7
+   ],
+   "v_nom": [
+    240.0
+   ]
+  },
+  "mill": {
+   "bus": "p2",
+   "terminal_map": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "configuration": "WYE",
+   "p_nom": [
+    20000.0,
+    22000.0,
+    18000.0
+   ],
+   "q_nom": [
+    6573.7,
+    7231.1,
+    5916.3
+   ],
+   "v_nom": [
+    7200.0,
+    7200.0,
+    7200.0
+   ]
+  }
+ }
+}

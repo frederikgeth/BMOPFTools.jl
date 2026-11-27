@@ -3,9 +3,9 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "5ce0aed91f0966e45989527e39d2ef2492cbe4fe698d453c7473670a2ecebe68"
+    "sha256": "53bafceff6a9a6e54abd67a70b0a1de2507d41e4deba9d591b1aa87c0c754cf6"
   },
-  "finding_count": 391,
+  "finding_count": 394,
   "findings": [
     {
       "code": "W.EXPORT.DSS_RATING_UNVERIFIED",
@@ -215,7 +215,7 @@
       "namespace": "CONN",
       "catalogue_section": "CONN",
       "section_title": "connectivity & topology",
-      "meaning": "More than one connected component (over lines, closed switches and transformers). Buses without a path to a source have no defined operating point.",
+      "meaning": "More than one connected component (over lines, closed switches, transformers, and DC links between converters that share a DC island). Buses without a path to a source have no defined operating point.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -235,7 +235,7 @@
       "namespace": "CONN",
       "catalogue_section": "CONN",
       "section_title": "connectivity & topology",
-      "meaning": "Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail. Radiality is assessed over phase-carrying branches: a line or closed switch that maps only neutral- or earth-role terminals at both ends (for example, a neutral bond beside a service transformer) closes no phase-conductor cycle. Such cycles are counted in `neutral_only_cycle_rank` (result and detail) and do not raise this warning.",
+      "meaning": "Physical branch count exceeds the spanning-forest count — cycles exist. Counted over *branch elements*, so electrically parallel lines are correctly detected as meshes. Structured detail separates simple cycles, parallel excess, and transformer-mediated cycles and gives bounded closing-branch witnesses. Not an error (the spec supports meshes) but radial-only methods will fail. Single-phase transformer units that join the same two buses on different secondary phase conductors are one bank (`transformer_banks` in the result) and count as one branch; units on different primary buses are one bank only when closed switches carry every primary conductor of each winding between them (a full disconnect); a partial tie leaves them separate and lists the pair in `undetermined_transformer_banks`; a unit across conductors the bank already spans is parallel and does close a cycle (`transformer_bank_groups` lists legs, parallel units and whether the grouping is ambiguous, independently of component ids). DC links between converters on one DC island are branches; cycles they close are counted as `dc_mediated_cycle_rank`, separately from `transformer_mediated_cycle_rank`, and a closing DC link is identified by its DC island. The verdict and the cycle evidence in the detail are computed from one branch inventory, whose scope is stated in `structure.whole_network.branch_scope`. Radiality is assessed over phase-carrying branches: a line or closed switch that maps only neutral- or earth-role terminals at both ends (for example, a neutral bond beside a service transformer) closes no phase-conductor cycle. Such cycles are counted in `neutral_only_cycle_rank` (result and detail) and do not raise this warning.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -254,8 +254,8 @@
       "severity": "WARNING",
       "namespace": "GEO",
       "catalogue_section": "GEO",
-      "section_title": "declared geographic coordinates",
-      "meaning": "A finite bus coordinate is outside the longitude ±180° or latitude ±90° range despite an explicit network WGS84 declaration. This suggests a coordinate or CRS metadata error.",
+      "section_title": "declared coordinate frames",
+      "meaning": "A finite bus coordinate is outside the longitude ±180° or latitude ±90° range despite an explicit geographic frame declaration. This suggests a coordinate or CRS metadata error. `in_range_if_axes_exchanged` records whether the values would be a valid position with longitude and latitude exchanged; the fields are never swapped for the reader.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -264,8 +264,38 @@
       "severity": "WARNING",
       "namespace": "GEO",
       "catalogue_section": "GEO",
-      "section_title": "declared geographic coordinates",
-      "meaning": "A line's physical length (`meta.physical_length_m`, or declared `length` when no physical/regularization metadata prevents that interpretation) is more than `max(5 m, 10% of chord)` shorter than the geodesic distance between its explicitly declared WGS84 bus coordinates. An explicitly regularized electrical length without physical length, or invalid explicit physical metadata, makes this check indeterminate. Structured evidence preserves both lengths and the comparison basis; inspect coordinates, units, and length provenance.",
+      "section_title": "declared coordinate frames",
+      "meaning": "A line's physical length (`meta.physical_length_m`, or declared `length` when no physical/regularization metadata prevents that interpretation) is more than `max(5 m, 10% of chord)` shorter than the distance between its bus positions in the declared frame (geodesic for a geographic frame, Euclidean for a local Cartesian one). An explicitly regularized electrical length without physical length, or invalid explicit physical metadata, makes this check indeterminate. A length of exactly 1 on a line whose impedance is given as inline totals (the OpenDSS default placeholder) is not compared. Structured evidence preserves both lengths and the comparison basis; inspect coordinates, units, and length provenance.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "W.GEO.LINE_LONGER_THAN_CHORD",
+      "severity": "WARNING",
+      "namespace": "GEO",
+      "catalogue_section": "GEO",
+      "section_title": "declared coordinate frames",
+      "meaning": "A line's physical length exceeds `max(5 × chord, chord + 100 m)` and no valid route polyline of matching length accounts for it. Routing along streets and conductor sag make a line somewhat longer than its chord; several times longer points at a length unit, a duplicated bus position, or a missing route. The same OpenDSS placeholder length is not compared.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "W.GEO.LENGTH_SCALE_SUSPECT",
+      "severity": "WARNING",
+      "namespace": "GEO",
+      "catalogue_section": "GEO",
+      "section_title": "declared coordinate frames",
+      "meaning": "Across at least ten lines with a chord of 10 m or more, the median ratio of physical length (the same per-line comparison basis as the chord checks: `meta.physical_length_m` when declared, never a regularized electrical length or an inline-impedance placeholder) to bus-to-bus distance sits within 5 % of a known unit factor (kilometers, feet, kilofeet or miles stored as meters; coordinates in feet or kilometers declared as meters) and at least 60 % of the lines agree. One network-level Finding: a consistent factor is a unit, not a route.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "W.GEO.COORDINATE_OUTLIER",
+      "severity": "WARNING",
+      "namespace": "GEO",
+      "catalogue_section": "GEO",
+      "section_title": "declared coordinate frames",
+      "meaning": "One network-level Finding listing buses at the geographic origin (0, 0), a common \"no position\" placeholder, or farther from the median bus position than `max(100 km, 20 × the 90th-percentile distance)`. Needs at least five positioned buses for the extent rule.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -274,7 +304,7 @@
       "severity": "WARNING",
       "namespace": "GEO",
       "catalogue_section": "GEO",
-      "section_title": "declared geographic coordinates",
+      "section_title": "declared coordinate frames",
       "meaning": "A declared WGS84 route polyline's endpoints differ from the connected bus positions by more than `max(20 m, 10% of chord)`, with reversed route direction allowed. Inspect the bus reference, route provenance, and snapping assumptions.",
       "contract_id": null,
       "knowledge_ids": []
@@ -285,7 +315,7 @@
       "namespace": "VOLT",
       "catalogue_section": "VOLT",
       "section_title": "voltage levels",
-      "meaning": "BFS voltage propagation reaches a bus with two inconsistent nominal voltages (beyond 5 %). The network's transformer ratios and topology contradict each other. Lines and closed switches that map only neutral- or earth-role terminals at both ends (for example, a primary-to-secondary neutral bond beside a service transformer) carry no phase conductor and do not propagate a level.",
+      "meaning": "BFS voltage propagation reaches a bus with two inconsistent nominal voltages (beyond 5 %). The network's transformer ratios and topology contradict each other. Lines and closed switches that map only neutral- or earth-role terminals at both ends (for example, a primary-to-secondary neutral bond beside a service transformer) carry no phase conductor and do not propagate a level. In a high-leg (four-wire) delta, a phase-to-phase power unit that shares a secondary bus with a center-tapped unit is not a second level, provided the nominal phasors of the two primary windings actually close the delta (third conductor at √3 times the leg level; primaries on the same phase, or a line-to-line beside a line-to-neutral primary, do not and are ordinary conflicts): the bus is reported at the center-tapped leg voltage and listed in `mixed_phase_to_neutral_buses`.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -315,7 +345,7 @@
       "namespace": "VOLT",
       "catalogue_section": "VOLT",
       "section_title": "voltage levels",
-      "meaning": "A transformer's `v_nom` turns ratio disagrees (>10 %) with the voltage ratio of the levels it actually connects — ratio and placement are inconsistent.",
+      "meaning": "A transformer's `v_nom` turns ratio disagrees (>10 %) with the voltage ratio of the levels it actually connects — ratio and placement are inconsistent. The power unit of a high-leg delta bank is checked against the bank's line-to-line voltage (twice the leg voltage of the center-tapped unit; `basis = high_leg_line_to_line`): its secondary amplitude, from the traced primary phasor and its declared turns ratio, must be within 10 % (`secondary_amplitude_ratio`), so both a wrong rating and a weak source phase are reported.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -427,7 +457,7 @@
       "namespace": "OPS",
       "catalogue_section": "OPS",
       "section_title": "operational loading",
-      "meaning": "Local generation capacity below 5 % of total load — the case is a pure import feeder; with only a slack source the dispatch problem is loss minimization at best.",
+      "meaning": "The case declares generators or IBRs, but their active capacity is below 5 % of total load — the dispatch problem is loss minimization at best. A passive feeder that declares no generator and no IBR at all imports by construction and is not warned; `results[:operational][\"import_dependent\"]` and `[\"passive_feeder\"]` carry the fact either way.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -447,7 +477,7 @@
       "namespace": "OPS",
       "catalogue_section": "OPS",
       "section_title": "operational loading",
-      "meaning": "Lines without any thermal limit (`i_max`/`s_max` on the line or its linecode) — the OPF will have no flow constraints there.",
+      "meaning": "Lines without any thermal limit (`i_max`/`s_max` on the line or its linecode) — the OPF will have no flow constraints there. Dropped from an `analyze` report when `W.PROV.I_MAX_ABSENT` names the same lines.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -467,7 +497,7 @@
       "namespace": "OPS",
       "catalogue_section": "OPS",
       "section_title": "operational loading",
-      "meaning": "A phase terminal is present on buses in a galvanic zone (connected via lines and closed switches; transformers and neutral-only branches are boundaries) but no load connects to it anywhere in that zone. Reported per zone and per terminal. Common in partial-phase feeders; worth reviewing before interpreting unbalance results.",
+      "meaning": "A phase terminal is present on buses in a galvanic zone (connected via lines and closed switches; transformers and neutral-only branches are boundaries) but no load connects to it anywhere in that zone. Reported per zone and per terminal, for zones that carry at least one load (a load-free backbone or source stub has nothing to be unbalanced). Common in partial-phase feeders; worth reviewing before interpreting unbalance results.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -977,7 +1007,7 @@
       "namespace": "DOM",
       "catalogue_section": "DOM",
       "section_title": "domain plausibility",
-      "meaning": "An IBR's Volt-var/Volt-watt droop has breakpoint voltages outside the bus's `[v_min, v_max]` band — the droop may never engage within the feasible operating range, so the control is effectively inert.",
+      "meaning": "Every breakpoint voltage of an IBR's Volt-var/Volt-watt droop lies on one side of the bus's `[v_min, v_max]` band — the band sits wholly in a saturated tail of the curve, so the control is effectively inert over the feasible range. Breakpoints beyond the band on both sides are the normal grid-code shape (the sloped segments still cross the band) and are not flagged.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1591,7 +1621,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "A line has near-zero series impedance and may be better represented by the spec's lossless `switch` object.",
+      "meaning": "A line has near-zero series impedance and may be better represented by the spec's lossless `switch` object. Not repeated in an `analyze` report for a line that also raises `W.DOM.LINE_LOW_IMPEDANCE`, which states the same fact more strongly.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1691,7 +1721,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "A galvanic zone is fed by a `center_tap` transformer — a split-phase section (NA 120-0-120, AU 230-0-230 downstream of SWER). The two legs are anti-phase about the center-tap neutral; the OPF warm-start initializes them 180° apart accordingly.",
+      "meaning": "A galvanic zone is fed by a `center_tap` transformer — a split-phase section (NA 120-0-120, AU 230-0-230 downstream of SWER). The two legs are anti-phase about the center-tap neutral; the OPF warm-start initializes them 180° apart accordingly. `detail[\"legs\"]` are the center-tapped winding's outer terminals; `detail[\"high_leg\"]` lists conductors landed by an identified high-leg power unit (the units in `results[:voltage_levels][\"high_leg_units\"]`), and `detail[\"other_phases\"]` any further phase conductor in the zone, without a claim about its voltage.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1701,7 +1731,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "A galvanic zone is single-wire (one phase conductor across all its buses) and transformer-isolated — a Single-Wire-Earth-Return section. Distinguished from a single-phase lateral, which shares its three-phase feeder's zone.",
+      "meaning": "A galvanic zone has one phase conductor across all its buses, is transformer-isolated, and a branch witnesses the earth return: at least one line or closed switch carries that phase alone and none carries a neutral — a Single-Wire-Earth-Return section. A two-wire (phase + metallic neutral) section, or a branchless service bus behind a single-phase transformer, is reported as a `single_phase` zone instead. Distinguished from a single-phase lateral, which shares its three-phase feeder's zone.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1741,7 +1771,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "A bus declares more phase conductors than its galvanic feed (voltage source or feeding-transformer secondary) supplies — e.g. a 3-phase bus downstream of a single-phase or split-phase (180°) source within one zone. Phase count cannot increase without a transformer.",
+      "meaning": "A bus declares more phase conductors than its galvanic feed (voltage source or feeding-transformer secondary) supplies — e.g. a 3-phase bus downstream of a single-phase or split-phase (180°) source within one zone. Phase count cannot increase without a transformer. A bank of single-phase units supplies the union of its legs: three line-to-neutral units, or an open-delta pair on (a,b) and (b,c), supply three phases.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1761,7 +1791,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "An LV level has no neutral carried by represented branches. **Likely meaning:** prior neutral elimination, including Kron reduction, in a network that may physically be four-wire. **Why it matters:** the usual Kron model assumes zero neutral voltage at line endpoints and cannot predict actual neutral rise if that assumption is inappropriate. Dissipation can remain in the reduced impedance; separate neutral quantities need source blocks or a recovery map. **Check:** original conductor/grounding data and the quantities needed for the study. **Alternative:** a genuine three-wire network or another equivalent.",
+      "meaning": "Raised only for a level that has branch conductors and is not supplied by a delta secondary winding (a delta-fed level is three-wire by construction). An LV level has no neutral carried by represented branches. **Likely meaning:** prior neutral elimination, including Kron reduction, in a network that may physically be four-wire. **Why it matters:** the usual Kron model assumes zero neutral voltage at line endpoints and cannot predict actual neutral rise if that assumption is inappropriate. Dissipation can remain in the reduced impedance; separate neutral quantities need source blocks or a recovery map. **Check:** original conductor/grounding data and the quantities needed for the study. **Alternative:** a genuine three-wire network or another equivalent.",
       "contract_id": null,
       "knowledge_ids": [
         "PSK-000008"
@@ -1832,7 +1862,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "A neutral section (continuity graph over lines/closed switches) with no path to ground **and** loads/generators using it — the zero-sequence path is undefined; 4-wire analysis is ill-posed.",
+      "meaning": "A neutral section (continuity graph over lines/closed switches) with no path to ground (perfect grounding, a grounding shunt, a source that references the neutral, or a transformer neutral impedance) **and** loads/generators using it — the zero-sequence path is undefined; 4-wire analysis is ill-posed.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2164,7 +2194,7 @@
       "namespace": "INT",
       "catalogue_section": "INT",
       "section_title": "structural integrity",
-      "meaning": "A galvanic island (transformer windings are separations) with no source, perfect grounding, or grounding shunt — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island.",
+      "meaning": "A galvanic island (transformer windings are separations) with no source, perfect grounding, grounding shunt, line shunt admittance to earth as the admittance builders stamp it (modeled line capacitance: an unearthed delta or IT island is referenced through it; one impedance source per line — inline totals, else the linecode scaled by length — and only the block over the mapped conductors, with omitted entries of a sparsely declared matrix read as zero, so a shunt entry the engine never stamps is not a reference), or transformer neutral impedance (`r/x_neutral_from`/`to` on a side that has a neutral terminal — impedance and resonant earthing), or a coil written against earth (WYE or one-terminal SINGLE_PHASE with no neutral in its map) whose power is given: a load coil with nonzero demand, or a generator coil with fixed, nonzero output — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island. A second form (`detail[\"scope\"] = \"conductor_group\"`; the first has `\"island\"`) is raised when the island has a reference that does not reach every conductor: a group of terminals joined to each other by lines, windings and devices, but to no earthed conductor, can shift together. An earth shunt on a separately carried neutral does not reference delta-connected phases that nothing connects to that neutral.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2204,7 +2234,7 @@
       "namespace": "INT",
       "catalogue_section": "INT",
       "section_title": "structural integrity",
-      "meaning": "A bus declares a terminal in `terminal_names` that is not referenced by any component at that bus (no branch end, load, generator, shunt, or voltage source uses it). The terminal adds a free voltage variable with no KCL constraint — pure numeric overhead. Almost always a conversion artifact or a missing connection. Voltage-source buses are excluded (the source pins every declared terminal regardless).",
+      "meaning": "A bus declares a terminal in `terminal_names` that is not referenced by any component at that bus (no branch end, load, generator, shunt, capacitor, IBR, or voltage source uses it) and is not perfectly grounded — a grounded terminal is pinned, not free. The terminal adds a free voltage variable with no KCL constraint — pure numeric overhead. Almost always a conversion artifact or a missing connection. Voltage-source buses are excluded (the source pins every declared terminal regardless).",
       "contract_id": null,
       "knowledge_ids": []
     },

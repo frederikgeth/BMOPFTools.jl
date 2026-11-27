@@ -4,6 +4,91 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Profiler review (November 2026): the electrical and geospatial profiler was
+  checked against wiring and earthing practice in North America, Europe, Japan
+  and Australia, and against 220 networks for false flags. Each fix is pinned
+  by a regression test; where OpenDSS or the power-flow engine can express the
+  case, by that oracle too.
+  - **Voltage reference.** A transformer's internal neutral impedance
+    (`r/x_neutral_*`) and a line's shunt admittance to earth are finite
+    references. Impedance- and resonant-earthed islands, and unearthed delta
+    islands with modeled capacitance, no longer raise
+    `E.INT.NO_VOLTAGE_REFERENCE` or `E.PROV.FLOATING_NEUTRAL`.
+  - **Transformer banks.** Single-phase units that join the same two buses on
+    different conductors (wye bank, open-wye/open-delta, V-connection) are one
+    branch (`results[:connectivity]["transformer_banks"]`) supplying the union
+    of their legs: no `W.CONN.MESHED` or `W.PROV.PHASE_COUNT_EXCEEDS_SUPPLY`.
+  - **High-leg delta.** Power units beside a center-tapped unit are not a second
+    voltage level (`E.VOLT.LEVEL_MISMATCH`, `W.VOLT.XFMR_RATIO`); the bus is
+    reported at the leg voltage and listed in `mixed_phase_to_neutral_buses`.
+  - **SWER zones** need a branch that witnesses the earth return. A two-wire or
+    branchless single-phase section behind a transformer is now `single_phase`;
+    `n_swer_zones` on the bundled SWER deck is 1, not 2.
+  - **`n_winding` DELTA windings** propagate a per-conductor bus nominal (it was
+    √3 too low).
+  - **AC sections joined over a DC link** are one network
+    (`results[:connectivity]["dc_links"]`).
+  - **Declared terminal roles** are honored by the grounding analysis and the
+    neutral power-limit check on a hand-built case, not only the name `n`.
+  - **Report consolidation.** `analyze` reports an `I.`/`W.` code raised on
+    more than `[report] rollup_threshold` components (default 25) as one
+    roll-up Finding; `expand_findings` restores the per-component Findings and
+    `is_rolled_up` identifies a roll-up. `I.PROV.LINE_SWITCH_LIKE` is dropped
+    for a line that raises `W.DOM.LINE_LOW_IMPEDANCE`, and
+    `W.OPS.LINE_UNCONSTRAINED` when `W.PROV.I_MAX_ABSENT` names the same lines.
+    `E.` Findings are never consolidated. **Behavior change:** code that counts
+    per-line Findings in `report.findings` should call `expand_findings`.
+  - **Narrower triggers.** `W.OPS.IMPORT_DEPENDENT` is not raised for a passive
+    feeder that declares no generator and no IBR (see
+    `results[:operational]["passive_feeder"]`); `W.INT.UNUSED_BUS_TERMINAL`
+    ignores perfectly grounded terminals and counts capacitors as users;
+    `I.OPS.UNLOADED_PHASE` needs a zone that carries load;
+    `W.DOM.DROOP_BREAKPOINT_OUTSIDE_BAND` needs every breakpoint on one side of
+    the band; `I.PROV.KRON_LIKELY` needs branches at the level and a non-delta
+    supply.
+  - **Configuration.** `[provenance.dss_defaults]` and
+    `[provenance.switch_like]` now follow the `config` passed to `analyze`.
+  - **Coordinate frames.** GDA94/GDA2020, JGD2000/JGD2011, NAD83, ETRS89 and
+    NZGD2000 are accepted geographic frames. Local Cartesian frames accept US
+    survey feet, kilofeet and miles and raise the length Findings.
+    `sideload_coordinates!(...; frame=:cartesian, units=...)` loads OpenDSS
+    `Buscoords` as a plane.
+  - **New Findings.** `W.GEO.LINE_LONGER_THAN_CHORD`,
+    `W.GEO.LENGTH_SCALE_SUSPECT` (a network-wide unit factor) and
+    `W.GEO.COORDINATE_OUTLIER` (null-island placeholders, positions far outside
+    the network). `W.GEO.WGS84_RANGE` records whether the values are valid with
+    the axes exchanged.
+  - **One graph for the mesh verdict and its evidence.** Banks and DC links are
+    part of the shared branch inventory (`branch_scope` states it), bank
+    grouping is resolved per bus pair independently of component ids
+    (`transformer_bank_groups`), and the power unit of a high-leg bank keeps a
+    ratio check against the bank's line-to-line voltage.
+  - **Conductor-level reference.** `E.INT.NO_VOLTAGE_REFERENCE` is also raised
+    for a group of conductors that no element ties to the earthed ones, even
+    when its island has a reference elsewhere (`detail["scope"]`).
+  - **One reading of an inverter.** The control rules of an IBR (coil
+    terminals, precedence between power factor and droop, droop bases, DC
+    coupling) live in `src/validation/ibr_rules.jl` and are used by both the
+    OPF/PF builder and the reference check. An inverter coil is left out of
+    the reference graph only when those constraints force both its powers to
+    zero, which an independent LP test checks by minimizing and maximizing
+    each coil's P and Q.
+  - **Banks across primary buses.** Units on different primary buses are one
+    bank only when closed switches carry every primary conductor of each
+    winding between them. Partial ties are listed in
+    `undetermined_transformer_banks` and give a high-leg status of
+    `undetermined`; the verdicts are tested for invariance under bus renaming,
+    switch reversal and terminal relabeling.
+  - **Fixtures.** `test/data/profiler_systems`: North American MGN with
+    split-phase service, high-leg open delta, European TN four-wire, unearthed
+    delta island (referenced and not), Japanese three-wire with V-connection,
+    Australian MEN.
+  - **Documentation.** A "Profile a case" section ordered tutorial, how-to,
+    explanation, reference, with four executed tutorials (first messy case,
+    system types, OpenDSS port, spatial cleanup), two how-tos (thresholds,
+    accepting findings), a grounding-findings explanation, and the analysis
+    page split into an overview and a result-key reference.
+
 - OPF engine review (November 2026): correctness fixes found by a
   line-by-line audit of the unbalanced IVR engine, each pinned by a regression
   test and, where OpenDSS can express the case, by an OpenDSS oracle.

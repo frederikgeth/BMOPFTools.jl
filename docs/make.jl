@@ -50,12 +50,29 @@ makedocs(
             ],
         ],
         "Inspect & prepare cases" => [
-            "Inspect the evidence" => [
-                "Analysis & reports" => "analysis.md",
-                "Findings triage tutorial" => "tutorial_triage.md",
-                "How network diagnostics work" => "methodology.md",
-                "Spatial diagnostics & cleanup review" => "spatial_diagnostics.md",
-                "Visualizing a case with Tellegen" => "visualization.md",
+            # Profiling, ordered tutorial -> how-to -> explanation -> reference.
+            "Profile a case" => [
+                "Tutorials" => [
+                    "Profile your first messy case" => "tutorial_profile_messy_case.md",
+                    "System types & regional practice" => "tutorial_system_types.md",
+                    "Porting an OpenDSS feeder" => "tutorial_opendss_port.md",
+                    "Spatial cleanup" => "tutorial_spatial_cleanup.md",
+                    "Findings triage at scale" => "tutorial_triage.md",
+                ],
+                "How-to" => [
+                    "Tune profiler thresholds" => "howto_thresholds.md",
+                    "Accept and track findings" => "howto_accept_findings.md",
+                    "Visualizing a case with Tellegen" => "visualization.md",
+                ],
+                "Explanation" => [
+                    "Analysis & reports" => "analysis.md",
+                    "How network diagnostics work" => "methodology.md",
+                    "Grounding & neutral findings explained" => "grounding_findings.md",
+                    "Spatial diagnostics & cleanup review" => "spatial_diagnostics.md",
+                ],
+                "Reference" => [
+                    "Analysis result keys" => "analysis_results.md",
+                ],
             ],
             "Prepare and recheck" => [
                 "From nameplate data to a model" => "tutorial_nameplate.md",

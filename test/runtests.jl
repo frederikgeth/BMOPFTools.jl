@@ -325,7 +325,12 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         net_swer = Dict{String,Any}(
             "bus" => Dict{String,Any}(
                 "mv" => Dict{String,Any}("terminal_names" => ["1","2","3","n"]),
-                "sw" => Dict{String,Any}("terminal_names" => ["1","n"])),
+                "sw" => Dict{String,Any}("terminal_names" => ["1","n"]),
+                "sw2" => Dict{String,Any}("terminal_names" => ["1","n"])),
+            # The single-wire span is the witness of the earth return.
+            "line" => Dict{String,Any}("span" => Dict{String,Any}(
+                "bus_from" => "sw", "bus_to" => "sw2",
+                "terminal_map_from" => ["1"], "terminal_map_to" => ["1"])),
             "voltage_source" => Dict{String,Any}("src" => Dict{String,Any}(
                 "bus" => "mv", "terminal_map" => ["1","2","3"],
                 "v_magnitude" => [6350.0,6350.0,6350.0], "v_angle" => [0.0,-2.094,2.094])),
@@ -1486,13 +1491,25 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     @testset "Integrity checks" begin
         base = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
 
-        # pristine fixture: no integrity errors, 3 galvanic islands all referenced
+        # pristine fixture: 3 galvanic islands, each with a reference, and one
+        # integrity error that follows from an intentional defect. The workshop
+        # bus has a grounded neutral, but its only load is the deliberately
+        # zero-power `load_zero`: a coil that draws no current ties nothing, so
+        # the three workshop phases have no tie to that neutral.
         f0 = Finding[]
         res0 = integrity_check(base, f0)
         @test res0["n_reference_issues"] == 0
         @test res0["n_galvanic_islands"] == 3      # supply | primary-tree | workshop
         @test res0["n_without_reference"] == 0
-        @test !any(x -> x.severity == ERROR, f0)
+        errs0 = [x for x in f0 if x.severity == ERROR]
+        @test [x.code for x in errs0] == ["E.INT.NO_VOLTAGE_REFERENCE"]
+        @test only(errs0).detail["scope"] == "conductor_group"
+        @test only(errs0).detail["buses"] == ["workshop"]
+        @test sort([t["terminal"] for t in only(errs0).detail["terminals"]]) == ["1", "2", "3"]
+        # Give that load a demand and the fixture has no integrity error at all.
+        loaded = deepcopy(base); loaded["load"]["load_zero"]["p_nom"] = [500.0]
+        fl = Finding[]; integrity_check(loaded, fl)
+        @test !any(x -> x.severity == ERROR, fl)
 
         # dangling references
         net = deepcopy(base)
@@ -3211,11 +3228,22 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     end
 
     @testset "Operational — W.OPS.IMPORT_DEPENDENT counts ibr capacity" begin
-        # Baseline _spec_net: 10 kW load, no local generation → import-dependent.
+        # Baseline _spec_net: 10 kW load and no generator or IBR at all. A
+        # passive feeder imports everything by construction: the fact is in the
+        # result, and no warning is raised.
         base = _spec_net()
         fb = Finding[]
         rb = operational_analysis(base, fb)
-        @test any(f -> f.code == "W.OPS.IMPORT_DEPENDENT", fb)
+        @test rb["import_dependent"] && rb["passive_feeder"]
+        @test !any(f -> f.code == "W.OPS.IMPORT_DEPENDENT", fb)
+
+        # A declared generator with negligible capacity is the warned case.
+        net_small = _spec_net(""","generator":{"g":{"bus":"b1","terminal_map":["a","n"],
+            "configuration":"SINGLE_PHASE","p_max":[100.0],"q_max":[0.0]}}""")
+        fg = Finding[]
+        rg = operational_analysis(net_small, fg)
+        @test rg["import_dependent"] && !rg["passive_feeder"]
+        @test any(f -> f.code == "W.OPS.IMPORT_DEPENDENT", fg)
 
         # Feeder with only a PV IBR (no `generator`) sized well above the load:
         # its active capacity must clear the import-dependent warning.
@@ -3707,9 +3735,12 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
             @test report isa SummaryReport
 
             conn = report.results[:connectivity]
-            # Two single-wire earth-return zones (the isolated MV backbone and the
-            # single-ended LV section) plus one split-phase (center-tap) zone.
-            @test conn["n_swer_zones"] == 2
+            # One single-wire earth-return zone (the isolated MV backbone, whose
+            # single-conductor spans witness the earth return) plus one
+            # split-phase (center-tap) zone. The single-ended 240 V service bus
+            # has no branch that establishes an earth return: single-phase.
+            @test conn["n_swer_zones"] == 1
+            @test count(z -> z["topology"] == "single_phase", conn["zones"]) == 1
             @test conn["n_split_phase_zones"] == 1
 
             fcodes = [f.code for f in report.findings]
@@ -3818,12 +3849,16 @@ include("mcp_execution_tests.jl")
     include("neutral_only_bus_graph_tests.jl")
     include("switch_scenario_tests.jl")
     include("spatial_analysis_tests.jl")
+    include("spatial_generalization_tests.jl")
     include("transformer_impedance_basis_tests.jl")
     include("operational_mesh_applicability_tests.jl")
     include("profiler_evidence_tests.jl")
     include("profiler_review_tests.jl")
     include("profiler_interpretation_tests.jl")
     include("profiler_physics_guidance_tests.jl")
+    include("profiler_generalization_tests.jl")
+    _HAS_JUMP_IPOPT && include("profiler_generalization_pf_tests.jl")
+    _HAS_JUMP && Base.find_package("HiGHS") !== nothing && include("ibr_rules_tests.jl")
 
     # -----------------------------------------------------------------------
     # Infeasibility diagnosis — deterministic dict paths plus a gated solve

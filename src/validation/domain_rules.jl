@@ -415,13 +415,22 @@ function _check_droop_breakpoint_band(net, findings, n_checks)
             bps = get(sub, "breakpoints", nothing)
             bps isa AbstractVector || continue
             n_checks[] += 1
-            outside = [Float64(b) for b in bps if Float64(b) < lo || Float64(b) > hi]
-            isempty(outside) || push!(findings, Finding(WARNING,
+            all(b -> b isa Real && isfinite(b), bps) && !isempty(bps) || continue
+            vals = Float64.(bps)
+            # The band lies wholly in a saturated tail of the curve only when
+            # every breakpoint is on one side of it. Breakpoints beyond the
+            # band on both sides are how grid codes specify the curve (for
+            # example AS/NZS 4777.2 volt-var 207–258 V against a 216–253 V
+            # band): the sloped segments still cross the band.
+            side = all(<=(lo), vals) ? "below" : all(>=(hi), vals) ? "above" : nothing
+            side === nothing && continue
+            push!(findings, Finding(WARNING,
                 "W.DOM.DROOP_BREAKPOINT_OUTSIDE_BAND", :domain_rules, :ibr, inv_id,
-                "IBR '$inv_id': $law breakpoint(s) $(outside) V lie outside the " *
+                "IBR '$inv_id': every $law breakpoint ($(vals) V) lies $side the " *
                 "bus voltage band [$(round(lo,digits=1)), $(round(hi,digits=1))] V; " *
-                "the droop may never engage within the feasible range.",
-                Dict{String,Any}("breakpoints" => outside)))
+                "the droop is saturated over the whole feasible range.",
+                Dict{String,Any}("breakpoints" => vals, "law" => law,
+                    "band_V" => [lo, hi], "side" => side)))
         end
     end
 end
@@ -692,13 +701,15 @@ end
 # conductor. Flag a per-conductor s_max whose entry lines up with a neutral
 # terminal — a current limit (i_max) is the correct tool for the neutral.
 function _check_power_limit_neutral(net, findings, n_checks)
+    neutral_labels = _case_neutral_labels(net)
     for (comp_type, csym) in (("line", :line), ("switch", :switch))
         for (id, c) in get(net, comp_type, Dict())
             c isa Dict || continue
             s = get(c, "s_max", nothing)
             (s isa AbstractVector && !isempty(s)) || continue
             tm = get(c, "terminal_map_from", String[])
-            np = _neutral_pos(tm)
+            tm isa AbstractVector || continue
+            np = _case_neutral_pos(neutral_labels, tm)
             n_checks[] += 1
             if np !== nothing && np <= length(s) && Float64(s[np]) > 0.0
                 push!(findings, Finding(WARNING, "W.DOM.POWER_LIMIT_NEUTRAL",

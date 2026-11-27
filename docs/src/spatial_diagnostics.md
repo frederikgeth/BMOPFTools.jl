@@ -59,7 +59,7 @@ Each direct/series item now includes `interpretation_evidence`:
 - Direct and series line maps oriented along the candidate path, plus comparisons
   of declared terminal **sets at the same bus**. Equal sets do not compose conductor
   paths or prove electrical equivalence; malformed/missing maps are indeterminate.
-- Intermediate load, shunt, capacitor, source, generator, solar and storage references, with
+- Intermediate load, shunt, capacitor, source, generator and IBR references, with
   terminal maps, and explicit bus `perfectly_grounded_terminals`. Shunts may model
   grounding, but the report does not assign a grounding role from their names.
 - Each line's declared, physical, chord and route lengths, with its comparison basis.
@@ -179,9 +179,10 @@ When enabled and coordinates exist, the report includes coordinate and route cov
 line-length distributions by voltage tier, and bounded long-line witnesses.
 The long-line ranking compares each section with its own tier's 99th-percentile
 declared length; a high rank is an inspection cue, not an error threshold.
-Geographic line chord, route endpoint, and transformer separation measurements
-are computed only when network metadata declares WGS84 (`crs`,
-`coordinate_system`, or `coordinate_reference_system`) or a matching
+Line chord, route endpoint, and transformer separation measurements are computed
+only in a metric frame: network metadata (`crs`, `coordinate_system`, or
+`coordinate_reference_system`) declares a geographic longitude/latitude frame or
+a [local Cartesian frame](@ref spatial-crs-declaration), or a matching
 `WGS84_geodesic_polyline` route provides coordinate-frame evidence. The latter
 is explicitly labeled as route evidence and applies only to bus endpoints
 matched to a fully valid route; it does not establish the frame of other buses.
@@ -189,14 +190,22 @@ matched to a fully valid route; it does not establish the frame of other buses.
 Out-of-range and incomplete coordinate pairs are counted but excluded from
 geodesic calculations.
 
-The coordinate loader copies OpenDSS `x,y` into fields named
+By default [`sideload_coordinates!`](@ref) copies OpenDSS `x,y` into fields named
 `longitude,latitude` without transforming or verifying them. Plausible numeric
-values therefore do not establish a geographic CRS. When the frame remains
+values therefore do not establish a geographic CRS. For `Buscoords` that are a
+plane in feet or meters, load them as a local Cartesian frame instead:
+`sideload_coordinates!(net, csv; frame=:cartesian, units="ft")` writes `x`/`y`
+and the matching frame declaration. When the frame remains
 unspecified, spatial distances remain indeterminate; a declared unsupported CRS
 makes bus geodesic comparisons inapplicable. Line-length statistics remain available. The result makes no
 automatic asset-error claim when the CRS is unspecified. With a network-level
-WGS84 declaration, out-of-range bus coordinates and sufficiently large line
-chord or route-endpoint contradictions raise `W.GEO.*` Findings. For the chord
+geographic or local Cartesian declaration, sufficiently large contradictions
+between line lengths and bus positions raise `W.GEO.*` Findings, in both
+directions: a line shorter than its chord, a line several times longer than its
+chord with no route that accounts for it, and a network-wide length-to-distance
+ratio that sits on a unit factor. Out-of-range coordinates, positions at the
+geographic origin and positions far outside the network extent are reported
+too, as are route-endpoint contradictions in a geographic frame. For the chord
 Finding, `line.meta.physical_length_m` takes precedence over `line.length`.
 If `electrical_length_regularized = true` and no physical length is supplied,
 the physical chord check is indeterminate and emits no length Finding.
@@ -212,7 +221,7 @@ The spatial result groups fields as follows:
 
 | Key | Contents |
 |---|---|
-| `coordinate_reference` | `status`, declared CRS if any, caution text, matching WGS84 route count, and whether geodesic distances apply. Status is `declared_wgs84`, `wgs84_route_evidence`, `declared_other`, or `unspecified`. |
+| `coordinate_reference` | `status`, declared CRS if any, caution text, matching WGS84 route count, and whether geodesic distances apply. Status is `declared_wgs84` (any accepted geographic frame; `coordinate_semantics.datum` names it), `declared_cartesian`, `wgs84_route_evidence`, `declared_other`, `ambiguous`, or `unspecified`. |
 | `coordinate_coverage` | Counts of complete longitude/latitude pairs, x/y fields, partial and invalid pairs, and pairs outside WGS84 numeric ranges. |
 | `routes` | Route and basis coverage, numbers of endpoint and length comparisons, mismatch counts, and bounded endpoint-gap witnesses. |
 | `lines` | Length quantiles by voltage tier, chord comparison count, shorter-than-chord count, and bounded absolute and tier-relative length witnesses. |
@@ -220,6 +229,10 @@ The spatial result groups fields as follows:
 | `coordinate_semantics` | Resolved frame, units, axis order, declarations, conflict reasons, provenance/accuracy coverage and bounded bus issue witnesses. |
 | `proximity` | Radius-neighbor counts, exact metric-location counts, single-linkage clusters, bounded evidence, and explicit search-budget/coverage status. |
 | `length_context` | Separate declared, physical, endpoint, stored-route and recomputed-route lengths; per-comparison status counts and bounded contextual witnesses. |
+| `length_scale` | Network-level median of declared length over bus-to-bus distance, and the unit factor it matches, if any (`status` `passed`, `suspect` or `indeterminate`). |
+| `coordinate_outliers` | Buses at the geographic origin or far outside the network extent, with the reason per bus and the extent rule used. |
+| `discrepancy_candidates` | The `S.*` geometry/topology candidates per check, with coverage and limits. |
+| `cleanup_review` | The evidence-bound review queue, its coverage and the decision audit. |
 | `transformers` | Maximum all-winding bus separation per transformer, quantiles, zero-extent counts, and bounded assessed/indeterminate witnesses. |
 
 Exact coincidence is descriptive equality within a coordinate field family,
@@ -286,13 +299,34 @@ Local Cartesian frames must be declared explicitly, for example:
 }}}
 ```
 
-These frames use named bus `x`/`y` fields, with `m`, `km`, or international `ft`
-units (scales 1, 1000, and 0.3048 meters). Axis/unit declarations may also use
+These frames use named bus `x`/`y` fields, with `m`, `km`, international `ft`,
+US survey feet (`ftUS`, exactly 1200/3937 m), `kft` or `mi` units. Axis/unit declarations may also use
 `coordinate_axis_order`/`coordinate_units` on the root or in `meta`; multiple
 declarations must agree. A Cartesian frame without units is indeterminate.
-Projected EPSG codes are unsupported; no projection or map-scale assumption is
-inferred. Cartesian distances feed the descriptive length and transformer
-extent reports; existing `W.GEO.*` Findings retain their WGS84 domain.
+Projected EPSG codes are not interpreted; no projection or map-scale assumption
+is inferred, and the string `"EPSG:28356"`, the integer `28356` and the object
+`{"type": "projected", "epsg": 28356}` are the same declaration. Cartesian
+distances feed the length and transformer extent reports and raise the same
+length Findings as a geographic frame; route checks remain geographic-only.
+
+### [Which declaration do I write?](@id spatial-crs-declaration)
+
+| Your coordinates | Declare | Result |
+|---|---|---|
+| Longitude/latitude in WGS84 | `"crs": "EPSG:4326"` | geodesic distances |
+| Longitude/latitude in a national datum: GDA94/GDA2020 (Australia), JGD2000/JGD2011 (Japan), NAD83 (North America), ETRS89 (Europe), NZGD2000 | its EPSG code or name, e.g. `"crs": "EPSG:7844"` | geodesic distances; `datum` records the frame |
+| Easting/northing on a projected grid (MGA, Japan plane rectangular, State Plane, British National Grid, UTM) | either the EPSG code, which is recorded but not interpreted (`declared_other`, metric checks inapplicable), **or** a local Cartesian frame with the grid's length unit if you accept the plane as locally Euclidean | Cartesian: Euclidean distances |
+| OpenDSS `Buscoords` in feet or meters | `sideload_coordinates!(net, csv; frame=:cartesian, units="ft")` | Euclidean distances |
+| A schematic drawing | nothing, or `coordinate_provenance = "schematic"` | no metric checks |
+
+The national geographic datums are accepted because the checks compare
+great-circle lengths against tolerances of `max(5 m, 10 %)`: the difference
+between those datum realizations is at most a couple of meters and common to
+both ends of a line. Coordinates are used as declared; nothing is transformed
+between datums, and a case that mixes declarations is reported as a conflict.
+Treating a projected grid as a local plane ignores its scale factor, well under
+0.1 % inside a zone and far below the tolerances; you make that choice by
+declaring the Cartesian frame, the package does not make it for you.
 
 Bus-level CRS, axis, or unit declarations must agree with the network frame
 (or the WGS84 route evidence supporting that bus); they cannot silently define
@@ -593,6 +627,17 @@ unmatched; absence can reflect capture limits or changed identity and never impl
 resolution. Replaying an empty ledger resets dispositions rather than inheriting
 an earlier application. No candidate, model component or Finding is deleted or
 suppressed, and no network changes are proposed or applied by these functions.
+
+!!! note "A decision is bound to the case it was made on"
+    Every record carries the fingerprint of the whole case and of the whole
+    `[spatial]` configuration. Correcting one line, or changing any spatial
+    setting, therefore turns every earlier decision into `stale_decision`,
+    including decisions about items your edit did not touch. This is
+    deliberate: a decision is an assertion about evidence, and the package
+    will not assume that evidence is unchanged. Plan the loop accordingly:
+    review a batch, apply the corrections together, re-analyze, then
+    re-record the decisions that still apply. The stale records stay in
+    `decision_audit` so they can be re-read rather than re-derived.
 
 ### Map and report bundle
 

@@ -95,7 +95,8 @@ function _spatial_review_priority(w)
         return (3, "invalid_geometry", "declaration_inconsistency")
     elseif code == "R.LINE_LENGTH_CONTEXT"
         tags = w["contexts"]
-        any(t -> t in ("invalid_length_declaration", "invalid_route_length", "shorter_than_chord"), tags) &&
+        any(t -> t in ("invalid_length_declaration", "invalid_route_length", "shorter_than_chord",
+                       "far_longer_than_chord"), tags) &&
             return (3, "invalid_or_inconsistent_length", "declaration_inconsistency")
         w["electrical_length_regularized"] === true && return (1, "regularized_length_requires_interpretation", "representation_context")
         return (2, "length_declarations_disagree", "declaration_inconsistency")
@@ -192,7 +193,7 @@ function _spatial_review_assessment(w, rule, evidence_class)
             "The route cannot be used as declared.",
             "This identifies a data declaration problem, not its electrical consequences.",
             "Inspect the route declaration and the recorded validation reason."),
-        "invalid_or_inconsistent_length" => ("A length declaration is invalid or below its applicable endpoint bound.",
+        "invalid_or_inconsistent_length" => ("A length declaration is invalid, below its applicable endpoint bound, or several times above it.",
             "The declared values conflict with supported length semantics or geometry.",
             "The responsible field is unresolved; accuracy and provenance still matter.",
             "Compare physical versus electrical length, units, coordinate accuracy and source records."),

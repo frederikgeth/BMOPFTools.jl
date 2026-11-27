@@ -1,0 +1,256 @@
+{
+ "name": "au_men_four_wire",
+ "meta": {
+  "license": "CC-BY-4.0",
+  "description": "Original synthetic teaching fixture, not calibrated to a utility population. 11 kV / 415 V Dyn substation with a multiple-earthed-neutral four-wire LV feeder"
+ },
+ "terminal_conventions": {
+  "phase": [
+   "a",
+   "b",
+   "c"
+  ],
+  "neutral": [
+   "n"
+  ],
+  "earth": []
+ },
+ "bus": {
+  "mv": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c"
+   ]
+  },
+  "lv0": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ]
+  },
+  "lv1": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ]
+  },
+  "lv2": {
+   "terminal_names": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ]
+  }
+ },
+ "voltage_source": {
+  "grid": {
+   "bus": "mv",
+   "terminal_map": [
+    "a",
+    "b",
+    "c"
+   ],
+   "v_magnitude": [
+    6350.852961085884,
+    6350.852961085884,
+    6350.852961085884
+   ],
+   "v_angle": [
+    0.0,
+    -2.0943951023931953,
+    2.0943951023931953
+   ]
+  }
+ },
+ "linecode": {
+  "abc4": {
+   "R_series_1_1": 0.0003,
+   "X_series_1_1": 0.00030000000000000003,
+   "R_series_1_2": 4.9999999999999996e-05,
+   "X_series_1_2": 0.0001,
+   "R_series_1_3": 4.9999999999999996e-05,
+   "X_series_1_3": 0.0001,
+   "R_series_1_4": 4.9999999999999996e-05,
+   "X_series_1_4": 0.0001,
+   "R_series_2_1": 4.9999999999999996e-05,
+   "X_series_2_1": 0.0001,
+   "R_series_2_2": 0.0003,
+   "X_series_2_2": 0.00030000000000000003,
+   "R_series_2_3": 4.9999999999999996e-05,
+   "X_series_2_3": 0.0001,
+   "R_series_2_4": 4.9999999999999996e-05,
+   "X_series_2_4": 0.0001,
+   "R_series_3_1": 4.9999999999999996e-05,
+   "X_series_3_1": 0.0001,
+   "R_series_3_2": 4.9999999999999996e-05,
+   "X_series_3_2": 0.0001,
+   "R_series_3_3": 0.0003,
+   "X_series_3_3": 0.00030000000000000003,
+   "R_series_3_4": 4.9999999999999996e-05,
+   "X_series_3_4": 0.0001,
+   "R_series_4_1": 4.9999999999999996e-05,
+   "X_series_4_1": 0.0001,
+   "R_series_4_2": 4.9999999999999996e-05,
+   "X_series_4_2": 0.0001,
+   "R_series_4_3": 4.9999999999999996e-05,
+   "X_series_4_3": 0.0001,
+   "R_series_4_4": 0.0003,
+   "X_series_4_4": 0.00030000000000000003,
+   "i_max": [
+    250.0,
+    250.0,
+    250.0,
+    250.0
+   ]
+  }
+ },
+ "line": {
+  "f1": {
+   "bus_from": "lv0",
+   "bus_to": "lv1",
+   "terminal_map_from": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "terminal_map_to": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "linecode": "abc4",
+   "length": 90.0
+  },
+  "f2": {
+   "bus_from": "lv1",
+   "bus_to": "lv2",
+   "terminal_map_from": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "terminal_map_to": [
+    "a",
+    "b",
+    "c",
+    "n"
+   ],
+   "linecode": "abc4",
+   "length": 110.0
+  }
+ },
+ "shunt": {
+  "men_tx": {
+   "bus": "lv0",
+   "terminal_map": [
+    "n"
+   ],
+   "G_1_1": 0.1,
+   "B_1_1": 0.0
+  },
+  "men_1": {
+   "bus": "lv1",
+   "terminal_map": [
+    "n"
+   ],
+   "G_1_1": 0.033333,
+   "B_1_1": 0.0
+  },
+  "men_2": {
+   "bus": "lv2",
+   "terminal_map": [
+    "n"
+   ],
+   "G_1_1": 0.033333,
+   "B_1_1": 0.0
+  }
+ },
+ "transformer": {
+  "delta_wye": {
+   "sub": {
+    "bus_from": "mv",
+    "bus_to": "lv0",
+    "terminal_map_from": [
+     "a",
+     "b",
+     "c"
+    ],
+    "terminal_map_to": [
+     "a",
+     "b",
+     "c",
+     "n"
+    ],
+    "v_nom_from": 11000.0,
+    "v_nom_to": 415.0,
+    "s_rating": 200000.0,
+    "r_series_from": 3.025,
+    "x_series_from": 12.1,
+    "r_series_to": 0.00430563,
+    "x_series_to": 0.0172225
+   }
+  }
+ },
+ "load": {
+  "h1": {
+   "bus": "lv1",
+   "terminal_map": [
+    "a",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    3000.0
+   ],
+   "q_nom": [
+    986.1
+   ],
+   "v_nom": [
+    240.0
+   ]
+  },
+  "h2": {
+   "bus": "lv1",
+   "terminal_map": [
+    "b",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    3500.0
+   ],
+   "q_nom": [
+    1150.4
+   ],
+   "v_nom": [
+    240.0
+   ]
+  },
+  "h3": {
+   "bus": "lv2",
+   "terminal_map": [
+    "c",
+    "n"
+   ],
+   "configuration": "SINGLE_PHASE",
+   "p_nom": [
+    2800.0
+   ],
+   "q_nom": [
+    920.3
+   ],
+   "v_nom": [
+    240.0
+   ]
+  }
+ }
+}

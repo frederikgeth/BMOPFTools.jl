@@ -22,20 +22,10 @@
 # Declared q_min/q_max bounds always apply, including with PF or Volt-var.
 # A control law adds an equality; it does not replace reactive capability.
 
-"""
-    _ibr_coil_count(inv, nlabels) -> Int
-
-Number of independently controlled coils of an IBR, which is also the number of
-current variable pairs and of P/Q bound entries: one for `SINGLE_PHASE`, one
-per cyclic phase pair for `THREE_LEG`, one per phase conductor for `FOUR_LEG`.
-"""
-function _ibr_coil_count(inv, nlabels)
-    tm   = Vector{String}(get(inv, "terminal_map", String[]))
-    topo = get(inv, "topology", "FOUR_LEG")
-    topo == "THREE_LEG" && return length(tm)
-    topo == "SINGLE_PHASE" && return 1
-    return length(_phase_positions(tm, nlabels))   # FOUR_LEG
-end
+# Coil count, control precedence, droop bases and the DC coupling mode are read
+# through `BMOPFTools`' shared IBR rules (src/validation/ibr_rules.jl), which the
+# profiler uses too: one reading of the record, not two.
+const _ibr_coil_count = BMOPFTools._ibr_coil_count
 
 """
     _ibr_reactive_law(inv, profiles) -> Union{Symbol,Nothing}
@@ -50,15 +40,10 @@ unsupported Volt-var object falls back to the box. `solve_pf` relies on it to
 decide whether reactive power is determined; a test holds the two in step.
 """
 function _ibr_reactive_law(inv, profiles)
-    profile = get(profiles, get(inv, "control_profile", nothing), nothing)
-    profile isa AbstractDict || return nothing
-    BMOPFTools._constant_pf_value(profile) === nothing || return :constant_pf
-    vv = get(profile, "volt_var", nothing)
-    (vv === nothing || get(inv, "topology", "FOUR_LEG") == "THREE_LEG") && return nothing
-    resolved = Base.CoreLogging.with_logger(Base.CoreLogging.NullLogger()) do
-        _resolve_volt_var(vv, 1.0, 2e-3)
-    end
-    return resolved === nothing ? nothing : :volt_var
+    laws = BMOPFTools._ibr_active_laws(inv, profiles)
+    laws.constant_pf === nothing || return :constant_pf
+    laws.volt_var === nothing && return nothing
+    return first(BMOPFTools._volt_var_spec(laws.volt_var)) === nothing ? nothing : :volt_var
 end
 
 "Declare `cri`/`cii` IBR current variables (one pair per coil)."
@@ -324,10 +309,14 @@ the IBR falls back to its box bounds.
 """
 function _resolve_volt_var(vv, Uscale::Float64, relu_eps::Float64;
                            coefficient=nothing, profile_id="")
-    vv isa Dict || return nothing
-    bps_si = Float64.(get(vv, "breakpoints", Float64[]))
-    ql_default = Float64.(get(vv, "q_limits", Float64[]))
-    length(bps_si) == 4 && length(ql_default) == 2 || (@warn "volt_var needs 4 breakpoints and 2 q_limits — skipping"; return nothing)
+    spec, reason = BMOPFTools._volt_var_spec(vv)
+    if spec === nothing
+        reason === :shape  && @warn "volt_var needs 4 breakpoints and 2 q_limits — skipping"
+        reason === :q_unit && @warn "volt_var q_unit ≠ VA_FRACTION not yet supported — skipping"
+        reason === :q_ref  && @warn "volt_var q_ref ≠ VAR_MAX not yet supported — skipping"
+        return nothing
+    end
+    bps_si = spec.breakpoints; ql_default = spec.q_limits
     bps_default = bps_si ./ Uscale
     bps = coefficient === nothing ? bps_default : Any[
         coefficient(:controller, :control_profile, profile_id,
@@ -337,12 +326,10 @@ function _resolve_volt_var(vv, Uscale::Float64, relu_eps::Float64;
         coefficient(:controller, :control_profile, profile_id,
                     :volt_var_q_limits, i, value)
         for (i, value) in enumerate(ql_default)]
-    get(vv, "q_unit", "VA_FRACTION") == "VA_FRACTION" || (@warn "volt_var q_unit ≠ VA_FRACTION not yet supported — skipping"; return nothing)
-    get(vv, "q_ref",  "VAR_MAX")     == "VAR_MAX"     || (@warn "volt_var q_ref ≠ VAR_MAX not yet supported — skipping"; return nothing)
     # ys: [inject (≥0) at U1, 0 at U2, 0 at U3, absorb (≤0) at U4]
     q_absorb, q_inject = ql[1], ql[2]
     ys = [q_inject, 0.0, 0.0, q_absorb]
-    quantity, averaged = _split_voltage_reference(get(vv, "voltage_reference", "PN_PER_PHASE"))
+    quantity, averaged = _split_voltage_reference(spec.voltage_reference)
     return _curve_from_points(bps, ys, bps_default, relu_eps,
                               :VAR_MAX, quantity, averaged)
 end
@@ -356,10 +343,14 @@ variants warn and skip.
 """
 function _resolve_volt_watt(vw, Uscale::Float64, relu_eps::Float64;
                             coefficient=nothing, profile_id="")
-    vw isa Dict || return nothing
-    bps_si = Float64.(get(vw, "breakpoints", Float64[]))
-    pl_default = Float64.(get(vw, "p_limits", Float64[]))
-    length(bps_si) == 2 && length(pl_default) == 2 || (@warn "volt_watt needs 2 breakpoints and 2 p_limits — skipping"; return nothing)
+    spec, reason = BMOPFTools._volt_watt_spec(vw)
+    if spec === nothing
+        reason === :shape  && @warn "volt_watt needs 2 breakpoints and 2 p_limits — skipping"
+        reason === :p_unit && @warn "volt_watt p_unit ≠ VA_FRACTION not yet supported — skipping"
+        reason === :p_ref  && @warn "volt_watt p_ref '$(get(vw, "p_ref", "S_MAX"))' not supported — skipping"
+        return nothing
+    end
+    bps_si = spec.breakpoints; pl_default = spec.p_limits
     bps_default = bps_si ./ Uscale
     bps = coefficient === nothing ? bps_default : Any[
         coefficient(:controller, :control_profile, profile_id,
@@ -369,25 +360,17 @@ function _resolve_volt_watt(vw, Uscale::Float64, relu_eps::Float64;
         coefficient(:controller, :control_profile, profile_id,
                     :volt_watt_p_limits, i, value)
         for (i, value) in enumerate(pl_default)]
-    get(vw, "p_unit", "VA_FRACTION") == "VA_FRACTION" || (@warn "volt_watt p_unit ≠ VA_FRACTION not yet supported — skipping"; return nothing)
-    ref = get(vw, "p_ref", "S_MAX")
-    ref in ("S_MAX", "P_MAX", "P_AVAILABLE") || (@warn "volt_watt p_ref '$ref' not supported — skipping"; return nothing)
     # ys: [p_high at U5, p_low at U6]  (p_limits given as [p_low, p_high])
     p_low, p_high = pl[1], pl[2]
     ys = [p_high, p_low]
-    quantity, averaged = _split_voltage_reference(get(vw, "voltage_reference", "PN_PER_PHASE"))
+    quantity, averaged = _split_voltage_reference(spec.voltage_reference)
     return _curve_from_points(bps, ys, bps_default, relu_eps,
-                              Symbol(ref), quantity, averaged)
+                              spec.ref, quantity, averaged)
 end
 
 # Per-phase normalization base for a resolved curve, in model units.
-function _droop_base(c::DroopCurve, idx::Int, smax, p_max, p_avail_per)
-    c.ref === :VAR_MAX     && return idx <= length(smax)  ? smax[idx]  : 0.0
-    c.ref === :S_MAX       && return idx <= length(smax)  ? smax[idx]  : 0.0
-    c.ref === :P_MAX       && return idx <= length(p_max) ? p_max[idx] : 0.0
-    c.ref === :P_AVAILABLE && return p_avail_per
-    return 0.0
-end
+_droop_base(c::DroopCurve, idx::Int, smax, p_max, p_avail_per) =
+    BMOPFTools._ibr_droop_base(c.ref, idx, smax, p_max, p_avail_per)
 
 _same_working_voltage_base(a::Float64, b::Float64) =
     isapprox(a, b; rtol=1e-12, atol=0.0)
@@ -473,19 +456,17 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             coefficient(:limit, :ibr, inv_id, :q_max, i, value)
             for (i, value) in enumerate(q_max)]
 
-        # Resolve control_profile sub-objects (constant-PF and droop laws).
-        pf_val = nothing
-        vv_obj = nothing
-        vw_obj = nothing
+        # Control objects after precedence (constant power factor over droop,
+        # no droop on THREE_LEG): the shared reading of the record.
+        laws   = BMOPFTools._ibr_active_laws(inv, profiles)
+        pf_val = laws.constant_pf
+        vv_obj = laws.volt_var
+        vw_obj = laws.volt_watt
         cp_id  = get(inv, "control_profile", nothing)
-        if cp_id isa String
-            cp = get(profiles, cp_id, nothing)
-            if cp isa Dict
-                pf_val = BMOPFTools._constant_pf_value(cp)
-                vv_obj = get(cp, "volt_var",  nothing)
-                vw_obj = get(cp, "volt_watt", nothing)
-            end
-        end
+        laws.dropped === :three_leg &&
+            @warn "IBR '$inv_id': Volt-var/Volt-watt not supported for THREE_LEG — using box bounds."
+        laws.dropped === :constant_pf &&
+            @warn "IBR '$inv_id': control_profile has both power_factor and Volt-var/Volt-watt — using power_factor."
 
         # Voltage scale for SI→model-unit conversion of breakpoints.
         Uscale = bases === nothing ? 1.0 : Float64(get(bases.v_base, bus, 1.0))
@@ -494,11 +475,7 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
         vv = nothing
         vw = nothing
         if vv_obj !== nothing || vw_obj !== nothing
-            if topo == "THREE_LEG"
-                @warn "IBR '$inv_id': Volt-var/Volt-watt not supported for THREE_LEG — using box bounds."
-            elseif pf_val !== nothing
-                @warn "IBR '$inv_id': control_profile has both power_factor and Volt-var/Volt-watt — using power_factor."
-            else
+            begin
                 profile_id = string(cp_id)
                 if profile_id in parameterized_profiles &&
                    haskey(parameterized_profile_scale, profile_id)
@@ -532,16 +509,15 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
         p_avail_per = let pa = get(inv, "p_avail", nothing)
             # Divide by the number of COILS, not phase terminals: a two-terminal
             # SINGLE_PHASE unit is one coil even when both terminals are phases.
-            n = topo == "SINGLE_PHASE" ? 1 :
-                max(length(_phase_positions(tm, nlabels)), 1)
             pa isa Number ?
-                Float64(pa) / n /
+                BMOPFTools._ibr_p_avail_per_coil(inv, _ibr_coil_count(inv, nlabels)) /
                 (bases === nothing ? 1.0 : _ac_power_base(bases, bus)) : 0.0
         end
 
         policy = get(minimum_pf, inv_id, nothing)
         min_pf = policy === nothing ? nothing : policy.pf_min
-        pf_coeffs = pf_val === nothing ? nothing : (abs(pf_val), sqrt((1-abs(pf_val))*(1+abs(pf_val))))
+        pf_coeffs = pf_val === nothing ? nothing :
+            (abs(pf_val), BMOPFTools._pf_law_coefficients(pf_val)[2])
         # Use bounded coefficients: acos rounds tiny PF to pi/2 and its
         # tangent cannot represent the requested ratio accurately.
         pf_sign  = pf_val !== nothing ? sign(pf_val) : 0.0
@@ -560,8 +536,9 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
         # so the net active power can be bounded by [p_dc_min, p_dc_max] after the
         # per-phase constraints are stamped (Heidari & Geth 2024; Deakin, Heidari
         # & Deng 2025). Only assembled when the IBR declares dc_link_coupled.
-        dc_coupled = get(inv, "dc_link_coupled", false) === true
-        has_dc_bus = haskey(inv, "dc_bus")
+        dc_mode    = BMOPFTools._ibr_dc_mode(inv)
+        dc_coupled = dc_mode.kind === :isolated
+        has_dc_bus = dc_mode.kind === :bus
         collect_p  = dc_coupled || has_dc_bus
         p_exprs    = JuMP.QuadExpr[]
 
@@ -740,8 +717,8 @@ function _add_ibr_constraints!(ctx, kcl_r, kcl_i;
             # p_dc_min/p_dc_max default to 0/0 for a STATCOM (pure circulation)
             # — see the augmentation pass and `add_statcom!`.
             p_net = @expression(model, sum(p_exprs))
-            p_dc_min = get(inv, "p_dc_min", 0.0)
-            p_dc_max = get(inv, "p_dc_max", 0.0)
+            p_dc_min = dc_mode.p_min
+            p_dc_max = dc_mode.p_max
             # The STATCOM default p_dc_min == p_dc_max == 0 is a balance, not a
             # range. `_box_constraints!` stamps it as ONE equality
             # (:ibr_dc_power_equality); two opposing inequalities would have no
