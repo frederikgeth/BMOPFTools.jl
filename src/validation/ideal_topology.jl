@@ -110,22 +110,10 @@ perfectly grounded terminal is the earth node `_DC_EARTH`. Used wherever "the
 same DC port" must mean the same pair of nodes rather than the same record.
 """
 function _dc_node_classes(net)
-    parent = Dict{Tuple{String,String},Tuple{String,String}}()
-    function find(x)
-        get!(parent, x, x)
-        while parent[x] != x
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        end
-        return x
-    end
+    classes = _DisjointSets{Tuple{String,String}}()
+    find(x) = _ds_find!(classes, x)
     # Earth, when present in a class, is always its representative.
-    function unite!(a, b)
-        ra = find(a); rb = find(b)
-        ra == rb && return nothing
-        rb == _DC_EARTH ? (parent[ra] = rb) : (parent[rb] = ra)
-        return nothing
-    end
+    unite!(a, b) = (find(b) == _DC_EARTH ? _ds_union!(classes, a, b) : _ds_union!(classes, b, a); nothing)
     net isa Dict{String,Any} || return (bus, terminal) -> (String(bus), String(terminal))
     for key in _dc_grounded_terminals(net)
         unite!(_DC_EARTH, (String(key[1]), String(key[2])))
@@ -168,27 +156,14 @@ function _dc_ideal_loops(net::Dict{String,Any})
                        Tuple{String,Int,Tuple{String,String},Tuple{String,String}}}[]
     grounded = _dc_grounded_terminals(net)
     known = _dc_known_terminals(net)
-    parent = Dict{Tuple{String,String},Tuple{String,String}}()
-    function root(x)
-        get!(parent, x, x)
-        while parent[x] != x
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        end
-        return x
-    end
+    nodes = _DisjointSets{Tuple{String,String}}()
     branches = get(net, "dc_branch", Dict())
     for id in sort!(collect(String.(keys(branches))))
         br = branches[id]; br isa AbstractDict || continue
         for (k, a, b, ideal) in _dc_branch_conductors(br)
             (ideal && a in known && b in known) || continue
-            ra = root(a in grounded ? _DC_EARTH : a)
-            rb = root(b in grounded ? _DC_EARTH : b)
-            if ra == rb
+            _ds_union!(nodes, a in grounded ? _DC_EARTH : a, b in grounded ? _DC_EARTH : b) ||
                 push!(loops, (branch=id, conductor=k, from=a, to=b))
-            else
-                parent[ra] = rb
-            end
         end
     end
     loops

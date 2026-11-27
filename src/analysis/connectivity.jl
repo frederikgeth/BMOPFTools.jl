@@ -540,27 +540,15 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
     # A deterministic spanning forest localizes each excess physical branch.
     # A closing branch is only a graph witness; its record is not necessarily
     # defective and may be an intentional parallel circuit or tie.
-    parent = collect(1:length(buses))
-    index = Dict(bus => i for (i, bus) in enumerate(buses))
-    function root(i)
-        while parent[i] != i
-            parent[i] = parent[parent[i]]
-            i = parent[i]
-        end
-        i
-    end
+    forest = _DisjointSets(buses)
     closing = Dict{String,Any}[]
     # AC branches build the forest first, so a cycle that exists only through a
     # DC link names that link (and its DC island) as the closing branch.
     for edge in sort(edges, by=e -> (e.kind == "dc_link", e.kind, e.id, e.from, e.to))
-        a = root(index[edge.from]); b = root(index[edge.to])
-        if a == b
-            length(closing) < 10 && push!(closing, Dict{String,Any}(
-                "kind" => edge.kind, "component_id" => edge.id,
-                "bus_from" => edge.from, "bus_to" => edge.to))
-        else
-            parent[b] = a
-        end
+        _ds_union!(forest, edge.to, edge.from) && continue
+        length(closing) < 10 && push!(closing, Dict{String,Any}(
+            "kind" => edge.kind, "component_id" => edge.id,
+            "bus_from" => edge.from, "bus_to" => edge.to))
     end
 
     parallel = _parallel_line_evidence(net; level_by_bus=level_by_bus, busset=busset)
@@ -823,15 +811,9 @@ function _dc_links(net)
     none = NamedTuple{(:island, :buses),Tuple{String,Vector{String}}}[]
     dc_buses = get(net, "dc_bus", Dict())
     dc_buses isa AbstractDict && !isempty(dc_buses) || return none
-    parent = Dict{String,String}(string(b) => string(b) for b in keys(dc_buses))
-    function find(x)                     # iterative, with path compression
-        root = x
-        while parent[root] != root; root = parent[root]; end
-        while parent[x] != root
-            parent[x], x = root, parent[x]
-        end
-        root
-    end
+    islands = _DisjointSets(String[string(b) for b in keys(dc_buses)])
+    parent = islands.parent
+    find(x) = _ds_find!(islands, x)
     dc_branches = get(net, "dc_branch", Dict())
     dc_branches isa AbstractDict || (dc_branches = Dict())
     for (_, br) in dc_branches
@@ -839,7 +821,7 @@ function _dc_links(net)
         a = get(br, "dc_bus_from", nothing); c = get(br, "dc_bus_to", nothing)
         a isa AbstractString && c isa AbstractString &&
             haskey(parent, a) && haskey(parent, c) || continue
-        parent[find(a)] = find(c)
+        _ds_union!(islands, a, c)
     end
     ac_buses = get(net, "bus", Dict())
     groups = Dict{String,Set{String}}()
@@ -860,241 +842,6 @@ function _dc_links(net)
     append!(none, [(island=label[r], buses=sort!(collect(g)))
                    for (r, g) in groups if length(g) >= 2])
     sort!(none, by = l -> (l.buses, l.island))
-end
-
-"""
-    _transformer_bank_groups(net) -> (merged, groups)
-
-Resolve, per ordered `(bus_from, bus_to)` pair, which single-phase units form
-one bank. Primary buses joined by closed switches are one supply point (a
-primary disconnect does not split a bank); `bus_from` in a group is that
-supply point's canonical bus. The whole pair is resolved before anything is counted, and the result
-does not depend on component ids:
-
-- center-tapped units come first (the lighting transformer anchors its bank),
-  then units are ordered by their secondary phase-conductor set (smaller first);
-- a unit is a **leg** when its set neither contains nor is contained in the set
-  of a leg already taken; otherwise it is **parallel** to the bank;
-- a unit whose maps cannot be read is **unassessed** and stays its own branch.
-
-Among units with identical sets one is a leg and the rest are parallel, so the
-count is the same whichever id sorts first. `groups` reports `units` (the legs),
-`parallel_units`, `unassessed_units`, and `ambiguous`, which is true when a unit
-partly overlaps the legs (for example `a–b` beside `a–n` and `b–n`): the
-grouping is then one reading of the data, recorded rather than hidden.
-`merged` holds the `(subtype, id)` of every leg beyond the first of its bank:
-the branches a bus graph must not count separately.
-"""
-function _transformer_bank_groups(net)
-    Unit = Tuple{String,String}
-    merged = Set{Unit}()
-    groups = Dict{String,Any}[]
-    undetermined = Dict{String,Any}[]
-    membership = Dict{Unit,Tuple{Vector{String},String}}()
-    undetermined_pairs = Set{Tuple{Unit,Unit}}()
-    result() = (merged=merged, groups=groups, undetermined=undetermined,
-                membership=membership, undetermined_pairs=undetermined_pairs)
-    xfmr = get(net, "transformer", Dict())
-    xfmr isa AbstractDict || return result()
-    roles = _index_roles(net)
-    neutrals = roles === nothing ? nothing : roles.neutral
-    by_secondary = Dict{String,Vector{Any}}()
-    supply = _supply_point(net)
-    for subtype in _BANKABLE_SUBTYPES
-        sub = get(xfmr, subtype, nothing)
-        sub isa AbstractDict || continue
-        for (id, t) in sub
-            t isa AbstractDict || continue
-            bf = get(t, "bus_from", nothing); bt = get(t, "bus_to", nothing)
-            bf isa AbstractString && bt isa AbstractString && bf != bt || continue
-            tf = get(t, "terminal_map_from", nothing)
-            reach = supply.reach(String(bf), tf)
-            String(bt) in reach && continue
-            push!(get!(by_secondary, String(bt), Any[]),
-                  (subtype=subtype, id=string(id), sig=_bank_unit_signature(t, neutrals),
-                   bus=String(bf), terminals=tf, reach=reach))
-        end
-    end
-    note_undetermined!(bt, a, b, reason) = begin
-        x, y = sort!([a, b], by = u -> (u.subtype, u.id))
-        push!(undetermined_pairs, ((x.subtype, x.id), (y.subtype, y.id)))
-        push!(undetermined, Dict{String,Any}("bus_to" => bt, "units" => sort!([a.id, b.id]),
-            "primary_buses" => sort!(unique!([a.bus, b.bus])), "reason" => reason))
-    end
-    for bt in sort!(collect(keys(by_secondary)))
-        all_units = sort!(by_secondary[bt], by = u -> (u.subtype, u.id))
-        # Units that share a supply point: some bus at which both windings are
-        # wholly present. Components of that relation are candidate banks.
-        component = collect(1:length(all_units))
-        root(i) = (while component[i] != i; i = component[i]; end; i)
-        for i in 1:length(all_units), j in i+1:length(all_units)
-            isempty(intersect(all_units[i].reach, all_units[j].reach)) && continue
-            ri, rj = root(i), root(j)
-            ri == rj || (component[max(ri, rj)] = min(ri, rj))
-        end
-        banks = Vector{Any}[]
-        for r in unique(root.(1:length(all_units)))
-            members = [all_units[i] for i in 1:length(all_units) if root(i) == r]
-            common = sort!(collect(intersect((u.reach for u in members)...)))
-            if isempty(common)
-                # A chain: each unit shares a bus with the next, but no bus
-                # holds them all. Not one supply point; left as separate units.
-                for i in 1:length(members), j in i+1:length(members)
-                    note_undetermined!(bt, members[i], members[j], "no_common_supply_point")
-                end
-                for u in members; push!(banks, Any[[u], u.reach]); end
-            else
-                push!(banks, Any[members, common])
-            end
-        end
-        for (units, common) in banks, u in units
-            membership[(u.subtype, u.id)] = (common, bt)
-        end
-        # Units in different banks whose primaries are joined on some but not
-        # all of a winding's conductors: not grouped, and not known to be separate.
-        for x in 1:length(banks), y in x+1:length(banks), a in banks[x][1], b in banks[y][1]
-            (supply.partial(a.bus, a.terminals, b.bus) || supply.partial(b.bus, b.terminals, a.bus)) || continue
-            ((a.subtype, a.id), (b.subtype, b.id)) in undetermined_pairs && continue
-            ((b.subtype, b.id), (a.subtype, a.id)) in undetermined_pairs && continue
-            note_undetermined!(bt, a, b, "partial_primary_tie")
-        end
-        for (units, common) in banks
-            length(units) > 1 || continue
-            # A center-tapped unit is identified as a bank's lighting transformer
-            # by its subtype, so it anchors the bank: a unit across one of its legs
-            # is the parallel one, not the other way around.
-            assessed = sort!([u for u in units if u.sig !== nothing],
-                             by = u -> (u.subtype != "center_tap", length(u.sig),
-                                        sort!(collect(u.sig)), u.subtype, u.id))
-            legs = eltype(assessed)[]; parallel = eltype(assessed)[]; ambiguous = false
-            for u in assessed
-                clash = [l for l in legs if issubset(u.sig, l.sig) || issubset(l.sig, u.sig)]
-                if isempty(clash)
-                    push!(legs, u)
-                else
-                    push!(parallel, u)
-                    any(l -> l.sig != u.sig, clash) && (ambiguous = true)
-                end
-            end
-            for l in legs[2:end]
-                push!(merged, (l.subtype, l.id))
-            end
-            push!(groups, Dict{String,Any}("bus_from" => first(common), "supply_buses" => common, "bus_to" => bt,
-                "units" => sort!([l.id for l in legs]),
-                "parallel_units" => sort!([u.id for u in parallel]),
-                "unassessed_units" => sort!([u.id for u in units if u.sig === nothing]),
-                "ambiguous" => ambiguous,
-                "n_branches" => (isempty(legs) ? 0 : 1) + length(parallel) +
-                                count(u -> u.sig === nothing, units)))
-        end
-    end
-    sort!(groups, by = g -> (g["supply_buses"], g["bus_to"]))
-    result()
-end
-
-# Conductors as a union-find over (bus, terminal) nodes: two nodes are one
-# conductor when a branch of one of the given `kinds` maps them onto each
-# other (position k of `terminal_map_from` onto position k of
-# `terminal_map_to`). Open switches join nothing. This is the one place the
-# profiler follows a conductor from bus to bus; labels are never compared.
-# Returns `(find, parent)`: `find(node)` is the group's representative, and
-# `parent` holds every node a branch touched.
-function _conductor_groups(net; kinds=("line", "switch"))
-    Node = Tuple{String,String}
-    parent = Dict{Node,Node}()
-    function find(x)
-        haskey(parent, x) || (parent[x] = x)
-        root = x
-        while parent[root] != root; root = parent[root]; end
-        while parent[x] != root
-            parent[x], x = root, parent[x]
-        end
-        root
-    end
-    for kind in kinds
-        table = get(net, kind, nothing)
-        table isa AbstractDict || continue
-        for (_, c) in table
-            c isa AbstractDict || continue
-            kind == "switch" && get(c, "open_switch", false) === true && continue
-            a = get(c, "bus_from", nothing); b = get(c, "bus_to", nothing)
-            tf = get(c, "terminal_map_from", nothing); tt = get(c, "terminal_map_to", nothing)
-            a isa AbstractString && b isa AbstractString && tf isa AbstractVector && tt isa AbstractVector ||
-                continue
-            for k in 1:min(length(tf), length(tt))
-                tf[k] isa AbstractString && tt[k] isa AbstractString || continue
-                ra = find((String(a), String(tf[k]))); rb = find((String(b), String(tt[k])))
-                ra == rb || (parent[ra] = rb)
-            end
-        end
-    end
-    (find, parent)
-end
-
-# Conductor-level evidence of where a transformer's primary winding is
-# supplied from, for deciding whether units on different primary buses are one
-# bank.
-#
-# Conductors are followed through closed switches only, terminal by terminal,
-# by the switch's own terminal maps (a label may change across a switch; the
-# conductor does not). A winding's **supply point** is the set of buses at
-# which EVERY one of its primary terminals, the neutral included, is present
-# on the same conductors. Two units share a supply point when those sets have
-# a bus in common: a bus at which both windings are wholly present. Units on
-# one bus always do, whatever else their conductors reach, and a full primary
-# disconnect between two units leaves the bank what it was.
-#
-# Anything less is not grouped. A tie that carries some but not all of a
-# winding's conductors (one phase of two, the phases without the neutral) is a
-# **partial** tie: the units stay separate branches and the pair is reported as
-# undetermined. A tie on conductors neither winding uses, or a neutral bond
-# alone, is no evidence at all.
-#
-# The result does not depend on bus names, switch direction or terminal
-# labels: it is built from conductor groups, never from a representative bus.
-function _supply_point(net)
-    Node = Tuple{String,String}
-    find, parent = _conductor_groups(net; kinds=("switch",))
-    buses_of = Dict{Node,Set{String}}()            # conductor group => buses it is present at
-    for n in collect(keys(parent)); push!(get!(buses_of, find(n), Set{String}()), n[1]); end
-    roles = _index_roles(net)
-    is_return(x) = roles === nothing ? _is_convention_neutral(x) : (x in roles.neutral || x in roles.earth)
-    readable(terminals) = terminals isa AbstractVector && !isempty(terminals) &&
-        all(x -> x isa AbstractString, terminals)
-    present(bus, t) = haskey(parent, (bus, t)) ? buses_of[find((bus, t))] : Set{String}((bus,))
-    # Sorted list of the buses every primary terminal of the winding reaches.
-    function reach(bus::AbstractString, terminals)
-        bus = String(bus)
-        (isempty(parent) || !readable(terminals)) && return [bus]
-        sort!(collect(intersect((present(bus, String(t)) for t in terminals)...)))
-    end
-    # True when a PHASE conductor of the winding at `bus` is present at
-    # `other`. Asked about two units that share no supply point: one crossing
-    # phase conductor then makes the pair a partial tie.
-    function partial(bus::AbstractString, terminals, other::AbstractString)
-        bus = String(bus); other = String(other)
-        (isempty(parent) || !readable(terminals) || bus == other) && return false
-        any(t -> !is_return(t) && other in present(bus, String(t)), terminals)
-    end
-    (reach=reach, partial=partial)
-end
-
-# Single-phase unit subtypes that are banked in practice.
-const _BANKABLE_SUBTYPES = ("single_phase", "center_tap")
-
-# Secondary PHASE conductors of one unit (its neutral is shared by every leg of
-# a bank and says nothing about which leg the unit is). Two units between the
-# same bus pair are legs of one bank when neither's phase set contains the
-# other's. A unit across conductors another unit already spans — the same
-# pair, or the two legs of a center-tapped winding — is paralleled there,
-# whatever its primary connection, and closes a loop.
-function _bank_unit_signature(t, neutral_labels=nothing)
-    f = get(t, "terminal_map_from", nothing); to = get(t, "terminal_map_to", nothing)
-    f isa AbstractVector && to isa AbstractVector || return nothing
-    all(x -> x isa AbstractString, to) || return nothing
-    is_neutral(x) = neutral_labels === nothing ? _is_convention_neutral(x) : x in neutral_labels
-    sig = Set{String}(string(x) for x in to if !is_neutral(string(x)))
-    isempty(sig) ? nothing : sig
 end
 
 """

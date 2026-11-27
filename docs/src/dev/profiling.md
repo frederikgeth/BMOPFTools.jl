@@ -16,14 +16,14 @@ answer.
 | Order | `results` key | Source | Hosts |
 |---|---|---|---|
 | 1 | `:inventory` | `analysis/inventory.jl` | component counts, transformer phase labels |
-| 2 | `:voltage_levels` | `analysis/voltage_levels.jl` | level propagation, high-leg units, ratio consistency |
-| 3 | `:connectivity` | `analysis/connectivity.jl` | graph, banks, DC links, zone classification, supply-phase consistency, switch scenarios, and the whole **spatial** pass (`analysis/spatial*.jl`) |
+| 2 | `:voltage_levels` | `analysis/voltage_levels.jl` | level propagation, ratio consistency; high-leg units come from `analysis/transformer_banks.jl` |
+| 3 | `:connectivity` | `analysis/connectivity.jl` | graph, banks (`analysis/transformer_banks.jl`), DC links, zone classification, supply-phase consistency, switch scenarios, and the whole **spatial** pass (`analysis/spatial*.jl`) |
 | 4 | `:diversity` | `analysis/diversity.jl` | load and line parameter spread |
 | 5 | `:operational` | `analysis/operational.jl` | loading, limit coverage, feeder reach (`analysis/feeder_reach.jl`) |
 | 6 | `:load_models` | `analysis/load_models.jl` | load-law inventory |
 | 7 | `:provenance` | `analysis/provenance/*.jl` | linecodes, wires, grounding, earthing zones, tool-default fingerprints |
 | 8 | `:preflight` | `infeasibility/preflight.jl` | adequacy, bound conflicts, coil headroom |
-| 9–15 | `:schema` … `:benchmark` | `validation/*.jl` | schema, completeness, domain rules, redundancy, integrity, spec conformance, benchmark readiness |
+| 9–15 | `:schema` … `:benchmark` | `validation/*.jl` | schema, completeness, domain rules, redundancy, integrity (voltage-reference evidence in `validation/voltage_reference.jl`), spec conformance, benchmark readiness |
 | — | `:assessment` | `report/assessment_coverage.jl` | which tracked checks were assessed |
 | last | `:consolidation` | `report/finding_consolidation.jl` | roll-up and subsumption of the finding log |
 
@@ -45,7 +45,7 @@ Rules that follow from this structure:
   guess. New system types get a fixture in `test/data/profiler_systems` and a
   row in [System types and regional practice](../tutorial_system_types.md).
 - **Keep the report quiet on a clean case.** The regional fixtures must stay
-  free of errors and warnings; `test/profiler_generalization_tests.jl` enforces
+  free of errors and warnings; `test/profiler_regional_tests.jl` enforces
   it.
 
 - **Do not re-derive what the solver stamps.** A check that depends on how a
@@ -53,10 +53,12 @@ Rules that follow from this structure:
   is `src/validation/ibr_rules.jl`; `test/ibr_rules_tests.jl` holds the
   profiler's conclusions against an independent LP. A single solve that
   returns zero current shows zero is feasible, not that it is forced.
-- **Follow conductors, not labels or bus names.** `_conductor_groups` is the
-  one place a conductor is followed from bus to bus. A verdict must survive
+- **Follow conductors, not labels or bus names.** `_conductor_groups`
+  (`analysis/transformer_banks.jl`) is the one place a conductor is followed
+  from bus to bus, and `_DisjointSets` (`analysis/disjoint_sets.jl`) the one
+  union-find. A verdict must survive
   renaming a bus, reversing a switch and relabeling a terminal; the bank tests
-  in `test/profiler_generalization_tests.jl` apply those rewrites to every case.
+  in `test/profiler_transformer_banks_tests.jl` apply those rewrites to every case.
 
 ## Semantics and data quality come first
 
