@@ -1,12 +1,5 @@
 # [Ground, neutral, and earth return](@id grounding-tutorial)
 
-!!! note "External dataset"
-    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
-    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream license and is not
-    bundled with BMOPFTools. These dataset examples are shown as code and
-    are not executed by the package documentation build.
-
 *Three different things called "ground", one experiment across floating,
 impedance-grounded, and solidly-grounded neutrals — then the mathematics:
 null spaces, the Kron-reduction assumption, and what the Fortescue transform
@@ -22,7 +15,8 @@ solved under three grounding assumptions, the null-space view of what
 neutral (Kron reduction) is legitimate, the single-wire earth-return system
 as the limiting case, and the precise distinction between the Fortescue
 *transform* (always available) and sequence-network *decoupling* (an
-assumption). Every block runs at build time.
+assumption). Every block runs at build time on data bundled with the package,
+so the printed numbers are the engine's own.
 
 !!! note "Prerequisites"
     A Julia environment with `BMOPFTools`, `JuMP` and `Ipopt`, plus the
@@ -31,6 +25,9 @@ assumption). Every block runs at build time.
     sibling on the symmetry side of the story.
 
 ## 1. Three things called "ground"
+
+![A phase conductor and a neutral conductor run above a hatched earth line. The neutral is tied to earth by a direct link at the source and through an electrode at the load; a dashed arrow marks the neutral-to-earth voltage.](assets/three-grounds.svg)
+
 
 - **The ground reference** is a modeling convention: the single 0 V "copper
   plate" all node voltages are measured against. It is *not* a matrix row,
@@ -61,26 +58,35 @@ Four data-model pieces express everything in this tutorial:
   `shunt` from the neutral terminal to the reference — the *real* electrode;
 - `vn_max` bounds how far a *floating* neutral may drift in an OPF.
 
-Look at both on real cases — the LV feeder used across these tutorials, and
-the SWER feeder whose grounding *is* its return circuit:
+Look at them on a real case — the bundled SWER feeder, whose grounding *is*
+its return circuit:
 
-```julia
+```@example grounding
 using BMOPFTools, JuMP, Ipopt, LinearAlgebra
 
-lv1  = from_dss(joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss"))
 swer = from_dss(joinpath(pkgdir(BMOPFTools), "test", "data", "SWER", "Master.dss"))
 
-println("conventions (both cases): ", lv1["terminal_conventions"])
-println("SWER perfectly grounded : ",
-        [(b, bd["perfectly_grounded_terminals"]) for (b, bd) in swer["bus"]
-         if !isempty(get(bd, "perfectly_grounded_terminals", String[]))])
-println("SWER electrodes (shunts): ",
-        sort([(id, s["bus"], round(Float64(s["G_1_1"]); digits = 0)) for (id, s) in swer["shunt"]]))
+println("conventions        : ", swer["terminal_conventions"])
+println("perfectly grounded : ",
+        sort([(b, bd["perfectly_grounded_terminals"]) for (b, bd) in swer["bus"]
+              if !isempty(get(bd, "perfectly_grounded_terminals", String[]))]))
+println("electrodes (shunts): ",
+        sort([(id, s["bus"], round(Float64(s["G_1_1"]); digits = 0))
+              for (id, s) in swer["shunt"] if s["terminal_map"] == ["n"]]))
 ```
 
-One perfectly-grounded source neutral, and five 1000 S (1 mΩ — effectively
-solid) electrode shunts along the feeder: the SWER system's earth-return path,
-written as ordinary data. §6 returns to it.
+Read the three lines in turn. The conventions block declares **two** neutral
+labels. `n` is the neutral *conductor*. `n_ref` is how an OpenDSS node 0
+arrives: a distinct, perfectly grounded return terminal that a device can
+connect to, kept separate from the conductor neutral rather than merged into
+it (see [the earth terminal](@ref earth-terminal) in the conversion guide).
+The perfectly grounded terminals are exactly those `n_ref` references — on the
+MV bus and on the source's internal bus that the importer adds behind the
+source impedance. Finally, five 1000 S (1 mΩ — effectively solid) electrode
+shunts tie the neutral to earth along the feeder: the SWER system's
+earth-return path, written as ordinary data. (The filter on the terminal map
+skips the transformers' core shunts, which the importer also stores as `shunt`
+objects but which are not groundings.) §6 returns to this feeder.
 
 ## 3. Floating, impedance-grounded, solid: one experiment
 
@@ -92,7 +98,7 @@ solidly grounded. Vary only the *customer-end* neutral: floating, a realistic
 voltage (NEV), the phase-to-neutral voltage the customer actually receives,
 and how the return current splits between the neutral conductor and the earth:
 
-```julia
+```@example grounding
 OPT = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
 
 lc4 = Dict{String,Any}()
@@ -143,7 +149,7 @@ end
 
 Three lessons, one table:
 
-- **Floating**: the full 14 A of return current flows in the neutral
+- **Floating**: the full ≈ 14 A of return current flows in the neutral
   conductor, and its impedance drop appears as ≈ 3.6 V of NEV at the customer
   — stray voltage a person can touch, and a direct bite out of the voltage
   the load receives.
@@ -170,7 +176,7 @@ grounded terminals collapsed onto it, and — deliberately — no contribution
 from ideal voltage sources. Whatever that matrix cannot see, something else
 must pin:
 
-```julia
+```@example grounding
 cases = [
     "no grounding anywhere" => (n = feeder(:float);
                                 delete!(n["bus"]["src"], "perfectly_grounded_terminals"); n),
@@ -209,7 +215,7 @@ whole chain: Kron-reduce our line by hand, build the three-wire equivalent
 (loads become phase-to-ground — the reduced model has no neutral to connect
 to), and compare against the four-wire truth under each grounding:
 
-```julia
+```@example grounding
 Z4  = [(i == j ? 0.5 : 0.02) + im*(i == j ? 0.2 : 0.05) for i in 1:4, j in 1:4] ./ 2 # 500 m, Ω
 Zk  = Z4[1:3,1:3] .- Z4[1:3,4:4] * (Z4[4:4,4:4] \ Matrix(transpose(Z4[1:3,4:4])))
 
@@ -254,10 +260,41 @@ or realistically-earthed neutral the "same" model is ≈ 3.3 V optimistic —
 over, and invisible from inside the reduced model, which cannot even
 represent the NEV it is mispredicting. European LV feeders ground the neutral
 at the transformer and rarely along the way — the *wrong* regime for Kron.
-This is precisely why the engine keeps four-wire models un-reduced end to end
-([impedance spec](spec/impedance.md)); its single deliberate exception is
-collapsing concentric-neutral/tape-shield *subconductors* held at earth
-potential inside [`compile_linecode`](@ref), recorded in the linecode's
+
+This is why nothing in the engine reduces a neutral *implicitly*: import,
+analysis, and the OPF keep four-wire models four-wire
+([impedance spec](spec/impedance.md)). The reduction exists as an explicit,
+opt-in transform, [`kron_reduce_neutrals`](@ref), which does the bookkeeping
+above for a whole network and — the important part — classifies what it did:
+
+```@example grounding
+for g in (:perfect, :electrode, :float)
+    red  = kron_reduce_neutrals(feeder(g))
+    prov = red["_meta"]["kron_reduction"]
+    println(rpad(g, 10), " => ", rpad(prov["classification"], 28),
+            " neutral forced to earth at: ", prov["forced_ground_buses"])
+end
+
+red = kron_reduce_neutrals(feeder(:perfect))
+println("reduced buses carry ", red["bus"]["lb"]["terminal_names"],
+        "; load now on ", red["load"]["ld"]["terminal_map"])
+```
+
+Only the case whose neutral was already perfectly earthed at both ends is
+labeled `"exact"`. The other two are `"grounded_neutral_projection"`: the
+transform still returns a three-wire network, but records in
+`_meta["kron_reduction"]` that it *forced* the load-end neutral to ideal earth
+— the 3.3 V assumption above, written down where a reviewer can find it. The
+same precondition is available as a line-by-line check through the scientific
+contract `check_kron_boundary_recovery`
+([Scientific contracts](scientific_contracts.md)). See
+[Network reduction: which tool?](network_reduction.md) for where this
+transform sits among the other reductions.
+
+One reduction does happen inside the engine without being asked for, and it
+is the one that satisfies the premise by construction: concentric-neutral and
+tape-shield *subconductors*, held at earth potential, are collapsed inside
+[`compile_linecode`](@ref) and recorded in the linecode's
 `derivation.shields_reduced` provenance
 ([line geometry tutorial](tutorial_line_geometry.md)).
 
@@ -272,7 +309,7 @@ in the line constants — Carson's frequency- and resistivity-dependent
 correction, applied when geometry compiles to a linecode
 ([impedance derivation](spec/impedance.md)):
 
-```julia
+```@example grounding
 report = analyze(swer)
 println("SWER zones found: ", report.results[:connectivity]["n_swer_zones"])
 for f in report.findings
@@ -303,7 +340,7 @@ its construction history.
 Our §5 matrix is circulant by construction (all mutuals equal); perturb the
 mutuals the way untransposed geometry does and watch the decoupling die:
 
-```julia
+```@example grounding
 a = cis(2π/3)
 F = (1/sqrt(3)) .* [1 1 1; 1 a a^2; 1 a^2 a]
 offdiag_max(M) = maximum(abs(M[i,j]) for i in 1:3, j in 1:3 if i != j)
@@ -354,11 +391,17 @@ link, don't duplicate.
   One grounding shunt, a perfect grounding, a source that references the
   neutral, or a transformer neutral impedance removes the finding (§4;
   [Grounding and neutral findings explained](grounding_findings.md)).
-- **Kron-reduce only what is genuinely pinned to zero volts** (§5). If you
-  ingest three-wire data that was reduced upstream, the assumption arrived
-  with it. The [`provenance Findings`](findings.md) prompt review of likely
-  prior neutral elimination. Compare with the original conductors and grounding;
-  a genuine three-wire network or a different equivalent is also possible.
+- **Kron-reduce only what is genuinely pinned to zero volts** (§5). When you
+  do reduce, use [`kron_reduce_neutrals`](@ref) and read its classification:
+  `"exact"` is algebra, `"grounded_neutral_projection"` is an assumption you
+  now own. [`analyze`](@ref) reports `I.PROV.KRON_REDUCIBLE` for a four-wire
+  network whose every neutral is perfectly grounded, where the reduction
+  would be exact.
+- **Three-wire data may have been reduced before it reached you**, and the
+  assumption arrived with it. `I.PROV.KRON_LIKELY`
+  ([Finding reference](findings.md)) prompts review of likely prior neutral
+  elimination. Compare with the original conductors and grounding; a genuine
+  three-wire network or a different equivalent is also possible.
 - **Sequence networks are a symmetry statement, not a coordinate change**
   (§7). Use the transform freely on results; trust decoupled networks only as
   far as the construction is balanced — and remember ``Z_0`` *is* the

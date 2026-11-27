@@ -117,9 +117,20 @@ implementation adds purely for conditioning.)
 
 ### Cartesian bounds (conditioning only)
 
-The auxiliary $W$ (and $s$) carry box bounds at $[0.5\,\textcolor{red}{V^{\text{nom}}},1.5\,\textcolor{red}{V^{\text{nom}}}]^2$
-— deliberately wider than any supply standard. These bound the *auxiliary* variables
-for solver conditioning; the operational voltage limits live on the bus, not here.
+No fixed band around $\textcolor{red}{V^{\text{nom}}}$ is imposed. The formulation
+depends on what is known about the sub-load voltage:
+
+- a pure constant-impedance sub-load uses the linear current law
+  $I = \overline{S^{\text{nom}}}/\textcolor{red}{V^{\text{nom}}}^2 \cdot \Delta V$, with no $W$
+  variable and no voltage bound;
+- when the host bus supplies no positive lower voltage bound, the law is written
+  in $\ell = \log(|\Delta V|/\textcolor{red}{V^{\text{nom}}})$, which is defined for every
+  positive voltage and carries no floor;
+- otherwise $W$ (and $s$) are used with a lower bound at half the bus's lower
+  voltage bound. This guard stays inactive inside the permitted voltage range; it
+  conditions the auxiliary variables and does not narrow the feasible set.
+
+The operational voltage limits live on the bus, not here.
 
 ### Source map
 

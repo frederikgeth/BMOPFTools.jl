@@ -1,14 +1,7 @@
 # [Units, bases, scaling, and economics](@id units-and-economics)
 
-!!! note "External dataset"
-    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
-    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream license and is not
-    bundled with BMOPFTools. These dataset examples are shown as code and
-    are not executed by the package documentation build.
-
 *One feeder, two voltage levels: derive every base by hand, watch SI and
-per-unit agree to machine precision, then price the dispatch rigorously.*
+per-unit agree, then price the dispatch rigorously.*
 
 Every quantitative claim a power-system study makes rests on three unit systems
 that are routinely conflated: the units the **data** is stored in, the units the
@@ -19,14 +12,18 @@ we derive the voltage, current, impedance, and power bases by hand and check
 them against the engine, demonstrate that an SI solve and a per-unit solve of
 the same case return the same physics, and then build the cost story from
 \$/kWh coefficients to a priced 24-hour day, reconstructing the solver's
-objective value from first principles along the way. The feeder examples require the external dataset described above and are
-not executed by the docs build. Run them in that environment to reproduce the
-comparisons; reported values remain subject to solver tolerances.
+objective value from first principles along the way.
+
+The feeder is a small synthetic teaching fixture bundled with the package, so
+every code block on this page is executed when the documentation is built and
+the printed output is what the current code produces. Where the prose quotes a
+number, it is a number you can read in the output directly above or below it;
+solver-dependent quantities (iteration counts, convergence gaps) are described
+qualitatively because they move with solver versions.
 
 !!! note "Prerequisites"
     A Julia environment with `BMOPFTools`, `JuMP` and `Ipopt`, and the
-    pipeline vocabulary of the [end-to-end tutorial](tutorial_end_to_end.md).
-    The feeder is the same LV1 14-bus network used there.
+    [terminals primer](terminals_primer.md). No external data is needed.
 
 ## 1. Two separate choices, often conflated
 
@@ -47,15 +44,17 @@ bases baked into published case files
 
 ## 2. One feeder, two voltage levels
 
-The LV1 14-bus feeder has exactly the structure the per-unit method was
-invented for: an 11 kV medium-voltage source behind a 100 kVA delta-wye
-transformer feeding four-wire 400 V mains.
+The bundled `eu_tn_four_wire` fixture has exactly the structure the per-unit
+method was invented for: a 10 kV medium-voltage source behind a 400 kVA
+delta-wye transformer feeding a four-wire 400 V feeder with a handful of
+single-phase and three-phase customers.
 
-```julia
+```@example units
 using BMOPFTools
 
-path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss")
-net  = from_dss(path)
+path = joinpath(pkgdir(BMOPFTools), "test", "data", "profiler_systems",
+                "eu_tn_four_wire.json")
+net  = parse_bmopf(path)
 
 src = first(values(net["voltage_source"]))
 println("source bus          : ", src["bus"])
@@ -69,12 +68,12 @@ println("buses / lines / loads : ", length(net["bus"]), " / ",
         length(net["line"]), " / ", length(net["load"]))
 ```
 
-Read the numbers: the source magnitude is 6350.85 V **phase-to-neutral**
-(11 kV/√3 — BMOPF voltages are always the quantity across the element's own
-terminals, never an implied line-to-line figure), while the transformer's
-`v_nom_from`/`v_nom_to` are the winding reference voltages from the nameplate,
-11000 V and 433 V line-to-line. Two voltage levels, one ratio between them —
-everything below follows from these three numbers plus one free choice.
+Read the numbers: the source magnitude is 5773.5 V **phase-to-neutral**
+(10 kV/√3 — a voltage source is defined terminal-to-ground, never as an implied
+line-to-line figure), while this transformer's `v_nom_from`/`v_nom_to` are the
+nameplate winding reference voltages, 10000 V and 400 V line-to-line. Two
+voltage levels, one ratio between them — everything below follows from these
+three numbers plus one free choice.
 
 ## 3. Deriving the bases by hand
 
@@ -83,9 +82,11 @@ default is ``10^6`` VA) and a **voltage base per bus**. The engine derives the
 voltage bases the classical way:
 
 1. seed the source bus with the source's phase-to-neutral magnitude,
-2. propagate through every transformer by its `v_nom` ratio,
-3. lines and switches preserve the base (a cable does not change the voltage
-   level),
+2. propagate through every *isolating* transformer by its `v_nom` ratio,
+3. lines, closed switches, and galvanically continuous regulators
+   (`single_phase_autotransformer`, `open_delta_regulator`) preserve the base —
+   a cable does not change the voltage level, and a regulator's tap is a
+   winding coefficient, not a coordinate change,
 4. everything else follows per bus:
 
 ```math
@@ -96,10 +97,10 @@ Y_B = \frac{S_B}{V_B^2}.
 
 That is four lines of arithmetic for this feeder — do it by hand:
 
-```julia
+```@example units
 s_base = 1e6                                       # VA — the solver default
 
-v_base_mv = maximum(abs, Float64.(src["v_magnitude"]))          # 11 kV / √3
+v_base_mv = maximum(abs, Float64.(src["v_magnitude"]))          # 10 kV / √3
 v_base_lv = v_base_mv * xfmr["v_nom_to"] / xfmr["v_nom_from"]   # through the ratio
 
 println("            MV (", src["bus"], ")      LV feeder")
@@ -113,20 +114,20 @@ println("Y_base  : ", lpad(round(s_base / v_base_mv^2; digits = 5), 10), " S ",
         lpad(round(s_base / v_base_lv^2; digits = 2), 10), " S")
 ```
 
-Two things deserve attention. First, the LV base lands on 249.99 V — the
-phase-to-neutral value of a 433 V system — even though both `v_nom`s are
+Two things deserve attention. First, the LV base lands on 230.94 V — the
+phase-to-neutral value of a 400 V system — even though both `v_nom`s are
 line-to-line: for a three-phase transformer the line-to-line ratio *is* the
 phase-to-neutral ratio, so propagating a phase-to-neutral seed through it stays
 phase-to-neutral. Second, the impedance bases differ by the ratio squared —
-40.33 Ω against 0.0625 Ω, a factor of 645 — which is precisely the referral
-factor that makes "4.5 % impedance" mean the same thing on either side of the
-transformer.
+33.33 Ω against 0.0533 Ω, a factor of ``25^2 = 625`` — which is precisely the
+referral factor that makes a nameplate percent impedance mean the same thing on either side
+of the transformer.
 
 Now check the arithmetic against the engine's own bookkeeping. The base
 computation lives in the OPF extension (it is internal — shown here for
 verification, not as API):
 
-```julia
+```@example units
 using JuMP, Ipopt              # loading these activates the OPF extension
 ext   = Base.get_extension(BMOPFTools, :BMOPFOpfExt)
 bases = ext._compute_bases(net, s_base)
@@ -142,191 +143,20 @@ println("hand-derived bases match the engine on all ",
 ```
 
 Every LV bus inherits the transformer's low-side base through the line
-adjacency — the base changes at transformers and *only* at transformers. This
-is the same NamedTuple a [`solve_opf`](@ref) `model_hook!` receives from
-`opf_bases(ctx)` when it needs to express a physical-unit constraint inside a
-per-unit model.
+adjacency — on this feeder the base changes at the one isolating transformer
+and nowhere else. This is the same NamedTuple a [`solve_opf`](@ref)
+`model_hook!` receives from `opf_bases(ctx)` when it needs to express a
+physical-unit constraint inside a per-unit model.
 
-### Typed alternatives to the classic bases
-
-The public scaling boundary makes a base experiment explicit and reproducible.
-The historical keywords remain supported, while the equivalent staged call is:
-
-```julia
-ctx = build_opf_model(net;
-    scaling_policy = OpfScaling(:classic; power_base = 1e6))
-```
-
-To change the voltage and power coordinates, provide a complete compatible
-voltage-base map. For example, multiplying every propagated voltage base by
-`0.5` while choosing a `200 kVA` power base gives:
-
-```julia
-custom_bases = Dict(bus => 0.5 * base for (bus, base) in bases.v_base)
-policy = OpfScaling(
-    name = :half_voltage_200kva,
-    power_base = 200e3,
-    voltage_bases = custom_bases,
-)
-ctx = build_opf_model(net; scaling_policy = policy)
-
-@assert opf_coordinate_bases(ctx, src["bus"]).current ==
-        200e3 / custom_bases[src["bus"]]
-```
-
-This is intentionally a *consistent* family of coordinates. BMOPFTools checks
-line, switch, and transformer voltage-base relationships and derives the
-current, impedance, and admittance bases. Arbitrary independent bases would
-require coefficients in every voltage-current-power equation and are not yet
-represented by this policy. A comparison should therefore first establish
-physical solution and derivative covariance, then compare solver trajectories;
-iteration counts alone are not evidence that the mathematical problems match.
-
-With a zone-local policy, `opf_bases(ctx).s_base` is retained as a reference
-value for compatibility and reporting; it is not a universal local power base.
-Use `opf_coordinate_bases(ctx, bus).power` (or the `s_base_bus` table) whenever
-constructing a bus-local hook or interpreting a local residual.
-
-### Auditing transformer-local power bases
-
-A genuinely local power base cannot be introduced by independently dividing
-each device rating. Lines, closed switches, and galvanically continuous
-regulators share physical terminal currents, so their buses must retain one
-power base when `I_base=S_base/V_base`. The regulator's common bushing or
-straight-through phase also forces one voltage base: its tap is a winding
-coefficient, not a coordinate discontinuity. An isolating transformer is the natural
-boundary where the base may change, but its current-coupling, winding-power,
-KCL-injection, and rating equations then need explicit side-base coefficients.
-
-The versioned diagnostic schema audits such a proposal without changing the
-model:
-
-```julia
-proposal = opf_diagnostic_schema(
-    ctx;
-    voltage_bases = Dict("hv" => 6350.0, "delta" => 415 / sqrt(3)),
-    power_bases = Dict("hv" => 10e6, "delta" => 1e6),
-).transformer_scaling
-proposal["proposal_admissible"]
-proposal["power_product_identity_passed"]
-proposal["requires_new_transformer_stamping"]
-```
-
-The report partitions buses into galvanically continuous zones and gives every
-transformer interface's voltage-, current-, and power-coordinate ratios. It
-checks the identity `V_base * I_base = S_base` and records whether explicit
-current and power conversion is required. For directly galvanic regulator
-interfaces it additionally reports `galvanic_voltage_base_compatible`; a
-different voltage base makes the proposal inadmissible even if the power base
-is unchanged. For a proposal that differs from the context,
-`applied_to_model` remains false: this API audits a design; it does not mutate
-an existing model.
-
-The first executable local-base slice uses bus-local power bases:
-
-```julia
-zone_policy = OpfScaling(
-    name = :transformer_local_power,
-    voltage_bases = Dict("hv" => 2400.0, "lv" => 240.0),
-    power_bases = Dict("hv" => 1e6, "lv" => 25e3),
-)
-ctx = build_opf_model(net; scaling_policy = zone_policy)
-schema = opf_diagnostic_schema(ctx)
-evidence = schema.transformer_scaling
-evidence["applied_to_model"]
-```
-
-The implementation derives local `I`, `Z`, and `Y` bases, stamps the side-base
-ratios into isolated transformer current balance and leakage referral, scales
-device limits and costs on their owning zones, and restores physical powers and
-losses with side-local bases. It currently permits a power-base change across
-`single_phase`, `center_tap`, `wye_delta`, `delta_wye`, and `n_winding`
-isolated transformers.
-
-For Yd/Dy, the connection matrix needs a reciprocal pair of coefficients:
-delta terminal currents are converted into wye-current coordinates by
-`S_delta/S_wye`, while delta-arm impedance acting on the wye current uses
-`S_wye/S_delta`. The wye-coil nameplate and initialization likewise use the
-wye-side base. Both orientations pass SI/local solved-state, loss, derivative,
-constraint-set, and initialization covariance tests. The remaining transformer
-families stay rejected until their connection-specific coverage is complete.
-
-The sixth executable slice crosses an AC/DC converter boundary. AC bus `b`
-uses its local `S_ac(b)` while the DC grid uses `S_dc`, so the native lossless
-converter equation carries the explicit coefficient `S_ac(b)/S_dc`. The
-stable `opf_coordinate_bases(ctx, bus)` and
-`opf_coordinate_bases(ctx, bus; domain=:dc)` helpers expose the
-voltage/current/power coordinates to engine hooks without relying on internal
-base-table fields. `opf_diagnostic_schema(ctx).acdc_scaling` records every
-stamped coefficient and qualified controller mode. Two converters attached to
-different AC zones, with conversion factors 50 and 5, pass SI/local endpoint
-and derivative covariance. In droop mode, `dc_p_ref` and droop output retain
-the converter's AC power base, whereas voltage setpoint and deadband retain the
-DC voltage base. This qualification covers the native lossless `P`, `V`, and
-`droop` formulations, not custom or lossy converter builders.
-
-For a center-tap unit, the fixed 5×5 primitive is first assembled on the
-primary power base. Secondary star impedances therefore acquire
-`S_primary/S_secondary`, the secondary shunt acquires the reciprocal, and the
-three secondary current rows are transformed back to their local current base.
-The resulting normalized primitive is generally nonsymmetric even though the
-physical primitive is reciprocal. This is expected for a linear operator whose
-input and output coordinates use different power bases. The explicit T-model
-path carries the same ratio directly in its ampere-turn equation.
-
-For an `n_winding` unit, winding 1 defines the referred-current and ZB
-coordinates. Winding `k` therefore enters ampere-turn balance and every ZB
-column as `N_k (S_k/S_1) I_k`. The ZB matrix itself is divided once by the
-winding-1 impedance base; winding-local shunts, current limits, apparent-power
-limits, and recovered results retain their owning winding's bases. A loaded
-three-port fixture with nonzero full ZB coupling, nonzero magnetizing shunt,
-asymmetric phase loading, and a 50:1 power-base spread passes exact SI/local PF
-and OPF endpoint, current, voltage, loss, objective, initialization, set, and
-physical-Jacobian covariance.
-
-Galvanically continuous regulator families form the complementary case.
-Loaded single-phase autotransformer and monolithic open-delta fixtures retain
-the same voltage, power, and current bases on both sides while changing from SI
-to normalized coordinates. Fixed-tap PF endpoints—including the common-bushing
-or straight-through current—agree in physical units. Free-tap starts, tap
-bounds, constraint sets, and physical Jacobians also covary. Negative controls
-with either a voltage-base or power-base jump are rejected before model
-construction; the non-result is part of the qualification evidence.
-
-### Semantic blocks and local ratings
-
-After `enforce_kcl!(ctx)`, `opf_diagnostic_schema(ctx).semantic_blocks` exposes
-the engine's authoritative paired coordinates and residuals. Native declarations currently
-cover rectangular real/imaginary voltage and current pairs, active/reactive
-power pairs, and their paired KCL, voltage-drop, device-power, transformer,
-switch, and source equations when present. Each `OpfSemanticBlock` records its
-ordered members, canonical component labels, physical quantity and unit,
-model-to-canonical transform, and residual-set contract.
-
-The set contract is derived from the actual JuMP constraints. An equality to
-the origin is `:zero_equality`; paired source-voltage or load-power equations
-with nonzero right-hand sides are `:scalar_bounds`. This distinction matters:
-treating every equality pair as a zero residual would make a physically false
-covariance claim.
-
-Selected declarations also carry a local physical reference scale and its
-provenance. For example, a load active/reactive residual pair uses the
-per-phase nominal apparent-power magnitude when it is available. This is a
-candidate nondimensionalization reference, not an instruction to mutate the
-model and not the SI conversion factor. Downstream experiments can therefore
-compare system-wide per-unit bases with device-local references without
-parsing JuMP names or silently conflating units with numerical equilibration.
-
-```julia
-enforce_kcl!(ctx)
-blocks = opf_diagnostic_schema(ctx).semantic_blocks
-load_blocks = filter(b -> b.quantity == :power &&
-                          b.reference_physical_scale !== nothing, blocks)
-```
-
-`opf_research_provenance(ctx)["semantic_references"]` serializes these
-declarations, including reference-scale sources. Registration is metadata
-only: it never changes variables, constraints, bounds, or coefficients.
+!!! note "Beyond the classic bases"
+    The `per_unit`/`s_base` keywords are shorthand for a typed
+    [`OpfScaling`](@ref) policy: `OpfScaling(:si)`, `OpfScaling(:classic;
+    power_base = 1e6)`, or a custom consistent family with your own voltage and
+    per-zone power bases. An explicit `scaling_policy` takes precedence over
+    `per_unit` and `s_base`. Custom and transformer-local bases, the audit of a
+    proposed base change, and the diagnostic evidence that goes with them are
+    numerical-experiment tools rather than tutorial material; they are covered
+    in [Scaling, initialization and diagnostics](numerical_workflows.md).
 
 ## 4. SI ≡ per-unit, demonstrated
 
@@ -335,18 +165,18 @@ physics. That is a testable claim: solve the same OPF both ways and compare.
 First give the case operating bounds and an economic setting (a 15 kW
 three-phase DER competing with the grid — §6 prices it):
 
-```julia
+```@example units
 net_ready, _ = augment_case(net; recipe = AugmentationRecipe())
 
 src_id = first(keys(net_ready["voltage_source"]))
-net_ready["voltage_source"][src_id]["cost"] = [0.25, 0.25, 0.25]   # \$ / kWh import
+net_ready["voltage_source"][src_id]["cost"] = [0.25, 0.25, 0.25]   # $ / kWh import
 
 net_ready["generator"] = Dict{String,Any}("der1" => Dict{String,Any}(
-    "bus" => "b3230", "terminal_map" => ["a", "b", "c", "n"],
+    "bus" => "lv2", "terminal_map" => ["a", "b", "c", "n"],
     "configuration" => "WYE",
     "p_min" => zeros(3),          "p_max" => fill(5000.0, 3),   # W, per phase
     "q_min" => fill(-3000.0, 3),  "q_max" => fill(3000.0, 3),   # var, per phase
-    "cost"  => [0.10, 0.10, 0.10]))                             # \$ / kWh
+    "cost"  => [0.10, 0.10, 0.10]))                             # $ / kWh
 
 optimizer = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
 
@@ -363,12 +193,12 @@ println("max |ΔV|    : ", round(dv; sigdigits = 3), " V  across all buses and t
 ```
 
 Both solves return SI results (they always do — `per_unit` never leaks into
-the output, see the [result dictionary](results.md)), and they agree to
-sub-microvolt voltages and a relative objective gap around ``10^{-6}`` — the
-convergence tolerance of the interior-point method, not a modeling
-difference. The two runs solve *different nonlinear programs* (every variable
-and coefficient rescaled) and land on the same physical solution: that is the
-SI ≡ per-unit equality, demonstrated rather than asserted.
+the output, see the [result dictionary](results.md)). The voltages agree to
+well under a millivolt and the objectives to several significant figures; the
+residual gap is the convergence tolerance of the interior-point method, not a
+modeling difference. The two runs solve *different nonlinear programs* (every
+variable and coefficient rescaled) and land on the same physical solution:
+that is the SI ≡ per-unit equality, demonstrated rather than asserted.
 
 ## 5. Why solvers care anyway
 
@@ -377,33 +207,7 @@ Because the *path* to the answer is not scale-invariant: interior-point
 initialization, barrier updates, and stopping tests all react to the numeric
 magnitude of variables and constraints. Compare what the two solves reported:
 
-The initialization policy itself is physical-coordinate invariant: voltage
-levels, phase-angle relationships, and zero neutrals are constructed first in
-the working network semantics and then represented in the chosen model
-coordinates. Thus a different voltage base changes `vr_init`/`vi_init` in model
-units but must not silently change the physical initial state. This separation
-is essential when comparing solver behavior across scaling policies.
-
-For multi-voltage networks this invariance is enforced by a network-wide sparse
-phasor transport solve in per-bus nominal-voltage coordinates. Its rows use
-actual conductor maps and ideal winding equations, so a phase-B single-phase
-lateral remains phase B after a label change, center-tap legs remain anti-phase,
-and Yd/Dy or WYE/DELTA n-winding phase shifts compose through transformer
-chains. Inspect the evidence rather than assuming this worked:
-
-```julia
-initialization = opf_diagnostic_schema(ctx).initialization
-initialization["applied"]
-initialization["maximum_normalized_physics_residual"]
-println(initialization["maximum_normalized_residual_by_kind"])
-```
-
-The current transformer schema supports WYE, DELTA, center-tap, single-phase,
-autotransformer, and open-delta relations. Zigzag needs an explicit connection
-matrix in both the model and initialization layers and is intentionally not
-claimed as supported.
-
-```julia
+```@example units
 for (name, r) in (("per-unit", res_pu), ("SI", res_si))
     p = r["opt_profile"]
     println(rpad(name, 9), ": ", lpad(p["barrier_iterations"], 3), " barrier iterations",
@@ -411,48 +215,43 @@ for (name, r) in (("per-unit", res_pu), ("SI", res_si))
 end
 ```
 
-On this instance the per-unit solve needs several times fewer barrier
-iterations — and the shadow prices differ by orders of magnitude *because the
-constraint units differ*, a reminder that duals are only interpretable
-together with their scaling. But be careful what you conclude:
+The iteration counts differ, and the shadow prices differ by orders of
+magnitude *because the constraint units differ* — a reminder that duals are
+only interpretable together with their scaling. But be careful what you
+conclude:
 
 !!! warning "An observation, not a theorem"
     Whether per-unit scaling helps convergence is **instance- and
     formulation-dependent** — a documented open question for this engine
     ([Units and scaling](opf.md#Units-and-scaling), refs 18–20 in the
     [methodology notes](methodology.md#refs)). The iteration counts above are
-    one data point on one feeder, printed live so you can watch them change
-    across solver versions. The two modes exist so the question can be
-    *benchmarked*; per-unit became the default because DC-network cases are
+    one data point on one small feeder, printed at build time so you can watch
+    them change across solver versions. The two modes exist so the question can
+    be *benchmarked*; per-unit became the default because DC-network cases are
     numerically fragile in SI, not because SI is wrong.
 
-It is also worth being precise about what per-unit does *not* fix. The SI line
-resistances on this feeder span a factor of ~264 (short service drops against
-long mains); dividing all of them by the same LV ``Z_B`` leaves that spread
-untouched. Per-unit compresses scale differences **across voltage levels and
-across quantity types** (volts vs ohms vs amperes); spread *within* one
-quantity at one level — flagged as
+It is also worth being precise about what per-unit does *not* fix. Dividing
+every LV line impedance by the same ``Z_B`` leaves their *ratios* untouched: a
+feeder whose short service drops and long mains differ by a factor of several
+hundred in SI differs by the same factor in per-unit. Per-unit compresses
+scale differences **across voltage levels and across quantity types** (volts
+vs ohms vs amperes); spread *within* one quantity at one level — flagged as
 [`W.DOM.LINE_IMPEDANCE_SPREAD`](findings.md) — survives normalization and is a
 property of the network itself.
 
+The starting point is constructed in physical coordinates and then expressed
+in the chosen model units, so changing the bases does not silently change the
+physical initial state. That matters when you compare solver behavior across
+scaling policies; see
+[Inspect the start before tuning the solver](numerical_workflows.md#Inspect-the-start-before-tuning-the-solver).
+
 ### Power-base sensitivity
 
-Keep the power base explicit when comparing solver settings. In
-[issue #429](https://github.com/frederikgeth/BMOPFTools.jl/issues/429), the default
-`s_base=1e6` performed well on the measured French MV/LV feeders; reducing it to
-`1e4` increased iterations from 35 to 97 on the reported 995-bus example.
-These observations do not establish a universal best base. A base derived from
-total load or the largest transformer rating has not been validated by that
-comparison, and BMOPFTools retains its existing 1 MVA default.
-
-`ZonePerUnitScaling` is an existing experimental coordinate policy with explicit
-per-zone power bases and a qualified device domain. Seeding those bases from
-transformer ratings is a separate experiment, not an automatic recommendation.
-Compare physical results and the same initialization policy as well as numerical
-effort; do not infer a scaling defect solely because a chosen base differs from
-1 MVA. The [adaptive-barrier comparison](solvers.md#Trying-adaptive-barrier-updates-with-Ipopt)
-holds the base fixed; separate runs with different `--s-base` values can explore
-sensitivity without combining it with an unrecorded solver-option change.
+The power base is a free choice, and the solver path depends on it. Keep it
+explicit when comparing solver settings, and compare physical results as well
+as numerical effort. The reported observations and the caveats on reading
+them are in
+[Scaling, initialization and diagnostics](numerical_workflows.md#Power-base-sensitivity).
 
 ## 6. Economics: pricing the dispatch
 
@@ -474,12 +273,12 @@ injection is grid import, so a positive source cost is the import tariff — and
 a negative injection (reverse flow) is *credited* at the same price. Above we
 priced the grid at 0.25 \$/kWh against a 0.10 \$/kWh DER, so the optimum is no
 surprise: the DER runs at its 15 kW capacity and the grid supplies the
-remainder of the 20 kW load plus losses.
+remainder of the 25 kW load plus losses.
 
 The rigorous test is that we can reconstruct the solver's objective from
 nothing but the result dictionary and the input prices:
 
-```julia
+```@example units
 p_src = [ph["ps"] for ph in values(res_pu["voltage_source"][src_id])]   # W, per phase
 p_der = [ph["pg"] for ph in values(res_pu["generator"]["der1"])]
 
@@ -497,14 +296,18 @@ println("objective, solver     : ", res_pu["objective"], "  \$/h")
 
 The two numbers agree to machine precision — the objective is exactly the
 stated formula, nothing more. Note the per-phase grid powers in the output:
-they are far from balanced, and one phase can even back-feed while the total
-imports. Each phase term is priced independently by its own coefficient,
-which is why `cost` is a vector — and why a deliberately unbalanced tariff
-(useful in unbalance-mitigation studies) is expressible at all. Two findings
-police this field:
-[`W.DOM.GEN_COST_HIGH`](findings.md) flags prices above 10 \$/kWh (a likely
-\$/MWh paste), and [`W.DOM.COST_PHASE_NONUNIFORM`](findings.md) flags per-phase
-vectors that differ when you probably meant them equal.
+they are not balanced, because the single-phase customers load the phases
+unequally, and on a feeder with more generation one phase can even back-feed
+while the total imports. Each phase term is priced independently by its own
+coefficient, which is why `cost` is a vector — and why a deliberately
+unbalanced tariff (useful in unbalance-mitigation studies) is expressible at
+all. The static checks on this field are narrower than the field itself:
+[`W.DOM.GEN_COST_HIGH`](findings.md) flags **generator** prices above
+10 \$/kWh (a likely \$/MWh paste) and `W.DOM.GEN_COST_NEGATIVE` flags negative
+ones; [`W.DOM.COST_PHASE_NONUNIFORM`](findings.md) flags per-phase vectors that
+differ, on **generators and voltage sources**, when you probably meant them
+equal. IBR `cost` vectors are checked by none of these, so review them by
+hand.
 
 !!! note "Cheap DER + free export = an arbitrage machine"
     With export credited at the import price, a DER priced below the grid and
@@ -520,16 +323,31 @@ rate, and the integration step is *yours*: BMOPFTools has no built-in timestep
 duration. The [time-series mechanism](tutorial_timeseries.md) gives you the
 snapshots; converting to currency is one multiplication per step,
 ``\text{cost} = \sum_t \; \text{rate}_t \cdot \Delta t_h`` with ``\Delta t_h``
-in hours ([spec](spec/timeseries.md)). On the 24-hour LV1 fixture (hourly
-steps, so ``\Delta t_h = 1``), with the augmentation default of 1 \$/kWh at
-the source:
+in hours ([spec](spec/timeseries.md)). A profile is a named vector of
+multiplicative scale factors that a component's parameter references. Give the
+feeder an hourly residential load shape, and turn the DER into zero-marginal-cost
+rooftop PV whose available power follows an irradiance shape (hourly steps, so
+``\Delta t_h = 1``):
 
-```julia
-ts_path  = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus_timeseries.json")
-ts_ready, _ = augment_case(parse_bmopf(ts_path); recipe = AugmentationRecipe())
+```@example units
+ts = deepcopy(net_ready)
 
-rates = [solve_opf(ts_ready; optimizer = optimizer, t_index = t)["objective"]
-         for t in 1:24]                                           # \$/h, one per hour
+load_shape = [0.35, 0.30, 0.28, 0.28, 0.30, 0.40, 0.60, 0.70, 0.55, 0.45, 0.40, 0.38,
+              0.38, 0.40, 0.42, 0.50, 0.65, 0.85, 1.00, 0.95, 0.85, 0.70, 0.55, 0.42]
+pv_shape   = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.20, 0.45, 0.70, 0.90, 1.00,
+              1.00, 0.90, 0.70, 0.45, 0.20, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+ts["time_series"] = Dict{String,Any}(
+    "load_shape" => Dict{String,Any}("values" => load_shape),
+    "pv_shape"   => Dict{String,Any}("values" => pv_shape))
+for (_, d) in ts["load"]
+    d["time_series"] = Dict{String,Any}("p_nom" => "load_shape", "q_nom" => "load_shape")
+end
+ts["generator"]["der1"]["cost"] = [0.0, 0.0, 0.0]                       # PV: no fuel
+ts["generator"]["der1"]["time_series"] = Dict{String,Any}("p_max" => "pv_shape")
+
+rates = [solve_opf(ts; optimizer = optimizer, t_index = t)["objective"]
+         for t in 1:24]                                           # $/h, one per hour
 Δt_h  = 1.0                                                       # hourly profile steps
 
 println("hourly cost rates (\$/h):")
@@ -564,10 +382,12 @@ Unit errors are silent, so check them off explicitly:
   exception ([conventions](conventions.md#Units)). Nothing in a BMOPF file is
   per-unit.
 - **`per_unit` is a solver setting**, default `true`; results come back in SI
-  either way. Reach for `per_unit = false` only to benchmark or reproduce a
-  raw-SI solve.
-- **Voltage bases change at transformers and only at transformers** — seeded
-  phase-to-neutral at the source, propagated by `v_nom` ratios; ``Z_B, I_B,
+  either way. Reach for `per_unit = false` (equivalently
+  `scaling_policy = OpfScaling(:si)`) only to benchmark or reproduce a raw-SI
+  solve; an explicit `scaling_policy` overrides `per_unit` and `s_base`.
+- **Voltage bases change at isolating transformers and nowhere else** —
+  seeded phase-to-neutral at the source, propagated by `v_nom` ratios; lines,
+  closed switches, and regulators/autotransformers keep one base; ``Z_B, I_B,
   Y_B`` follow per bus. In a `model_hook!`, scale physical literals with
   `opf_bases(ctx)`.
 - **`s_rating` on a transformer is also its impedance base** — the nameplate

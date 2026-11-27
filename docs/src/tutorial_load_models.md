@@ -1,12 +1,5 @@
 # [Choosing and identifying a load model](@id load-models)
 
-!!! note "External dataset"
-    This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
-    `ENV["BMOPF_RESTRICTED_DATA"] = "/path/to/BMOPFDraftData/test/data"`
-    before running it. The dataset retains its upstream license and is not
-    bundled with BMOPFTools. These dataset examples are shown as code and
-    are not executed by the package documentation build.
-
 *Five load models on the same feeder: where they agree, where they diverge,
 what happens at the edge of collapse, and what it takes to identify one from
 measurements.*
@@ -23,12 +16,12 @@ This tutorial puts all five models on the same feeder, stresses them to the
 edge of solvability against an analytic collapse limit, and closes with the
 identification problem: recovering ZIP parameters from measurements, and why
 a narrow voltage window makes that recovery treacherous. Every block runs at
-build time — the numbers are real.
+build time on data bundled with the package — the numbers are real.
 
 !!! note "Prerequisites"
-    A Julia environment with `BMOPFTools`, `JuMP` and `Ipopt`; the
-    [end-to-end tutorial](tutorial_end_to_end.md) for the pipeline vocabulary.
-    The [units tutorial](tutorial_units.md) explains the SI conventions and
+    A Julia environment with `BMOPFTools`, `JuMP` and `Ipopt`, and the
+    [first case](first_case.md) for the parse-and-solve vocabulary. The
+    [units tutorial](tutorial_units.md) explains the SI conventions and
     solver scaling used throughout.
 
 ## 1. Five names for "10 kW"
@@ -49,26 +42,40 @@ Reactive power follows the same shapes with ``\beta``/``\gamma_q``
 coefficients. Two structural facts to hold onto: **`constant_power` never
 reads `v_nom`** (there is nothing voltage-dependent to anchor), and every
 other model requires a strictly positive `v_nom` — it is the voltage at which
-the load consumes exactly its nameplate. An `exponential` load with integer
+the load consumes exactly its nameplate. `v_nom` and the coefficients are
+arrays with one entry per sub-load; a length-one array is broadcast to all of
+them. ZIP coefficients that are absent default to ``(0, 0, 1)`` — constant
+power — and the solver does not require them to sum to one: a sum away from
+one only raises [`W.LOAD.ZIP_SUM`](findings.md), and the load then draws that
+multiple of its nameplate at `v_nom`. An `exponential` load with integer
 exponents is flagged [`I.LOAD.EXP_ZIP_EQUIVALENT`](findings.md) because it *is*
 a ZIP special case, solved through the same quadratic machinery
 ([spec §6](spec/load.md)).
 
+The voltage in these laws is the one **across the sub-load**, which depends
+on the `configuration`. A `WYE` or phase-to-neutral `SINGLE_PHASE` load sees
+phase-to-neutral voltage, so `v_nom` is about 230 V on a 400 V system. A
+`DELTA` load has one sub-load per phase *pair* and sees line-to-line voltage,
+so its `v_nom` is about 400 V and `p_nom`/`q_nom` are indexed by pair, not by
+phase. Anchoring a delta load at 230 V makes a constant-impedance load draw
+three times its nameplate; `W.LOAD.VNOM_MISMATCH` exists to catch that.
+
 ## 2. `v_nom` is the anchor
 
 All five models agree at ``|\Delta U| = V^{\text{nom}}`` and fan out away from
-it. Watch that live: take the LV1 14-bus feeder (two single-phase 10 kW
-customers), set every load to each model in turn, and sweep the source
-magnitude from 90 % to 110 % of nominal. A power flow —
-[`solve_pf`](@ref), which enforces **no operational limits** — reports what
-one customer actually draws:
+it. Watch that live on a small bundled feeder: a 10 kV / 400 V substation
+transformer and 270 m of four-wire cable supplying three single-phase
+households and one three-phase shop, 25 kW of nameplate in total. Set every
+load to each model in turn, and sweep the source magnitude from 90 % to 110 %
+of nominal. A power flow — [`solve_pf`](@ref), which enforces **no
+operational limits** — reports what one 3.5 kW household actually draws:
 
-```julia
+```@example loads
 using BMOPFTools, JuMP, Ipopt
 
-path = joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV1_14bus", "Master.dss")
-lv1  = from_dss(path)
-OPT  = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
+feeder = parse_bmopf(joinpath(pkgdir(BMOPFTools), "test", "data",
+                              "profiler_systems", "eu_tn_four_wire.json"))
+OPT    = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
 
 MODELS = [
     "constant_power"     => Dict{String,Any}(),
@@ -80,28 +87,26 @@ MODELS = [
     "exponential"        => Dict{String,Any}("gamma_p" => [1.5], "gamma_q" => [2.0]),
 ]
 
-function with_model(net, model, extra; λ = 1.0)
+function with_model(net, model, extra)
     n = deepcopy(net)
     for (_, d) in n["load"]
         d["model"] = model
-        merge!(d, extra)
-        d["p_nom"] = [Float64(d["p_nom"][1]) * λ]
-        d["q_nom"] = [Float64(d["q_nom"][1]) * λ]
+        merge!(d, extra)          # length-one coefficients broadcast per sub-load
     end
     n
 end
 
-src_id = first(keys(lv1["voltage_source"]))
-vm0    = Float64.(lv1["voltage_source"][src_id]["v_magnitude"])
+src_id = first(keys(feeder["voltage_source"]))
+vm0    = Float64.(feeder["voltage_source"][src_id]["v_magnitude"])
 
 println("source   ", join(rpad.(first.(MODELS), 20)))
 for scale in (0.90, 0.95, 1.00, 1.05, 1.10)
     row = map(MODELS) do (m, extra)
-        n = with_model(lv1, m, extra)
+        n = with_model(feeder, m, extra)
         n["voltage_source"][src_id]["v_magnitude"] = vm0 .* scale
         r = solve_pf(n; optimizer = OPT)
         @assert r["termination_status"] in ("LOCALLY_SOLVED", "OPTIMAL")
-        rpad(round(sum(ph["pd"] for ph in values(r["load"]["ld3313_load_a"])); digits = 0), 20)
+        rpad(round(sum(ph["pd"] for ph in values(r["load"]["h1"])); digits = 0), 20)
     end
     println(scale, "     ", join(row))
 end
@@ -122,8 +127,8 @@ Now hold the feeder at two operating points — nominal, and a depressed 90 %
 day — and compare what each model assumption does to the *system* quantities
 a study reports:
 
-```julia
-mv_bus = "b2577"   # 11 kV source bus — excluded from the LV voltage stats
+```@example loads
+mv_bus = "mv"      # 10 kV source bus — excluded from the LV voltage stats
 
 function feeder_row(net)
     r = solve_pf(net; optimizer = OPT)
@@ -138,7 +143,7 @@ for scale in (1.00, 0.90)
     println("source at ", round(Int, scale * 100), " % of nominal:")
     println("  model                 Vmin      P_load     losses")
     for (m, extra) in MODELS
-        n = with_model(lv1, m, extra)
+        n = with_model(feeder, m, extra)
         n["voltage_source"][src_id]["v_magnitude"] = vm0 .* scale
         row = feeder_row(n)
         println("  ", rpad(m, 20), lpad(round(row.vmin; digits = 2), 8), " V",
@@ -161,7 +166,7 @@ derived number (losses, import, headroom) moves with them.
 ## [4. Behavior near collapse — stressed until something gives](@id 4.-Behaviour-near-collapse-—-stressed-until-something-gives)
 
 Voltage stability is where the models diverge *qualitatively*, not by
-percentages. The LV1 feeder is far too stiff to collapse in any realistic
+percentages. The feeder above is far too stiff to collapse in any realistic
 sweep, so build the textbook weak system where the limit is analytic: a
 single-phase 240 V source behind ``Z = 0.25 + j0.10\;\Omega``, feeding one
 load with nameplate 10 kW + 3 kvar anchored at ``V^{\text{nom}} = 240`` V.
@@ -173,7 +178,7 @@ which loses its real solutions — the nose of the PV curve — where the
 discriminant hits zero. Solve for that ``\lambda`` and compare it with where
 the engine stops converging:
 
-```julia
+```@example loads
 weak(model, extra; λ = 1.0) = Dict{String,Any}(
     "bus" => Dict{String,Any}(
         "src" => Dict{String,Any}("terminal_names" => ["1"]),
@@ -205,7 +210,7 @@ println("analytic constant-power nose: λ_max = ", round(λ_nose; digits = 3),
 Now sweep every model up the same loading ramp and record where each stops
 solving and at what voltage:
 
-```julia
+```@example loads
 println("model                 last λ    V there    P there    stopped by")
 for (m, extra) in MODELS
     lastλ, lastV, lastP = 0.0, NaN, NaN
@@ -216,10 +221,9 @@ for (m, extra) in MODELS
         lastV = r["bus"]["lb"]["1"]["vm"]
         lastP = sum(ph["pd"] for ph in values(r["load"]["ld1"]))
     end
-    cause = lastλ == 12.0         ? "nothing — still solving at λ = 12"        :
-            m == "constant_power" ? "the physical nose"                        :
-            lastV < 0.55 * 240.0  ? "the W-box validity floor (0.5·v_nom)"     :
-                                    "nose / floor interplay"
+    cause = lastλ == 12.0         ? "nothing — still solving at λ = 12"   :
+            m == "constant_power" ? "the analytic nose"                   :
+                                    "no solution found past this loading"
     println(rpad(m, 20), lpad(lastλ, 7), lpad(round(lastV; digits = 1), 10),
             lpad(round(lastP; digits = 0), 11), "    ", cause)
 end
@@ -239,19 +243,32 @@ Three regimes, one table:
   scaled nameplate). If your loads are genuinely impedance-like, a collapse margin
   computed with constant-power loads can be pessimistic by *multiples*, not
   percent.
-- **The voltage-dependent models sit in between — and where they stop is not
-  physics.** The `exponential` load (``\gamma_p = 1.5``, between I and Z)
-  rides out the whole ramp; `constant_current` and `zip` stop at ≈ 120 V.
-  120 V is ``0.5 \cdot V^{\text{nom}}`` — the
-  documented box on the auxiliary squared-voltage variable ``W``
-  ([spec §6](spec/load.md), *conditioning only*). A constant-current load's
-  voltage declines linearly and would happily continue below half nominal;
-  the *model implementation* declares that region out of scope. The lesson
-  generalizes: every voltage-dependent load model was fitted (or assumed)
-  around nominal voltage, and extrapolating it toward collapse is a modeling
-  decision — the engine's floor just makes that decision explicit. The
-  [`W.LOAD.NL_NO_VMIN`](findings.md) finding warns when a voltage-dependent
-  load has no engineering `v_min` on its bus for exactly this reason.
+- **The voltage-dependent models sit in between, and each stops for its own
+  physical reason.** `constant_current` solves the whole ramp, down to about
+  100 V: its current is fixed by the nameplate, so ``V = V_0 - ZI`` always
+  has a solution and the delivered power simply saturates. The `exponential`
+  load (``\gamma_p = 1.5``, between I and Z) rides out the ramp too. The
+  `zip` load stops near λ ≈ 10, at roughly twice the constant-power limit:
+  a plausible reading is that its 30 % constant-power share still has a nose,
+  only later, because the other 70 % relieves itself as the voltage falls. Read the power column as
+  well — every model that reaches the end of its ramp is delivering close to
+  50 kW, the most this source impedance can transfer at all.
+
+None of these stops is an implementation limit. The engine does not confine a
+voltage-dependent load to a band around `v_nom`: a pure constant-impedance
+load is written as a linear current law, valid down to zero volts, and the
+other voltage-dependent laws are written in the logarithm of the voltage
+magnitude, valid at every positive voltage. (When the bus carries a
+lower voltage bound, the squared-voltage form of [spec §6](spec/load.md) is
+used instead, with a guard at half that bound that never binds inside the
+permitted range.) So the model will follow a ZIP curve to 90 V if you ask it
+to. Whether it *should* is a separate question: every voltage-dependent load
+model was fitted, or assumed, around nominal voltage, and extrapolating it
+toward collapse is a modeling decision that the solver will not flag for you.
+[`W.LOAD.NL_NO_VMIN`](findings.md) is the nearest reminder — it reports a
+voltage-dependent load on a bus with no lower voltage bound (`v_min`,
+`vpn_min` or `vpp_min`), where nothing limits how far from the fitted range a
+solution may sit.
 
 !!! warning "A failed solve is evidence, not a certificate"
     `LOCALLY_INFEASIBLE` from an interior-point method means *this* solver,
@@ -292,9 +309,10 @@ Three caveats that separate a defensible choice from a convenient one:
   The measurement-based ZIP literature (Hajagos & Danai 1998; Collin et al.
   2014 for modern LV device mixes; the IEEE Task Force reports of 1993/1995
   that standardized the ZIP form) is the right calibration source.
-- **The exponent range you fitted is the range you may use** — §4's floor made
-  that concrete. Near-nominal fits extrapolated to collapse studies are the
-  classic silent error; the conservative fallback there is `constant_power`.
+- **The voltage range you fitted is the range you may use.** §4 showed that
+  the engine will extrapolate a fitted law far below it without complaint.
+  Near-nominal fits extrapolated to collapse studies are the classic silent
+  error; the conservative fallback there is `constant_power`.
 
 ## 6. Identifying a ZIP model from measurements
 
@@ -312,7 +330,7 @@ one row per measurement. Generate the "measurement campaign" honestly — a
 true ZIP load (``\alpha = (0.4, 0.3, 0.3)``) on the weak feeder, observed
 through power-flow solves at different source settings — and fit it back:
 
-```julia
+```@example loads
 using LinearAlgebra
 
 function campaign(scales)
@@ -352,7 +370,7 @@ Both campaigns recover the true parameters exactly — the data is noiseless,
 so even an ill-conditioned system solves. Real meters are not noiseless.
 Corrupt **a single reading** by half a percent and refit:
 
-```julia
+```@example loads
 for (name, (V, Pm)) in ("wide 0.85–1.10" => wide, "narrow 0.98–1.02" => narrow)
     P2 = copy(Pm); P2[1] *= 1.005          # one meter reads 0.5 % high, once
     f = fit_zip(V, P2)
@@ -361,9 +379,12 @@ for (name, (V, Pm)) in ("wide 0.85–1.10" => wide, "narrow 0.98–1.02" => narr
 end
 ```
 
-The wide campaign shrugs — the coefficients move but stay recognizable. The
-narrow campaign returns **nonsense**: coefficients far outside ``[0,1]``,
-including a large negative ``\alpha_i``, from *one* half-percent error. The
+The wide campaign degrades gracefully: the split between the Z, I and P
+shares shifts noticeably — the current share nearly vanishes — but every
+coefficient stays inside ``[0,1]`` and the fitted curve is still close to the
+true one over the measured range. The narrow campaign returns **nonsense**:
+coefficients far outside ``[0,1]``, including a large negative ``\alpha_i``,
+from *one* half-percent error. The
 mechanism is the condition number printed above: over a ±2 % voltage window,
 ``x^2 - 1`` and ``x - 1`` are almost the same regressor (both ≈ linear in the
 tiny excursion), so the least-squares problem cannot tell Z from I from P —
@@ -387,16 +408,29 @@ package [PowerOptLab.jl](https://github.com/frederikgeth/PowerOptLab.jl).
 - **Computing stability or collapse margins?** `constant_power` is the
   conservative assumption; voltage-dependent models relieve themselves and
   can be optimistic by multiples (§4). Respect the fitted voltage range —
-  the engine's ``0.5 \cdot V^{\text{nom}}`` floor will remind you.
+  the engine will not stop you leaving it, so put an engineering lower
+  voltage bound on the buses.
 - **Fitting from measurements?** Check the design-matrix conditioning before
   trusting the coefficients (§6); no voltage excitation, no identifiability.
 - **Handing a case to others?** [`analyze`](@ref) flags the load-model
-  hygiene issues: [`W.LOAD.NL_NO_VMIN`](findings.md),
-  [`I.LOAD.EXP_ZIP_EQUIVALENT`](findings.md).
+  hygiene issues ([Finding reference](findings.md)):
+  - *missing or malformed anchors and coefficients* — `E.LOAD.VNOM_MISSING`,
+    `E.LOAD.VNOM_NONPOSITIVE`, `E.LOAD.VNOM_ARITY`, `E.LOAD.ZIP_ARITY`,
+    `E.LOAD.EXP_ARITY`;
+  - *values that solve but probably are not what you meant* —
+    `W.LOAD.ZIP_SUM` (coefficients do not sum to one), `W.LOAD.GAMMA_NEGATIVE`
+    and `I.LOAD.GAMMA_RANGE` (unusual exponents), `W.LOAD.VNOM_MISMATCH`
+    (`v_nom` far from the bus voltage level);
+  - *fields that do not match the chosen model* — `W.LOAD.MODEL_MIXED` (a
+    `zip` load carrying exponents, or the reverse),
+    `I.LOAD.MODEL_FIELDS_IGNORED` (coefficients on a named constant model),
+    `I.LOAD.EXP_ZIP_EQUIVALENT`, and `W.LOAD.NL_NO_VMIN`.
 
 !!! tip "Where to go next"
     The [load specification](spec/load.md) has the full formulation this
-    tutorial exercised, including delta and split-phase sub-loads. The
+    tutorial exercised, including delta and split-phase sub-loads, and
+    [device parameter indexing](device_indexing.md) states how many entries
+    each array takes for each configuration. The
     [impedance-models tutorial](tutorial_impedance_models.md) is this
     tutorial's sibling for the *network* side of the same question — model
     fidelity as a modeling decision. The [VVWO tutorial](tutorial_vvwo.md)
