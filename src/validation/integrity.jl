@@ -115,7 +115,25 @@ function _unreferenced_conductor_groups(net)
         end
     end
     engine_neutrals = try _neutral_labels(net) catch; nothing end
-    for kind in ("load", "generator", "ibr", "capacitor"), (_, c) in table(kind)
+    # A capacitor ties exactly the terminal pairs its susceptance matrix stamps
+    # (`_cap_bmatrix`, the builder the solver uses): each phase to the neutral
+    # for WYE, the phase pairs for DELTA, the two terminals for SINGLE_PHASE.
+    # A WYE bank without a resolvable neutral stamps nothing and ties nothing.
+    for (_, c) in table("capacitor")
+        c isa Dict{String,Any} || continue
+        b = get(c, "bus", nothing); tm = get(c, "terminal_map", nothing)
+        b isa AbstractString && strs(tm) || continue
+        B = try _cap_bmatrix(c)[2] catch; nothing end
+        B === nothing && continue
+        all(isfinite, B) || continue
+        for i in 1:length(tm), j in i+1:length(tm)
+            i <= size(B, 1) && j <= size(B, 2) && B[i, j] != 0 && tie!(node(b, tm[i]), node(b, tm[j]))
+        end
+    end
+    # Loads and generators tie all their terminals (phase to neutral for WYE,
+    # phase pairs for DELTA). So do IBRs: THREE_LEG is line-to-line,
+    # SINGLE_PHASE is phase-to-reference terminal, FOUR_LEG is phase-to-neutral.
+    for kind in ("load", "generator", "ibr"), (_, c) in table(kind)
         c isa AbstractDict || continue
         b = get(c, "bus", nothing); tm = get(c, "terminal_map", nothing)
         tie_all!(b, tm)

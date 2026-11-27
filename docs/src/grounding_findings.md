@@ -54,7 +54,8 @@ A tie references only the conductors it reaches. Conductors are grouped by the
 elements that fix voltage differences between them: a line conductor end to
 end, the terminals of one winding, the terminals of one load, two shunt
 terminals with a nonzero admittance entry between them (listing a terminal in a
-shunt's map connects it to nothing). Each group needs
+shunt's map connects it to nothing), the terminal pairs a capacitor bank
+actually stamps. Each group needs
 its own tie. An earth shunt on a neutral that is carried along a delta feeder,
 with no winding or load between that neutral and the phases, leaves the phases
 free to shift together; `E.INT.NO_VOLTAGE_REFERENCE` then names the floating

@@ -956,6 +956,41 @@ end
         pp["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => ["a","b"],
             "configuration" => "SINGLE_PHASE", "p_nom" => [100.0], "q_nom" => [0.0])
         @test length(groups(pp)) == 1
+        # A capacitor ties what its susceptance matrix stamps. A WYE bank to the
+        # earthed fourth conductor references the phases through it...
+        capn = deepcopy(net)
+        capn["capacitor"] = Dict{String,Any}("bank" => Dict{String,Any}("bus" => "it1",
+            "terminal_map" => ["a","b","c","n"], "configuration" => "WYE",
+            "q_rated" => fill(1000.0, 3), "v_nom" => 230.0))
+        @test !floats(capn, phases) && isempty(groups(capn))
+        # ...a DELTA bank ties phases to each other only...
+        capd = deepcopy(net)
+        capd["capacitor"] = Dict{String,Any}("bank" => Dict{String,Any}("bus" => "it1",
+            "terminal_map" => ["a","b","c"], "configuration" => "DELTA",
+            "q_rated" => fill(1000.0, 3), "v_nom" => 400.0))
+        @test floats(capd, phases) && length(groups(capd)) == 1
+        # ...and a WYE bank whose map holds no resolvable neutral stamps nothing,
+        # so merely listing the terminals connects nothing.
+        capx = deepcopy(net)
+        for b in ("it0", "it1"); capx["bus"][b]["terminal_names"] = ["a","b","c","m"]; end
+        capx["line"]["run"]["terminal_map_from"] = ["a","b","c","m"]
+        capx["line"]["run"]["terminal_map_to"] = ["a","b","c","m"]
+        capx["capacitor"] = Dict{String,Any}("bank" => Dict{String,Any}("bus" => "it1",
+            "terminal_map" => ["a","b","c","m"], "configuration" => "WYE",
+            "q_rated" => fill(1000.0, 3), "v_nom" => 230.0))
+        @test all(iszero, BMOPFTools._cap_bmatrix(capx["capacitor"]["bank"])[2])
+        phases_x = [(b, t) for b in ("it0", "it1") for t in ("a", "b", "c")]
+        @test floats(capx, phases_x) && length(groups(capx)) == 1
+        # An IBR ties its terminals as the solver stamps them: THREE_LEG is
+        # line-to-line (no reference), FOUR_LEG reaches the earthed neutral.
+        three = deepcopy(net)
+        three["ibr"] = Dict{String,Any}("pv" => Dict{String,Any}("bus" => "it1",
+            "terminal_map" => ["a","b","c"], "topology" => "THREE_LEG", "prime_mover" => "PV", "s_max" => [3000.0]))
+        @test length(groups(three)) == 1
+        four = deepcopy(net)
+        four["ibr"] = Dict{String,Any}("pv" => Dict{String,Any}("bus" => "it1",
+            "terminal_map" => ["a","b","c","n"], "topology" => "FOUR_LEG", "prime_mover" => "PV", "s_max" => fill(1000.0, 3)))
+        @test isempty(groups(four))
         # The whole-island finding is not repeated per group.
         bare = _pg_sys("it_delta_island_unreferenced")
         f = Finding[]; integrity_check(bare, f)
@@ -1103,6 +1138,48 @@ end
         @test conn["longest_path_vertices"] == ["src", "dc_island:link", "recv", "leaf"]
         path = conn["longest_path_buses"]
         @test "recv" in path[1:max(1, cld(length(path), 2))]
+
+        # End to end: near-source placement puts the same units behind a DC link
+        # as behind a direct AC branch. src - (link) - hub - mid - leaf - tail:
+        # the near-source half of the bus path is src, hub, mid, and mid is the
+        # first load bus without a converter of its own.
+        placed(link) = begin
+            bus(grounded=true) = Dict{String,Any}("terminal_names" => ["1","2","3","n"],
+                "perfectly_grounded_terminals" => ["n"])
+            ln(f, t) = Dict{String,Any}("bus_from" => f, "bus_to" => t, "linecode" => "lc", "length" => 50.0,
+                "terminal_map_from" => ["1","2","3","n"], "terminal_map_to" => ["1","2","3","n"])
+            ld(b) = Dict{String,Any}("bus" => b, "terminal_map" => ["1","2","3","n"], "configuration" => "WYE",
+                "p_nom" => fill(1000.0, 3), "q_nom" => fill(0.0, 3))
+            net = Dict{String,Any}(
+                "bus" => Dict{String,Any}(b => bus() for b in ("src", "hub", "mid", "leaf", "tail")),
+                "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}("bus" => "src",
+                    "terminal_map" => ["1","2","3"], "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2.0944, 2.0944])),
+                "linecode" => Dict{String,Any}("lc" => Dict{String,Any}("R_series_1_1" => 0.000396)),
+                "line" => Dict{String,Any}("l2" => ln("hub", "mid"), "l3" => ln("mid", "leaf"), "l4" => ln("leaf", "tail")),
+                "load" => Dict{String,Any}("ld_mid" => ld("mid"), "ld_tail" => ld("tail")))
+            if link == :dc
+                net["dc_bus"] = Dict{String,Any}("link" => Dict{String,Any}("terminal_names" => ["p","n"]))
+                net["ibr"] = Dict{String,Any}(k => Dict{String,Any}("bus" => b, "dc_bus" => "link",
+                    "terminal_map" => ["1","2","3"], "topology" => "THREE_LEG", "prime_mover" => "CONVERTER",
+                    "s_max" => [1e4]) for (k, b) in (("c1", "src"), ("c2", "hub")))
+            else
+                net["line"]["l1"] = ln("src", "hub")
+            end
+            @test connectivity_analysis(net, Finding[])["longest_path_buses"] == ["src", "hub", "mid", "leaf", "tail"]
+            gens, _ = redirect_stderr(devnull) do
+                add_generators(net; recipe=GeneratorRecipe(strategy=:topology_targeted,
+                    topology_mode=:near_source, voltage_levels=nothing))
+            end
+            ibrs, _ = redirect_stderr(devnull) do
+                add_ibrs(net; recipe=IBRRecipe(strategy=:topology_targeted,
+                    topology_mode=:near_source, voltage_levels=nothing))
+            end
+            (sort!(collect(keys(get(gens, "generator", Dict())))),
+             sort!([k for k in keys(get(ibrs, "ibr", Dict())) if !(k in ("c1", "c2"))]))
+        end
+        ac_gens, ac_ibrs = placed(:ac); dc_gens, dc_ibrs = placed(:dc)
+        @test ac_gens == ["der_mid"] && dc_gens == ac_gens
+        @test ac_ibrs == ["pv_mid"] && dc_ibrs == ac_ibrs
     end
 
     # ── Noise budget on decks an independent engine solves ──────────────────
