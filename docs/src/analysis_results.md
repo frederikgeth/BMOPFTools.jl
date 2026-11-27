@@ -185,8 +185,10 @@ transformer ratios. Three cases need care when reading it:
   listed in `high_leg_units`; `high_leg_banks` gives, per power unit, the
   lighting unit, the buses, the high-leg conductor and a `status`. The two
   units share a primary supply point: for each winding, the buses its phase
-  conductors reach through closed switches count as one (a neutral bond, or a
-  tie on a phase the winding does not use, joins nothing), so a primary disconnect between the units does not split the
+  conductors reach through closed switches are its supply point, and two
+  windings share one when they reach the same set of buses, listed as
+  `supply_buses` (a neutral bond, or a tie on a phase the winding does not
+  use, joins nothing), so a primary disconnect between the units does not split the
   bank (here, in `transformer_banks` and in the supplied-phase count). A bank is
   identified from the nominal phasors of the two primary windings. The phasor of
   a winding terminal is the magnitude and angle a voltage source declares for the conductor

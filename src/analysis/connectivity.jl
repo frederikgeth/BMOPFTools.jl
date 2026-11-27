@@ -894,7 +894,7 @@ function _transformer_bank_groups(net)
     xfmr isa AbstractDict || return (merged=merged, groups=groups)
     roles = _index_roles(net)
     neutrals = roles === nothing ? nothing : roles.neutral
-    pairs = Dict{Tuple{String,String},Vector{Any}}()
+    pairs = Dict{Tuple{Vector{String},String},Vector{Any}}()
     supply = _supply_point(net)
     for subtype in _BANKABLE_SUBTYPES
         sub = get(xfmr, subtype, nothing)
@@ -905,7 +905,7 @@ function _transformer_bank_groups(net)
             bf isa AbstractString && bt isa AbstractString && bf != bt || continue
             sig = _bank_unit_signature(t, neutrals)
             from = supply(String(bf), get(t, "terminal_map_from", nothing))
-            from == String(bt) && continue
+            String(bt) in from && continue
             push!(get!(pairs, (from, String(bt)), Any[]),
                   (subtype=subtype, id=string(id), sig=sig))
         end
@@ -932,7 +932,7 @@ function _transformer_bank_groups(net)
         for l in legs[2:end]
             push!(merged, (l.subtype, l.id))
         end
-        push!(groups, Dict{String,Any}("bus_from" => key[1], "bus_to" => key[2],
+        push!(groups, Dict{String,Any}("bus_from" => first(key[1]), "supply_buses" => key[1], "bus_to" => key[2],
             "units" => sort!([l.id for l in legs]),
             "parallel_units" => sort!([u.id for u in parallel]),
             "unassessed_units" => sort!([u.id for u in units if u.sig === nothing]),
@@ -950,8 +950,11 @@ end
 # carries EVERY phase conductor the winding uses (labels are followed through
 # the switch's terminal maps): a neutral bond, or a tie on a phase the winding
 # does not use, joins nothing, and two units on separate feeds stay separate.
-# Returns `supply(bus, terminals)`; a winding with no phase terminal, or one
-# whose map cannot be read, stays at its own bus.
+# Returns `supply(bus, terminals)`: the sorted list of ALL buses the winding
+# reaches, its own first among equals only by name. Two windings share a
+# supply point when the lists are equal; a single representative bus would
+# let two different reaches collide on a name. A winding with no phase
+# terminal, or one whose map cannot be read, stays at its own bus.
 function _supply_point(net)
     roles = _index_roles(net)
     is_return(x) = roles === nothing ? _is_convention_neutral(x) : (x in roles.neutral || x in roles.earth)
@@ -970,20 +973,20 @@ function _supply_point(net)
             push!(get!(crossings, String(b), []), (String(a), Dict{String,String}(zip(string.(tt), string.(tf)))))
         end
     end
-    cache = Dict{Tuple{String,Vector{String}},String}()
+    cache = Dict{Tuple{String,Vector{String}},Vector{String}}()
     function supply(bus::AbstractString, terminals)
         bus = String(bus)
-        isempty(crossings) && return bus
-        terminals isa AbstractVector && all(x -> x isa AbstractString, terminals) || return bus
+        isempty(crossings) && return [bus]
+        terminals isa AbstractVector && all(x -> x isa AbstractString, terminals) || return [bus]
         phases = sort!(unique!([String(t) for t in terminals if !is_return(t)]))
-        isempty(phases) && return bus
+        isempty(phases) && return [bus]
         get!(cache, (bus, phases)) do
             seen = Set{Tuple{String,Vector{String}}}([(bus, phases)])
             queue = [(bus, phases)]
-            best = bus
+            reached = Set{String}()
             while !isempty(queue)
                 at, labels = popfirst!(queue)
-                at < best && (best = at)
+                push!(reached, at)
                 for (other, map) in get(crossings, at, ())
                     all(l -> haskey(map, l), labels) || continue
                     state = (other, sort!([map[l] for l in labels]))
@@ -991,7 +994,7 @@ function _supply_point(net)
                     push!(seen, state); push!(queue, state)
                 end
             end
-            best
+            sort!(collect(reached))
         end
     end
     supply

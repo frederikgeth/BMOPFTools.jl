@@ -246,17 +246,19 @@ function _conductor_reference(net)
             lo = lo === nothing ? -Inf : lo; hi = hi === nothing ? Inf : hi
             volt_watt_zero(k) && (hi = min(hi, 0.0))
             min_pf && (lo = max(lo, 0.0))
-            # A constant power factor below one ties the two powers of a coil:
-            # |Q| = tan(phi) |P|. The Q box therefore bounds |P| as well, and
-            # a coil with Q pinned at zero has P at zero. This comes before
-            # the DC balance, which sees each coil's range as it really is.
+            # A constant power factor below one ties the two powers of a coil
+            # by the solver's law sign(pf) |pf| Q + sin(phi) P = 0, that is
+            # P = m Q with m = -sign(pf) |pf| / sin(phi). The Q box therefore
+            # maps onto a P range, sign included: a one-sided Q box gives a
+            # one-sided P range. This comes before the DC balance, which sees
+            # each coil's range as it really is.
             if constant_pf isa Real && 0 < abs(constant_pf) < 1
                 local qlo = number(get(c, "q_min", nothing), k)
                 local qhi = number(get(c, "q_max", nothing), k)
-                if qlo !== nothing && qhi !== nothing
-                    reach = max(abs(qlo), abs(qhi)) * abs(constant_pf) / sqrt((1 - abs(constant_pf)) * (1 + abs(constant_pf)))
-                    lo = max(lo, -reach); hi = min(hi, reach)
-                end
+                qlo = qlo === nothing ? -Inf : qlo; qhi = qhi === nothing ? Inf : qhi
+                m = -sign(constant_pf) * abs(constant_pf) / sqrt((1 - abs(constant_pf)) * (1 + abs(constant_pf)))
+                image(q) = iszero(q) ? 0.0 : m * q          # 0 * Inf is not a bound
+                lo = max(lo, min(image(qlo), image(qhi))); hi = min(hi, max(image(qlo), image(qhi)))
             end
             (lo, hi)
         end

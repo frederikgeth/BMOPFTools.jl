@@ -293,6 +293,33 @@ using JuMP, Ipopt
         @test all(hypot(res["ibr"]["st"][t]["cri"], res["ibr"]["st"][t]["cii"]) < 1e-3 for t in ("a", "b"))
     end
 
+    @testset "one-sided reactive bounds under a power factor and a DC balance" begin
+        net = sys("it_delta_island_unreferenced")
+        net["bus"]["it1"]["terminal_names"] = ["a", "b", "c", "n"]
+        net["bus"]["it1"]["perfectly_grounded_terminals"] = ["n"]
+        net["control_profile"] = Dict{String,Any}("cp" => Dict{String,Any}(
+            "power_factor" => Dict{String,Any}("pf" => 0.95)))
+        net["ibr"] = Dict{String,Any}("st" => Dict{String,Any}("bus" => "it1", "terminal_map" => ["a", "b", "n"],
+            "topology" => "FOUR_LEG", "prime_mover" => "STATCOM", "s_max" => [3000.0, 3000.0],
+            "p_min" => [-3000.0, -3000.0], "p_max" => [3000.0, 3000.0], "q_min" => [-500.0, -500.0],
+            "q_max" => [0.0, 0.0], "control_profile" => "cp", "dc_link_coupled" => true))
+        opf(n) = redirect_stdout(devnull) do
+            redirect_stderr(devnull) do
+                solve_opf(n)
+            end
+        end
+        current(res) = maximum(hypot(res["ibr"]["st"][t]["cri"], res["ibr"]["st"][t]["cii"]) for t in ("a", "b"))
+        @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(net))]
+        @test current(opf(net)) < 1e-3
+        # The sign convention, checked against the solver: without the balance
+        # the same Q box lets P flow in one direction only.
+        free = deepcopy(net); free["ibr"]["st"]["dc_link_coupled"] = false
+        free["ibr"]["st"]["q_min"] = [-500.0, -500.0]; free["ibr"]["st"]["q_max"] = [-500.0, -500.0]
+        @test isempty(errors(report(free)))
+        res = opf(free)
+        @test all(res["ibr"]["st"][t]["pg"] > 100.0 for t in ("a", "b"))
+    end
+
     @testset "a primary disconnect does not change a high-leg bank" begin
         base = solve(sys("na_high_leg_open_delta"))
         net = sys("na_high_leg_open_delta")

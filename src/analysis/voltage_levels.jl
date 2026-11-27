@@ -209,7 +209,7 @@ function _high_leg_banks(net::Dict{String,Any})
     # bank what it was. Primary buses are compared up to the closed switches
     # that carry each winding's phase conductors (`_supply_point`).
     supply = _supply_point(net)
-    lighting = Dict{Tuple{String,String},Vector{Any}}()
+    lighting = Dict{Tuple{Vector{String},String},Vector{Any}}()
     for id in sort!(collect(keys(ct)))
         t = ct[id]
         t isa AbstractDict || continue

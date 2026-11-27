@@ -1172,6 +1172,21 @@ end
         @test length(groups(chained(0.0))) == 1
         @test isempty(groups(chained(500.0)))                                # the first coil has room
         @test isempty(groups(chained(0.0; pf=1.0)))                          # unity: Q says nothing about P
+        # The sign survives: at +0.95 a Q box of [-500, 0] makes every coil's P
+        # nonnegative, and a zero balance over nonnegative coils is zero.
+        sided(qlo, qhi; pf=0.95) = begin
+            out = chained(0.0; pf); i = out["ibr"]["pv"]
+            i["q_min"] = [qlo, qlo]; i["q_max"] = [qhi, qhi]
+            out
+        end
+        @test length(groups(sided(-500.0, 0.0))) == 1
+        @test length(groups(sided(0.0, 500.0))) == 1                         # every P nonpositive
+        @test length(groups(sided(-500.0, 0.0; pf=-0.95))) == 1
+        @test isempty(groups(sided(-500.0, 500.0)))                          # both signs: circulation
+        mixed = sided(-500.0, 0.0); mixed["ibr"]["pv"]["q_min"] = [-500.0, 0.0]; mixed["ibr"]["pv"]["q_max"] = [0.0, 500.0]
+        @test isempty(groups(mixed))                                         # opposite sides: one exports, one absorbs
+        open_q = sided(-500.0, 0.0); delete!(open_q["ibr"]["pv"], "q_min")
+        @test length(groups(open_q)) == 1                                    # Q <= 0 alone is one-sided too
         loose_dc = chained(0.0); loose_dc["ibr"]["pv"]["p_dc_min"] = -100.0; loose_dc["ibr"]["pv"]["p_dc_max"] = 100.0
         @test isempty(groups(loose_dc))                                      # the balance leaves the second coil room
         # Several coils can circulate power between phases: the balance pins a
@@ -1594,6 +1609,34 @@ end
         @test only(_pg_analyze(tied(["a", "b"])).results[:connectivity]["transformer_banks"])["units"] == ["lighting", "power"]
         # One primary's phase alone is not enough for the other unit.
         @test isempty(_pg_analyze(tied(["a"])).results[:connectivity]["transformer_banks"])
+        # Grouping does not depend on bus names. With a phase-a-only tie the
+        # lighting unit reaches both poles and the power unit only its own:
+        # different reaches, whichever pole sorts first.
+        renamed_bus(net, old, new) = begin
+            out = deepcopy(net)
+            out["bus"][new] = pop!(out["bus"], old)
+            for kind in ("line", "switch"), c in values(get(out, kind, Dict()))
+                for k in ("bus_from", "bus_to"); c[k] == old && (c[k] = new); end
+            end
+            for sub in values(out["transformer"]), t in values(sub)
+                for k in ("bus_from", "bus_to"); t[k] == old && (t[k] = new); end
+            end
+            for kind in ("shunt", "load"), c in values(get(out, kind, Dict()))
+                c["bus"] == old && (c["bus"] = new)
+            end
+            out
+        end
+        for net in (tied(["a"]), renamed_bus(tied(["a"]), "pole2", "a_pole2"), renamed_bus(tied(["a"]), "pole", "z_pole"))
+            rep = _pg_analyze(net)
+            @test isempty(rep.results[:connectivity]["transformer_banks"])
+            @test rep.results[:connectivity]["n_extra_edges"] == 2
+            @test isempty(bank(net))
+        end
+        for net in (tied(["a", "b"]), renamed_bus(tied(["a", "b"]), "pole2", "a_pole2"))
+            g = only(_pg_analyze(net).results[:connectivity]["transformer_banks"])
+            @test g["units"] == ["lighting", "power"] && length(g["supply_buses"]) == 2
+            @test only(bank(net))["status"] == "verified"
+        end
         # Labels are followed through the switch: `b` arriving as `x` is still b.
         relabeled = behind(); relabeled["bus"]["pole2"]["terminal_names"] = ["a", "x", "c", "n"]
         relabeled["switch"]["disc"]["terminal_map_to"] = ["a", "x", "c", "n"]
