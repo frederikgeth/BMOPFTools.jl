@@ -1,9 +1,20 @@
 # Transformer connections and effective phase relations
 
-A transformer report separates four meanings: the authored winding connection,
-external terminal correspondence, the derived effective phase relation, and any
-unverified declared nameplate text. Terminal maps are executable data. Reporting
-never rewrites them to obtain a preferred clock number.
+A nameplate such as "Dyn11" states a winding connection and a phase
+displacement. In a conductor-level model the displacement is not a stored
+attribute: it follows from the winding connection *and* from how the terminals
+are wired to the buses. [`transformer_phase_relation`](@ref) derives it.
+
+The report keeps four things apart:
+
+1. the authored **winding connection** (wye, delta);
+2. the external **terminal correspondence** (which bus terminal each winding
+   terminal lands on);
+3. the derived **effective phase relation** (the clock number);
+4. any **declared nameplate text**, which is recorded and never trusted.
+
+Terminal maps are executable data. Reporting never rewrites them to obtain a
+preferred clock number.
 
 ```julia
 relation = transformer_phase_relation(net, "delta_wye", transformer;
@@ -14,97 +25,103 @@ relation["clock"]        # integer 0:11 only when known; otherwise nothing
 relation["windings"]     # original maps, roles, correspondence, coil incidence
 ```
 
-`phase_order` supplies corresponding nominal phases at 0°, −120°, +120° by bus.
-It is an explicit analysis argument, not a new case-schema field. Without it,
-only complete numeric `1/2/3`, lowercase `a/b/c`, or uppercase `A/B/C` label sets
-supply that conventional order. The order of `terminal_conventions.phase`, bus
-terminals or an arbitrary custom phase label never supplies nominal angles.
-Declared roles determine phase versus neutral accessibility, including names such
-as `4`, `N0` and `return`; they do not imply a ground bond.
+## Which terminals are phases A, B, C?
 
-## Orientation and derivation
+A clock number needs to know which terminals carry the nominal 0°, −120° and
++120° phasors. `phase_order` supplies that, per bus. It is an analysis
+argument, not a case field.
 
-The default direction is authored winding 1 → winding 2 (`from` → `to` for a
-two-bus subtype). `from_winding` and `to_winding` may select any original winding
-pair, including reverse traversal. Uppercase connection letters identify the
-**reference** side, lowercase the **target** side. They do not claim HV → LV;
-the code does not reorder windings by voltage. For three or more windings,
-inventory carries separate winding-1 → winding-k relations, and its aggregate
-string has no single clock designation.
+Without it, only three complete label sets imply the conventional order:
+numeric `1/2/3`, lowercase `a/b/c`, and uppercase `A/B/C`. The order of
+`terminal_conventions.phase`, the order of a bus's terminals, and custom phase
+labels never imply nominal angles.
 
-The relation concerns ideal balanced three-phase winding voltages with positive
-real turns ratios/taps, not loaded terminal voltage drops. Delta phase references use the balanced
-virtual neutral (zero mean); its arbitrary common-mode voltage is excluded.
-For WYE, coil k is the
-mapped phase voltage minus the identified neutral (or the existing implicit zero
-reference). For DELTA it is the mapped terminal k voltage minus the other terminal:
+Declared roles decide which terminal is a phase and which is a neutral,
+including names such as `4`, `N0` and `return`. They do not imply a ground
+bond.
 
-| Representation | Other delta position |
+## How the relation is derived
+
+**Direction.** The default is winding 1 → winding 2 (`from` → `to` for a
+two-bus subtype). `from_winding` and `to_winding` select any other pair,
+including the reverse. In the result, the uppercase connection letter is the
+*reference* side and the lowercase letter the *target* side. They do not mean
+high and low voltage; windings are not reordered by voltage. With three or
+more windings, the inventory holds separate winding-1 → winding-k relations
+and the aggregate label has no single clock.
+
+**Coil voltages.** The relation concerns ideal, balanced, three-phase winding
+voltages with positive real turns ratios. Loaded voltage drops are not part of
+it. For a wye, coil `k` is the mapped phase voltage minus the identified
+neutral (or the implicit zero reference). For a delta, it is the voltage of
+mapped terminal `k` minus that of another terminal:
+
+| Representation | Other delta terminal |
 |:--|:--|
-| `wye_delta` | k+1 cyclically |
-| `delta_wye` | k−1 cyclically |
-| `n_winding` | k+`delta_roll` cyclically, with roll exactly +1 or −1 |
+| `wye_delta` | `k+1`, cyclically |
+| `delta_wye` | `k−1`, cyclically |
+| `n_winding` | `k+delta_roll`, cyclically, with `delta_roll` exactly +1 or −1 |
 
-For each paired coil, the derivation compares the prescribed nominal phasors
-`u_reference[k] / u_target[k]` after removing positive magnitude. All three must
-agree on one rotation. The target displacement is the angle of that rotation;
-clock is `−displacement/30° mod 12`. Zero means a supported zero displacement.
-For the default a/b/c maps, both Yd and Dy have a −30° target displacement under
-their respective executable delta orientations (clock 1). Reversing traversal
-negates the displacement/clock. Cyclic external rewiring can change the effective
-clock; a relative reversal can destroy a uniform positive-sequence relation.
-Equivalent renaming with explicit correspondence leaves the result unchanged.
+Delta phase references use the balanced virtual neutral (zero mean), which
+removes the arbitrary common-mode voltage.
 
-Matching labels do not establish equivalent equipment or compatible phase
-relations around a network loop. Loop compatibility requires a separate
-assessment; this report describes each transformer's represented phase relation.
+**Clock.** For each paired coil, the ratio `u_reference[k] / u_target[k]` is
+reduced to a pure rotation. All three coils must agree. The displacement is
+the angle of that rotation and the clock is `−displacement/30° mod 12`.
 
-## Domain and statuses
+With default `a/b/c` maps, both `wye_delta` and `delta_wye` give a −30° target
+displacement, clock 1. Three consequences follow:
+
+- Reversing the direction negates the displacement and the clock.
+- Cyclic external rewiring changes the effective clock.
+- A relative reversal of two phases can destroy the uniform rotation, and the
+  result is then `unsupported`.
+
+Renaming terminals while supplying the matching `phase_order` leaves the
+result unchanged.
+
+!!! warning "Not a loop check"
+    Matching labels on two transformers do not establish that they are
+    equivalent or that their phase relations are compatible around a network
+    loop. This report describes one transformer at a time.
+
+## Statuses
 
 | Status | Meaning |
 |:--|:--|
-| `known` | Complete three-phase Yy (`single_phase` bank), Yd, Dy, or WYE/DELTA n-winding pair with one supported clock rotation |
-| `partial` | Connections are described, but phase correspondence is absent, the map is not three-phase, or an aggregate multiwinding label has only pairwise evidence |
-| `unknown` | Required references/roles are unresolved, maps are malformed/duplicated, an explicit phase correspondence is invalid, or a supplied ratio/base is not positive real |
-| `unsupported` | Nonuniform phase relation, unsupported delta roll/connection, or a subtype without this three-phase clock interpretation (center-tap and regulators) |
+| `known` | A complete three-phase Yy (`single_phase` bank), Yd, Dy, or wye/delta `n_winding` pair with one supported rotation |
+| `partial` | The connections are described, but phase correspondence is absent, the map is not three-phase, or a multiwinding label has only pairwise evidence |
+| `unknown` | References or roles are unresolved, maps are malformed or duplicated, the supplied phase correspondence is invalid, or a ratio is not positive real |
+| `unsupported` | The phase relation is nonuniform, the delta roll or connection is unsupported, or the subtype has no three-phase clock (center-tap, regulators) |
 
-The latter three statuses have `clock = nothing` and a `?` display suffix. A
-center-tap may have a fully valid positional polarity layout yet no single
-three-phase clock (`Ii?`). This is not an invalid-transformer Finding. The
-native n-winding solver's existing a/b/c/n label restriction is unchanged;
-static declared-role evidence does not promise solver support for custom labels.
-Grounding, loaded drops, tap feasibility, nameplate equivalence and mesh behavior
-are explicitly unassessed. Numeric winding data are retained/checked only as
-needed for this descriptive domain, not normalized or converted by reporting.
+All but `known` have `clock = nothing` and a `?` suffix in the display label.
+A center-tap transformer with a valid polarity layout is reported as `Ii?`;
+that is a statement about the clock concept, not a defect in the transformer.
 
-`declared_vector_group` accepts a caller-supplied nameplate declaration (or retains
-an existing raw `vector_group` value if supplied in the dictionary). Its provenance
-is `authored_unverified`; it never overrides the derived result. No generic
-vector-group field is added to the external schema, and no new execution adapter
-or Finding code is introduced for these descriptive statuses.
+Grounding, loaded voltage drops, tap feasibility, nameplate equivalence and
+mesh behavior are outside this report.
 
-## Consumer compatibility and migration
+## Declared nameplate text
 
-- Inventory retains string-keyed `by_vector_group` tallies and adds
-  `phase_relations[subtype][id]` with structured provenance and pairwise evidence.
-- Voltage transitions retain their string `vector_group` field and add a
-  `phase_relation` record for that exact direction/pair.
-- Terminal and Markdown transitions identify the label as an *effective* relation.
-  ASCII trees derive the label for the actual traversal direction, including
-  winding-list edges, and show the referenced bus arrow.
-- `inventory_analysis`, `voltage_level_analysis` and `render_ascii_tree` accept
-  the same optional `phase_order` map. Ordinary `analyze` uses the conventional
-  label domain; use the standalone passes for caller-supplied correspondence.
+`declared_vector_group` accepts a nameplate string from the caller, or keeps a
+raw `vector_group` value already present in the dictionary. Its provenance is
+`authored_unverified` and it never overrides the derived result. There is no
+vector-group field in the external schema and no Finding code for these
+statuses.
 
-Consumers must stop treating every string suffix as a nameplate clock. Letter
-labels no longer fall back to zero, declared neutral names retain accessibility,
-Yy permutations are evaluated, and unsupported single-phase/center-tap labels no
-longer assert clock zero. The context-free private `_derive_vector_group` wrapper
-returns an incomplete label; network-aware consumers use the structured API.
+## Where the relation appears
 
-Tests use independent prescribed-phasor primitive solves over all six phase-map
-permutations on both sides, source-angle rotations and taps, plus native SI and
-per-unit phasor checks. They preserve authored maps and verify JSON evidence and
-unknown states without mutating the network. The existing source-angle tagging
-test retains invariance checks and replaces its unjustified center-tap `Ii0`
-expectation with `Ii?` and an explicit unsupported-status assertion.
+- `inventory_analysis` keeps the string-keyed `by_vector_group` tallies and
+  adds `phase_relations[subtype][id]` with provenance and pairwise evidence.
+- `voltage_level_analysis` keeps the string `vector_group` on each voltage
+  transition and adds a `phase_relation` record for that direction.
+- Terminal and Markdown reports label the value as an *effective* relation.
+  `render_ascii_tree` derives the label for the direction it traverses.
+- All three accept the optional `phase_order` map. [`analyze`](@ref) uses the
+  conventional label sets only; call the individual passes to supply your own
+  correspondence.
+
+!!! warning "Reading the string label"
+    A suffix on a vector-group string is a nameplate clock only when the
+    status is `known`. Letter labels do not default to clock zero, and
+    single-phase and center-tap labels carry `?`.
