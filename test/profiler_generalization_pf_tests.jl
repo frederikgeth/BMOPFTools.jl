@@ -107,6 +107,16 @@ using JuMP, Ipopt
         @test vmag(solve(net), "svc", "c") ≈ 360.0 rtol = 0.03          # in phase: 120 V + 240 V
     end
 
+    @testset "an unbalanced source magnitude breaks the V-connection's delta" begin
+        net = sys("jp_three_wire_v_connection")
+        net["voltage_source"]["grid"]["v_magnitude"][3] *= 0.4
+        @test isempty(report(net).results[:voltage_levels]["high_leg_banks"])
+        res = solve(net)
+        @test vmag(res, "shop", "a") ≈ 100.0 rtol = 0.05
+        # Nowhere near the sqrt(3) x 100 V of a closed delta.
+        @test !isapprox(vmag(res, "shop", "c"), sqrt(3) * 100.0; rtol = 0.2)
+    end
+
     @testset "a load written against earth is the island's reference" begin
         net = sys("it_delta_island_unreferenced")
         net["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => ["a"],

@@ -1491,13 +1491,25 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
     @testset "Integrity checks" begin
         base = parse_bmopf(SYNTHETIC_FEEDER_FIXTURE; from_string=true)
 
-        # pristine fixture: no integrity errors, 3 galvanic islands all referenced
+        # pristine fixture: 3 galvanic islands, each with a reference, and one
+        # integrity error that follows from an intentional defect. The workshop
+        # bus has a grounded neutral, but its only load is the deliberately
+        # zero-power `load_zero`: a coil that draws no current ties nothing, so
+        # the three workshop phases have no tie to that neutral.
         f0 = Finding[]
         res0 = integrity_check(base, f0)
         @test res0["n_reference_issues"] == 0
         @test res0["n_galvanic_islands"] == 3      # supply | primary-tree | workshop
         @test res0["n_without_reference"] == 0
-        @test !any(x -> x.severity == ERROR, f0)
+        errs0 = [x for x in f0 if x.severity == ERROR]
+        @test [x.code for x in errs0] == ["E.INT.NO_VOLTAGE_REFERENCE"]
+        @test only(errs0).detail["scope"] == "conductor_group"
+        @test only(errs0).detail["buses"] == ["workshop"]
+        @test sort([t["terminal"] for t in only(errs0).detail["terminals"]]) == ["1", "2", "3"]
+        # Give that load a demand and the fixture has no integrity error at all.
+        loaded = deepcopy(base); loaded["load"]["load_zero"]["p_nom"] = [500.0]
+        fl = Finding[]; integrity_check(loaded, fl)
+        @test !any(x -> x.severity == ERROR, fl)
 
         # dangling references
         net = deepcopy(base)

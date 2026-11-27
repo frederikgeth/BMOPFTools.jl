@@ -53,7 +53,8 @@ phases to each other and not to earth, so it does not count.
 
 A tie references only the conductors it reaches. Conductors are grouped by the
 elements that fix voltage differences between them: a line conductor end to
-end, the terminals of one winding, the terminals of one load, two shunt
+end, the terminals of one winding, the two ends of a load coil that draws
+power (a zero-power coil draws no current at any voltage and ties nothing), two shunt
 terminals with a nonzero admittance entry between them (listing a terminal in a
 shunt's map connects it to nothing), the terminal pairs a capacitor bank
 actually stamps. Each group needs

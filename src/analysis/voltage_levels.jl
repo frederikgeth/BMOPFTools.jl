@@ -209,8 +209,8 @@ function _high_leg_banks(net::Dict{String,Any})
     roles = _index_roles(net)
     is_return(x) = roles === nothing ? _is_convention_neutral(x) :
         (x in roles.neutral || x in roles.earth)
-    # Nominal phasor of a (bus, terminal): the angle a voltage source declares
-    # for the CONDUCTOR that terminal belongs to, followed through the terminal
+    # Nominal phasor of a (bus, terminal): the magnitude and angle a voltage
+    # source declares for the CONDUCTOR that terminal belongs to, followed through the terminal
     # maps of lines and closed switches. Labels are not followed: `pole.b` fed
     # from `sub.a` through a mapped conductor carries the angle of `sub.a`,
     # and two legs behind another transformer carry none. A conductor that two
@@ -243,31 +243,40 @@ function _high_leg_banks(net::Dict{String,Any})
                     ra == rb || (parent[ra] = rb)
                 end
             end
-            declared = Dict{Node,Vector{Float64}}()
+            # The declared phasor is magnitude AND angle: a winding across two
+            # conductors of unequal magnitude does not point where their angles
+            # alone would put it.
+            declared = Dict{Node,Vector{ComplexF64}}()
             for (_, vs) in get(net, "voltage_source", Dict())
                 vs isa AbstractDict || continue
-                sb = get(vs, "bus", nothing)
-                tm = get(vs, "terminal_map", nothing); va = get(vs, "v_angle", nothing)
-                sb isa AbstractString && tm isa AbstractVector && va isa AbstractVector || continue
-                for (label, angle) in zip(tm, va)
-                    label isa AbstractString && angle isa Real && isfinite(angle) || continue
-                    push!(get!(declared, find((String(sb), String(label))), Float64[]), Float64(angle))
+                sb = get(vs, "bus", nothing); tm = get(vs, "terminal_map", nothing)
+                va = get(vs, "v_angle", nothing); vm = get(vs, "v_magnitude", nothing)
+                sb isa AbstractString && tm isa AbstractVector && va isa AbstractVector &&
+                    vm isa AbstractVector || continue
+                for (label, magnitude, angle) in zip(tm, vm, va)
+                    label isa AbstractString && angle isa Real && isfinite(angle) &&
+                        magnitude isa Real && isfinite(magnitude) && magnitude >= 0 || continue
+                    push!(get!(declared, find((String(sb), String(label))), ComplexF64[]),
+                          Float64(magnitude) * cis(Float64(angle)))
                 end
             end
-            established = Dict{Node,Float64}()
-            for (root, angles) in declared
-                all(a -> abs(cis(a) - cis(first(angles))) < 1e-6, angles) && (established[root] = first(angles))
+            established = Dict{Node,ComplexF64}()
+            for (root, values) in declared
+                ref = first(values)
+                all(v -> abs(v - ref) <= 1e-6 * max(abs(ref), 1.0), values) && (established[root] = ref)
             end
             conductor_angle = n -> get(established, find(n), nothing)
         end
-        angle = conductor_angle((String(bus), String(t)))
-        angle === nothing ? nothing : cis(angle)
+        conductor_angle((String(bus), String(t)))
     end
     function direction(bus, tm)
         a = phasor(bus, tm[1]); b = phasor(bus, tm[2])
         (a === nothing || b === nothing) && return nothing
         p = a - b
-        abs(p) > 1e-6 ? p / abs(p) : nothing
+        # Relative to the larger terminal: a winding across two conductors at
+        # (nearly) the same phasor has no direction.
+        scale = max(abs(a), abs(b))
+        scale > 0 && abs(p) > 1e-6 * scale ? p / abs(p) : nothing
     end
 
     for id in sort!(collect(keys(sp)))

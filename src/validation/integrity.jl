@@ -21,7 +21,8 @@ that neutral. The phases can then shift together without changing any equation.
 
 A *conductor group* is a set of `(bus, terminal)` nodes joined by elements that
 fix voltage differences between them: a line or closed switch conductor, a
-mutual line-shunt entry, the terminals of one load, generator, IBR or
+mutual line-shunt entry, the two ends of a load coil with nonzero demand, the
+terminals of one generator, IBR or
 capacitor, two shunt terminals with a nonzero admittance entry between them,
 the terminals of one transformer winding side (both sides for the galvanically
 continuous subtypes). A group is referenced when one of its nodes is tied to
@@ -137,32 +138,45 @@ function _conductor_reference(net)
             i <= size(B, 1) && j <= size(B, 2) && B[i, j] != 0 && tie!(node(b, tm[i]), node(b, tm[j]))
         end
     end
-    # Loads and generators tie all their terminals (phase to neutral for WYE,
-    # phase pairs for DELTA). So do IBRs: THREE_LEG is line-to-line,
-    # SINGLE_PHASE is phase-to-reference terminal, FOUR_LEG is phase-to-neutral.
-    for kind in ("load", "generator", "ibr"), (_, c) in table(kind)
+    # Generators and IBRs tie all their terminals (THREE_LEG is line-to-line,
+    # SINGLE_PHASE is phase-to-reference terminal, FOUR_LEG is phase-to-neutral).
+    for kind in ("generator", "ibr"), (_, c) in table(kind)
+        c isa AbstractDict && tie_all!(get(c, "bus", nothing), get(c, "terminal_map", nothing))
+    end
+    # A load is a set of coils, read as the solver reads them, and each coil
+    # counts only where it contributes a voltage-dependent term: a coil whose
+    # demand is zero draws no current at any voltage, so it neither ties its
+    # two terminals together nor references anything.
+    #   SINGLE_PHASE, two terminals  one coil between them
+    #   DELTA                        one coil per phase pair (cyclic for three)
+    #   WYE / one-terminal           one coil per phase, to the neutral in the
+    #                                map, or to earth when the map holds none
+    #                                (the phase-to-reference voltage is used)
+    engine_neutrals = try _neutral_labels(net) catch; nothing end
+    for (_, c) in table("load")
         c isa AbstractDict || continue
         b = get(c, "bus", nothing); tm = get(c, "terminal_map", nothing)
-        tie_all!(b, tm)
-        # A WYE or one-terminal SINGLE_PHASE load whose map holds no neutral is
-        # written against earth: the solver uses the phase-to-reference
-        # voltage, so the load itself references each of its phase terminals
-        # (an implicit earth return). A generator written the same way is not
-        # counted: its power is a decision variable, so a common shift of its
-        # terminals is absorbed by the dispatch instead of being pinned.
-        kind == "load" && b isa AbstractString && strs(tm) && !isempty(tm) || continue
-        cfg = get(c, "configuration", nothing)
-        has_neutral = engine_neutrals === nothing ? _neutral_pos(tm) !== nothing :
-            _neutral_pos(tm, engine_neutrals) !== nothing
-        implicit = (cfg == "WYE" && !has_neutral) || (cfg == "SINGLE_PHASE" && length(tm) == 1 && !has_neutral)
-        implicit || continue
-        # ...but only where it contributes a voltage-dependent term: a phase
-        # whose demand is zero draws no current at any voltage and pins nothing.
+        b isa AbstractString && strs(tm) && !isempty(tm) || continue
         p = get(c, "p_nom", nothing); q = get(c, "q_nom", nothing)
         nonzero(v, k) = v isa AbstractVector && k <= length(v) && v[k] isa Real &&
             isfinite(v[k]) && !iszero(v[k])
-        for (k, t) in enumerate(tm)
-            (nonzero(p, k) || nonzero(q, k)) && earth!(b, t)
+        active(k) = nonzero(p, k) || nonzero(q, k)
+        cfg = uppercase(string(get(c, "configuration", "WYE")))
+        if cfg == "DELTA"
+            pairs = length(tm) == 2 ? [(tm[1], tm[2])] :
+                    length(tm) == 3 ? [(tm[k], tm[mod1(k + 1, 3)]) for k in 1:3] : Tuple{String,String}[]
+            for (k, (x, y)) in enumerate(pairs)
+                active(k) && tie!(node(b, x), node(b, y))
+            end
+        elseif cfg == "SINGLE_PHASE" && length(tm) == 2
+            active(1) && tie!(node(b, tm[1]), node(b, tm[2]))
+        else
+            npos = engine_neutrals === nothing ? _neutral_pos(tm) : _neutral_pos(tm, engine_neutrals)
+            phases = [k for k in eachindex(tm) if k != npos]
+            for (idx, k) in enumerate(phases)
+                active(idx) || continue
+                npos === nothing ? earth!(b, tm[k]) : tie!(node(b, tm[k]), node(b, tm[npos]))
+            end
         end
     end
     for (_, sh) in table("shunt")

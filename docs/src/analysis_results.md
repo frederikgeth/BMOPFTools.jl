@@ -185,7 +185,7 @@ transformer ratios. Three cases need care when reading it:
   listed in `high_leg_units`; `high_leg_banks` gives, per power unit, the
   lighting unit, the buses, the high-leg conductor and a `status`. A bank is
   identified from the nominal phasors of the two primary windings. The phasor of
-  a winding terminal is the angle a voltage source declares for the conductor
+  a winding terminal is the magnitude and angle a voltage source declares for the conductor
   that terminal is on, followed through the terminal maps of lines and closed
   switches (a terminal called `b` that is fed from the source's `a` carries the
   angle of `a`):

@@ -30,7 +30,10 @@ This is deliberately an analysis fixture, not a validated power-flow benchmark:
   unused-neutral diagnostics. Supply, primary and workshop neutrals are grounded.
 - `workshop_transformer` intentionally has three-terminal maps in the
   `single_phase` family, preserving transformer-dimension diagnostic coverage.
-- `load_zero` is intentionally redundant.
+- `load_zero` is intentionally redundant. It is also the only load on the
+  workshop bus, and a zero-power coil ties nothing: the three workshop phases
+  therefore have no tie to the grounded neutral, which `integrity_check` reports
+  as `E.INT.NO_VOLTAGE_REFERENCE` (conductor-group scope).
 
 Tests parse a fresh copy and mutate it to exercise invalid limits, missing
 references, topology, matrix conversion, serialization and report rendering.

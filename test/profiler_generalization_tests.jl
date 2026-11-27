@@ -980,6 +980,40 @@ end
         @test length(groups(partial)) == 1
         partial["load"]["aux"]["p_nom"] = [0.0, 80.0, 0.0]
         @test isempty(groups(partial))
+        # The same holds per coil for a load that names the neutral: a
+        # zero-power phase-to-neutral load ties nothing to the earthed neutral.
+        pn(pv, qv) = begin
+            out = deepcopy(net)
+            out["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => ["a","n"],
+                "configuration" => "SINGLE_PHASE", "model" => "constant_impedance",
+                "p_nom" => [pv], "q_nom" => [qv], "v_nom" => [230.0])
+            out
+        end
+        @test floats_lin(pn(0.0, 0.0), phases) && length(groups(pn(0.0, 0.0))) == 1
+        @test !floats_lin(pn(100.0, 0.0), phases) && isempty(groups(pn(100.0, 0.0)))
+        # WYE to the neutral: one active coil is enough, since the delta load
+        # and the transformer winding tie the phases to each other.
+        wyen(pv) = begin
+            out = deepcopy(net)
+            out["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => ["a","b","c","n"],
+                "configuration" => "WYE", "model" => "constant_impedance",
+                "p_nom" => pv, "q_nom" => [0.0, 0.0, 0.0], "v_nom" => fill(230.0, 3))
+            out
+        end
+        @test floats_lin(wyen([0.0, 0.0, 0.0]), phases) && length(groups(wyen([0.0, 0.0, 0.0]))) == 1
+        @test !floats_lin(wyen([0.0, 0.0, 60.0]), phases) && isempty(groups(wyen([0.0, 0.0, 60.0])))
+        # A DELTA coil ties its own pair only where it draws power. With the
+        # fixture's delta load switched off and the winding removed from the
+        # picture, a coil on a-b leaves c in a group of its own.
+        coils = BMOPFTools._conductor_reference(Dict{String,Any}(
+            "bus" => Dict{String,Any}("x" => Dict{String,Any}("terminal_names" => ["a","b","c","n"],
+                "perfectly_grounded_terminals" => ["n"])),
+            "load" => Dict{String,Any}(
+                "d" => Dict{String,Any}("bus" => "x", "terminal_map" => ["a","b","c"], "configuration" => "DELTA",
+                    "p_nom" => [100.0, 0.0, 0.0], "q_nom" => [0.0, 0.0, 0.0]),
+                "y" => Dict{String,Any}("bus" => "x", "terminal_map" => ["c","n"], "configuration" => "SINGLE_PHASE",
+                    "p_nom" => [50.0], "q_nom" => [0.0])))).groups
+        @test coils == [[("x", "a"), ("x", "b")]]            # c is referenced through its own load; a-b float
         # A generator written against earth is not counted: its power is a
         # decision variable, so a shift of its terminals is absorbed by dispatch.
         gen = deepcopy(net)
@@ -1139,6 +1173,23 @@ end
         # what counts is the conductor's angle, not its name at the pole.
         net["line"]["to_b"] = mk(["c"], ["b"], "one")
         @test only(bank(net))["status"] == "verified"
+        # Magnitudes are part of the phasor. With the source's c phase at 40 %,
+        # the Japanese V-connection's power primary (b-c) no longer points where
+        # a balanced set would put it, and the delta does not close.
+        jpn = _pg_sys("jp_three_wire_v_connection")
+        @test only(bank(jpn))["status"] == "verified"
+        jpn["voltage_source"]["grid"]["v_magnitude"][3] *= 0.4
+        @test isempty(bank(jpn))
+        @test "E.VOLT.LEVEL_MISMATCH" in _pg_codes(_pg_analyze(jpn).findings)
+        # A uniform change of magnitude changes no direction: still a delta.
+        jpn = _pg_sys("jp_three_wire_v_connection")
+        jpn["voltage_source"]["grid"]["v_magnitude"] .*= 0.9
+        @test only(bank(jpn))["status"] == "verified"
+        # A source that declares a conductor at two magnitudes establishes nothing.
+        net = _pg_sys("na_high_leg_open_delta")
+        net["voltage_source"]["second"] = Dict{String,Any}("bus" => "pole", "terminal_map" => ["a","b","c"],
+            "v_magnitude" => [3600.0, 7200.0, 7200.0], "v_angle" => [0.0, -2π/3, 2π/3])
+        @test only(bank(net))["status"] == "unverified"
         # Two sources that declare one conductor at different angles establish nothing.
         net = _pg_sys("na_high_leg_open_delta")
         net["voltage_source"]["second"] = Dict{String,Any}("bus" => "pole", "terminal_map" => ["a","b","c"],
