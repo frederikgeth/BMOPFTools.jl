@@ -1158,6 +1158,22 @@ end
         @test length(groups(lagging)) == 1
         unity = deepcopy(lagging); unity["control_profile"]["cp"]["power_factor"]["pf"] = 1.0
         @test isempty(groups(unity))
+        # The power factor is applied before the DC balance. In a two-coil
+        # device at 0.95, Q pinned at zero on one coil pins its P; the zero
+        # balance then leaves the other coil no P, and the power factor no Q.
+        chained(q1; pf=0.95) = begin
+            out = ibr(["a", "b", "n"], "FOUR_LEG"; s_max=[3000.0, 3000.0], p_min=[-3000.0, -3000.0],
+                      p_max=[3000.0, 3000.0], q_min=[-q1, -3000.0], q_max=[q1, 3000.0],
+                      control_profile="cp", dc_link_coupled=true)
+            out["control_profile"] = Dict{String,Any}("cp" => Dict{String,Any}(
+                "power_factor" => Dict{String,Any}("pf" => pf)))
+            out
+        end
+        @test length(groups(chained(0.0))) == 1
+        @test isempty(groups(chained(500.0)))                                # the first coil has room
+        @test isempty(groups(chained(0.0; pf=1.0)))                          # unity: Q says nothing about P
+        loose_dc = chained(0.0); loose_dc["ibr"]["pv"]["p_dc_min"] = -100.0; loose_dc["ibr"]["pv"]["p_dc_max"] = 100.0
+        @test isempty(groups(loose_dc))                                      # the balance leaves the second coil room
         # Several coils can circulate power between phases: the balance pins a
         # coil only as far as the other coils' boxes leave it no room.
         multi(pmin, pmax) = begin
@@ -1559,6 +1575,30 @@ end
         end
         @test only(_pg_analyze(twofeeds(bond=true, phases=true)).results[:connectivity]["transformer_banks"])["units"] ==
               ["lighting", "power"]
+        # A switch joins two supply points only for a winding whose phase
+        # conductors it all carries. A tie on a phase neither primary uses
+        # (they are on a and b) merges nothing and adds its own cycle; a tie
+        # carrying both phases makes the two units one bank.
+        tied(tm) = begin
+            out = twofeeds()
+            out["switch"] = Dict{String,Any}("tie" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "pole2",
+                "terminal_map_from" => tm, "terminal_map_to" => copy(tm), "open_switch" => false,
+                "i_max" => fill(100.0, length(tm))))
+            out
+        end
+        extra(net) = _pg_analyze(net).results[:connectivity]["n_extra_edges"]
+        @test extra(twofeeds()) == 1
+        @test extra(tied(["c"])) == 2
+        @test isempty(_pg_analyze(tied(["c"])).results[:connectivity]["transformer_banks"]) && isempty(bank(tied(["c"])))
+        @test extra(tied(["a", "b"])) == 1
+        @test only(_pg_analyze(tied(["a", "b"])).results[:connectivity]["transformer_banks"])["units"] == ["lighting", "power"]
+        # One primary's phase alone is not enough for the other unit.
+        @test isempty(_pg_analyze(tied(["a"])).results[:connectivity]["transformer_banks"])
+        # Labels are followed through the switch: `b` arriving as `x` is still b.
+        relabeled = behind(); relabeled["bus"]["pole2"]["terminal_names"] = ["a", "x", "c", "n"]
+        relabeled["switch"]["disc"]["terminal_map_to"] = ["a", "x", "c", "n"]
+        relabeled["transformer"]["single_phase"]["power"]["terminal_map_from"] = ["x", "n"]
+        @test only(_pg_analyze(relabeled).results[:connectivity]["transformer_banks"])["units"] == ["lighting", "power"]
         # A free tap (tap_min < tap_max) is a range, and `tap` only its start,
         # clamped into the bounds. Every position misses: a mismatch, although
         # the absent `tap` would read as 1.0.

@@ -206,8 +206,8 @@ function _high_leg_banks(net::Dict{String,Any})
     strs(tm, n) = tm isa AbstractVector && length(tm) == n && all(x -> x isa AbstractString, tm)
     # The two units of a bank share a primary supply point, not necessarily a
     # bus id: a primary disconnect (a closed switch) between them leaves the
-    # bank what it was. Primary buses are compared up to closed switches; the
-    # conductors themselves are followed by the phasor trace below.
+    # bank what it was. Primary buses are compared up to the closed switches
+    # that carry each winding's phase conductors (`_supply_point`).
     supply = _supply_point(net)
     lighting = Dict{Tuple{String,String},Vector{Any}}()
     for id in sort!(collect(keys(ct)))
@@ -216,7 +216,7 @@ function _high_leg_banks(net::Dict{String,Any})
         f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
         tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
         f isa AbstractString && b isa AbstractString && strs(tm, 3) && strs(tf, 2) || continue
-        push!(get!(lighting, (supply(String(f)), String(b)), Any[]),
+        push!(get!(lighting, (supply(String(f), tf), String(b)), Any[]),
               (id=string(id), to=string.(tm), from=string.(tf), bus_from=String(f)))
     end
     isempty(lighting) && return out
@@ -341,9 +341,9 @@ function _high_leg_banks(net::Dict{String,Any})
         t isa AbstractDict || continue
         f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
         f isa AbstractString && b isa AbstractString || continue
-        units = get(lighting, (supply(String(f)), String(b)), nothing)
-        units === nothing && continue
         tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
+        units = get(lighting, (supply(String(f), tf), String(b)), nothing)
+        units === nothing && continue
         strs(tm, 2) && strs(tf, 2) || continue
         to = string.(tm)
         any(is_return, to) && continue                 # the power unit is phase-to-phase

@@ -665,7 +665,8 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
             rec = get(get(xfmr, subtype, Dict()), id, nothing)
             pair = subtype in WINDING_LIST_SUBTYPES || !(rec isa AbstractDict) ? (subtype, id) :
                 (bf = get(rec, "bus_from", nothing);
-                 (bf isa AbstractString ? supply_point(String(bf)) : bf, get(rec, "bus_to", nothing)))
+                 (bf isa AbstractString ? supply_point(String(bf), get(rec, "terminal_map_from", nothing)) : bf,
+                  get(rec, "bus_to", nothing)))
             union!(get!(fed_by_pair, pair, Set{String}()), _xfmr_to_phases(subtype, id, z.buses))
         end
         for fed in values(fed_by_pair)
@@ -903,8 +904,9 @@ function _transformer_bank_groups(net)
             bf = get(t, "bus_from", nothing); bt = get(t, "bus_to", nothing)
             bf isa AbstractString && bt isa AbstractString && bf != bt || continue
             sig = _bank_unit_signature(t, neutrals)
-            supply(String(bf)) == supply(String(bt)) && continue
-            push!(get!(pairs, (supply(String(bf)), String(bt)), Any[]),
+            from = supply(String(bf), get(t, "terminal_map_from", nothing))
+            from == String(bt) && continue
+            push!(get!(pairs, (from, String(bt)), Any[]),
                   (subtype=subtype, id=string(id), sig=sig))
         end
     end
@@ -941,31 +943,55 @@ function _transformer_bank_groups(net)
     (merged=merged, groups=groups)
 end
 
-# The supply point of a bus: a canonical bus id for all buses joined by closed
-# switches. The units of a transformer bank share a primary supply point, not
-# necessarily a bus id: a primary disconnect between them leaves the bank what
-# it was. A switch that carries no phase conductor (a neutral bond) joins
-# nothing. Returns a function of the bus id.
+# The supply point of a winding: a canonical bus id for every bus its phase
+# conductors reach through closed switches. The units of a transformer bank
+# share a primary supply point, not necessarily a bus id: a primary disconnect
+# between them leaves the bank what it was. A switch counts only when it
+# carries EVERY phase conductor the winding uses (labels are followed through
+# the switch's terminal maps): a neutral bond, or a tie on a phase the winding
+# does not use, joins nothing, and two units on separate feeds stay separate.
+# Returns `supply(bus, terminals)`; a winding with no phase terminal, or one
+# whose map cannot be read, stays at its own bus.
 function _supply_point(net)
-    station = Dict{String,String}()
-    function supply(x)
-        haskey(station, x) || (station[x] = x)
-        root = x
-        while station[root] != root; root = station[root]; end
-        station[x] = root
-    end
+    roles = _index_roles(net)
+    is_return(x) = roles === nothing ? _is_convention_neutral(x) : (x in roles.neutral || x in roles.earth)
+    crossings = Dict{String,Vector{Tuple{String,Dict{String,String}}}}()
     switches = get(net, "switch", nothing)
     if switches isa AbstractDict
-        roles = _index_roles(net)
-        for (_, sw) in switches
+        for id in sort!(collect(keys(switches)))
+            sw = switches[id]
             sw isa AbstractDict && get(sw, "open_switch", false) !== true || continue
-            # Only a switch that carries a phase conductor joins two supply
-            # points. A neutral bond says nothing about where the phases come from.
-            _neutral_only_branch(sw, roles) && continue
             a = get(sw, "bus_from", nothing); b = get(sw, "bus_to", nothing)
-            a isa AbstractString && b isa AbstractString || continue
-            ra = supply(String(a)); rb = supply(String(b))
-            ra == rb || (station[max(ra, rb)] = min(ra, rb))
+            tf = get(sw, "terminal_map_from", nothing); tt = get(sw, "terminal_map_to", nothing)
+            a isa AbstractString && b isa AbstractString && tf isa AbstractVector && tt isa AbstractVector &&
+                length(tf) == length(tt) && all(x -> x isa AbstractString, tf) &&
+                all(x -> x isa AbstractString, tt) || continue
+            push!(get!(crossings, String(a), []), (String(b), Dict{String,String}(zip(string.(tf), string.(tt)))))
+            push!(get!(crossings, String(b), []), (String(a), Dict{String,String}(zip(string.(tt), string.(tf)))))
+        end
+    end
+    cache = Dict{Tuple{String,Vector{String}},String}()
+    function supply(bus::AbstractString, terminals)
+        bus = String(bus)
+        isempty(crossings) && return bus
+        terminals isa AbstractVector && all(x -> x isa AbstractString, terminals) || return bus
+        phases = sort!(unique!([String(t) for t in terminals if !is_return(t)]))
+        isempty(phases) && return bus
+        get!(cache, (bus, phases)) do
+            seen = Set{Tuple{String,Vector{String}}}([(bus, phases)])
+            queue = [(bus, phases)]
+            best = bus
+            while !isempty(queue)
+                at, labels = popfirst!(queue)
+                at < best && (best = at)
+                for (other, map) in get(crossings, at, ())
+                    all(l -> haskey(map, l), labels) || continue
+                    state = (other, sort!([map[l] for l in labels]))
+                    state in seen && continue
+                    push!(seen, state); push!(queue, state)
+                end
+            end
+            best
         end
     end
     supply

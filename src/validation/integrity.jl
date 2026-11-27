@@ -245,7 +245,20 @@ function _conductor_reference(net)
             local hi = number(get(c, "p_max", nothing), k)
             lo = lo === nothing ? -Inf : lo; hi = hi === nothing ? Inf : hi
             volt_watt_zero(k) && (hi = min(hi, 0.0))
-            (min_pf ? max(lo, 0.0) : lo, hi)
+            min_pf && (lo = max(lo, 0.0))
+            # A constant power factor below one ties the two powers of a coil:
+            # |Q| = tan(phi) |P|. The Q box therefore bounds |P| as well, and
+            # a coil with Q pinned at zero has P at zero. This comes before
+            # the DC balance, which sees each coil's range as it really is.
+            if constant_pf isa Real && 0 < abs(constant_pf) < 1
+                local qlo = number(get(c, "q_min", nothing), k)
+                local qhi = number(get(c, "q_max", nothing), k)
+                if qlo !== nothing && qhi !== nothing
+                    reach = max(abs(qlo), abs(qhi)) * abs(constant_pf) / sqrt((1 - abs(constant_pf)) * (1 + abs(constant_pf)))
+                    lo = max(lo, -reach); hi = min(hi, reach)
+                end
+            end
+            (lo, hi)
         end
         dc_range = let dlo = get(c, "p_dc_min", 0.0), dhi = get(c, "p_dc_max", 0.0)
             get(c, "dc_link_coupled", false) === true && !haskey(c, "dc_bus") &&
@@ -281,7 +294,7 @@ function _conductor_reference(net)
             local hi = number(get(c, "q_max", nothing), k)
             lo !== nothing && hi !== nothing && iszero(lo) && iszero(hi)
         end
-        p_zero(k) = p_is_zero(k) || (constant_pf isa Real && abs(constant_pf) < 1 && q_pinned_zero(k))
+        p_zero(k) = p_is_zero(k)
         q_zero(k) = q_pinned_zero(k) || ((q_follows_p || volt_var_zero) && p_zero(k))
         coil_zero(k; whole::Bool=false) = forced_to_zero(c, k; whole) || (p_zero(k) && q_zero(k))
         if topo == "SINGLE_PHASE"
