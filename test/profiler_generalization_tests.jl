@@ -1139,6 +1139,25 @@ end
         @test isempty(groups(statcom(dc_bus="dc1")))                         # a shared DC bus: P follows DC KCL
         live_q = statcom(); live_q["control_profile"]["cp"]["volt_var"]["q_limits"] = [-0.44, 0.44]
         @test isempty(groups(live_q))                                        # reactive current still ties
+        # P and Q are each fixed by whichever constraint applies: here P by
+        # the DC balance and Q by its own box, with no control profile at all.
+        boxed(qmin, qmax; extra...) = begin
+            out = ibr(["a", "n"], "SINGLE_PHASE"; p_min=[-3000.0], p_max=[3000.0], q_min=[qmin], q_max=[qmax],
+                      dc_link_coupled=true, extra...)
+            out["ibr"]["pv"]["prime_mover"] = "STATCOM"
+            out
+        end
+        @test length(groups(boxed(0.0, 0.0))) == 1
+        @test isempty(groups(boxed(-500.0, 500.0)))                          # reactive current ties
+        @test isempty(groups(boxed(300.0, 300.0)))                           # Q fixed, but not at zero
+        @test isempty(groups(boxed(0.0, 0.0; dc_link_coupled=false)))        # P is free again
+        # A constant power factor below one works both ways: Q pinned at zero
+        # forces P to zero. At unity it says nothing about P.
+        lagging = pfc(0.9); lagging["ibr"]["pv"]["p_max"] = [2000.0]
+        lagging["ibr"]["pv"]["q_min"] = [0.0]; lagging["ibr"]["pv"]["q_max"] = [0.0]
+        @test length(groups(lagging)) == 1
+        unity = deepcopy(lagging); unity["control_profile"]["cp"]["power_factor"]["pf"] = 1.0
+        @test isempty(groups(unity))
         # Several coils can circulate power between phases: the balance pins a
         # coil only when every other coil is pinned and uses the balance up.
         multi(pmin, pmax) = begin
@@ -1400,6 +1419,24 @@ end
             renamed["transformer"][st][id]["terminal_map_from"] = tm
         end
         @test only(bank(renamed))["status"] == "verified"
+        # A neutral that reaches no earth has no established voltage, whatever
+        # it is called: without the upstream neutral conductor and the pole
+        # electrode the bank is not certified. Either one restores it.
+        cut(; electrode=false) = begin
+            out = _pg_sys("na_high_leg_open_delta")
+            out["line"]["main"]["terminal_map_from"] = ["a", "b", "c"]
+            out["line"]["main"]["terminal_map_to"] = ["a", "b", "c"]
+            electrode || delete!(out["shunt"], "gnd_pole")
+            out
+        end
+        @test only(bank(cut()))["status"] == "unverified"
+        @test isempty(_pg_analyze(cut()).results[:voltage_levels]["mixed_phase_to_neutral_buses"])
+        @test only(bank(cut(electrode=true)))["status"] == "verified"
+        wired = _pg_sys("na_high_leg_open_delta"); delete!(wired["shunt"], "gnd_pole")
+        @test only(bank(wired))["status"] == "verified"
+        # A shunt that lists the terminal without stamping anything is no earth.
+        empty_shunt = cut(electrode=true); empty_shunt["shunt"]["gnd_pole"]["G_1_1"] = 0.0
+        @test only(bank(empty_shunt))["status"] == "unverified"
         # ...but not when nothing pins it and its terminals are not all returns.
         loose = deepcopy(renamed); delete!(loose["bus"]["sub"], "perfectly_grounded_terminals")
         loose["voltage_source"]["far"] = merge(deepcopy(loose["voltage_source"]["grid"]), Dict{String,Any}("bus" => "pole"))

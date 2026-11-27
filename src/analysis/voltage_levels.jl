@@ -274,17 +274,30 @@ function _high_leg_banks(net::Dict{String,Any})
                 ref = first(values)
                 all(v -> abs(v - ref) <= 1e-6 * max(abs(ref), 1.0), values) && (established[root] = ref)
             end
-            # A conductor no source declares is at zero when it is a return
-            # conductor. The label of the terminal asked about does not decide
-            # that: a terminal called `n` that a line maps onto a source phase
-            # carries that phase. Zero needs either every terminal of the
-            # conductor to be a return terminal, or one of them to be a return
-            # terminal that is pinned (perfectly grounded, or on a source bus).
+            # A conductor no source declares is at zero only when something
+            # holds it there: one of its terminals is a return terminal that
+            # is perfectly grounded, on a source bus, or earthed through a
+            # shunt. The label alone decides nothing: a terminal called `n`
+            # that a line maps onto a source phase carries that phase, and an
+            # `n` that reaches no earth has no established voltage at all.
             members = Dict{Node,Vector{Node}}()
             for n in collect(keys(parent)); push!(get!(members, find(n), Node[]), n); end
             source_buses = Set{String}(String(vs["bus"]) for (_, vs) in get(net, "voltage_source", Dict())
                                        if vs isa AbstractDict && get(vs, "bus", nothing) isa AbstractString)
-            pinned(n) = is_return(n[2]) && (n[1] in source_buses || begin
+            earthed = Set{Node}()
+            for (_, sh) in get(net, "shunt", Dict())
+                sh isa AbstractDict || continue
+                sb = get(sh, "bus", nothing); tm = get(sh, "terminal_map", nothing)
+                sb isa AbstractString && tm isa AbstractVector || continue
+                for (k, label) in enumerate(tm)
+                    label isa AbstractString || continue
+                    row = sum(complex(Float64(g isa Real ? g : 0.0), Float64(bb isa Real ? bb : 0.0))
+                              for j in eachindex(tm)
+                              for (g, bb) in ((get(sh, "G_$(k)_$(j)", 0.0), get(sh, "B_$(k)_$(j)", 0.0)),); init=0.0im)
+                    isfinite(row) && !iszero(row) && push!(earthed, (String(sb), String(label)))
+                end
+            end
+            pinned(n) = is_return(n[2]) && (n[1] in source_buses || n in earthed || begin
                 b = get(get(net, "bus", Dict()), n[1], nothing)
                 g = b isa AbstractDict ? get(b, "perfectly_grounded_terminals", nothing) : nothing
                 g isa AbstractVector && n[2] in g
@@ -293,7 +306,7 @@ function _high_leg_banks(net::Dict{String,Any})
                 root = find(n)
                 haskey(declared, root) && return get(established, root, nothing)
                 group = get(members, root, [n])
-                (all(m -> is_return(m[2]), group) || any(pinned, group)) ? 0.0 + 0.0im : nothing
+                any(pinned, group) ? 0.0 + 0.0im : nothing
             end
         end
         conductor_angle((String(bus), String(t)))

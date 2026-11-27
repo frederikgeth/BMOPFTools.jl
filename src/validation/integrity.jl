@@ -238,8 +238,17 @@ function _conductor_reference(net)
              bp isa AbstractVector && length(bp) == 4 && all(x -> x isa Real && isfinite(x), bp) &&
              ql isa AbstractVector && length(ql) == 2 && all(x -> x isa Real && iszero(x), ql)) &&
             get(vv, "q_unit", "VA_FRACTION") == "VA_FRACTION" && get(vv, "q_ref", "VAR_MAX") == "VAR_MAX"
-        coil_zero(k; whole::Bool=false) = forced_to_zero(c, k; whole) ||
-            ((q_follows_p || volt_var_zero) && p_is_zero(k))
+        # A coil carries no current when its effective P and its effective Q
+        # are both zero, each by whichever constraint fixes it: the box, a
+        # control law, the DC-link balance. A constant power factor below one
+        # works both ways (Q pinned at zero forces P to zero).
+        function q_pinned_zero(k)
+            lo = number(get(c, "q_min", nothing), k); hi = number(get(c, "q_max", nothing), k)
+            lo !== nothing && hi !== nothing && iszero(lo) && iszero(hi)
+        end
+        p_zero(k) = p_is_zero(k) || (constant_pf isa Real && abs(constant_pf) < 1 && q_pinned_zero(k))
+        q_zero(k) = q_pinned_zero(k) || ((q_follows_p || volt_var_zero) && p_zero(k))
+        coil_zero(k; whole::Bool=false) = forced_to_zero(c, k; whole) || (p_zero(k) && q_zero(k))
         if topo == "SINGLE_PHASE"
             coil_zero(1; whole=true) || tie!(node(b, tm[1]), node(b, tm[2]))
         elseif topo == "THREE_LEG"

@@ -206,6 +206,38 @@ using JuMP, Ipopt
         @test hypot(coil["cri"], coil["cii"]) < 1e-6
     end
 
+    @testset "a STATCOM with Q fixed at zero ties nothing" begin
+        net = sys("it_delta_island_unreferenced")
+        net["bus"]["it1"]["terminal_names"] = ["a", "b", "c", "n"]
+        net["bus"]["it1"]["perfectly_grounded_terminals"] = ["n"]
+        net["ibr"] = Dict{String,Any}("st" => Dict{String,Any}("bus" => "it1", "terminal_map" => ["a", "n"],
+            "topology" => "SINGLE_PHASE", "prime_mover" => "STATCOM", "s_max" => [3000.0],
+            "p_min" => [-3000.0], "p_max" => [3000.0], "q_min" => [0.0], "q_max" => [0.0],
+            "dc_link_coupled" => true))
+        @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(net))]
+        coil = solve(net)["ibr"]["st"]["a"]
+        @test hypot(coil["cri"], coil["cii"]) < 1e-6
+    end
+
+    @testset "a primary neutral that reaches no earth: not a verified high leg" begin
+        net = sys("na_high_leg_open_delta")
+        net["line"]["main"]["terminal_map_from"] = ["a", "b", "c"]
+        net["line"]["main"]["terminal_map_to"] = ["a", "b", "c"]
+        lc = net["linecode"]["primary"]
+        net["linecode"]["primary"] = merge(
+            Dict{String,Any}(k => v for (k, v) in lc if !occursin("4", k) && k != "i_max"),
+            Dict{String,Any}("i_max" => lc["i_max"][1:3]))
+        delete!(net["shunt"], "gnd_pole")
+        @test only(report(net).results[:voltage_levels]["high_leg_banks"])["status"] == "unverified"
+        res = solve(net)
+        # The two primaries are in series across a-b with a floating midpoint:
+        # the legs are far from 120 V, and the third conductor is not sqrt(3)
+        # times the leg voltage above the service neutral.
+        leg = vpp(res, "svc", "a", "n"); high = vpp(res, "svc", "c", "n")
+        @test !isapprox(leg, 120.0; rtol = 0.1)
+        @test !isapprox(high, sqrt(3) * leg; rtol = 0.1)
+    end
+
     @testset "phase and neutral swapped on the primary: not a high leg" begin
         net = sys("na_high_leg_open_delta")
         net["line"]["main"]["terminal_map_to"] = ["a", "b", "n", "c"]
