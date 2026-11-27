@@ -51,10 +51,28 @@ model leaves neutral and ground voltages and currents unknown and
 **under-estimates voltage deviations** [ref. 6, 7](methodology.md#refs). Because
 neutral voltage rise, neutral/ground currents, and touch-safety are precisely
 what distribution studies care about, this model keeps the neutral as an explicit
-conductor and declines the reduction. (Where a reduction *is* sound, it is
-applied deliberately and provenance-tracked — not assumed.) The
-[grounding tutorial](tutorial_grounding.md) demonstrates all of this live —
-including the exact-when-pinned Kron claim, verified to the last digit.
+conductor and does not reduce by default. Where a reduction *is* sound, you apply
+it deliberately with [`kron_reduce_neutrals`](@ref), which classifies the result
+as exact or as a grounded-neutral projection and records its provenance. The
+[grounding tutorial](tutorial_grounding.md) works through all of this on a small
+feeder, including the case where Kron reduction is exact.
+
+## Which terminal is which?
+
+A label such as `n` or `4` does not by itself say whether a terminal is a phase
+or a neutral. A case states this once, in a top-level `terminal_conventions`
+block:
+
+```json
+"terminal_conventions": { "phase": ["a", "b", "c"], "neutral": ["n"], "earth": [] }
+```
+
+Validation, import and the OPF resolve roles from this block. Without it, roles
+are inferred from the names and a finding asks you to declare them. One label
+you will meet in imported OpenDSS cases is `n_ref`: OpenDSS node 0, kept as a
+separate, perfectly grounded return, distinct from the neutral conductor `n`.
+[Data model conventions](conventions.md#Terminal-role-conventions) has the
+details.
 
 ## Where you've seen this before
 
@@ -107,6 +125,10 @@ unfamiliar to a MATPOWER/PowerModels user:
 
 ## Next steps
 
+- [Anatomy of a case](case_anatomy.md) — one small four-wire feeder, block by
+  block.
+- [Ground, neutral, and earth return](tutorial_grounding.md) — what the explicit
+  neutral buys you, on a worked example.
 - [Data model conventions](conventions.md) — terminal naming, voltage bounds,
   grounding, and how devices reference terminals.
 - [Optimal power flow](opf.md) — the variables, per-terminal KCL, and the

@@ -29,23 +29,27 @@ makedocs(
             "Why benchmarks matter" => "benchmarking_gap.md",
         ],
         "Network models & data" => [
-            "Foundations" => [
+            # Ordered concept -> component guide -> reference -> conversion.
+            "Concepts" => [
                 "Buses & terminals primer" => "terminals_primer.md",
+                "Anatomy of a case" => "case_anatomy.md",
                 "Ground, neutral & earth return" => "tutorial_grounding.md",
                 "Units, bases & economics" => "tutorial_units.md",
-                "Object identity" => "semantic_modeling.md",
+                "Object identity: why named assets" => "semantic_modeling.md",
             ],
-            "Modeling choices" => [
+            "Component guides" => [
                 "Line geometry & impedances" => "tutorial_line_geometry.md",
                 "Impedance models & OPF decisions" => "tutorial_impedance_models.md",
                 "Choosing & identifying a load model" => "tutorial_load_models.md",
                 "Transformer models" => "transformer_models.md",
             ],
-            "Conventions & conversion" => [
+            "Data model reference" => [
                 "Data model conventions" => "conventions.md",
                 "Device parameter indexing" => "device_indexing.md",
                 "Branch and winding maps" => "connection_maps.md",
-                "Transformer phase reporting" => "transformer_phase.md",
+                "Transformer phase relations" => "transformer_phase.md",
+            ],
+            "Import & export" => [
                 "Conversion guide" => "conversion.md",
             ],
         ],

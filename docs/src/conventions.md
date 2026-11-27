@@ -6,12 +6,23 @@ implementation choices called out explicitly.
 
 ## Structure and identifiers
 
-The network is a nested `Dict{String,Any}`: component types at the top level
-(`bus`, `line`, `linecode`, `voltage_source`, `load`, `generator`, `shunt`,
-`switch`, `transformer`), each a dict of `id => component`. IDs are
-**strings** and carry no ordering semantics. Keys beginning with `_`
-(`_meta`, `_pmd`, `_slack`, …) are tolerated extension/bookkeeping fields
-and are never reported as schema violations.
+The network is a nested `Dict{String,Any}` with component collections at the
+top level, each a dict of `id => component`:
+
+| Group | Top-level keys |
+|---|---|
+| AC components | `bus`, `line`, `switch`, `transformer`, `voltage_source`, `load`, `generator`, `ibr`, `shunt`, `capacitor` |
+| Shared catalogs | `linecode`, `wire_data`, `line_geometry`, `control_profile` |
+| DC network | `dc_bus`, `dc_branch`, `dc_grounding`, `dc_load`, `dc_source` |
+| Case-level blocks | `name`, `meta`, `terminal_conventions`, `time_series`, `extras` |
+
+`transformer` is one level deeper: a dict of subtype (`single_phase`,
+`delta_wye`, …) to `id => component`. `extras` is the parking slot a
+schema-0.1.0 writer uses for fields that version has no home for;
+`BMOPFTools.migrate` folds supported entries back onto their components (see the
+[conversion guide](@ref from-dss-ingest)). IDs are **strings** and carry no
+ordering semantics. Keys beginning with `_` (`_meta`, …) are tolerated
+extension/bookkeeping fields and are never reported as schema violations.
 
 ## Units
 
@@ -44,15 +55,22 @@ further scaling is applied on ingest.
 
 ## Terminal names
 
-Terminal identifiers are **strings**. The library writes the OpenDSS-flavored
-convention `"1", "2", "3", "n"` and understands these conventions on read:
+Terminal identifiers are **strings**, and any label is legal: the
+[`terminal_conventions`](#Terminal-role-conventions) block, not the spelling,
+says which labels are phases and which are neutrals. These are the conventions
+you will meet:
 
-| Convention | Phases | Neutral |
-|---|---|---|
-| OpenDSS numeric | `"1" "2" "3"` | `"4"` (positional, see below) |
-| BMOPFTools canonical | `"1" "2" "3"` | `"n"` |
-| Letter | `"a" "b" "c"` (any case) | `"n"`/`"N"` |
-| IEC 60445 | `"L1" "L2" "L3"` | `"N"` |
+| Convention | Phases | Neutral | Where it comes from |
+|---|---|---|---|
+| Letter | `"a" "b" "c"` | `"n"` | [`from_dss`](@ref) output, and the examples in this documentation |
+| Numeric with `n` | `"1" "2" "3"` | `"n"` | [`parse_bmopf`](@ref) coercing integer terminals `1,2,3,4` (see *Ingest normalization* below) |
+| OpenDSS numeric | `"1" "2" "3"` | `"4"` | hand-authored or third-party files; `"4"` is a neutral **only if declared** |
+| IEC 60445 | `"L1" "L2" "L3"` | `"N"` | hand-authored files |
+
+[`from_dss`](@ref) additionally writes the reserved label `n_ref` for a
+materialized OpenDSS node-0 return: a perfectly grounded device return that is
+distinct from the conductor neutral `n` (see
+[the earth terminal](@ref earth-terminal)).
 
 ### Terminal-role conventions
 
@@ -83,11 +101,12 @@ whole network**, in a top-level `terminal_conventions` block:
   explicit block, so saved files are self-documenting. [`from_dss`](@ref)
   writes the used phase labels and return labels (`n` and/or `n_ref`) directly.
 
-**When the block is absent**, roles are **inferred** from the naming
-convention (a terminal `n`/`N` is neutral; terminal `"4"` of a bus whose
-terminal set is exactly `{"1","2","3","4"}`; everything else phase), and
-validation raises `W.CONV.TERMINAL_ROLES_INFERRED` to nudge you to make the
-classification explicit. Inconsistent declarations raise `E.CONV.ROLE_OVERLAP`
+**When the block is absent**, roles are **inferred** from the label alone: a
+terminal named `n`/`N`, or the reserved `n_ref`, is a neutral, and everything
+else is a phase. A string `"4"` is therefore a *phase* unless the block declares
+it a neutral; there is no positional rule. Validation raises
+`W.CONV.TERMINAL_ROLES_INFERRED` to nudge you to make the classification
+explicit. Inconsistent declarations raise `E.CONV.ROLE_OVERLAP`
 (a label in two role lists), `W.CONV.TERMINAL_UNCLASSIFIED` (a bus terminal in
 none — treated as a phase), or `W.CONV.MULTIPLE_NEUTRALS`.
 
@@ -141,7 +160,9 @@ covered by the alias table (default `1→"1", 2→"2", 3→"3", 4→"n"`,
 overridable via `terminal_aliases`), the aliases apply; otherwise — the
 profiling guard, e.g. a 5th conductor present — everything becomes its
 verbatim decimal string. Coercion is recorded in
-`_meta["terminal_coercions"]` and flagged as `W.SPEC.TERMINAL_TYPES`. When the
+`_meta["terminal_coercions"]` (`mode` is `"aliases"` or `"verbatim-string"`)
+and flagged as `W.SPEC.TERMINAL_TYPES`. The alias applies to non-string tokens
+only: a terminal already stored as the string `"4"` is left alone. When the
 case declares `terminal_conventions`, the default `4→"n"` rename is suppressed
 so a *declared* neutral label like `"4"` survives verbatim.
 
@@ -188,7 +209,9 @@ heuristic.
 A bus carries `terminal_names`, optionally `perfectly_grounded_terminals`,
 and optional voltage-magnitude bounds in four flavors: phase-to-ground
 (`v_min`/`v_max`), phase-to-neutral (`vpn_*`), phase-to-phase (`vpp_*`)
-and sequence (`vpos_*`). `v_min`/`v_max` and `vpn_min`/`vpn_max` are
+and sequence (`vpos_min`/`vpos_max`, plus the maximum-only `vneg_max` and
+`vzero_max` on the negative- and zero-sequence magnitudes, and the
+dimensionless voltage-unbalance-factor cap `vuf_max`). `v_min`/`v_max` and `vpn_min`/`vpn_max` are
 **per-phase arrays** (one element per phase terminal, in `terminal_names` order,
 neutral excluded); `vpp_min`/`vpp_max` are **per-pair arrays** (one element per
 unordered phase pair, in `(i<j)` order). A terminal declared as protective
@@ -200,6 +223,13 @@ at ingest** (`parse_bmopf`) — wrap it in an array of the phase count. The
 neutral conductor has its own separate, optional, **maximum-only** bound
 `vn_max` (scalar, neutral-to-ground), valid only when the bus has a neutral.
 Absent bounds mean *unconstrained* (spec §4.1.5).
+
+A bus may also bound the **angle difference between its phases** with the
+scalars `va_diff_min`/`va_diff_max` (rad). They apply to every phase pair and
+are centered on the nominal offset taken from the optional per-phase vector
+`va_nom` (rad); without `va_nom` the offset is zero. A `line` accepts the same
+`va_diff_min`/`va_diff_max` pair for the angle difference between its two ends.
+See [the OPF bus model](opf.md) for the constraint form.
 
 Grounding semantics (spec Table 10):
 
@@ -283,11 +313,33 @@ The one unit-mistake the schema cannot catch — an Ω/km value typed into an
 
 ## Loads and generators
 
-`configuration` ∈ `SINGLE_PHASE` (2 terminals, between any two nodes),
-`WYE` (4 terminals, midpoint return) or `DELTA` (3 terminals). Setpoint
-vectors `p_nom`/`q_nom` have length 1 (single-phase) or 3. Note the spec
+`configuration` ∈ `SINGLE_PHASE` (one terminal pair, between any two nodes),
+`WYE` (phase terminals plus a neutral return) or `DELTA` (phase terminals
+only). Setpoint vectors `p_nom`/`q_nom` have **one entry per sub-load**: one for
+`SINGLE_PHASE`, one per phase terminal for `WYE`, one per cyclic coil for
+`DELTA`. The data-model *conformance* arity is the three-phase one (4 terminals
+for `WYE`, 3 for `DELTA`); a reduced-phase map with correctly sized arrays is
+accepted by the solver and reported as `W.SPEC.CONFIG_ARITY`. The full indexing
+rules are in [device parameter indexing](device_indexing.md). Note the spec
 FAQ: a "wye" in the BMOPF sense always has the neutral return — a
 2-terminal load is `SINGLE_PHASE`, not a degenerate wye.
+
+**Voltage dependence.** A load's `model` field selects how its power follows
+the sub-load voltage; `v_nom` (V) is the voltage at which it draws exactly
+`p_nom`/`q_nom`:
+
+| `model` | Extra fields | Notes |
+|---|---|---|
+| `constant_power` (default) | — | `v_nom` is not read |
+| `constant_current`, `constant_impedance` | `v_nom` | |
+| `zip` | `v_nom`; `alpha_z`, `alpha_i`, `alpha_p` (active) and `beta_z`, `beta_i`, `beta_p` (reactive) | coefficients are not required to sum to 1 (`W.LOAD.ZIP_SUM`) |
+| `exponential` | `v_nom`; `gamma_p`, `gamma_q` | integer exponents are solved as the equivalent ZIP terms |
+
+`v_nom` and the coefficients are arrays: length one (broadcast to every
+sub-load) or one entry per sub-load. The solver tolerates a bare scalar, but
+it is not schema-valid. The equations are in the [load specification](spec/load.md), and
+[Choosing and identifying a load model](@ref load-models) covers when each
+model is defensible.
 
 Generators additionally carry `cost` and optional `p_min/p_max/q_min/q_max`.
 `cost` is a **per-phase vector of energy prices** (\$/kWh), one element per
@@ -316,8 +368,12 @@ interfaced through an inverter. Required fields are `bus`, `terminal_map`,
 `BATTERY` / `GENERIC` / `STATCOM` / `DSTATCOM`), and the per-phase apparent-power
 rating `s_max` (VA). Optional fields include the available active power `p_avail`
 (W), explicit flow bounds `p_min/p_max/q_min/q_max`, a per-phase `cost`, a
-converter current limit `i_max` (A), the filter/grid-forming fields, and the
-shared-DC-link coupling (`dc_link_coupled`, `p_dc_min/p_dc_max`). Bounds left
+converter current limit `i_max` (A), and the shared-DC-link coupling
+(`dc_link_coupled`, `p_dc_min/p_dc_max`). The filter and grid-forming fields
+(`r_filter`, `x_filter` per phase, scalar `b_filter_shunt`, `grid_forming`,
+`v_ref_internal`) are part of the data model and are shape-checked, but the
+native OPF does not stamp a physical filter; `grid_forming = true` is read by
+the integrity check that looks for a voltage reference in a DC-fed island. Bounds left
 absent are filled by the augmentation pass. `i_max` is **per conductor** (like a
 line's): for a `FOUR_LEG` IBR, one entry per phase plus a recommended trailing
 entry capping the **neutral** return $-\sum_k I_k$ (which can exceed the phase
@@ -455,7 +511,8 @@ underdetermined. Mirroring HVDC/MVDC practice (master–slave and droop):
 - `"P"` (default) — constant power; the OPF dispatches the converter's power.
 - `"V"` — DC-voltage **master**: holds the pole-to-return $v_\text{dc}$ at
   `dc_v_set` (a fixed setpoint, like an AC source's `v_magnitude`); its AC power
-  floats to balance the zone.
+  floats to balance the zone. When `dc_v_set` is absent, the `dc_bus`'s
+  `v_dc_nom` is used, in `"droop"` mode too.
 - `"droop"` — **saturated** V–P droop: the AC power follows
   $P = P^\text{ref} + (v_\text{dc} - v_\text{dc}^\text{set})/k_\text{droop}$
   inside an optional `±dc_deadband`,
@@ -470,26 +527,55 @@ Every connected DC island must have ≥1 `"V"` or `"droop"` converter, else
 
 ## Transformer subtypes
 
-Six subtypes, each its own sub-dict under `transformer`.  All impedance
-fields are in SI units (Ω or S); `v_nom_*` in V; `s_rating` in VA.
+Seven subtypes, each its own sub-dict under `transformer`.  All impedance
+fields are in SI units (Ω or S); `v_nom_*` in V; `s_rating` in VA. This section
+is the field-level summary; [Transformer models](transformer_models.md) is the
+model-level contract (conventions, approximations, nameplate cap) and
+[Transformer equations in the OPF](opf_transformers.md) has the constraints.
 
 | Subtype | map arity (from, to) | OPF model | impedance fields |
 |---|---|---|---|
-| `single_phase` | (2, 2) | Γ-equivalent, series Z referred to HV | `r/x_series_from` (HV, Ω), `r/x_series_to` (LV, Ω), `g/b_no_load` (S) |
+| `single_phase` | (2, 2) | Γ-equivalent, series Z referred to the from side | `r/x_series_from` (Ω), `r/x_series_to` (Ω), `g/b_no_load` (S) |
 | `center_tap` | (2, 3) | coupled-coil 3-winding (OpenDSS-consistent primitive admittance) | same field names — see note below |
 | `wye_delta` | (4, 3) | per-winding T behind ideal Yd transform | `r/x_series_from` (wye), `r/x_series_to` (delta), `g/b_no_load` (S) |
 | `delta_wye` | (3, 4) | per-winding T behind ideal Dy transform | `r/x_series_from` (delta), `r/x_series_to` (wye), `g/b_no_load` (S) |
 | `single_phase_autotransformer` | (2, 2) | step voltage regulator: YY core at fixed-tap effective ratio `n_eff`, **shared neutral** | `r/x_series_from`, `r/x_series_to`, `g/b_no_load`; ratio from `tap_ratio` + `regulator_type` |
 | `open_delta_regulator` | (4, 4) | monolithic open-delta: two line-to-line regulating windings + galvanic straight-through | per-regulator `r/x_series_*`; `connection`, `tap_ratio` (len 2), `regulator_type` |
+| `n_winding` | winding list (no `bus_from`/`bus_to`) | ZB short-circuit matrix referred to winding 1, WYE and/or DELTA windings | per-winding `r_winding` (Ω), pairwise `x_sc["i_j"]` (Ω), `g/b_no_load` (S) |
+
+The arities are the data-model conformance values. Other coil counts, such
+as a three-phase bank written as one `single_phase` entry, are covered by the
+[connection-map rules](connection_maps.md) and raise
+`W.SPEC.XFMR_TMAP_ARITY`.
+
+Fields shared across subtypes, beyond the impedances:
+
+| Field | Subtypes | Meaning |
+|---|---|---|
+| `tap` | `single_phase`, `center_tap`, `wye_delta`, `delta_wye` | Multiplier on the nominal ratio, `N = (v_nom_from / v_nom_to) · tap`; default 1.0 |
+| `tap_min`, `tap_max` | same | With `tap_min < tap_max` the tap becomes a continuous OPF variable |
+| `tap_ratio`, `tap_ratio_min`, `tap_ratio_max` | the two regulator subtypes | Regulator ratio and its optional optimization bounds |
+| `i_max_from`, `i_max_to` | all two-bus subtypes | Winding current limits (A) |
+| `r_neutral_from`, `x_neutral_from`, `r_neutral_to`, `x_neutral_to` | `single_phase`, `center_tap`, `wye_delta`, `delta_wye` | Impedance from a winding's neutral point to earth (OpenDSS `rneut`/`xneut`), Ω |
+| `no_load_shunt` | all | Explicit core branch `{winding, g, b}`, per coil in S; the preferred form for new data, and mutually exclusive with `g/b_no_load` on one unit |
+| `s_rating` | all | Nameplate (VA): the impedance base, and for two-bus subtypes a loading cap (see [the nameplate cap](@ref transformer-nameplate-cap)) |
+
+**No-load (core) branch.** For the isolating subtypes the legacy
+`g_no_load`/`b_no_load` branch sits across **winding 2** (the to side), on that
+winding's coil voltage, matching OpenDSS; it is not a from-side phase-to-ground
+shunt. What the stored number means (a bank total or a per-coil value) depends
+on the subtype. Both are tabulated in
+[Magnetizing-shunt placement](@ref Magnetising-shunt-placement).
 
 **`single_phase`**: the series impedance $R = R_1 + N^2 R_2$, $X = X_1 + N^2 X_2$
-is lumped onto the HV side (Γ convention).  `r_series_from`/`x_series_from`
-are the HV winding values (Ω on the HV voltage base); `r_series_to`/`x_series_to`
-are the LV winding values (Ω on the LV voltage base).  The no-load shunt
-`g_no_load`/`b_no_load` is placed at the HV terminals, phase-to-ground.
+is lumped onto the from side (Γ convention).  `r_series_from`/`x_series_from`
+are the from-winding values (Ω on the from-side voltage base);
+`r_series_to`/`x_series_to` are the to-winding values (Ω on the to-side voltage
+base).
 
-**`center_tap`**: `terminal_map_from = ["1","n"]` (HV phase + neutral),
-`terminal_map_to = ["1","n","2"]` (leg-1, center-tap neutral, leg-2).
+**`center_tap`**: `terminal_map_from = ["a","n"]` (HV phase + neutral, or a
+phase pair), `terminal_map_to = ["a","n","b"]` (leg 1, center-tap neutral,
+leg 2; the order is positional).
 `v_nom_to` is the **per-leg** voltage (e.g. 120 V, not 240 V).
 The OPF models it as a genuine coupled-coil 3-winding transformer: the two LV
 half-windings are series-aiding about the center tap (winding 3 dotted at the
@@ -504,21 +590,24 @@ loading correctly produces different voltages on the two legs.
     leakage values, not `XHL/2` — the OpenDSS pair-wise values must be converted
     via the Steinmetz star formula. Using the 2-winding shortcut (e.g. all of
     `XHL` on the HV side, `x_series_to = 0`) drops the LV-side leakage and spreads
-    the leg voltages apart under load. PowerIO v0.9's BMOPF export carries the
-    correct star split for [`from_dss`](@ref); BMOPFTools normalizes the no-load
-    shunt convention. See
+    the leg voltages apart under load. PowerIO's BMOPF export carries the
+    correct star split, so [`from_dss`](@ref) needs no conversion; the formulas
+    matter for hand-built cases. See
     [Conversion guide § Transformer impedance bases](conversion.md#Transformer-impedance-bases)
     for the exact formulas.
 
 **`wye_delta`/`delta_wye`**: a per-winding T-model behind the ideal Yd/Dy
 transform, matching the OpenDSS / PMD reference loss network.  Each winding
-carries its own series impedance (`r/x_series_from`, `r/x_series_to`) and a
-`g/b_no_load` core-loss shunt sits at the from-side (HV) phase terminals.
-`v_nom_*` are phase-to-neutral equivalents (the √3 factor is absorbed into
-the effective turns ratio `n_eff`).  The older single `r_series`/`x_series`
-(wye-side lumped, delta ideal) is accepted as legacy shorthand and migrated
-onto `r_series_from`/`x_series_from` with the secondary branch zero — see the
-[conversion guide](conversion.md) and feedback item 21.
+carries its own series impedance (`r/x_series_from`, `r/x_series_to`).
+`v_nom_from` and `v_nom_to` are the **line-to-line nameplate voltages**
+(`11000` and `415`, as [`from_dss`](@ref) writes them); the impedance bases and
+the exporters use them as such. The OPF constraints use only their ratio, and
+the √3 introduced by the delta connection is applied inside the model, in the
+effective turns ratio `n_eff`.  The older single `r_series`/`x_series` (a
+wye-referred lump, delta winding ideal) is accepted as legacy shorthand and
+migrated onto the **wye** winding's fields (`_from` for `wye_delta`, `_to` for
+`delta_wye`) with the delta side zero — see
+[Transformer impedance on ingest](conversion.md#Transformer-impedance-on-ingest).
 
 **`single_phase_autotransformer`**: a single-phase step voltage regulator
 modeled as an autotransformer (series + common winding sharing a node), so the
@@ -542,10 +631,12 @@ regulated line-to-line voltages are boosted by their taps while the shared phase
 passes through unchanged.  See the [OPF reference](opf.md) and
 [Transformer primitive admittance](spec/transformer-admittance.md).
 
-**`n_winding`**: a general n-winding (3+) transformer for three or more
+**`n_winding`**: a general n-winding transformer, typically for three or more
 galvanically isolated voltage levels (e.g. an HV→MV→LV substation, or a
 dual-secondary unit).  Unlike the two-bus subtypes it is a **winding-indexed
-list** (`windings = [{bus, terminal_map, v_nom, connection, r_winding}, …]`)
+list** (`windings = [{bus, terminal_map, v_nom, configuration, r_winding}, …]`;
+the earlier key names `connection` and `v_ref` are renamed on parse by
+`BMOPFTools.migrate`, but a dict built in memory must use the current names)
 with inter-winding leakage stored as **pairwise short-circuit reactances**
 `x_sc["i_j"]` (referred to winding 1).  The leakage is the OpenDSS-style **ZB
 matrix** referred to winding 1 ($ZB[i,i]=Z_{1,i+1}$,
@@ -553,13 +644,17 @@ $ZB[i,j]=\tfrac12(Z_{1,i+1}+Z_{1,j+1}-Z_{i+1,j+1})$), which is **exact for any
 $n$** — it has $n(n-1)/2$ entries and reconstructs every pairwise reactance (for
 $n\le 3$ it coincides with the star/T model).  The OPF references winding 1
 ($V_1^r - V_{i+1}^r = -\sum_j ZB[i,j] I_{j+1}^r$, ideal core
-$\sum_k N_k I_k = 0$, $N_k = v_\text{ref}[k]/v_\text{ref}[1]$), so no internal
+$\sum_k N_k I_k = 0$, $N_k = v_\text{nom}[k]/v_\text{nom}[1]$), so no internal
 star node is required; a ZB entry **may be negative** for $n\ge 3$ (physical).
 Each isolated winding is its **own galvanic zone** (n_winding is treated as
-isolating, like the other non-regulator subtypes — see
-[Galvanic zones](analysis.md)).  Windings may be `WYE` **or** `DELTA` (a delta
-winding's `v_nom` is its line-to-line coil voltage, and `delta_roll` selects the
-vector-group rotation).  This is a **fully independent code path** from the
+isolating, like the other non-regulator subtypes — see the connectivity pass in
+[Analysis & reports](analysis.md)).  A winding's `configuration` is `WYE`
+**or** `DELTA`: a wye winding's `v_nom` is its line-to-neutral coil voltage, a
+delta winding's is its line-to-line coil voltage, and `delta_roll` (`+1`, the
+default, or `-1`, OpenDSS's standard delta) selects the vector-group rotation.
+Each winding may carry its own scalar `s_max` (VA) and `i_max` (A) limits; the
+top-level `s_rating` is the impedance base and does not cap loading on its own.
+No tap field is accepted on an `n_winding` unit or its windings.  This is a **fully independent code path** from the
 two-bus subtypes, validated against OpenDSS's own 3- and 4-winding solves
 (including delta `Dyn`/`Dyyn`).  See the
 [conversion guide § n-winding transformers](@ref n-winding).
@@ -578,7 +673,9 @@ The `switch` is the data model's element for **any section of negligible series
 impedance** — a per-conductor short between two buses that either carries current
 with no voltage drop (closed) or carries none (open). It is an *idealized,
 lossless* two-bus element: there is no `linecode`, no `length`, and no `R`/`X`
-(contrast [Lines](#Lines,-linecodes-and-matrices)). The closed switch imposes
+(contrast [Lines](#Lines,-linecodes-and-matrices)). Its fields are the two
+endpoints and terminal maps, the `open_switch` flag, and optional per-conductor
+ratings `i_max` (A) and `s_max` (VA). The closed switch imposes
 $v_{b^\text{fr}} = v_{b^\text{to}}$ on every conductor in its terminal map and
 the open switch fixes its currents to zero (see
 [the OPF switch model](opf.md#Switches)).
@@ -594,7 +691,7 @@ steady-state OPF, all reduce to the same idealization. The intended scope:
 | **Recloser** | As above — a breaker with reclosing control; only its open/closed conduction state matters here. |
 | **Tie switch** | Normally-open reconfiguration link between feeders. |
 | **Busbar section / jumper / bus-tie** | A near-zero-impedance metallic connection between nodes; an explicit object instead of merging the buses. |
-| **Near-zero-impedance line** | A line whose $\|Z\|$ is below the conditioning threshold — the augmentation pass converts it to a closed switch (`W.DOM.LINE_LOW_IMPEDANCE`, [ref. 2](methodology.md#refs)). |
+| **Near-zero-impedance line** | A line whose $\|Z\|$ is below the conditioning threshold is reported as `W.DOM.LINE_LOW_IMPEDANCE`; the opt-in [`fix_case`](@ref) pass `apply_low_impedance_to_switch` (off by default) converts it to a closed switch ([ref. 2](methodology.md#refs)). |
 
 What it is **not**: a switch never carries impedance, losses, shunt admittance,
 tap or phase-shift (use a `line`, `shunt`, or `transformer`); it never connects
@@ -659,8 +756,9 @@ enumerates, since they are immaterial to a steady-state OPF.
 
 ## Metadata blocks
 
-The network dict carries two distinct metadata containers, with different
-scopes and serialization behavior.
+The network dict carries two distinct metadata containers: `meta`, the
+spec-level block an author fills in, and `_meta`, the bookkeeping BMOPFTools
+keeps while it parses, converts and migrates a case.
 
 ### `meta` — spec-level, written to JSON
 
@@ -678,6 +776,8 @@ error) so callers can add project-specific keys freely.
 | `created` | String | ISO 8601 datetime when the file was first created (e.g. `"2024-06-19T14:32:00Z"`). Auto-filled on first write. |
 | `modified` | String | ISO 8601 datetime of most recent edit. Not auto-filled; set explicitly when updating a file. |
 | `license` | String | SPDX identifier (e.g. `"CC-BY-4.0"`) or full URI. |
+| `frequency` | Number (Hz) | Nominal system frequency. Check-only: it is compared with `line_geometry` and linecode derivation frequencies (`W.DOM.FREQUENCY_MISMATCH`) and never rescales an impedance. [`from_dss`](@ref) fills it from the OpenDSS base frequency. |
+| `provenance` | Object | Tool bookkeeping: the persisted copy of `_meta` (see below). Caller-set keys win over tool-written ones. |
 | `authors` | Array of objects | List of contributors; each object may have `name`, `email`, `orcid`. |
 | `data_sources` | Array of objects | Origin datasets; each object may have `name`, `url`, `format`, `doi`, `version`. |
 | `case_study_generator` | Object | Tool provenance: `{"tool": "BMOPFTools.jl", "version": "x.y.z"}`. Auto-filled by `write_bmopf`. |
@@ -710,20 +810,31 @@ write_bmopf(net, "lv_feeder1.json";
     ))
 ```
 
-### [`_meta` — tool-private, never serialized](@id _meta-—-tool-private,-never-serialised)
+### [`_meta` — tool bookkeeping, persisted under `meta.provenance`](@id _meta-—-tool-private,-never-serialised)
 
-`net["_meta"]` is a `Dict{String,Any}` used internally by BMOPFTools for
-traceability.  It is **not written to JSON** by [`write_bmopf`](@ref) and
-is never reported as a schema violation.  Its contents are informational;
+`net["_meta"]` is a `Dict{String,Any}` used by BMOPFTools for traceability. It
+is not part of the spec and is never reported as a schema violation. The key
+`_meta` itself is not written to JSON; instead [`write_bmopf`](@ref) saves its
+contents (all keys except the per-parse stamp `parsed_at`) under
+`meta.provenance`, and [`parse_bmopf`](@ref) restores them into `_meta` on
+read. Import diagnostics, ground-reference records and migration notes
+therefore survive a save/load round trip. Its contents are informational;
 downstream code should treat them as advisory.
 
 | Key | Set by | Contents |
 |---|---|---|
-| `parsed_at` | [`parse_bmopf`](@ref) | Timestamp when the JSON was parsed. |
-| `terminal_coercions` | [`parse_bmopf`](@ref) | `{"n": <count>, "mode": "<alias|verbatim>"}` — populated when non-string terminal IDs were normalized. See `W.SPEC.TERMINAL_TYPES`. |
+| `parsed_at` | [`parse_bmopf`](@ref) | Timestamp when the JSON was parsed. Stamped only when the parsed dict has no `_meta` yet, so it is absent on `from_dss` output; never persisted. |
+| `terminal_coercions` | [`parse_bmopf`](@ref) | `{"n": <count>, "mode": "aliases" or "verbatim-string"}` — populated when non-string terminal IDs were normalized. See `W.SPEC.TERMINAL_TYPES`. |
 | `powerio_source` | `from_dss` | Absolute path of the `.dss` file that was converted. |
 | `powerio_warnings` | `from_dss` | Array of `CODE: message` lines, one per diagnostic the DSS→JSON converter emitted, verbatim and ungrouped. |
 | `powerio_diagnostics` | `from_dss` | The same diagnostics folded to one record per `(code, severity, component type)` class, each with its count, element paths and example messages. [`powerio_findings`](@ref) reads these back as `Finding`s and [`analyze`](@ref) reports them. |
+| `powerio_diagnostic_details` | `from_dss` | The structured upstream diagnostic records behind the rendered warning lines. |
+| `powerio_source_mapping`, `powerio_source_mapped_fields` | `from_dss` | The [source field ledger](@ref source-field-ledger): which OpenDSS fields were and were not carried over. |
+| `powerio_source_metadata` | `from_dss` | Source-level facts PowerIO reports about the parsed deck. |
+| `powerio_source_semantics` | `from_dss` | Source semantics with no BMOPF field, such as load voltage-validity thresholds and authored transformer `leadlag`. |
+| `powerio_intake_repairs` | `from_dss` | Repairs applied on intake (for example the multi-winding `%R` base); present only when one was applied. |
+| `opendss_ground_references` | `from_dss` | Per-bus record of materialized OpenDSS node-0 returns (`n_ref`). See [the earth terminal](@ref earth-terminal). |
+| `explicit_transformer_core_shunts` | [`parse_bmopf`](@ref), `from_dss` | For each transformer whose `no_load_shunt` was materialized as a bus shunt: the owning transformer, the shunt id and the source values. |
 | `frequency_source` | `from_dss` | `"powerio"` when `meta.frequency` was captured from the parsed OpenDSS base frequency, or `"override"` when the `frequency=` keyword supplied it. |
 | `frequency_powerio` | `from_dss` | The parsed base frequency, recorded only when a `frequency=` override differs from it. |
 | `migration_notes` | [`BMOPFTools.migrate`](@ref) | Array of `W.MIGRATE.*` finding dicts (one per transformation applied, for example `W.MIGRATE.FIELD_RENAMES`) appended when a forward migration is applied. |

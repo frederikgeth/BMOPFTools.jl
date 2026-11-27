@@ -88,7 +88,9 @@ $\sum_k N_k I_k = 0$) with no inversion and no singularity. This holds for *all*
 subtypes and is covered by the "ideal (zero-impedance) transformers" tests.
 (The separate `transformer_yprim`/`nwinding_yprim` **admittance export** is the
 one place that genuinely inverts $Z$. An ideal coupling has no admittance form,
-so there it warns and exports the singular, shunt-only block.)
+so that export throws for leakage at or below its cutoff; use `ybus_augmented`
+for the bordered representation, or `shunt_only=true` to inspect the no-load
+part alone.)
 
 ## `single_phase` — per-phase YY, Γ-equivalent
 
@@ -224,9 +226,9 @@ At zero leakage both forms give the ideal $U_\text{hv} = N u_1 = N u_2$.
 
 `wye_delta` has the wye on the from side, `delta_wye` the delta on the from
 side. Each core leg $k$ links one wye coil (phase $k$ to the star point) with
-one delta coil (between two delta terminals). Because nominal voltages are
-given as phase-to-neutral equivalents on both sides, the coil ratio carries the
-$\sqrt3$ of the delta connection:
+one delta coil (between two delta terminals). Nominal voltages are given on the
+same basis on both sides (line-to-line nameplate values by convention), so the
+coil ratio carries the $\sqrt3$ of the delta connection:
 
 $$n_\text{eff} = \begin{cases} \sqrt{3}/N & \text{Yd} \\ N\sqrt{3} & \text{Dy} \end{cases}
 \qquad\text{(delta coil volts per wye coil volt)}$$

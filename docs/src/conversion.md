@@ -187,8 +187,9 @@ shares) applies a handful of deliberate normalizations so the result lands on th
 BMOPF conventions:
 
 - **Identifier case-folding** — all ids and references lower-cased (below).
-- **Terminal remap** — `1,2,3,4 → a,b,c,n`, with the OpenDSS earth node `.0`
-  (surfaced by PowerIO as terminal `"5"`) routed to the bus neutral (below).
+- **Terminal remap** — `1,2,3,4 → a,b,c,n`. The OpenDSS earth node `.0`
+  becomes a separate, perfectly grounded return terminal `n_ref`; it is not
+  merged with the conductor neutral `n` (below).
 - **Transformer impedance normalization** — PowerIO's lumped single-impedance
   form is migrated onto the per-winding fields the OPF reads (below).
 - **Transformer fidelity** — PowerIO 0.11 retains BMOPF transformer neutral
@@ -220,14 +221,21 @@ BMOPF conventions:
   `net["_meta"]["frequency_source"]`. A PowerIO regression that dropped or
   hard-coded the base frequency would be caught by the ingest tests, which
   assert distinct 50 Hz and 60 Hz decks map to distinct `meta.frequency`.
+- **PV systems become IBRs** — an OpenDSS `PVSystem` imports as an `ibr`
+  (`prime_mover = "PV"`) together
+  with a `control_profile` for its control law, for example a `power_factor`
+  profile for a fixed-PF unit. Both arrive through the `extras` fold described
+  above. A PV system connected to node 0 is a known gap: its `terminal_map`
+  keeps the label `"0"` while the bus carries `n_ref`, so integrity reports
+  `E.INT.UNKNOWN_TERMINAL` until the map is corrected by hand.
 - **No slack price** — the imported `voltage_source` is left without a `cost`;
   the [augmentation pass](augmentation.md) supplies one (below).
 
 What is **faithful**: connectivity, phasing, linecode matrices, load models,
 transformer neutral grounding, native 3-winding transformer data, and SI
 impedances pass through unchanged. What is **lossy or not yet supported** —
-earth terminal grounding through the bus neutral, dynamic regulator control,
-and unsupported auto-transformer representations — is cataloged under
+dynamic regulator control, unsupported auto-transformer representations, and
+source fields with no BMOPF counterpart — is cataloged under
 [Known limitations](#Known-limitations); most are tracked as upstream PowerIO.jl
 issues.
 
@@ -316,15 +324,25 @@ ideal closure with no series impedance, whereas dropping the same field from a
 from, so read it together with the status keys:
 
 ```julia
-mapping["warning_status"]                # parsed | partially_classified |
+mapping["warning_status"]                # no_warnings | parsed | partially_classified |
                                          # truncated_upstream | unrecognized_warning_format
 mapping["warnings_truncated_upstream"]   # true ⇒ unmapped_fields under-reports
 mapping["unclassified_warnings"]         # fidelity losses not attributable to one field
 ```
 
-An empty `blocking_unmapped_fields` is a fidelity statement **only** when
-`warning_status == "parsed"`. Under any other status the ledger did not see the
-whole input, and `from_dss` emits a warning saying so.
+| `warning_status` | Meaning |
+|---|---|
+| `no_warnings` | PowerIO reported no fidelity loss |
+| `parsed` | every warning was attributed to a source field |
+| `partially_classified` | some warnings name no single field; they are listed in `unclassified_warnings` |
+| `truncated_upstream` | the upstream warning list was cut short |
+| `unrecognized_warning_format` | no warning could be attributed |
+
+An empty `blocking_unmapped_fields` is a fidelity statement **only** under
+`no_warnings` or `parsed`. `partially_classified` is common on ordinary decks
+and is reported through the status key alone, so check it explicitly. For
+`truncated_upstream` and `unrecognized_warning_format` the ledger did not see
+the whole input, and `from_dss` additionally emits a console warning.
 
 Two source semantics have no BMOPF field but are preserved rather than dropped,
 on `net["_meta"]["powerio_source_semantics"]`: an OpenDSS load's `vminpu` /
@@ -343,9 +361,12 @@ identifiers are — see below — so records join across all three `_meta` block
 OpenDSS identifiers are case-*insensitive* but case-*preserving*: `SourceBus`,
 `sourcebus` and `SOURCEBUS` denote the same bus, and different statements in one
 model may spell it differently. BMOPF keys are matched exactly, so `from_dss`
-**case-folds every identifier and every reference to lower case** on ingest
-(bus names, linecodes, component ids; bus / `bus_from` / `bus_to` / `linecode`
-references). This is lossless — OpenDSS uniqueness up to case guarantees folding
+**case-folds OpenDSS identifiers and the references to them to lower case** on
+ingest. Folded are the keys of `bus`, `linecode`, `line`, `switch`, `load`,
+`generator`, `voltage_source`, `shunt`, `ibr`, `capacitor` and every
+transformer subtype, and the reference fields `bus`, `bus_from`, `bus_to` and
+`linecode`. `control_profile` ids and the `control_profile` reference on an
+`ibr` keep the spelling PowerIO emitted. This is lossless — OpenDSS uniqueness up to case guarantees folding
 only reunites references to the same object. If two ids in a collection ever fold
 to the same value (which valid OpenDSS cannot produce) `from_dss` raises rather
 than silently dropping one.
@@ -528,9 +549,10 @@ A multi-step `Capacitor` (`Numsteps>1`) or one driven by a `CapControl` is a
 `generator` with reactive bounds — those already provide continuous, dispatchable
 reactive support. The `capacitor` is specifically the *fixed* physical device.
 
-Ingest status: like `n_winding`, this is a hand-authored / future-PowerIO
-target — **`from_dss` is unchanged** and PowerIO still emits OpenDSS Capacitors
-as plain `shunt`s (B = kvar/kv²), so existing behavior is untouched.
+Ingest status: `capacitor` is a hand-authored object. [`from_dss`](@ref) does
+not produce it: PowerIO emits an OpenDSS `Capacitor` as a plain `shunt`
+(B = kvar/kv²). The opt-in [`fix_case`](@ref) pass `apply_shunt_to_capacitor`
+re-represents a capacitive shunt as a `capacitor`.
 
 ### [General n-winding transformers](@id n-winding)
 
@@ -549,9 +571,9 @@ Data shape (`net["transformer"]["n_winding"][id]`):
 ```json
 {
   "windings": [
-    {"bus":"hv","terminal_map":["a","b","c","n"],"v_nom":66395.0,"connection":"WYE","r_winding":0.21},
-    {"bus":"mv","terminal_map":["a","b","c","n"],"v_nom":14376.0,"connection":"WYE","r_winding":0.31},
-    {"bus":"lv","terminal_map":["a","b","c","n"],"v_nom":2402.0, "connection":"WYE","r_winding":0.32}
+    {"bus":"hv","terminal_map":["a","b","c","n"],"v_nom":66395.0,"configuration":"WYE","r_winding":0.21},
+    {"bus":"mv","terminal_map":["a","b","c","n"],"v_nom":14376.0,"configuration":"WYE","r_winding":0.31},
+    {"bus":"lv","terminal_map":["a","b","c","n"],"v_nom":2402.0, "configuration":"WYE","r_winding":0.32}
   ],
   "x_sc": {"1_2":5.0,"1_3":5.0,"2_3":3.0},
   "s_rating": 30.0e6,
@@ -561,8 +583,10 @@ Data shape (`net["transformer"]["n_winding"][id]`):
 
 Conventions (mirroring OpenDSS, the n-winding reference data model):
 
-- `windings` is ordered; **winding 1 is the reference** (`v_nom` are
-  phase-to-neutral volts; `N_k = v_nom[k]/v_nom[1]`).
+- `windings` is ordered; **winding 1 is the reference** (`v_nom` is each
+  winding's coil voltage; `N_k = v_nom[k]/v_nom[1]`). The winding's connection
+  key is `configuration`; files that use the earlier names `connection` and
+  `v_ref` are renamed by `migrate` on parse.
 - Inter-winding leakage is stored as **pairwise short-circuit reactances**
   `x_sc["i_j"]` (i<j, Ω, all referred to **winding 1's** base) — the OpenDSS
   `XHL`/`XHT`/`XLT` / `Xscarray` form. Per-winding resistance `r_winding[k]` is in
@@ -581,7 +605,8 @@ Conventions (mirroring OpenDSS, the n-winding reference data model):
 - **`WYE` and `DELTA` windings** are both supported. A `WYE` winding's coil
   voltage is line-to-neutral (`v_nom` = L-N, terminal map carries a neutral); a
   `DELTA` winding's coil voltage is line-to-line (`v_nom` = L-L, no neutral, and
-  `delta_roll = ±1` picks the vector-group rotation — `-1` matches OpenDSS). The
+  `delta_roll = ±1` picks the vector-group rotation — the default is `+1`, and
+  `-1` matches OpenDSS's standard delta). The
   `√3`/coil-base factor lives in `v_nom`, so `r_winding`/`x_sc` are on the coil
   base `n_ph·v_nom²/s_rating` and per-unit needs no `√3` correction.
 
@@ -622,41 +647,64 @@ generators at all) is a *price* on that imported power.
 
 `from_dss` imports the source **without** a price (`from_dss` does not add a
 `cost`). The [augmentation pass](augmentation.md) supplies one: it attaches a
-per-phase **`cost`** to the source itself (default 1.0 \$/kWh, kwarg
-`slack_cost`), so minimum-cost dispatch equals loss minimization. No flow
+per-phase **`cost`** to the source itself (default 1.0 \$/kWh, the
+`slack_cost` field of [`AugmentationRecipe`](@ref)), so minimum-cost dispatch
+equals loss minimization. No flow
 bounds are added, so the source stays an unbounded slack, and no auxiliary
 generator is created — the cost lives on the `voltage_source`.
 
 ## PMD field mapping (`to_pmd`)
 
 [`to_pmd`](@ref) exports a BMOPF data model to a PowerModelsDistribution
-ENGINEERING dict. The same field mapping (read in reverse) describes how a PMD
-ENGINEERING dict maps onto BMOPF, which is useful when comparing against
-PMD-based tooling.
+ENGINEERING dict. It is an export-only path: BMOPFTools has no PMD reader, so
+the mapping below is written in the BMOPF → PMD direction.
 
 ### Scaling and basic field mapping
 
-- Voltages: PMD `vm` (per-unit on `voltage_scale_factor`) → volts;
-  `va` degrees → **radians**.
-- Powers: PMD values × `power_scale_factor` → W/var/VA.
-- Terminals: PMD integers `1,2,3 → "1","2","3"`, `4 → "n"`.
-- PMD enum values (`WYE`, `DELTA`, …) → strings.
-- Unrecognized PMD fields are preserved per component under a `_pmd`
-  sub-dict — nothing is silently dropped; `to_pmd` merges them back.
-- Line lengths and per-length linecode values arrive from PMD already in
-  meters / Ω-per-meter (PMD normalizes DSS units internally).
+- Units: the export sets `voltage_scale_factor = 1` and `power_scale_factor = 1`,
+  so PMD voltages stay in volts and powers in W/var/VA.
+- Angles: `v_angle` in **radians** → PMD `va` in degrees.
+- Terminals: names → PMD integers, `1,2,3` / `a,b,c` / `L1,L2,L3` → `1,2,3` and
+  `4` / `n` / `N` → `4`. Any other label raises an `ArgumentError`.
+- Bus voltage bounds: PMD `vm_lb`/`vm_ub` hold one value per bus, so a per-phase
+  bound array must be uniform; differing entries raise an error.
+- `open_switch` → PMD `state` (`0` = OPEN, `1` = CLOSED).
+- Pattern keys (`R_series_1_1`, `G_1_1`, …) → PMD matrices; line lengths stay in
+  meters and linecode values in Ω per meter. A line with inline total matrices
+  is written as a 1 m section carrying the totals.
+- A `_pmd` sub-dict on a component, if a caller supplies one, is merged into the
+  exported PMD component verbatim. BMOPFTools itself never creates `_pmd`.
+
+### What `to_pmd` does not carry
+
+| BMOPF content | Export behavior |
+|---|---|
+| `ibr`, `control_profile`, the `dc_*` tables | dropped **silently** |
+| `capacitor` | skipped with a warning |
+| `n_winding` and `center_tap` transformers | skipped with a warning |
+| the two regulator subtypes | written as plain two-winding transformers at nominal ratio; a non-unit `tap_ratio` is dropped with a warning |
+| `tap_min`/`tap_max`, `i_max_from`/`i_max_to`, `r/x_neutral_*` | dropped with a warning |
+| a terminal labeled `n_ref` | **rejected** with `ArgumentError` |
+
+The last row is a known limitation that matters in practice:
+[`from_dss`](@ref) writes `n_ref` for every materialized OpenDSS node-0 return
+(see [the earth terminal](@ref earth-terminal)), so an imported deck with an
+earthed winding or source cannot be passed to `to_pmd` as is.
 
 ### Load configuration
 
 The spec distinguishes `SINGLE_PHASE` (any two nodes) from `WYE` (4-terminal
-midpoint return). 2-terminal loads are `SINGLE_PHASE`; `to_pmd` maps
-`SINGLE_PHASE` back to a PMD 2-terminal "wye" load.
+midpoint return). 2-terminal loads are `SINGLE_PHASE`; PMD has no such
+configuration, so `to_pmd` writes a `SINGLE_PHASE` load as a PMD 2-terminal
+"wye" load.
 
 ### Transformer impedance bases
 
 PMD and OpenDSS give per-winding resistance `rw` (%) and pair-wise leakage
 `xsc`/`xhl/xlt/xht` (%), both on the winding's own kVA/kV² base.
-BMOPF stores ohms on each winding's own voltage base.
+BMOPF stores ohms on each winding's own voltage base. The formulas below are
+for hand-built cases and for checking an import; [`from_dss`](@ref) receives
+ohms from PowerIO and performs none of these conversions itself.
 
 **`single_phase`** (2-winding, Γ-model):
 
@@ -665,16 +713,27 @@ Z_base,from = v_nom_from² / s_rating
 Z_base,to   = v_nom_to²   / s_rating
 r_series_from = rw₁ · Z_base,from
 r_series_to   = rw₂ · Z_base,to
-x_series_from = (xhl / 2) · Z_base,from    # half of pair leakage on each side
-x_series_to   = (xhl / 2) · Z_base,to
+x_series_from + N² · x_series_to = xhl · Z_base,from     # only the sum is fixed
 ```
+
+The short-circuit test fixes only the **series sum** `Z_from + N²·Z_to`; how
+the leakage splits between the windings is a convention, not a measurement.
+PowerIO's BMOPF export, and therefore `from_dss`, puts the **entire** `xhl` on
+the from winding: the 50 kVA 11 kV / 240 V unit in
+`test/data/pf_comparison/pf_1ph_xfmr.dss` imports with
+`x_series_from = 96.8 Ω` and `x_series_to = 0`. An even split
+(`xhl/2` on each side) describes the same device at nominal tap. When comparing
+a hand conversion against an import, compare the from-referred sum, not the
+split (see the [transformer test-data tutorial](tutorial_transformer_tests.md)).
+The split becomes observable only under off-nominal taps, where the tapped
+winding's share scales as tap² ([transformer models](transformer_models.md)).
 
 **`center_tap`** (coupled-coil 3-winding — star-network leakage conversion required):
 
 OpenDSS specifies three pair-wise leakage values `XHL`, `XLT`, `XHT` (%).
 These are **not** split evenly — they must be converted via the star (Steinmetz)
-network formula before storing. [`from_dss`](@ref) does this automatically
-(recovering the values from PowerIO's `pmd` export); the formulas below are for
+network formula before storing. PowerIO's BMOPF export already carries the star
+values, so [`from_dss`](@ref) delivers them directly; the formulas below are for
 hand-built nets:
 
 ```
@@ -687,7 +746,7 @@ this simplifies to `x_series_from = (XHL − XLT/2) × Z_base,from / 100`
 and `x_series_to = (XLT/2) × Z_base,to / 100`.
 
 !!! warning
-    Using `XHL/2` for both sides (copying the 2-winding formula) produces
+    Using `XHL/2` for both sides (copying a 2-winding even split) produces
     identical leg voltages regardless of load imbalance.  The error is
     ~0.4–0.5 V per leg under a 3 kW imbalance on a 120 V feeder.
 
@@ -701,83 +760,67 @@ r_series_to   = rw₂ · Z_base,to        # wdg2 = wdg3 for a symmetric unit
 Note: `v_nom_to` is the **per-leg** voltage (e.g. 120 V), not the full
 secondary span (240 V).
 
-**No-load branch** (applies to both `single_phase` and `center_tap`):
-
-OpenDSS places the exciting (no-load) branch across **winding 2** — verified
-against its `Yprim` — so `%noloadloss`/`%imag` (`cmag`) convert to SI
-admittances on winding 2's coil voltage `V_stamp` (the per-leg LV voltage for
-`center_tap`; the to-winding voltage for `single_phase`). The magnetizing
-branch is inductive, so `b_no_load` is **negative**:
-
-```
-V_stamp = v_nom_to (coil voltage of winding 2)
-g_no_load =  (%noloadloss / 100) · s_rating / V_stamp²    (S)
-b_no_load = -(%imag       / 100) · s_rating / V_stamp²    (S)
-```
-
-Both fields are omitted when zero.
-
 **`wye_delta` / `delta_wye`** (2-winding, per-winding T-model):
 
-These now use the same per-winding field set as `single_phase` — separate
-`r/x_series_from` (wye/primary winding) and `r/x_series_to` (delta/secondary
-winding), plus a `g/b_no_load` core-loss branch — matching the OpenDSS /
-PMD `eng2math` reference loss network. The series impedance enters the OPF as
-a voltage drop on the winding currents behind the ideal Yd/Dy transform; the
-delta side is no longer assumed ideal.
+These use the same per-winding field set as `single_phase` — separate
+`r/x_series_from` and `r/x_series_to` — matching the OpenDSS / PMD `eng2math`
+reference loss network. The series impedance enters the OPF as a voltage drop
+on the winding currents behind the ideal Yd/Dy transform; neither winding is
+assumed ideal.
 
 ```
 Z_base,from = v_nom_from² / s_rating
 Z_base,to   = v_nom_to²   / s_rating
 r_series_from = rw₁ · Z_base,from
 r_series_to   = rw₂ · Z_base,to
-x_series_from = (xhl / 2) · Z_base,from   # one leakage-split convention…
-x_series_to   = (xhl / 2) · Z_base,to
 ```
 
-The short-circuit test fixes only the **series sum** `Z_from + N²·Z_to`; how
-it splits between the windings is a convention, not a measurement. PowerIO's
-current BMOPF export (and therefore [`from_dss`](@ref)) splits `xhl` **evenly**
-in percent as above; PMD's `_sc2br_impedance` star conversion instead lumps
-the entire `xhl` on the winding-1 branch (`x_series_to = 0`). Both describe
-the same device at nominal tap — when comparing hand conversions against an
-import, check the HV-referred series **sum**, not the split (see the
-[transformer test-data tutorial](tutorial_transformer_tests.md)). The split
-becomes observable only under off-nominal taps, where the tapped winding's
-share scales as tap² ([transformer models](transformer_models.md)).
+with the leakage split subject to the same convention freedom as above. An
+import does not arrive split per winding: PowerIO emits one lumped total that
+is already referred to the **wye** winding's base, and `migrate` places it on
+the wye side with the delta side zero. See
+[Transformer impedance on ingest](#Transformer-impedance-on-ingest) for the
+worked numbers. PMD's star conversion (`_sc2br_impedance`) instead lumps the
+entire `xhl` on the winding-1 branch. BMOPFTools accepts any of these; the
+physics (the series sum, and the exact tap² referral of the tapped winding's
+share) is convention-independent.
 
-The no-load branch is on **winding 2** (the to side): a delta of branches
-across the LV delta coils for `wye_delta`, phase-to-neutral on the LV wye for
-`delta_wye`. `V_stamp` is winding 2's coil voltage — the full line-to-line
-`v_nom_to` for a delta winding 2, the line-to-neutral `v_nom_to/√3` for a wye
-winding 2:
+**No-load branch.** OpenDSS places the exciting (no-load) branch across
+**winding 2** — verified against its `Yprim` — on winding 2's coil voltage
+`V_stamp`: the to-winding voltage for `single_phase`, the per-leg LV voltage for
+`center_tap`, the full line-to-line `v_nom_to` for a delta winding 2
+(`wye_delta`), and the line-to-neutral `v_nom_to/√3` for a wye winding 2
+(`delta_wye`). The magnetizing branch is inductive, so the susceptance is
+**negative**:
 
 ```
-g_no_load =  (noloadloss) · s_rating / V_stamp²   # noloadloss = %noloadloss / 100
-b_no_load = -(cmag)       · s_rating / V_stamp²   # cmag       = %imag       / 100
+g =  (%noloadloss / 100) · s_rating / V_stamp²    (S, bank total)
+b = -(%imag       / 100) · s_rating / V_stamp²    (S, bank total)
 ```
 
-!!! note "Leakage placement"
-    The winding split of the leakage is convention-dependent (see above): PMD's
-    star conversion (`_sc2br_impedance`) puts the *entire* `xhl` on the
-    winding-1 (HV) branch with zero on the LV branch, while PowerIO's BMOPF
-    export — what [`from_dss`](@ref) delivers — carries a single lumped total
-    already referred to the wye winding's base, which lands entirely on that
-    side.
-    BMOPFTools accepts either; the physics (the series sum, and the exact
-    tap² referral of the tapped winding's share) is convention-independent.
-    Any lumped single-impedance form is migrated onto the per-winding fields
-    at parse time — see
-    [Transformer impedance on ingest](#Transformer-impedance-on-ingest).
-    `to_pmd` writes the per-winding fields back to PMD `rw`/`xsc`.
+How that branch is stored depends on where the case came from:
+
+- **Imported with `from_dss`.** The core branch arrives as an explicit
+  `no_load_shunt` and is materialized as an ordinary `shunt` named
+  `powerio_core_<subtype>_<id>` on winding 2's bus and terminals. The owning
+  transformer, the shunt id and the per-coil source values are recorded in
+  `_meta["explicit_transformer_core_shunts"]`, and the transformer itself
+  carries no `g_no_load`/`b_no_load`. A transformer with no core branch gets
+  `g_no_load = 0.0` and `b_no_load = 0.0` written explicitly.
+- **Hand-built.** Either give `no_load_shunt = {winding, g, b}` with per-coil
+  values, or the legacy `g_no_load`/`b_no_load` fields, whose bank-total or
+  per-coil meaning depends on the subtype. Both forms on one transformer are
+  rejected. See
+  [Magnetizing-shunt placement](@ref Magnetising-shunt-placement).
 
 ### `to_pmd` transformer specifics
 
 - **No-load branch**: `noloadloss = g_no_load / Y_base` and
-  `cmag = |b_no_load| / Y_base` — `cmag` carries the magnetizing susceptance
-  only, mirroring the ingest convention above (where `b_no_load` is
-  deliberately left at 0, `cmag` is 0 too; core loss is never double-counted
-  as magnetizing current).
+  `cmag = |b_no_load| / Y_base`, with `Y_base` on winding 2's coil voltage —
+  `cmag` carries the magnetizing susceptance only, so core loss is never
+  double-counted as magnetizing current. Only the legacy `g_no_load`/`b_no_load`
+  fields are converted; a core branch that was materialized as a
+  `powerio_core_*` shunt is exported as that shunt.
 - **Fixed tap**: a `tap ≠ 1` exports as PMD `tm_set = [fill(tap, n_ph), fill(1, n_ph)]`
   with `tm_fix = true` — the same `N_eff = (v_nom_from/v_nom_to)·tap`
   convention, so a fixed off-nominal tap round-trips exactly. Free-tap bounds
@@ -807,6 +850,12 @@ BMOPF data model ──write_bmopf──► BMOPF JSON ──PowerIO.jl──►
 `to_dss(net, path)` writes the text to `path` (creating parent directories) and
 returns the warnings. A `name` keyword overrides the circuit name without
 mutating the input dict.
+
+A line that carries inline total matrices has no per-length linecode to hand to
+the writer. Before export, on a copy of the case, each such line is given a
+synthetic linecode `_inline_<id>` holding its totals and `length = 1.0`, which
+is numerically exact because OpenDSS lines are per-length × length. The emitted
+deck therefore contains linecodes that the source case did not name.
 
 BMOPF terminal labels (`"a"`, `"b"`, `"c"`, `"n"`) are accepted by the writer and
 re-normalized to OpenDSS numeric nodes (`.1`, `.2`, `.3`, `.0`); merged polyphase
@@ -881,9 +930,9 @@ catch err
 end
 ```
 
-This changes the exception type at those two boundaries: callers previously
-catching `PowerIO.PowerIOError` should catch `DSSConversionError` and inspect
-`err.cause.code`. Direct PowerIO calls retain their upstream behavior.
+Catch `DSSConversionError`, not `PowerIO.PowerIOError`, around `from_dss`, and
+inspect `err.cause.code`. Direct PowerIO calls keep their upstream exception
+type.
 Missing files and unrelated package/audit errors propagate unchanged.
 
 [`dss_conversion_error_to_dict`](@ref) provides JSON-safe copies of
@@ -948,7 +997,8 @@ that separate capability does not imply that intake populates it.
   one `open_delta_regulator`. The writer regression checks that `from_dss`
   restores its connection and both taps from the 0.1.0 `extras` representation.
   This recognition does not establish general `AutoTrans`/`RegControl` support.
-  `to_pmd` does not emit the regulator subtypes. See [conventions](conventions.md)
+  `to_pmd` writes the regulator subtypes as plain two-winding transformers at
+  nominal ratio and warns that a non-unit `tap_ratio` is dropped. See [conventions](conventions.md)
   and the [OPF reference](opf.md) for the numerical models and their domains.
 
 ### DSS intake compatibility

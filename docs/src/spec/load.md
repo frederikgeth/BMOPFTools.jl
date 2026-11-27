@@ -106,7 +106,8 @@ implementation adds purely for conditioning.)
   (`_add_subload_power!`).
 - **Quadratic ZIP/exponential.** A squared-voltage-drop **variable**
   $W=\Delta v^{r2}+\Delta v^{i2}$ (and, when a constant-current term is present,
-  $s=\sqrt{W}$) is introduced so ZIP terms stay quadratic. Integer exponents are
+  $s=\sqrt{W}$) is introduced so ZIP terms stay quadratic, when the sub-load
+  has a positive lower voltage bound (see the next section for the other cases). Integer exponents are
   routed to the constant-Z/I/P terms; only a genuinely non-integer exponent emits the
   nonlinear term $\textcolor{red}{P^{\text{nom}}}(W/\textcolor{red}{V^{\text{nom}}}^2)^{\gamma/2}$.
 - **`SINGLE_PHASE` two-terminal handling.** A length-2 map is treated as one element
@@ -117,9 +118,20 @@ implementation adds purely for conditioning.)
 
 ### Cartesian bounds (conditioning only)
 
-The auxiliary $W$ (and $s$) carry box bounds at $[0.5\,\textcolor{red}{V^{\text{nom}}},1.5\,\textcolor{red}{V^{\text{nom}}}]^2$
-— deliberately wider than any supply standard. These bound the *auxiliary* variables
-for solver conditioning; the operational voltage limits live on the bus, not here.
+No fixed band around $\textcolor{red}{V^{\text{nom}}}$ is imposed. The formulation
+depends on what is known about the sub-load voltage:
+
+- a pure constant-impedance sub-load uses the linear current law
+  $I = \overline{S^{\text{nom}}}/\textcolor{red}{V^{\text{nom}}}^2 \cdot \Delta V$, with no $W$
+  variable and no voltage bound;
+- when no positive lower voltage bound applies to the sub-load's terminal pair, the law is written
+  in $\ell = \log(|\Delta V|/\textcolor{red}{V^{\text{nom}}})$, which is defined for every
+  positive voltage and carries no floor;
+- otherwise $W$ (and $s$) are used with a lower bound at half that lower
+  voltage bound. This guard stays inactive inside the permitted voltage range; it
+  conditions the auxiliary variables and does not narrow the feasible set.
+
+The operational voltage limits live on the bus, not here.
 
 ### Source map
 

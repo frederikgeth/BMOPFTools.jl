@@ -1,17 +1,31 @@
 # Transformer models
 
-This page is the normative reference for how BMOPFTools models transformers: the
-supported subtypes, the conventions every subtype follows, the exported
-primitive admittance (`Yprim`), and the explicit list of approximations. The
+This page is the reference for how BMOPFTools models transformers: the
+supported subtypes, the conventions every subtype follows, the tap fields, the
+nameplate loading cap, the exported primitive admittance (`Yprim`), and the
+explicit list of limitations. The
 overriding design goal is **consistency with OpenDSS**: at a given setpoint the
 OPF constraints and the exported `Yprim` describe the same device, and both are
 built to match OpenDSS's own `Yprim` term-by-term wherever OpenDSS is unambiguous.
 
-The companion [Transformer primitive admittance](spec/transformer-admittance.md)
-spec page carries the full symbolic matrix derivations; this page is the
-model-level contract. For the workflow that *produces* these fields — turning
-short-circuit/open-circuit test data into a validated model — see the
-[transformer test-data tutorial](tutorial_transformer_tests.md).
+Transformers are covered by four pages, each with one job:
+
+| You want | Read |
+|---|---|
+| Which subtype to use, what each field means, what is and is not modeled | this page |
+| To turn a short-circuit/open-circuit test report into those fields | [From test report to transformer model](tutorial_transformer_tests.md) |
+| The constraint equations the OPF builds per subtype | [Transformer equations in the OPF](opf_transformers.md) |
+| The symbolic `Yprim` matrices | [Transformer primitive admittance](spec/transformer-admittance.md) |
+
+!!! tip "Choosing a subtype"
+    A three-phase MV/LV distribution transformer is `delta_wye` (Dyn) or
+    `wye_delta`. A single-phase pole-top unit is `single_phase`, or
+    `center_tap` for a 120/240 V split-phase service. A step voltage regulator
+    is `single_phase_autotransformer` (one phase) or `open_delta_regulator`.
+    A three-phase wye-wye unit is `single_phase` with three-phase terminal
+    maps (one YY winding pair per phase; this raises the conformance
+    warning `W.SPEC.XFMR_TMAP_ARITY`) or a two-winding `n_winding`. Use
+    `n_winding` for three or more windings.
 
 ## Supported subtypes
 
@@ -42,16 +56,16 @@ These hold across every subtype unless a row below says otherwise.
 | **Magnetizing shunt** | across **winding 2** (the to-side coil), on winding 2's coil voltage base — the OpenDSS placement, verified against its `Yprim`. Inductive, so `b_no_load < 0`. See below. |
 | **Neutral grounding** | `r/x_neutral_from`/`to` (OpenDSS `rneut`/`xneut`) is an internal branch `yₙ = 1/(Rₙ+jXₙ)` from the winding neutral terminal to earth. A stand-alone transformer property — external groundings stay on buses/shunts and are **never** merged in. |
 | Polarity / vector group | Dy uses the backward-delta (`k_prev`) coil convention; `n_winding` DELTA windings use `delta_roll = -1` for OpenDSS's standard delta |
-| Lossless limit | `r = x = g = b = 0` is the well-posed ideal-transformer constraint, not a singularity (the `Yprim` export is the only path where `Z=0` is singular — an ideal transformer has no admittance form) |
+| Lossless limit | `r = x = g = b = 0` is the well-posed ideal-transformer constraint, not a singularity. Only the `Yprim` export needs a finite leakage inverse: an ideal transformer has no admittance form, so the export refuses it (see [Primitive admittance export](#Primitive-admittance-export)) |
 
 ### [Magnetizing-shunt placement](@id Magnetising-shunt-placement)
 
 For the ordinary isolating subtypes below, OpenDSS places the no-load
 (core-loss + magnetizing) branch across **winding 2**,
 referred to winding 2's coil voltage — not winding 1, and not phase-to-ground.
-This was verified empirically by differencing OpenDSS's `Yprim` with and without
-`%noloadloss`/`%imag` (the shunt follows winding 2 when the winding order is
-flipped). BMOPFTools matches this in both the OPF and the `Yprim` export:
+Differencing OpenDSS's `Yprim` with and without `%noloadloss`/`%imag` shows
+this placement: the shunt follows winding 2 when the winding order is flipped.
+BMOPFTools matches it in both the OPF and the `Yprim` export:
 
 | Subtype | Winding-2 coil the shunt spans |
 |---|---|
@@ -77,9 +91,7 @@ meaning: `single_phase`, Yd and Dy store a **total divided equally over coils**;
 `n_winding` stores a **per-coil value on winding 2**. Thus copying legacy numbers
 between subtypes is not a conversion. To express a legacy bank with `m` coils
 explicitly, divide its total by `m`; for `n_winding`, retain the value. Both forms
-on one transformer are rejected. These rules resolve the package compatibility
-choice in #279 without silently changing old data. Schema descriptions now
-match these runtime meanings. The legacy `from_dss` recovery also accounts for
+on one transformer are rejected. The legacy `from_dss` recovery accounts for
 multi-coil wye-bank coil voltage and winding-2 taps; PMD export uses winding
 2's voltage base. For one L-N or L-L coil, the nominal voltage is the coil
 voltage; two- and three-coil wye banks use `V_LL/√3`. Neutral selection respects
@@ -100,28 +112,39 @@ do not cause the legacy zero-shunt recovery to fail.
 
 The ordinary subtype conventions are tested against independent OpenDSS
 primitives at taps 0.95, 1.0, and 1.06 with nonzero leakage and excitation,
-using both hand-authored dictionaries and imported DSS. The center-tap primary
-referral was corrected in #393; stored data continue to use nominal ohms.
-The same referral is used by its zero-arm and variable-ratio equations, with
-current coupling substituted to retain quadratic constraints. Fixed-tap tests
-do not certify control-law behavior or resolve unequal-kVA n-winding import
-(#356).
+using both hand-authored dictionaries and imported DSS. Center-tap data store
+nominal ohms; the same primary referral is used by its zero-arm and
+variable-ratio equations, with current coupling substituted to retain
+quadratic constraints. Fixed-tap tests do not certify control-law behavior,
+and unequal-kVA n-winding import remains open
+([issue #356](https://github.com/frederikgeth/BMOPFTools.jl/issues/356)).
 
 ## Primitive admittance export
 
-`transformer_yprim(xfmr, subtype)` / `export_yprim(net)` return the SI `Yprim`
-block over the device's `(bus, terminal)` nodes. It includes the series leakage,
-the winding-2 magnetizing shunt, and the `rneut`/`xneut` grounding branch. Two
-caveats for consumers:
+[`transformer_yprim`](@ref)`(xfmr, subtype; shunt_only=false)` returns the SI
+`Yprim` block of one two-bus transformer over its `(bus, terminal)` nodes;
+[`export_yprim`](@ref)`(net)` collects the blocks of a whole network and
+[`write_yprim`](@ref) serializes them. A block includes the series leakage, the
+winding-2 magnetizing shunt, and the `rneut`/`xneut` grounding branch.
+`n_winding` units use the separate `nwinding_yprim` builder, which
+`export_yprim` calls for you. Three caveats for consumers:
 
+- **Unknown subtypes**: `transformer_yprim` throws; `export_yprim` warns and
+  omits the device. An ideal unit is different: its error is not caught, so
+  one ideal transformer aborts `export_yprim` and `write_yprim` for the whole
+  network.
 - **Regulators** (`single_phase_autotransformer`, `open_delta_regulator`): the
   shared-bushing / shared-phase galvanic tie is an OPF **topological** constraint,
   not part of the device primitive (the exported block is the Yan et al. (2018)
   "unspecified neutral" matrix). The exported `Yprim` alone leaves the regulated
   side's return floating.
-- **Ideal transformers** (`Z = 0`): no admittance form exists; the export returns
-  a singular (shunt-only) block with a warning. The OPF still enforces the exact
-  ratio.
+- **Ideal transformers** (`Z = 0`): no admittance form exists, so
+  `transformer_yprim` throws an `ArgumentError` for leakage at or below its
+  cutoff. Use [`ybus_augmented`](@ref), whose bordered rows carry the ideal
+  coupling exactly, or pass `shunt_only=true` to inspect only the finite
+  no-load contribution (not a complete transformer model). The OPF is
+  unaffected and enforces the exact ratio. See the
+  [transformer leakage policy](spec/nodal-admittance.md#Transformer-leakage-policy).
 
 ### OPF ↔ Yprim consistency
 
@@ -132,17 +155,21 @@ against the solved OPF winding-current variables, for `single_phase`,
 `center_tap`, `wye_delta`, and `delta_wye`, including off-nominal fixed taps. See
 [Validating the OPF](validation.md).
 
-## Approximations
+## Tap fields and tap optimization
 
-Everything below is a deliberate, bounded approximation — listed here so nothing
-is hidden.
+A tap is a fixed number unless its bounds make it a decision variable. The
+OPF then chooses a continuous value inside the bounds.
 
-| Area | Status |
-|---|---|
-| **`n_winding` tap** | No tap optimization — the ratio is held at nominal. Tap fields on an `n_winding` transformer or its windings raise `ArgumentError` at native OPF build. Model a regulated winding with a two-bus subtype instead. |
-| **4+ winding import** | `from_dss` imports the validated `n_winding` cases emitted by PowerIO. Unsupported winding sets refuse loudly, not built wrong. |
-| **Discrete taps** | Optimized taps are continuous; there is no discrete-step (`numtaps`) model. |
-| **Per-winding ratings** | A two-bus transformer carries one `s_rating` (winding-1 base). Distinct per-winding kVA is retained only on `n_winding` (per-winding `s_max`). |
+| Subtype | Tap field | Optimized when |
+|---|---|---|
+| `single_phase`, `center_tap`, `wye_delta`, `delta_wye` | `tap` (multiplier on the nominal ratio, default 1.0) | `tap_min < tap_max` |
+| `single_phase_autotransformer` | `tap_ratio` (regulated/source), with `regulator_type` `"A"` or `"B"` (default `"B"`) | `tap_ratio_min < tap_ratio_max` |
+| `open_delta_regulator` | `tap_ratio = [a1, a2]`, with `connection` `ABBC`/`BCAC`/`CABA` | `tap_ratio_min < tap_ratio_max`, element-wise |
+| `n_winding` | none | never |
+
+The equations are in
+[Continuous tap optimization](opf_transformers.md#Continuous-tap-optimisation),
+and the [tap tutorial](tutorial_tap.md) works a regulator case.
 
 ## [Nameplate rating (`s_rating`) as a loading cap](@id transformer-nameplate-cap)
 
@@ -192,7 +219,19 @@ and zero is a restriction. See `W.OPS.XFMR_UNCONSTRAINED` in the
 impedance base still keys off winding 1's `s_rating`, so introducing per-winding
 ratings never re-bases the leakage.
 
-Not approximations (common misconceptions): the **Dy/Yd leakage under tap** is
+## Approximations
+
+Each row is a deliberate, bounded limitation of the present model.
+
+| Area | Status |
+|---|---|
+| **`n_winding` tap** | No tap optimization — the ratio is held at nominal. Tap fields on an `n_winding` transformer or its windings raise `ArgumentError` at native OPF build. Model a regulated winding with a two-bus subtype instead. |
+| **4+ winding import** | `from_dss` imports the validated `n_winding` cases emitted by PowerIO. Unsupported winding sets refuse loudly, not built wrong. |
+| **Discrete taps** | Optimized taps are continuous; there is no discrete-step (`numtaps`) model. |
+| **To-side taps** | There is one `tap` multiplier per two-bus transformer, applied to the nominal ratio; a separate to-side tap field does not exist. |
+| **Per-winding ratings** | A two-bus transformer carries one `s_rating` (winding-1 base). Distinct per-winding kVA is retained only on `n_winding` (per-winding `s_max`). |
+
+**Not approximations.** Four points are often assumed to be approximate and are not: the **Dy/Yd leakage under tap** is
 exact (it matches OpenDSS's `tap²` winding-1 self-impedance scaling — the
 short-circuit impedance referred to the tapped side goes as `tap²`, the
 non-tapped side is held at nominal; verified against OpenDSS's short-circuit

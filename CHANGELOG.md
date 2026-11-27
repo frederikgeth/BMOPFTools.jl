@@ -4,6 +4,21 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Network models & data documentation review (November 2026): the section is
+  checked against the implementation and regrouped into concepts, component
+  guides, data model reference, and import & export.
+  - The units, grounding and load-model tutorials use bundled fixtures and
+    every block runs at documentation build.
+  - Corrected statements that contradicted the code, among them the transformer
+    no-load shunt placement, terminal-role inference, `_meta` persistence,
+    `n_winding` key names, leakage placement on OpenDSS import, the `n_ref`
+    return, what `to_pmd` drops, and the `transformer_yprim` behavior for an
+    ideal transformer.
+  - The device-indexing, connection-map and transformer phase-relation
+    references state their rules in the present tense; no rule changed.
+  - New "Anatomy of a case" page.
+  - `W.LOAD.NL_NO_VMIN` no longer describes a fixed 0.5 V_nom load-voltage
+    floor; without a lower voltage bound the load model has no floor.
 - Profiler review (November 2026): the electrical and geospatial profiler was
   checked against wiring and earthing practice in North America, Europe, Japan
   and Australia, and against 220 networks for false flags. Each fix is pinned
