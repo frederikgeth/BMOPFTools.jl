@@ -383,25 +383,15 @@ function _conductor_switch_scenarios(net::Dict{String,Any}, physical_inventory,
                 push!(affected, declared.component_of[declared.index[edge.from]])
                 push!(affected, declared.component_of[declared.index[edge.to]])
             end
-            parent = Dict(cid => cid for cid in affected)
-            function root(cid)
-                while parent[cid] != cid
-                    cid = parent[cid]
-                end
-                cid
-            end
+            components = _DisjointSets(collect(affected))
             merges = 0
             for edge in edges
-                a = root(declared.component_of[declared.index[edge.from]])
-                b = root(declared.component_of[declared.index[edge.to]])
-                if a != b
-                    parent[b] = a
-                    merges += 1
-                end
+                _ds_union!(components, declared.component_of[declared.index[edge.to]],
+                           declared.component_of[declared.index[edge.from]]) && (merges += 1)
             end
             groups = Dict{Int,Vector{Int}}()
             for cid in affected
-                push!(get!(groups, root(cid), Int[]), cid)
+                push!(get!(groups, _ds_find!(components, cid), Int[]), cid)
             end
             for members in values(groups)
                 any(cid -> declared.sources[cid] > 0, members) || continue

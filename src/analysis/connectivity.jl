@@ -540,27 +540,15 @@ function _topology_structure(net::Dict{String,Any}, voltage_levels::Dict{String,
     # A deterministic spanning forest localizes each excess physical branch.
     # A closing branch is only a graph witness; its record is not necessarily
     # defective and may be an intentional parallel circuit or tie.
-    parent = collect(1:length(buses))
-    index = Dict(bus => i for (i, bus) in enumerate(buses))
-    function root(i)
-        while parent[i] != i
-            parent[i] = parent[parent[i]]
-            i = parent[i]
-        end
-        i
-    end
+    forest = _DisjointSets(buses)
     closing = Dict{String,Any}[]
     # AC branches build the forest first, so a cycle that exists only through a
     # DC link names that link (and its DC island) as the closing branch.
     for edge in sort(edges, by=e -> (e.kind == "dc_link", e.kind, e.id, e.from, e.to))
-        a = root(index[edge.from]); b = root(index[edge.to])
-        if a == b
-            length(closing) < 10 && push!(closing, Dict{String,Any}(
-                "kind" => edge.kind, "component_id" => edge.id,
-                "bus_from" => edge.from, "bus_to" => edge.to))
-        else
-            parent[b] = a
-        end
+        _ds_union!(forest, edge.to, edge.from) && continue
+        length(closing) < 10 && push!(closing, Dict{String,Any}(
+            "kind" => edge.kind, "component_id" => edge.id,
+            "bus_from" => edge.from, "bus_to" => edge.to))
     end
 
     parallel = _parallel_line_evidence(net; level_by_bus=level_by_bus, busset=busset)
@@ -823,15 +811,9 @@ function _dc_links(net)
     none = NamedTuple{(:island, :buses),Tuple{String,Vector{String}}}[]
     dc_buses = get(net, "dc_bus", Dict())
     dc_buses isa AbstractDict && !isempty(dc_buses) || return none
-    parent = Dict{String,String}(string(b) => string(b) for b in keys(dc_buses))
-    function find(x)                     # iterative, with path compression
-        root = x
-        while parent[root] != root; root = parent[root]; end
-        while parent[x] != root
-            parent[x], x = root, parent[x]
-        end
-        root
-    end
+    islands = _DisjointSets(String[string(b) for b in keys(dc_buses)])
+    parent = islands.parent
+    find(x) = _ds_find!(islands, x)
     dc_branches = get(net, "dc_branch", Dict())
     dc_branches isa AbstractDict || (dc_branches = Dict())
     for (_, br) in dc_branches
@@ -839,7 +821,7 @@ function _dc_links(net)
         a = get(br, "dc_bus_from", nothing); c = get(br, "dc_bus_to", nothing)
         a isa AbstractString && c isa AbstractString &&
             haskey(parent, a) && haskey(parent, c) || continue
-        parent[find(a)] = find(c)
+        _ds_union!(islands, a, c)
     end
     ac_buses = get(net, "bus", Dict())
     groups = Dict{String,Set{String}}()
@@ -925,12 +907,14 @@ function _transformer_bank_groups(net)
         all_units = sort!(by_secondary[bt], by = u -> (u.subtype, u.id))
         # Units that share a supply point: some bus at which both windings are
         # wholly present. Components of that relation are candidate banks.
-        component = collect(1:length(all_units))
-        root(i) = (while component[i] != i; i = component[i]; end; i)
+        # Each set's root is its lowest index (the larger root goes under the
+        # smaller), so banks come out in the order of their first unit.
+        component = _DisjointSets(1:length(all_units))
+        root(i) = _ds_find!(component, i)
         for i in 1:length(all_units), j in i+1:length(all_units)
             isempty(intersect(all_units[i].reach, all_units[j].reach)) && continue
             ri, rj = root(i), root(j)
-            ri == rj || (component[max(ri, rj)] = min(ri, rj))
+            ri == rj || _ds_union!(component, max(ri, rj), min(ri, rj))
         end
         banks = Vector{Any}[]
         for r in unique(root.(1:length(all_units)))
@@ -1000,17 +984,8 @@ end
 # Returns `(find, parent)`: `find(node)` is the group's representative, and
 # `parent` holds every node a branch touched.
 function _conductor_groups(net; kinds=("line", "switch"))
-    Node = Tuple{String,String}
-    parent = Dict{Node,Node}()
-    function find(x)
-        haskey(parent, x) || (parent[x] = x)
-        root = x
-        while parent[root] != root; root = parent[root]; end
-        while parent[x] != root
-            parent[x], x = root, parent[x]
-        end
-        root
-    end
+    conductors = _DisjointSets{Tuple{String,String}}()
+    find(x) = _ds_find!(conductors, x)
     for kind in kinds
         table = get(net, kind, nothing)
         table isa AbstractDict || continue
@@ -1023,12 +998,11 @@ function _conductor_groups(net; kinds=("line", "switch"))
                 continue
             for k in 1:min(length(tf), length(tt))
                 tf[k] isa AbstractString && tt[k] isa AbstractString || continue
-                ra = find((String(a), String(tf[k]))); rb = find((String(b), String(tt[k])))
-                ra == rb || (parent[ra] = rb)
+                _ds_union!(conductors, (String(a), String(tf[k])), (String(b), String(tt[k])))
             end
         end
     end
-    (find, parent)
+    (find, conductors.parent)
 end
 
 # Conductor-level evidence of where a transformer's primary winding is
@@ -1058,7 +1032,7 @@ function _supply_point(net)
     buses_of = Dict{Node,Set{String}}()            # conductor group => buses it is present at
     for n in collect(keys(parent)); push!(get!(buses_of, find(n), Set{String}()), n[1]); end
     roles = _index_roles(net)
-    is_return(x) = roles === nothing ? _is_convention_neutral(x) : (x in roles.neutral || x in roles.earth)
+    is_return(x) = _is_return_label(roles, x)
     readable(terminals) = terminals isa AbstractVector && !isempty(terminals) &&
         all(x -> x isa AbstractString, terminals)
     present(bus, t) = haskey(parent, (bus, t)) ? buses_of[find((bus, t))] : Set{String}((bus,))
@@ -1092,8 +1066,7 @@ function _bank_unit_signature(t, neutral_labels=nothing)
     f = get(t, "terminal_map_from", nothing); to = get(t, "terminal_map_to", nothing)
     f isa AbstractVector && to isa AbstractVector || return nothing
     all(x -> x isa AbstractString, to) || return nothing
-    is_neutral(x) = neutral_labels === nothing ? _is_convention_neutral(x) : x in neutral_labels
-    sig = Set{String}(string(x) for x in to if !is_neutral(string(x)))
+    sig = Set{String}(string(x) for x in to if !_is_neutral_label(neutral_labels, string(x)))
     isempty(sig) ? nothing : sig
 end
 

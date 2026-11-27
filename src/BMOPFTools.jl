@@ -896,6 +896,8 @@ include("lineconstants/kron.jl")
 include("lineconstants/overhead.jl")
 include("lineconstants/compile.jl")
 
+include("analysis/disjoint_sets.jl")
+include("analysis/terminal_roles.jl")
 include("analysis/transformer_phase.jl")
 include("analysis/inventory.jl")
 include("analysis/voltage_levels.jl")

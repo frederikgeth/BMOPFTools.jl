@@ -224,8 +224,7 @@ function _high_leg_banks(net::Dict{String,Any})
 
     # Terminal roles and nominal phasors are resolved once, lazily.
     roles = _index_roles(net)
-    is_return(x) = roles === nothing ? _is_convention_neutral(x) :
-        (x in roles.neutral || x in roles.earth)
+    is_return(x) = _is_return_label(roles, x)
     # Nominal phasor of a (bus, terminal): the magnitude and angle a voltage
     # source declares for the CONDUCTOR that terminal belongs to, followed through the terminal
     # maps of lines and closed switches. Labels are not followed: `pole.b` fed
@@ -684,8 +683,7 @@ function _check_high_leg_ratio(roles, id, t, assigned, findings, bank)
     all(v -> v isa Real && isfinite(v) && v > 0, (vf_bus, leg, vf_ref, vt_ref)) || return
     # Phase-to-phase primary: both terminals are phases under the resolved roles.
     tf = get(t, "terminal_map_from", nothing)
-    is_return(x) = roles === nothing ? _is_convention_neutral(x) :
-        (x in roles.neutral || x in roles.earth)
+    is_return(x) = _is_return_label(roles, x)
     primary_ll = tf isa AbstractVector && length(tf) == 2 && all(x -> x isa AbstractString, tf) &&
         !any(is_return, tf) ? sqrt(3.0) : 1.0
     expected = Float64(vt_ref) / (Float64(vf_ref) / primary_ll)   # secondary L-L per primary per-conductor volt
