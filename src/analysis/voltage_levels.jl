@@ -137,7 +137,8 @@ function voltage_level_analysis(net::Dict{String,Any},
     result["high_leg_units"] = sort!([b.id for b in high_leg_banks])
     result["high_leg_banks"] = [Dict{String,Any}("power_unit" => b.id, "lighting_unit" => b.lighting,
         "bus_from" => b.bus_from, "bus_to" => b.bus_to, "high_leg" => b.high, "status" => b.status,
-        "secondary_amplitude_ratio" => b.amplitude_ratio)
+        "secondary_amplitude_ratio" => b.amplitude_ratio,
+        "secondary_amplitude_range" => b.amplitude_range === nothing ? nothing : collect(b.amplitude_range))
         for b in high_leg_banks]
     result["mixed_phase_to_neutral_buses"] = sort!(unique!(String[b.bus_to for b in high_leg_banks
                                                                   if b.status == "verified"]))
@@ -181,7 +182,10 @@ end
 # rating is deliberately not used here; `_check_high_leg_ratio` checks it.
 #
 # Returns one record per identified power unit, resolved once per network:
-# `(id, bus_from, bus_to, lighting, high, status, amplitude_ratio)`. A unit
+# `(id, bus_from, bus_to, lighting, high, status, amplitude_ratio,
+# amplitude_range)`. `amplitude_range` is set when a unit of the bank has a
+# free tap (`tap_min < tap_max`): the status then holds for every tap position
+# in the bounds, or is "unverified" when the positions disagree. A unit
 # whose primaries point the right way but whose secondary amplitude is not the
 # bank's line-to-line voltage has status "amplitude_mismatch": it is not a
 # high leg, it is kept out of level propagation, and the ratio check reports it. `status` is "verified", or
@@ -192,8 +196,9 @@ end
 # unverified unit is kept out of level propagation rather than raised as a
 # false conflict, is reported with that status, and is not called a high leg.
 function _high_leg_banks(net::Dict{String,Any})
-    out = NamedTuple{(:id, :bus_from, :bus_to, :lighting, :high, :status, :amplitude_ratio),
-                     Tuple{String,String,String,String,Vector{String},String,Union{Float64,Nothing}}}[]
+    out = NamedTuple{(:id, :bus_from, :bus_to, :lighting, :high, :status, :amplitude_ratio, :amplitude_range),
+                     Tuple{String,String,String,String,Vector{String},String,Union{Float64,Nothing},
+                           Union{Tuple{Float64,Float64},Nothing}}}[]
     xfmr = get(net, "transformer", Dict())
     xfmr isa AbstractDict || return out
     ct = get(xfmr, "center_tap", nothing); sp = get(xfmr, "single_phase", nothing)
@@ -284,14 +289,23 @@ function _high_leg_banks(net::Dict{String,Any})
         scale > 0 && abs(p) > 1e-6 * scale ? p : nothing
     end
     # Secondary volts per primary volt as the solver builds the unit: the
-    # nameplate ratio N0 = v_nom_from / v_nom_to times the fixed `tap`
-    # multiplier is the from-to ratio, for single_phase and center_tap alike.
+    # nameplate ratio N0 = v_nom_from / v_nom_to times the `tap` multiplier is
+    # the from-to ratio, for single_phase and center_tap alike. With
+    # `tap_min < tap_max` the solver frees the tap within those bounds and
+    # `tap` is only its start, clamped into them: the ratio is then a range.
+    # Returns `(lo, hi, at)`, `at` being the ratio at the (clamped) `tap`.
     ratio(t) = begin
         vf = get(t, "v_nom_from", nothing); vt = get(t, "v_nom_to", nothing)
         tap = get(t, "tap", 1.0)
-        vf isa Real && vt isa Real && tap isa Real && isfinite(vf) && isfinite(vt) &&
-            isfinite(tap) && vf > 0 && vt > 0 && tap > 0 ?
-            Float64(vt) / (Float64(vf) * Float64(tap)) : nothing
+        ok(x) = x isa Real && isfinite(x) && x > 0
+        ok(vf) && ok(vt) && ok(tap) || return nothing
+        at(x) = Float64(vt) / (Float64(vf) * Float64(x))
+        haskey(t, "tap_min") && haskey(t, "tap_max") || return (at(tap), at(tap), at(tap))
+        tlo = t["tap_min"]; thi = t["tap_max"]
+        tlo isa Real && thi isa Real && isfinite(tlo) && isfinite(thi) || return nothing
+        tlo < thi || return (at(tap), at(tap), at(tap))
+        tlo > 0 || return nothing
+        (at(thi), at(tlo), at(clamp(tap, tlo, thi)))
     end
 
     for id in sort!(collect(keys(sp)))
@@ -311,8 +325,8 @@ function _high_leg_banks(net::Dict{String,Any})
             # One end on a leg, the other on a new conductor: a unit across the
             # two legs is paralleled with the lighting winding instead.
             length(shared) == 1 && length(fresh) == 1 || continue
-            record(status, amplitude) = (id=string(id), bus_from=String(f), bus_to=String(b),
-                lighting=u.id, high=fresh, status=status, amplitude_ratio=amplitude)
+            record(status, amplitude, range=nothing) = (id=string(id), bus_from=String(f), bus_to=String(b),
+                lighting=u.id, high=fresh, status=status, amplitude_ratio=amplitude, amplitude_range=range)
             p1 = winding(String(f), u.from); p2 = winding(String(f), string.(tf))
             r1 = ratio(get(ct, u.id, Dict())); r2 = ratio(t)
             if p1 === nothing || p2 === nothing || r1 === nothing || r2 === nothing
@@ -323,7 +337,7 @@ function _high_leg_banks(net::Dict{String,Any})
             # traced primary phasors: the legs at ±leg, the power winding at
             # `across`. The delta closes only if both the direction and the
             # amplitude of the power winding fit.
-            leg = r1 * p1; across = r2 * p2
+            leg = r1[3] * p1; across = r2[3] * p2
             placed(a) = (v_shared = shared[1] == legs[1] ? leg : -leg;
                          to[1] == shared[1] ? v_shared - a : v_shared + a)
             fits(a) = abs(abs(placed(a)) / (sqrt(3.0) * abs(leg)) - 1) <= 0.1
@@ -336,15 +350,25 @@ function _high_leg_banks(net::Dict{String,Any})
             # winding happens to add up to the same number.
             geometry = fits(2 * abs(leg) * across / abs(across))
             geometry || continue
-            if abs(amplitude - 1) <= 0.1
-                push!(out, record("verified", amplitude))
+            # The amplitude over every tap position the solver may take. With
+            # fixed taps the range is the one value.
+            free = r1[1] < r1[2] || r2[1] < r2[2]
+            base = abs(p2) / (2 * abs(p1))
+            lo = base * r2[1] / r1[2]; hi = base * r2[2] / r1[1]
+            range = free ? (lo, hi) : nothing
+            if abs(lo - 1) <= 0.1 && abs(hi - 1) <= 0.1
+                push!(out, record("verified", amplitude, range))
+            elseif hi < 0.9 || lo > 1.1
+                # Right direction, wrong amplitude at every tap position: the
+                # primaries would close a delta, but this unit's secondary
+                # voltage is not the bank's line-to-line voltage (its rating,
+                # its tap range, or the magnitude of the phase it is fed
+                # from). Not a high leg; the ratio check reports it.
+                push!(out, record("amplitude_mismatch", amplitude, range))
             else
-                # Right direction, wrong amplitude: the primaries would close a
-                # delta, but this unit's secondary voltage is not the bank's
-                # line-to-line voltage (its rating, or the magnitude of the
-                # phase it is fed from). Not a high leg; the ratio check
-                # reports it.
-                push!(out, record("amplitude_mismatch", amplitude))
+                # A free tap decides: some positions close the delta, others
+                # do not. Not certified either way.
+                push!(out, record("unverified", amplitude, range))
             end
             break
         end
@@ -596,6 +620,9 @@ function _check_high_leg_ratio(roles, id, t, assigned, findings, bank)
         # Traced primary phasors and declared turns ratios give the secondary
         # amplitude this unit actually produces, against the bank's
         # line-to-line voltage (twice the leg voltage of the lighting unit).
+        # A free tap that can both close and miss the delta is not a
+        # contradiction in the data: nothing to report.
+        bank.status == "unverified" && return
         abs(bank.amplitude_ratio - 1) > 0.1 || return
         push!(findings, Finding(WARNING, "W.VOLT.XFMR_RATIO",
             :voltage_levels, :transformer, id,
@@ -605,7 +632,9 @@ function _check_high_leg_ratio(roles, id, t, assigned, findings, bank)
             "'$(bank.lighting)'): the delta does not close. Check its voltage ratings and the " *
             "magnitude of the phase it is fed from.",
             Dict{String,Any}("id" => id, "basis" => "high_leg_line_to_line",
-                "secondary_amplitude_ratio" => bank.amplitude_ratio, "lighting_unit" => bank.lighting,
+                "secondary_amplitude_ratio" => bank.amplitude_ratio,
+                "secondary_amplitude_range" => bank.amplitude_range === nothing ? nothing : collect(bank.amplitude_range),
+                "lighting_unit" => bank.lighting,
                 "leg_level_v" => leg, "bank_line_to_line_v" => leg isa Real ? 2 * leg : nothing,
                 "v_nom_to" => vt_ref isa Real ? Float64(vt_ref) : nothing, "status" => bank.status)))
         return

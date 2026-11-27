@@ -131,6 +131,49 @@ using JuMP, Ipopt
         @test vpp(res, "svc", "b", "c") ≈ 2 * 120.0 * b["secondary_amplitude_ratio"] rtol = 0.03
     end
 
+    @testset "a free tap range on the power unit is not read as tap = 1" begin
+        net = sys("na_high_leg_open_delta")
+        net["transformer"]["single_phase"]["power"]["tap_min"] = 0.8
+        net["transformer"]["single_phase"]["power"]["tap_max"] = 0.85
+        b = only(report(net).results[:voltage_levels]["high_leg_banks"])
+        @test b["status"] == "amplitude_mismatch"
+        res = solve(net)
+        @test vmag(res, "svc", "a") ≈ 120.0 rtol = 0.03
+        # Not sqrt(3) x 120 V = 208 V: the power winding is held within its bounds.
+        @test vmag(res, "svc", "c") ≈ 253.0 rtol = 0.03
+        lo, hi = b["secondary_amplitude_range"]
+        @test 2 * 120.0 * lo * 0.97 <= vpp(res, "svc", "b", "c") <= 2 * 120.0 * hi * 1.03
+        @test vpp(res, "svc", "b", "c") ≈ 2 * 120.0 * b["secondary_amplitude_ratio"] rtol = 0.03
+    end
+
+    @testset "zero available power does not switch an inverter off" begin
+        # A delta island whose only earth is a separately earthed neutral; a
+        # unity-power-factor inverter with two coils fixed at 500 W ties the
+        # phases to it. `p_avail = 0` is not a solver bound.
+        net = sys("it_delta_island_unreferenced")
+        net["bus"]["it1"]["terminal_names"] = ["a", "b", "c", "n"]
+        net["bus"]["it1"]["perfectly_grounded_terminals"] = ["n"]
+        net["control_profile"] = Dict{String,Any}("cp" => Dict{String,Any}(
+            "power_factor" => Dict{String,Any}("pf" => 1.0)))
+        net["ibr"] = Dict{String,Any}("pv" => Dict{String,Any}("bus" => "it1", "terminal_map" => ["a", "b", "n"],
+            "topology" => "FOUR_LEG", "prime_mover" => "PV", "s_max" => [3000.0, 3000.0],
+            "p_min" => [500.0, 500.0], "p_max" => [500.0, 500.0], "q_min" => [-500.0, -500.0],
+            "q_max" => [500.0, 500.0], "control_profile" => "cp", "p_avail" => 0.0))
+        @test isempty(errors(report(net)))
+        res = solve(net)
+        for t in ("a", "b")
+            coil = res["ibr"]["pv"][t]
+            @test coil["pg"] ≈ 500.0 rtol = 1e-4
+            @test hypot(coil["cri"], coil["cii"]) ≈ 2.5 rtol = 0.05
+        end
+        # With P pinned at zero the same inverter carries nothing, and the
+        # profiler reports the floating phases.
+        off = deepcopy(net); off["ibr"]["pv"]["p_min"] = [0.0, 0.0]; off["ibr"]["pv"]["p_max"] = [0.0, 0.0]
+        @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(off))]
+        ro = solve(off)
+        @test all(hypot(ro["ibr"]["pv"][t]["cri"], ro["ibr"]["pv"][t]["cii"]) < 1e-3 for t in ("a", "b"))
+    end
+
     @testset "an unbalanced source magnitude breaks the V-connection's delta" begin
         net = sys("jp_three_wire_v_connection")
         net["voltage_source"]["grid"]["v_magnitude"][3] *= 0.4

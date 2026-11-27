@@ -1076,9 +1076,29 @@ end
         @test length(groups(pfc(-0.95))) == 1
         live = pfc(1.0); live["ibr"]["pv"]["p_max"] = [2000.0]
         @test isempty(groups(live))                               # P can flow: a tie again
-        # No available power and no absorption: P is zero by another route.
+        # Only the P box counts, as in the solver: `p_avail` is the base of a
+        # droop curve, not a bound. Zero availability beside a live P range,
+        # or beside coils fixed at a nonzero output, forces nothing.
         dark = pfc(1.0); dark["ibr"]["pv"]["p_max"] = [2000.0]; dark["ibr"]["pv"]["p_avail"] = 0.0
-        @test length(groups(dark)) == 1
+        @test isempty(groups(dark))
+        fixed = pfc(1.0); fixed["ibr"]["pv"]["p_min"] = [500.0]; fixed["ibr"]["pv"]["p_max"] = [500.0]
+        fixed["ibr"]["pv"]["p_avail"] = 0.0
+        @test isempty(groups(fixed))
+        # A zero upper bound alone does not pin P under a constant power factor
+        # (the unit may absorb)...
+        absorbs = pfc(1.0); absorbs["ibr"]["pv"]["p_min"] = [-800.0]
+        @test isempty(groups(absorbs))
+        # ...but a minimum power factor adds P >= 0, so there it does.
+        minpf(pmin, pmax) = begin
+            out = ibr(["a", "n"], "SINGLE_PHASE"; p_min=[pmin], p_max=[pmax], q_min=[-500.0], q_max=[500.0])
+            out["extras"] = Dict{String,Any}("bmopftools" => Dict{String,Any}("minimum_power_factor" =>
+                Dict{String,Any}("schema" => "bmopftools.minimum_power_factor/v1", "ibr" => Dict{String,Any}(
+                    "pv" => Dict{String,Any}("pf_min" => 0.9, "direction" => "generation", "scope" => "per_coil")))))
+            out
+        end
+        @test !isempty(first(BMOPFTools._power_factor_config_check!(minpf(0.0, 0.0), Finding[])))   # the policy resolves
+        @test length(groups(minpf(0.0, 0.0))) == 1
+        @test isempty(groups(minpf(0.0, 2000.0)))
         # A profile with no power-factor law leaves the Q range free.
         free = pfc(1.0); free["control_profile"]["cp"] = Dict{String,Any}()
         @test isempty(groups(free))
@@ -1297,6 +1317,41 @@ end
         bad = _pg_sys("na_high_leg_open_delta")
         bad["transformer"]["single_phase"]["power"]["tap"] = 0.0
         @test only(bank(bad))["status"] == "unverified"
+        # A free tap (tap_min < tap_max) is a range, and `tap` only its start,
+        # clamped into the bounds. Every position misses: a mismatch, although
+        # the absent `tap` would read as 1.0.
+        free(lo, hi; unit=("single_phase", "power"), tap=nothing) = begin
+            out = _pg_sys("na_high_leg_open_delta"); t = out["transformer"][unit[1]][unit[2]]
+            t["tap_min"] = lo; t["tap_max"] = hi; tap === nothing || (t["tap"] = tap)
+            out
+        end
+        b = only(bank(free(0.8, 0.85)))
+        @test b["status"] == "amplitude_mismatch"
+        @test b["secondary_amplitude_range"] ≈ [1 / 0.85, 1 / 0.8] rtol = 1e-6
+        @test b["secondary_amplitude_ratio"] ≈ 1 / 0.85 rtol = 1e-6          # the clamped start
+        @test "W.VOLT.XFMR_RATIO" in _pg_codes(_pg_analyze(free(0.8, 0.85)).findings)
+        # Every position closes the delta: verified, with the range reported.
+        b = only(bank(free(0.95, 1.05)))
+        @test b["status"] == "verified"
+        @test b["secondary_amplitude_range"] ≈ [1 / 1.05, 1 / 0.95] rtol = 1e-6
+        # Some positions close it and some do not: not certified, not reported.
+        wide = free(0.8, 1.1)
+        @test only(bank(wide))["status"] == "unverified"
+        rep = _pg_analyze(wide)
+        @test isempty(rep.results[:voltage_levels]["mixed_phase_to_neutral_buses"])
+        @test !("W.VOLT.XFMR_RATIO" in _pg_codes(rep.findings))
+        # Boundary: a range just inside the 10 % band, and one end just out of
+        # it; a free tap on the lighting unit moves the range the other way.
+        @test only(bank(free(0.92, 1.08)))["status"] == "verified"
+        @test only(bank(free(0.89, 1.08)))["status"] == "unverified"
+        @test only(bank(free(0.8, 0.85; unit=("center_tap", "lighting"))))["status"] == "amplitude_mismatch"
+        # Equal bounds free nothing: the solver keeps `tap`, and so does the check.
+        @test only(bank(free(0.8, 0.8)))["status"] == "verified"
+        @test only(bank(free(0.8, 0.8; tap=0.8)))["status"] == "amplitude_mismatch"
+        # Fixed taps report no range; malformed bounds are unverified.
+        @test only(bank(_pg_sys("na_high_leg_open_delta")))["secondary_amplitude_range"] === nothing
+        @test only(bank(free("low", 1.1)))["status"] == "unverified"
+        @test only(bank(free(0.0, 1.1)))["status"] == "unverified"
         # Geometry and amplitude are tested independently. Both primaries on
         # a-n are in phase; choosing the power winding's secondary so that the
         # third conductor happens to land at sqrt(3) x 120 V does not make a

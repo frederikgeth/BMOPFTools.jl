@@ -191,8 +191,11 @@ transformer ratios. Three cases need care when reading it:
   angle of `a`):
   the third conductor must come out at √3 times the leg level, with each
   secondary voltage taken as the traced primary phasor times the unit's
-  effective turns ratio, nameplate ratio and fixed `tap` together, as the solver
-  builds it. Geometry and amplitude are separate conditions: the primaries'
+  effective turns ratio, nameplate ratio and `tap` together, as the solver
+  builds it. A free tap (`tap_min < tap_max`) makes that ratio a range, reported
+  as `secondary_amplitude_range`: the bank is `verified` only if every tap
+  position closes the delta, `amplitude_mismatch` if none does, and `unverified`
+  (with no Finding) if the positions disagree. Geometry and amplitude are separate conditions: the primaries'
   directions must close the delta at the bank's own line-to-line amplitude, and
   the power unit's secondary must be that amplitude within 10 %. In-phase
   primaries are never a bank, whatever the resulting magnitude. When the

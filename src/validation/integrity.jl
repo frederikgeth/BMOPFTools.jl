@@ -200,14 +200,16 @@ function _conductor_reference(net)
         cp = get(profiles, get(c, "control_profile", nothing), nothing)
         constant_pf = try _constant_pf_value(cp) catch; nothing end
         policy = minimum_pf isa AbstractDict ? get(minimum_pf, string(id), nothing) : nothing
-        q_follows_p = constant_pf !== nothing ||
-            (policy !== nothing && hasproperty(policy, :pf_min) && policy.pf_min isa Real && policy.pf_min > 0)
+        q_follows_p = constant_pf !== nothing || (policy !== nothing && hasproperty(policy, :pf_min) &&
+                                                   policy.pf_min isa Real && policy.pf_min > 0)
+        min_pf = policy !== nothing && hasproperty(policy, :pf_min) && policy.pf_min isa Real && policy.pf_min > 0
+        # Only the P box counts, as in the solver: `p_avail` is the base of a
+        # droop curve, not a bound. A minimum power factor adds P >= 0, so a
+        # zero upper bound alone then pins P.
         function p_is_zero(k)
             lo = number(get(c, "p_min", nothing), k); hi = number(get(c, "p_max", nothing), k)
-            lo !== nothing && hi !== nothing && iszero(lo) && iszero(hi) && return true
-            # No available power, and the unit cannot absorb: P is zero.
-            pa = get(c, "p_avail", nothing)
-            pa isa Real && iszero(pa) && lo !== nothing && lo >= 0
+            hi !== nothing && iszero(hi) || return false
+            (lo !== nothing && iszero(lo)) || min_pf
         end
         coil_zero(k; whole::Bool=false) = forced_to_zero(c, k; whole) || (q_follows_p && p_is_zero(k))
         if topo == "SINGLE_PHASE"
