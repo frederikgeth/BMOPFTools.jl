@@ -181,24 +181,48 @@ function _conductor_reference(net)
     # cyclic phase pair, FOUR_LEG one coil per phase to the neutral. An offline
     # unit (P and Q pinned at zero, or a zero rating) carries no current and
     # ties nothing.
-    for (_, c) in table("ibr")
+    #
+    # The reactive power of an inverter is not always free within its box. A
+    # constant power factor makes Q a fixed multiple of P, and a minimum power
+    # factor bounds |Q| by a multiple of P: under either, a coil whose active
+    # power is zero carries no current, whatever its Q range says.
+    profiles = table("control_profile")
+    minimum_pf = try
+        first(_power_factor_config_check!(net, Finding[]))
+    catch
+        Dict{String,Any}()
+    end
+    for (id, c) in table("ibr")
         c isa AbstractDict || continue
         b = get(c, "bus", nothing); tm = get(c, "terminal_map", nothing)
         b isa AbstractString && strs(tm) && length(tm) >= 2 || continue
         topo = uppercase(string(get(c, "topology", "FOUR_LEG")))
+        cp = get(profiles, get(c, "control_profile", nothing), nothing)
+        constant_pf = try _constant_pf_value(cp) catch; nothing end
+        policy = minimum_pf isa AbstractDict ? get(minimum_pf, string(id), nothing) : nothing
+        q_follows_p = constant_pf !== nothing ||
+            (policy !== nothing && hasproperty(policy, :pf_min) && policy.pf_min isa Real && policy.pf_min > 0)
+        function p_is_zero(k)
+            lo = number(get(c, "p_min", nothing), k); hi = number(get(c, "p_max", nothing), k)
+            lo !== nothing && hi !== nothing && iszero(lo) && iszero(hi) && return true
+            # No available power, and the unit cannot absorb: P is zero.
+            pa = get(c, "p_avail", nothing)
+            pa isa Real && iszero(pa) && lo !== nothing && lo >= 0
+        end
+        coil_zero(k; whole::Bool=false) = forced_to_zero(c, k; whole) || (q_follows_p && p_is_zero(k))
         if topo == "SINGLE_PHASE"
-            forced_to_zero(c, 1; whole=true) || tie!(node(b, tm[1]), node(b, tm[2]))
+            coil_zero(1; whole=true) || tie!(node(b, tm[1]), node(b, tm[2]))
         elseif topo == "THREE_LEG"
             n = length(tm)
             pairs = n == 2 ? [(1, 2)] : [(k, mod1(k + 1, n)) for k in 1:n]
             for (k, (i, j)) in enumerate(pairs)
-                forced_to_zero(c, k) || tie!(node(b, tm[i]), node(b, tm[j]))
+                coil_zero(k) || tie!(node(b, tm[i]), node(b, tm[j]))
             end
         else
             npos = engine_neutrals === nothing ? _neutral_pos(tm) : _neutral_pos(tm, engine_neutrals)
             npos === nothing && (npos = length(tm))      # FOUR_LEG: the neutral is the last terminal
             for (idx, k) in enumerate([k for k in eachindex(tm) if k != npos])
-                forced_to_zero(c, idx) || tie!(node(b, tm[k]), node(b, tm[npos]))
+                coil_zero(idx) || tie!(node(b, tm[k]), node(b, tm[npos]))
             end
         end
     end

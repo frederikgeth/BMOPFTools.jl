@@ -119,6 +119,18 @@ using JuMP, Ipopt
         @test vmag(res, "svc", "c") ≈ 110.0 rtol = 0.05
     end
 
+    @testset "a fixed tap on the power unit changes the high-leg voltage" begin
+        net = sys("na_high_leg_open_delta")
+        net["transformer"]["single_phase"]["power"]["tap"] = 0.8
+        b = only(report(net).results[:voltage_levels]["high_leg_banks"])
+        @test b["status"] == "amplitude_mismatch"
+        res = solve(net)
+        @test vmag(res, "svc", "a") ≈ 120.0 rtol = 0.03
+        # 120 V legs and a 300 V power winding at 120°: about 261 V.
+        @test vmag(res, "svc", "c") ≈ 261.5 rtol = 0.03
+        @test vpp(res, "svc", "b", "c") ≈ 2 * 120.0 * b["secondary_amplitude_ratio"] rtol = 0.03
+    end
+
     @testset "an unbalanced source magnitude breaks the V-connection's delta" begin
         net = sys("jp_three_wire_v_connection")
         net["voltage_source"]["grid"]["v_magnitude"][3] *= 0.4

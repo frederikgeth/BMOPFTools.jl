@@ -190,8 +190,9 @@ transformer ratios. Three cases need care when reading it:
   switches (a terminal called `b` that is fed from the source's `a` carries the
   angle of `a`):
   the third conductor must come out at √3 times the leg level, with each
-  secondary voltage taken as the traced primary phasor times the unit's declared
-  turns ratio. Geometry and amplitude are separate conditions: the primaries'
+  secondary voltage taken as the traced primary phasor times the unit's
+  effective turns ratio, nameplate ratio and fixed `tap` together, as the solver
+  builds it. Geometry and amplitude are separate conditions: the primaries'
   directions must close the delta at the bank's own line-to-line amplitude, and
   the power unit's secondary must be that amplitude within 10 %. In-phase
   primaries are never a bank, whatever the resulting magnitude. When the

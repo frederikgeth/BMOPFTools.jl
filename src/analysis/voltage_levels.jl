@@ -283,10 +283,15 @@ function _high_leg_banks(net::Dict{String,Any})
         scale = max(abs(a), abs(b))
         scale > 0 && abs(p) > 1e-6 * scale ? p : nothing
     end
+    # Secondary volts per primary volt as the solver builds the unit: the
+    # nameplate ratio N0 = v_nom_from / v_nom_to times the fixed `tap`
+    # multiplier is the from-to ratio, for single_phase and center_tap alike.
     ratio(t) = begin
         vf = get(t, "v_nom_from", nothing); vt = get(t, "v_nom_to", nothing)
-        vf isa Real && vt isa Real && isfinite(vf) && isfinite(vt) && vf > 0 && vt > 0 ?
-            Float64(vt) / Float64(vf) : nothing
+        tap = get(t, "tap", 1.0)
+        vf isa Real && vt isa Real && tap isa Real && isfinite(vf) && isfinite(vt) &&
+            isfinite(tap) && vf > 0 && vt > 0 && tap > 0 ?
+            Float64(vt) / (Float64(vf) * Float64(tap)) : nothing
     end
 
     for id in sort!(collect(keys(sp)))

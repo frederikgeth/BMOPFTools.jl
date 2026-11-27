@@ -1061,6 +1061,30 @@ end
         @test length(groups(ibr(["a", "n"], "SINGLE_PHASE"; s_max=[0.0]))) == 1    # zero apparent power
         @test length(groups(ibr(["a", "n"], "SINGLE_PHASE"; i_max=[50.0, 0.0]))) == 1   # one current, tightest entry
         @test isempty(groups(ibr(["a", "n"], "SINGLE_PHASE"; p_min=[0.0], p_max=[0.0], q_min=[-500.0], q_max=[500.0])))
+        # The reactive range is not always free. Under a constant power factor
+        # Q is a fixed multiple of P, so with P pinned at zero the coil carries
+        # nothing, whatever its Q bounds say.
+        pfc(pf; extra...) = begin
+            out = ibr(["a", "n"], "SINGLE_PHASE"; p_min=[0.0], p_max=[0.0], q_min=[-500.0], q_max=[500.0],
+                      control_profile="cp", extra...)
+            out["control_profile"] = Dict{String,Any}("cp" => Dict{String,Any}(
+                "power_factor" => Dict{String,Any}("pf" => pf)))
+            out
+        end
+        @test length(groups(pfc(1.0))) == 1                       # unity: Q is forced to zero
+        @test length(groups(pfc(0.9))) == 1                       # any constant pf with P = 0
+        @test length(groups(pfc(-0.95))) == 1
+        live = pfc(1.0); live["ibr"]["pv"]["p_max"] = [2000.0]
+        @test isempty(groups(live))                               # P can flow: a tie again
+        # No available power and no absorption: P is zero by another route.
+        dark = pfc(1.0); dark["ibr"]["pv"]["p_max"] = [2000.0]; dark["ibr"]["pv"]["p_avail"] = 0.0
+        @test length(groups(dark)) == 1
+        # A profile with no power-factor law leaves the Q range free.
+        free = pfc(1.0); free["control_profile"]["cp"] = Dict{String,Any}()
+        @test isempty(groups(free))
+        # A malformed profile does not abort the check.
+        odd = pfc(1.0); odd["control_profile"]["cp"]["power_factor"] = Dict{String,Any}("pf" => "unity")
+        @test BMOPFTools._conductor_reference(odd) isa NamedTuple
         # FOUR_LEG: one coil per phase to the neutral; one live phase suffices here.
         four_off = ibr(["a","b","c","n"], "FOUR_LEG"; s_max=fill(1000.0, 3),
             p_min=fill(0.0, 3), p_max=fill(0.0, 3), q_min=fill(0.0, 3), q_max=fill(0.0, 3))
@@ -1255,6 +1279,24 @@ end
         b = only(bank(rated))
         @test b["status"] == "amplitude_mismatch"
         @test b["secondary_amplitude_ratio"] ≈ 2.0 rtol = 1e-6
+        # The fixed tap is part of the ratio, as in the solver: tap = 0.8 on the
+        # power unit raises its secondary to 300 V in a 240 V bank.
+        tapped = _pg_sys("na_high_leg_open_delta")
+        tapped["transformer"]["single_phase"]["power"]["tap"] = 0.8
+        b = only(bank(tapped))
+        @test b["status"] == "amplitude_mismatch"
+        @test b["secondary_amplitude_ratio"] ≈ 1.25 rtol = 1e-6
+        @test "W.VOLT.XFMR_RATIO" in _pg_codes(_pg_analyze(tapped).findings)
+        # The same tap on both units changes no ratio between them...
+        both = deepcopy(tapped); both["transformer"]["center_tap"]["lighting"]["tap"] = 0.8
+        @test only(bank(both))["status"] == "verified"
+        # ...a small tap stays within tolerance, and a nonsensical one is unverified.
+        small = _pg_sys("na_high_leg_open_delta")
+        small["transformer"]["single_phase"]["power"]["tap"] = 1.025
+        @test only(bank(small))["status"] == "verified"
+        bad = _pg_sys("na_high_leg_open_delta")
+        bad["transformer"]["single_phase"]["power"]["tap"] = 0.0
+        @test only(bank(bad))["status"] == "unverified"
         # Geometry and amplitude are tested independently. Both primaries on
         # a-n are in phase; choosing the power winding's secondary so that the
         # third conductor happens to land at sqrt(3) x 120 V does not make a
