@@ -74,7 +74,9 @@ has a reference.
     reads those constraints from the same rules the solver builds them from:
     the P and Q bounds, a constant or minimum power factor, a Volt-var or
     Volt-watt law whose base or curve is zero, a zero rating, and the balance
-    of an isolated DC link across the coils. A limit that depends on voltage
+    of an isolated DC link across the coils. A zero rating is not used beside
+    a live Volt-var law or a shared DC bus: the power flow enforces no ratings,
+    and could still carry current there. A limit that depends on voltage
     (a real droop curve, the apparent-power circle) is not used: a coil is
     never dropped on a guess.
 

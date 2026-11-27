@@ -217,7 +217,9 @@ contradictory.
 Constraints used, in the builder's own form:
 
 - the P and Q boxes (a missing bound is no bound);
-- a zero `s_max` entry, or a zero current limit, pins both powers at zero;
+- a zero `s_max` entry, or a zero current limit, pins both powers at zero,
+  except beside a live Volt-var law or a shared DC bus, where the power flow
+  (which enforces no ratings) could still carry current;
 - a constant power factor, `a·Q + b·P = 0` ([`_pf_law_coefficients`](@ref));
 - a minimum power factor, `P >= 0` and `pf_min·|Q| <= sin(phi)·P` (beside a
   constant power factor below it, only the origin satisfies both);
@@ -243,7 +245,18 @@ function _ibr_power_ranges(rules)
         no_current = rules.topology == "SINGLE_PHASE" ?
             (!isempty(rules.i_max) && iszero(minimum(rules.i_max))) :
             (k <= length(rules.i_max) && iszero(rules.i_max[k]))
-        if no_current || (k <= length(rules.s_max) && iszero(rules.s_max[k]))
+        # A zero rating is enforced by the OPF but not by the power flow, which
+        # drops current limits and the apparent-power circle. It is used only
+        # where the power flow cannot disagree: there, P is a fixed setpoint and
+        # Q a setpoint or a power-factor multiple of P, so a zero rating either
+        # agrees with them or contradicts them (and a contradiction drops
+        # nothing). Two cases escape that argument and are left alone: a live
+        # Volt-var law, whose Q follows the voltage, and a shared DC bus, whose
+        # P follows the DC network.
+        live_volt_var = rules.volt_var !== nothing && !all(iszero, rules.volt_var.q_limits) &&
+            !iszero(_ibr_droop_base(:VAR_MAX, k, rules.s_max, rules.p_max, rules.p_avail_per))
+        rating_applies = rules.dc.kind != :bus && !live_volt_var
+        if rating_applies && (no_current || (k <= length(rules.s_max) && iszero(rules.s_max[k])))
             plo[k] = max(plo[k], 0.0); phi[k] = min(phi[k], 0.0)
             qlo[k] = max(qlo[k], 0.0); qhi[k] = min(qhi[k], 0.0)
         end
@@ -331,11 +344,14 @@ contradictory: only a proven zero removes a coil.
 function _ibr_coil_states(rules)
     ranges = _ibr_power_ranges(rules)
     ranges === nothing && return fill(:free, rules.n_coils)
-    scale = maximum(abs(x) for r in ranges for x in (r.p..., r.q...) if isfinite(x); init=1.0)
-    tol = 1e-9 * max(1.0, scale)
+    # Zero is an absolute statement (1e-9 W or var), whatever the size of the
+    # device's other numbers: a coil limited to a milliwatt beside one rated in
+    # megawatts still carries current. Rounding left by large numbers can only
+    # make a forced zero go unrecognized, never the reverse.
+    zero(x) = _range_is_zero(x, 1e-9)
     map(ranges) do r
-        _range_is_zero(r.p, tol) && _range_is_zero(r.q, tol) && return :zero
-        point(x) = isfinite(x[1]) && isfinite(x[2]) && abs(x[2] - x[1]) <= tol
+        zero(r.p) && zero(r.q) && return :zero
+        point(x) = isfinite(x[1]) && isfinite(x[2]) && abs(x[2] - x[1]) <= 1e-9 * max(1.0, abs(x[1]), abs(x[2]))
         point(r.p) && point(r.q) ? :fixed : :free
     end
 end

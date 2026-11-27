@@ -134,7 +134,7 @@ function voltage_level_analysis(net::Dict{String,Any},
     result["transformer_transitions"] = transitions
     # Buses whose phase-to-neutral voltage is not uniform across conductors
     # (high-leg delta); the reported level is the center-tapped leg voltage.
-    result["high_leg_units"] = sort!([b.id for b in high_leg_banks])
+    result["high_leg_units"] = sort!([b.id for b in high_leg_banks if b.status != "undetermined"])
     result["high_leg_banks"] = [Dict{String,Any}("power_unit" => b.id, "lighting_unit" => b.lighting,
         "bus_from" => b.bus_from, "bus_to" => b.bus_to, "high_leg" => b.high, "status" => b.status,
         "secondary_amplitude_ratio" => b.amplitude_ratio,
@@ -208,7 +208,8 @@ function _high_leg_banks(net::Dict{String,Any})
     # bus id: a primary disconnect (a closed switch) between them leaves the
     # bank what it was. Primary buses are compared up to the closed switches
     # that carry each winding's phase conductors (`_supply_point`).
-    supply = _supply_point(net)
+    banks = _transformer_bank_groups(net)
+    bank_of(subtype, id, f, b) = get(banks.membership, (subtype, string(id)), ([String(f)], String(b)))
     lighting = Dict{Tuple{Vector{String},String},Vector{Any}}()
     for id in sort!(collect(keys(ct)))
         t = ct[id]
@@ -216,7 +217,7 @@ function _high_leg_banks(net::Dict{String,Any})
         f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
         tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
         f isa AbstractString && b isa AbstractString && strs(tm, 3) && strs(tf, 2) || continue
-        push!(get!(lighting, (supply.key(String(f), tf), String(b)), Any[]),
+        push!(get!(lighting, bank_of("center_tap", id, f, b), Any[]),
               (id=string(id), to=string.(tm), from=string.(tf), bus_from=String(f)))
     end
     isempty(lighting) && return out
@@ -321,17 +322,17 @@ function _high_leg_banks(net::Dict{String,Any})
         f isa AbstractString && b isa AbstractString || continue
         tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
         strs(tf, 2) || continue
-        units = get(lighting, (supply.key(String(f), tf), String(b)), nothing)
+        units = get(lighting, bank_of("single_phase", id, f, b), nothing)
         if units === nothing
             # A lighting unit on the same secondary bus whose primary is joined
             # to this one on some conductors only: neither one bank nor known
             # to be two. Reported, and kept out of level propagation like any
             # unit whose bank cannot be established.
-            for (key, candidates) in lighting, u in candidates
-                key[2] == String(b) || continue
-                (supply.partial(String(f), tf, u.bus_from) || supply.partial(u.bus_from, u.from, String(f))) || continue
-                tm2 = get(t, "terminal_map_to", nothing)
-                strs(tm2, 2) && !any(is_return, tm2) || continue
+            tm2 = get(t, "terminal_map_to", nothing)
+            strs(tm2, 2) && !any(is_return, tm2) || continue
+            candidates = sort!([u for (key, us) in lighting if key[2] == String(b) for u in us], by = u -> u.id)
+            for u in candidates
+                (("center_tap", u.id), ("single_phase", string(id))) in banks.undetermined_pairs || continue
                 legs = (u.to[1], u.to[3])
                 count(x -> x in legs, tm2) == 1 || continue
                 push!(out, (id=string(id), bus_from=String(f), bus_to=String(b), lighting=u.id,
@@ -646,6 +647,8 @@ end
 # secondary closes the delta across the bank's line-to-line voltage, which is
 # twice the leg level the lighting unit establishes.
 function _check_high_leg_ratio(roles, id, t, assigned, findings, bank)
+    # Whether this is a bank at all is not established: nothing to check it against.
+    bank.status == "undetermined" && return
     leg = get(assigned, get(t, "bus_to", nothing), nothing)
     vt_ref = get(t, "v_nom_to", nothing)
     if bank.amplitude_ratio !== nothing

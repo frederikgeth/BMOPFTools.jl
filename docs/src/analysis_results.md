@@ -188,12 +188,14 @@ transformer ratios. Three cases need care when reading it:
   conductor-level evidence. Conductors are followed through closed switches,
   terminal by terminal. A winding's supply point is the set of buses at which
   every one of its primary terminals, the neutral included, is present; two
-  units are one bank when those sets are equal (`supply_buses`), so a full
+  units are one bank when those sets have a bus in common (`supply_buses`).
+  Units on one bus always do, whatever else their conductors reach, and a full
   primary disconnect between the units does not split the bank. A tie that
   carries some but not all of those conductors is a partial tie: the units
   stay separate branches, the pair is listed in
-  `results[:connectivity]["undetermined_transformer_banks"]`, and a would-be
-  high-leg bank has status `undetermined`. A tie on a conductor neither winding
+  `results[:connectivity]["undetermined_transformer_banks"]` (with a `reason`:
+  `partial_primary_tie`, or `no_common_supply_point` for a chain of units no
+  single bus holds), and a would-be high-leg bank has status `undetermined`. A tie on a conductor neither winding
   uses, or a neutral bond alone, is no evidence. None of this depends on bus
   names, switch direction or terminal labels. A bank is
   identified from the nominal phasors of the two primary windings. The phasor of

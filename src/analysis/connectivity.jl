@@ -630,7 +630,7 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
     end
 
     affected = String[]
-    supply_point = _supply_point(net)
+    bank_membership = _transformer_bank_groups(net).membership
     for z in zone_class
         # ── supplied phase count, and the source angle arrangement if source-fed ──
         supplied = 0
@@ -664,10 +664,7 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
         fed_by_pair = Dict{Any,Set{String}}()
         for (subtype, id) in z.feed
             rec = get(get(xfmr, subtype, Dict()), id, nothing)
-            pair = subtype in WINDING_LIST_SUBTYPES || !(rec isa AbstractDict) ? (subtype, id) :
-                (bf = get(rec, "bus_from", nothing);
-                 (bf isa AbstractString ? supply_point.key(String(bf), get(rec, "terminal_map_from", nothing)) : bf,
-                  get(rec, "bus_to", nothing)))
+            pair = get(bank_membership, (String(subtype), string(id)), (subtype, id))
             union!(get!(fed_by_pair, pair, Set{String}()), _xfmr_to_phases(subtype, id, z.buses))
         end
         for fed in values(fed_by_pair)
@@ -889,13 +886,18 @@ grouping is then one reading of the data, recorded rather than hidden.
 the branches a bus graph must not count separately.
 """
 function _transformer_bank_groups(net)
-    merged = Set{Tuple{String,String}}()
+    Unit = Tuple{String,String}
+    merged = Set{Unit}()
     groups = Dict{String,Any}[]
+    undetermined = Dict{String,Any}[]
+    membership = Dict{Unit,Tuple{Vector{String},String}}()
+    undetermined_pairs = Set{Tuple{Unit,Unit}}()
+    result() = (merged=merged, groups=groups, undetermined=undetermined,
+                membership=membership, undetermined_pairs=undetermined_pairs)
     xfmr = get(net, "transformer", Dict())
-    xfmr isa AbstractDict || return (merged=merged, groups=groups)
+    xfmr isa AbstractDict || return result()
     roles = _index_roles(net)
     neutrals = roles === nothing ? nothing : roles.neutral
-    pairs = Dict{Tuple{Vector{String},String},Vector{Any}}()
     by_secondary = Dict{String,Vector{Any}}()
     supply = _supply_point(net)
     for subtype in _BANKABLE_SUBTYPES
@@ -905,59 +907,89 @@ function _transformer_bank_groups(net)
             t isa AbstractDict || continue
             bf = get(t, "bus_from", nothing); bt = get(t, "bus_to", nothing)
             bf isa AbstractString && bt isa AbstractString && bf != bt || continue
-            sig = _bank_unit_signature(t, neutrals)
             tf = get(t, "terminal_map_from", nothing)
-            from = supply.key(String(bf), tf)
-            String(bt) in from && continue
-            push!(get!(pairs, (from, String(bt)), Any[]),
-                  (subtype=subtype, id=string(id), sig=sig))
-            push!(get!(by_secondary, String(bt), Any[]), (id=string(id), bus=String(bf), terminals=tf, from=from))
+            reach = supply.reach(String(bf), tf)
+            String(bt) in reach && continue
+            push!(get!(by_secondary, String(bt), Any[]),
+                  (subtype=subtype, id=string(id), sig=_bank_unit_signature(t, neutrals),
+                   bus=String(bf), terminals=tf, reach=reach))
         end
     end
-    for key in sort!(collect(keys(pairs)))
-        units = pairs[key]
-        length(units) > 1 || continue
-        # A center-tapped unit is identified as a bank's lighting transformer
-        # by its subtype, so it anchors the bank: a unit across one of its legs
-        # is the parallel one, not the other way around.
-        assessed = sort!([u for u in units if u.sig !== nothing],
-                         by = u -> (u.subtype != "center_tap", length(u.sig),
-                                    sort!(collect(u.sig)), u.subtype, u.id))
-        legs = eltype(assessed)[]; parallel = eltype(assessed)[]; ambiguous = false
-        for u in assessed
-            clash = [l for l in legs if issubset(u.sig, l.sig) || issubset(l.sig, u.sig)]
-            if isempty(clash)
-                push!(legs, u)
+    note_undetermined!(bt, a, b, reason) = begin
+        x, y = sort!([a, b], by = u -> (u.subtype, u.id))
+        push!(undetermined_pairs, ((x.subtype, x.id), (y.subtype, y.id)))
+        push!(undetermined, Dict{String,Any}("bus_to" => bt, "units" => sort!([a.id, b.id]),
+            "primary_buses" => sort!(unique!([a.bus, b.bus])), "reason" => reason))
+    end
+    for bt in sort!(collect(keys(by_secondary)))
+        all_units = sort!(by_secondary[bt], by = u -> (u.subtype, u.id))
+        # Units that share a supply point: some bus at which both windings are
+        # wholly present. Components of that relation are candidate banks.
+        component = collect(1:length(all_units))
+        root(i) = (while component[i] != i; i = component[i]; end; i)
+        for i in 1:length(all_units), j in i+1:length(all_units)
+            isempty(intersect(all_units[i].reach, all_units[j].reach)) && continue
+            ri, rj = root(i), root(j)
+            ri == rj || (component[max(ri, rj)] = min(ri, rj))
+        end
+        banks = Vector{Any}[]
+        for r in unique(root.(1:length(all_units)))
+            members = [all_units[i] for i in 1:length(all_units) if root(i) == r]
+            common = sort!(collect(intersect((u.reach for u in members)...)))
+            if isempty(common)
+                # A chain: each unit shares a bus with the next, but no bus
+                # holds them all. Not one supply point; left as separate units.
+                for i in 1:length(members), j in i+1:length(members)
+                    note_undetermined!(bt, members[i], members[j], "no_common_supply_point")
+                end
+                for u in members; push!(banks, Any[[u], u.reach]); end
             else
-                push!(parallel, u)
-                any(l -> l.sig != u.sig, clash) && (ambiguous = true)
+                push!(banks, Any[members, common])
             end
         end
-        for l in legs[2:end]
-            push!(merged, (l.subtype, l.id))
+        for (units, common) in banks, u in units
+            membership[(u.subtype, u.id)] = (common, bt)
         end
-        push!(groups, Dict{String,Any}("bus_from" => first(key[1]), "supply_buses" => key[1], "bus_to" => key[2],
-            "units" => sort!([l.id for l in legs]),
-            "parallel_units" => sort!([u.id for u in parallel]),
-            "unassessed_units" => sort!([u.id for u in units if u.sig === nothing]),
-            "ambiguous" => ambiguous,
-            "n_branches" => (isempty(legs) ? 0 : 1) + length(parallel) +
-                            count(u -> u.sig === nothing, units)))
-    end
-    # Units on one secondary bus whose primaries are joined on some but not all
-    # of a winding's conductors: not grouped, and not known to be separate.
-    undetermined = Dict{String,Any}[]
-    for bt in sort!(collect(keys(by_secondary)))
-        units = sort!(by_secondary[bt], by = u -> u.id)
-        for i in 1:length(units), j in i+1:length(units)
-            a, b = units[i], units[j]
-            a.from == b.from && continue
+        # Units in different banks whose primaries are joined on some but not
+        # all of a winding's conductors: not grouped, and not known to be separate.
+        for x in 1:length(banks), y in x+1:length(banks), a in banks[x][1], b in banks[y][1]
             (supply.partial(a.bus, a.terminals, b.bus) || supply.partial(b.bus, b.terminals, a.bus)) || continue
-            push!(undetermined, Dict{String,Any}("bus_to" => bt, "units" => [a.id, b.id],
-                "primary_buses" => sort!(unique!([a.bus, b.bus])), "reason" => "partial_primary_tie"))
+            ((a.subtype, a.id), (b.subtype, b.id)) in undetermined_pairs && continue
+            ((b.subtype, b.id), (a.subtype, a.id)) in undetermined_pairs && continue
+            note_undetermined!(bt, a, b, "partial_primary_tie")
+        end
+        for (units, common) in banks
+            length(units) > 1 || continue
+            # A center-tapped unit is identified as a bank's lighting transformer
+            # by its subtype, so it anchors the bank: a unit across one of its legs
+            # is the parallel one, not the other way around.
+            assessed = sort!([u for u in units if u.sig !== nothing],
+                             by = u -> (u.subtype != "center_tap", length(u.sig),
+                                        sort!(collect(u.sig)), u.subtype, u.id))
+            legs = eltype(assessed)[]; parallel = eltype(assessed)[]; ambiguous = false
+            for u in assessed
+                clash = [l for l in legs if issubset(u.sig, l.sig) || issubset(l.sig, u.sig)]
+                if isempty(clash)
+                    push!(legs, u)
+                else
+                    push!(parallel, u)
+                    any(l -> l.sig != u.sig, clash) && (ambiguous = true)
+                end
+            end
+            for l in legs[2:end]
+                push!(merged, (l.subtype, l.id))
+            end
+            push!(groups, Dict{String,Any}("bus_from" => first(common), "supply_buses" => common, "bus_to" => bt,
+                "units" => sort!([l.id for l in legs]),
+                "parallel_units" => sort!([u.id for u in parallel]),
+                "unassessed_units" => sort!([u.id for u in units if u.sig === nothing]),
+                "ambiguous" => ambiguous,
+                "n_branches" => (isempty(legs) ? 0 : 1) + length(parallel) +
+                                count(u -> u.sig === nothing, units)))
         end
     end
-    (merged=merged, groups=groups, undetermined=undetermined)
+    sort!(groups, by = g -> (g["supply_buses"], g["bus_to"]))
+    result()
 end
 
 # Conductors as a union-find over (bus, terminal) nodes: two nodes are one
@@ -1007,8 +1039,10 @@ end
 # by the switch's own terminal maps (a label may change across a switch; the
 # conductor does not). A winding's **supply point** is the set of buses at
 # which EVERY one of its primary terminals, the neutral included, is present
-# on the same conductors. Two units share a supply point when those sets are
-# equal: a full primary disconnect between them leaves the bank what it was.
+# on the same conductors. Two units share a supply point when those sets have
+# a bus in common: a bus at which both windings are wholly present. Units on
+# one bus always do, whatever else their conductors reach, and a full primary
+# disconnect between two units leaves the bank what it was.
 #
 # Anything less is not grouped. A tie that carries some but not all of a
 # winding's conductors (one phase of two, the phases without the neutral) is a
@@ -1029,21 +1063,20 @@ function _supply_point(net)
         all(x -> x isa AbstractString, terminals)
     present(bus, t) = haskey(parent, (bus, t)) ? buses_of[find((bus, t))] : Set{String}((bus,))
     # Sorted list of the buses every primary terminal of the winding reaches.
-    function key(bus::AbstractString, terminals)
+    function reach(bus::AbstractString, terminals)
         bus = String(bus)
         (isempty(parent) || !readable(terminals)) && return [bus]
         sort!(collect(intersect((present(bus, String(t)) for t in terminals)...)))
     end
     # True when a PHASE conductor of the winding at `bus` is present at
-    # `other`. Asked about two units whose supply points differ: one crossing
-    # phase conductor then makes the pair a partial tie, even where one of the
-    # two windings crosses whole (the bank's other winding does not).
+    # `other`. Asked about two units that share no supply point: one crossing
+    # phase conductor then makes the pair a partial tie.
     function partial(bus::AbstractString, terminals, other::AbstractString)
         bus = String(bus); other = String(other)
         (isempty(parent) || !readable(terminals) || bus == other) && return false
         any(t -> !is_return(t) && other in present(bus, String(t)), terminals)
     end
-    (key=key, partial=partial)
+    (reach=reach, partial=partial)
 end
 
 # Single-phase unit subtypes that are banked in practice.

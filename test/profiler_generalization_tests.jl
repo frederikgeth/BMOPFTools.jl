@@ -1379,7 +1379,12 @@ end
             # Partial ties: some conductor of a winding crosses, not all of them.
             ("phases a and b, no neutral",   build(["a", "b"]; feeds=2), (banks=none, undetermined=one, cycles=2, high_leg=[("power", "undetermined")])),
             ("phase a only",                 build(["a"]; feeds=2),      (banks=none, undetermined=one, cycles=2, high_leg=[("power", "undetermined")])),
-            ("phase a and neutral",          build(["a", "n"]; feeds=2), (banks=none, undetermined=one, cycles=2, high_leg=[("power", "undetermined")])),
+            # The tie carries the WHOLE lighting winding (a and n): that winding is
+            # present at pole2 as well, where the power unit is. One supply point.
+            ("whole lighting winding",       build(["a", "n"]; feeds=2), (banks=one,  undetermined=none, cycles=1, high_leg=[("power", "verified")])),
+            # ...but not the whole power winding (b and n) alone the other way
+            # round: that one is then present at pole, where the lighting unit is.
+            ("whole power winding",          build(["b", "n"]; feeds=2), (banks=one,  undetermined=none, cycles=1, high_leg=[("power", "verified")])),
             # No evidence: a conductor neither winding uses, a neutral bond, an open switch, no switch.
             ("unused phase c",               build(["c"]; feeds=2),   (banks=none, undetermined=none, cycles=2, high_leg=Tuple{String,String}[])),
             ("neutral bond",                 build(["n"]; feeds=2),   (banks=none, undetermined=none, cycles=1, high_leg=Tuple{String,String}[])),
@@ -1407,6 +1412,52 @@ end
         bonded["switch"] = Dict{String,Any}("bond" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "svc",
             "terminal_map_from" => ["n"], "terminal_map_to" => ["n"], "open_switch" => false, "i_max" => [100.0]))
         @test verdict(bonded) == (banks=one, undetermined=none, cycles=0, high_leg=[("power", "verified")])
+
+        # Units on ONE primary bus are one supply point whatever else their
+        # conductors reach: a single-phase lateral switched off the pole, on the
+        # lighting unit's conductors or on the power unit's, splits nothing.
+        lateral(tm) = begin
+            out = _pg_sys("na_high_leg_open_delta")
+            out["bus"]["lat"] = Dict{String,Any}("terminal_names" => copy(tm))
+            out["switch"] = Dict{String,Any}("tap" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "lat",
+                "terminal_map_from" => copy(tm), "terminal_map_to" => copy(tm), "open_switch" => false,
+                "i_max" => fill(100.0, length(tm))))
+            out["load"]["lat_load"] = Dict{String,Any}("bus" => "lat", "terminal_map" => copy(tm),
+                "configuration" => "SINGLE_PHASE", "p_nom" => [1000.0], "q_nom" => [200.0], "v_nom" => [7200.0])
+            out
+        end
+        same_bus = (banks=one, undetermined=none, cycles=0, high_leg=[("power", "verified")])
+        push!(cases, ("lateral on the lighting conductors", lateral(["a", "n"]), same_bus))
+        push!(cases, ("lateral on the power conductors", lateral(["b", "n"]), same_bus))
+        push!(cases, ("lateral on the unused phase", lateral(["c", "n"]), same_bus))
+        for name in ("lateral on the lighting conductors", "lateral on the power conductors", "lateral on the unused phase")
+            net = only(c[2] for c in cases if c[1] == name)
+            @testset "$name" begin
+                @test verdict(net) == same_bus
+                @test isempty(errors(_pg_analyze(net)))
+            end
+        end
+        # Three units, each sharing a bus with the next but no bus holding all:
+        # not one supply point. Nothing is merged and every pair is reported.
+        chain = build(["a", "n"]; feeds=2)
+        chain["bus"]["pole3"] = deepcopy(chain["bus"]["pole"])
+        chain["line"]["main3"] = merge(deepcopy(chain["line"]["main"]), Dict{String,Any}("bus_to" => "pole3"))
+        chain["switch"]["tie2"] = Dict{String,Any}("bus_from" => "pole2", "bus_to" => "pole3",
+            "terminal_map_from" => ["b", "n"], "terminal_map_to" => ["b", "n"], "open_switch" => false, "i_max" => [100.0, 100.0])
+        third = deepcopy(chain["transformer"]["single_phase"]["power"])
+        third["bus_from"] = "pole3"; third["terminal_map_from"] = ["c", "n"]; third["terminal_map_to"] = ["c", "a"]
+        chain["transformer"]["single_phase"]["third"] = third
+        cc = _pg_analyze(chain).results[:connectivity]
+        @test isempty(cc["transformer_banks"])
+        @test length(cc["undetermined_transformer_banks"]) == 3
+        @test all(g -> g["reason"] == "no_common_supply_point", cc["undetermined_transformer_banks"])
+        # Component ids play no part: exchanging the two units' ids changes
+        # nothing but the names in the answer.
+        swapped_ids = build(full)
+        swapped_ids["transformer"]["single_phase"]["aaa"] = pop!(swapped_ids["transformer"]["single_phase"], "power")
+        swapped_ids["transformer"]["center_tap"]["zzz"] = pop!(swapped_ids["transformer"]["center_tap"], "lighting")
+        vs = verdict(swapped_ids)
+        @test vs.banks == [["aaa", "zzz"]] && vs.cycles == 0 && vs.high_leg == [("aaa", "verified")]
 
         # Invariance. None of the verdicts may depend on how the case is written:
         # the name of a bus, the direction of a switch, the label of a terminal.
@@ -1467,6 +1518,8 @@ end
         ]
         for (name, net, expected) in cases, (variant, transform) in variants
             haskey(net, "switch") || variant != "switch reversed" || continue
+            # The lateral cases have no second pole to rename or relabel.
+            haskey(net["bus"], "pole2") || variant in ("pole sorts last", "switch reversed") || continue
             @testset "$name — $variant" begin
                 @test verdict(transform(net)) == expected
             end
