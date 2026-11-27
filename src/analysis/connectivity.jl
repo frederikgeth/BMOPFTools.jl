@@ -207,6 +207,7 @@ function connectivity_analysis(net::Dict{String,Any},
         result["source_buses"] = vsrc_buses
         max_depth   = 0
         max_path    = String[]
+        max_path_buses = String[]
         for src in vsrc_buses
             src_idx = get(bus_index, src, nothing)
             src_idx === nothing && continue
@@ -221,7 +222,11 @@ function connectivity_analysis(net::Dict{String,Any},
                 # trace back the farthest bus
                 farthest_idx = findfirst(i -> dists[i] == d, 1:n)
                 if farthest_idx !== nothing
-                    max_path = _trace_path(g, src_idx, farthest_idx, bus_names)
+                    walk = _trace_path_vertices(g, src_idx, farthest_idx)
+                    max_path = [bus_names[v] for v in walk]
+                    # AC buses are the vertices 1:n; a bus whose id happens to
+                    # look like a DC-island label is still a bus.
+                    max_path_buses = [bus_names[v] for v in walk if v <= n]
                 end
             end
         end
@@ -229,7 +234,7 @@ function connectivity_analysis(net::Dict{String,Any},
         # `longest_path_buses` lists AC buses only, as its consumers (DER and
         # IBR placement among them) expect; the full walk, DC-island vertices
         # included, is `longest_path_vertices`.
-        result["longest_path_buses"] = [v for v in max_path if !startswith(v, "dc_island:")]
+        result["longest_path_buses"] = max_path_buses
         result["longest_path_vertices"] = max_path
     end
 
@@ -686,8 +691,10 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
 end
 
 """Simple BFS path reconstruction."""
-function _trace_path(g::SimpleGraph, src::Int, dst::Int,
-                     names::Vector{String})::Vector{String}
+_trace_path(g::SimpleGraph, src::Int, dst::Int, names::Vector{String})::Vector{String} =
+    [names[v] for v in _trace_path_vertices(g, src, dst)]
+
+function _trace_path_vertices(g::SimpleGraph, src::Int, dst::Int)::Vector{Int}
     prev = fill(-1, nv(g))
     visited = falses(nv(g))
     queue   = Int[src]
@@ -709,7 +716,6 @@ function _trace_path(g::SimpleGraph, src::Int, dst::Int,
         v = prev[v]
     end
     reverse!(path)
-    [names[i] for i in path]
 end
 
 """

@@ -36,6 +36,7 @@ The profiler asks two separate questions, and they are easy to confuse.
    some other way. This is `E.PROV.FLOATING_NEUTRAL` (or `W.` when nothing uses
    the neutral).
 
+Both questions, and the conductor-group test below, read one body of evidence.
 What counts as a tie to the reference:
 
 | In the data | Counts as |
@@ -43,7 +44,7 @@ What counts as a tie to the reference:
 | `perfectly_grounded_terminals` on a bus | a zero-impedance tie |
 | a `voltage_source` | pins each of its terminals, and the neutral of its bus |
 | a `shunt` row with a nonzero sum (for example a one-terminal earth electrode) | a finite tie, for that terminal |
-| a WYE or one-terminal SINGLE_PHASE load or generator with no neutral in its map | a tie for its phase terminals: the solver writes it against earth |
+| a WYE or one-terminal SINGLE_PHASE load with no neutral in its map, on a phase with nonzero demand | a tie for that phase terminal: the solver writes the load against earth. A zero-power load draws no current and ties nothing; a generator written this way is not counted, because its power is a decision variable |
 | line shunt admittance to earth (`G/B_from/to`, the line's capacitance), as the engine stamps it: from the linecode scaled by length, or from the line itself when it carries inline impedance; over the mapped conductors only | a finite tie at both ends |
 | a transformer's `r_neutral_*` / `x_neutral_*` on a side with a neutral terminal | a finite tie at the winding's star point |
 

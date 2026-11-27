@@ -181,8 +181,9 @@ end
 # Returns one record per identified power unit, resolved once per network:
 # `(id, bus_from, bus_to, lighting, high, status)`. `status` is "verified", or
 # "unverified" when the primary phasors are not established: no voltage source
-# in the primary's own galvanic zone declares the angle of each conductor the
-# windings use. Phase labels are never taken as evidence of an angle. An
+# declares the angle of the conductor each winding terminal is on, as followed
+# through the terminal maps of lines and closed switches. Phase labels are
+# never taken as evidence of an angle. An
 # unverified unit is kept out of level propagation rather than raised as a
 # false conflict, is reported with that status, and is not called a high leg.
 function _high_leg_banks(net::Dict{String,Any})
@@ -208,32 +209,59 @@ function _high_leg_banks(net::Dict{String,Any})
     roles = _index_roles(net)
     is_return(x) = roles === nothing ? _is_convention_neutral(x) :
         (x in roles.neutral || x in roles.earth)
-    zone_of = nothing; zone_angles = Dict{Int,Dict{String,Float64}}()
+    # Nominal phasor of a (bus, terminal): the angle a voltage source declares
+    # for the CONDUCTOR that terminal belongs to, followed through the terminal
+    # maps of lines and closed switches. Labels are not followed: `pole.b` fed
+    # from `sub.a` through a mapped conductor carries the angle of `sub.a`,
+    # and two legs behind another transformer carry none. A conductor that two
+    # sources declare at different angles is not established either.
+    conductor_angle = nothing
     function phasor(bus, t)
         is_return(t) && return 0.0 + 0.0im
-        if zone_of === nothing
-            zone_of = Dict{String,Int}()
-            for (k, zone) in enumerate(_galvanic_zones(net)), bid in zone
-                zone_of[bid] = k
+        if conductor_angle === nothing
+            Node = Tuple{String,String}
+            parent = Dict{Node,Node}()
+            function find(x)
+                haskey(parent, x) || (parent[x] = x)
+                root = x
+                while parent[root] != root; root = parent[root]; end
+                while parent[x] != root
+                    parent[x], x = root, parent[x]
+                end
+                root
             end
-            for (_, vs) in get(net, "voltage_source", Dict())
-                vs isa AbstractDict || continue
-                k = get(zone_of, get(vs, "bus", nothing), 0)
-                tm = get(vs, "terminal_map", nothing); va = get(vs, "v_angle", nothing)
-                k != 0 && tm isa AbstractVector && va isa AbstractVector || continue
-                angles = get!(zone_angles, k, Dict{String,Float64}())
-                for (label, angle) in zip(tm, va)
-                    angle isa Real && isfinite(angle) && get!(angles, string(label), Float64(angle))
+            for kind in ("line", "switch"), (_, c) in get(net, kind, Dict())
+                c isa AbstractDict || continue
+                kind == "switch" && get(c, "open_switch", false) === true && continue
+                bf = get(c, "bus_from", nothing); bt = get(c, "bus_to", nothing)
+                tf = get(c, "terminal_map_from", nothing); tt = get(c, "terminal_map_to", nothing)
+                bf isa AbstractString && bt isa AbstractString && tf isa AbstractVector &&
+                    tt isa AbstractVector || continue
+                for k in 1:min(length(tf), length(tt))
+                    tf[k] isa AbstractString && tt[k] isa AbstractString || continue
+                    ra = find((String(bf), String(tf[k]))); rb = find((String(bt), String(tt[k])))
+                    ra == rb || (parent[ra] = rb)
                 end
             end
+            declared = Dict{Node,Vector{Float64}}()
+            for (_, vs) in get(net, "voltage_source", Dict())
+                vs isa AbstractDict || continue
+                sb = get(vs, "bus", nothing)
+                tm = get(vs, "terminal_map", nothing); va = get(vs, "v_angle", nothing)
+                sb isa AbstractString && tm isa AbstractVector && va isa AbstractVector || continue
+                for (label, angle) in zip(tm, va)
+                    label isa AbstractString && angle isa Real && isfinite(angle) || continue
+                    push!(get!(declared, find((String(sb), String(label))), Float64[]), Float64(angle))
+                end
+            end
+            established = Dict{Node,Float64}()
+            for (root, angles) in declared
+                all(a -> abs(cis(a) - cis(first(angles))) < 1e-6, angles) && (established[root] = first(angles))
+            end
+            conductor_angle = n -> get(established, find(n), nothing)
         end
-        # Only a source in the primary's own galvanic zone establishes the
-        # phasor of a conductor. A label such as "a" or "b" says nothing about
-        # the angle behind another transformer (two legs of an upstream center
-        # tap are 180° apart whatever they are called), so labels are never
-        # used to verify a bank.
-        angles = get(zone_angles, get(zone_of, bus, 0), nothing)
-        angles !== nothing && haskey(angles, t) ? cis(angles[t]) : nothing
+        angle = conductor_angle((String(bus), String(t)))
+        angle === nothing ? nothing : cis(angle)
     end
     function direction(bus, tm)
         a = phasor(bus, tm[1]); b = phasor(bus, tm[2])

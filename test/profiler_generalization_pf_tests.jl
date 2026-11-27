@@ -94,6 +94,35 @@ using JuMP, Ipopt
         @test !isapprox(vmag(res, "svc", "c"), sqrt(3) * 120.0; rtol = 0.2)
     end
 
+    @testset "two primaries on one source conductor, under different labels" begin
+        net = sys("na_high_leg_open_delta")
+        delete!(net["line"], "main")
+        mk(tf, tt) = Dict{String,Any}("bus_from" => "sub", "bus_to" => "pole", "linecode" => "one",
+            "length" => 600.0, "terminal_map_from" => tf, "terminal_map_to" => tt)
+        lc = net["linecode"]["primary"]
+        net["linecode"]["one"] = Dict{String,Any}("R_series_1_1" => lc["R_series_1_1"],
+            "X_series_1_1" => lc["X_series_1_1"], "i_max" => [300.0])
+        net["line"]["to_a"] = mk(["a"], ["a"]); net["line"]["to_b"] = mk(["a"], ["b"]); net["line"]["to_n"] = mk(["n"], ["n"])
+        @test isempty(report(net).results[:voltage_levels]["high_leg_banks"])
+        @test vmag(solve(net), "svc", "c") ≈ 360.0 rtol = 0.03          # in phase: 120 V + 240 V
+    end
+
+    @testset "a load written against earth is the island's reference" begin
+        net = sys("it_delta_island_unreferenced")
+        net["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => ["a"],
+            "configuration" => "SINGLE_PHASE", "model" => "constant_impedance",
+            "p_nom" => [100.0], "q_nom" => [0.0], "v_nom" => [230.0])
+        @test isempty(errors(report(net)))
+        res = solve(net)
+        # Pinned, and uniquely: with no other path to earth the load can carry
+        # no current, so its phase sits at earth potential and the other two
+        # at the line voltage, as on a system with one phase earthed.
+        @test vmag(res, "it1", "a") < 1.0
+        @test vmag(res, "it1", "b") ≈ 400.0 rtol = 0.02
+        @test vmag(res, "it1", "c") ≈ 400.0 rtol = 0.02
+        @test vpp(res, "it1", "a", "b") ≈ 400.0 rtol = 0.02
+    end
+
     @testset "an island is referenced exactly when the profiler says so" begin
         # Referenced through cable capacitance: phase-to-earth voltages are the
         # balanced nominal.

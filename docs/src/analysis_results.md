@@ -184,8 +184,11 @@ transformer ratios. Three cases need care when reading it:
   `mixed_phase_to_neutral_buses`, and the power units that create the high leg are
   listed in `high_leg_units`; `high_leg_banks` gives, per power unit, the
   lighting unit, the buses, the high-leg conductor and a `status`. A bank is
-  identified from the nominal phasors of the two primary windings, taken from
-  the angles a voltage source declares in the primary's own galvanic zone:
+  identified from the nominal phasors of the two primary windings. The phasor of
+  a winding terminal is the angle a voltage source declares for the conductor
+  that terminal is on, followed through the terminal maps of lines and closed
+  switches (a terminal called `b` that is fed from the source's `a` carries the
+  angle of `a`):
   the third conductor must come out at √3 times the leg level. Primaries on the
   same phase, a line-to-line beside a line-to-neutral primary, or one reversed
   winding do not close the delta and are ordinary level conflicts. Phase

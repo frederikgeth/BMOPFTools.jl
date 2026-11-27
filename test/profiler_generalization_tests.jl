@@ -951,6 +951,55 @@ end
                 "v_nom" => fill(230.0, length(tm)))
             @test isempty(groups(ld))
         end
+        # Oracle for loads: the linearized Ybus, with constant-impedance loads
+        # folded in. A common shift of the phases is in its nullspace iff they float.
+        floats_lin(net, nodes) = begin
+            lin = ybus_linearized(net)
+            x = zeros(ComplexF64, length(lin.nodes))
+            for n in nodes; x[lin.index[n]] = 1.0; end
+            maximum(abs, lin.Y * x) <= 1e-9 * maximum(abs, lin.Y)
+        end
+        zload(net, p, q) = begin
+            out = deepcopy(net)
+            out["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => ["a"],
+                "configuration" => "SINGLE_PHASE", "model" => "constant_impedance",
+                "p_nom" => [p], "q_nom" => [q], "v_nom" => [230.0])
+            out
+        end
+        @test !floats_lin(zload(net, 100.0, 0.0), phases) && isempty(groups(zload(net, 100.0, 0.0)))
+        # A zero-power load draws no current at any voltage: it pins nothing.
+        zero_load = zload(net, 0.0, 0.0)
+        @test floats_lin(zero_load, phases)
+        @test length(groups(zero_load)) == 1
+        @test isempty(groups(zload(net, 0.0, 50.0)))            # reactive demand alone is a term
+        # A WYE load against earth references only the phases that draw power.
+        partial = deepcopy(net)
+        partial["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => ["a","b","c"],
+            "configuration" => "WYE", "model" => "constant_impedance",
+            "p_nom" => [0.0, 0.0, 0.0], "q_nom" => [0.0, 0.0, 0.0], "v_nom" => fill(230.0, 3))
+        @test length(groups(partial)) == 1
+        partial["load"]["aux"]["p_nom"] = [0.0, 80.0, 0.0]
+        @test isempty(groups(partial))
+        # A generator written against earth is not counted: its power is a
+        # decision variable, so a shift of its terminals is absorbed by dispatch.
+        gen = deepcopy(net)
+        gen["generator"] = Dict{String,Any}("g" => Dict{String,Any}("bus" => "it1", "terminal_map" => ["a"],
+            "configuration" => "SINGLE_PHASE", "p_max" => [1000.0], "q_max" => [500.0], "cost" => [0.1]))
+        @test length(groups(gen)) == 1
+
+        # The ISLAND test reads the same evidence. On the bare delta fixture, with
+        # no other tie anywhere, the load is the island's reference...
+        only_load = zload(_pg_sys("it_delta_island_unreferenced"), 100.0, 0.0)
+        @test !floats_lin(only_load, phases)
+        f = Finding[]; r = integrity_check(only_load, f)
+        @test !("E.INT.NO_VOLTAGE_REFERENCE" in _pg_codes(f))
+        @test r["n_without_reference"] == 0 && r["n_unreferenced_conductor_groups"] == 0
+        # ...and a zero-power load leaves it without one, in both tests' terms.
+        no_load = zload(_pg_sys("it_delta_island_unreferenced"), 0.0, 0.0)
+        @test floats_lin(no_load, phases)
+        f = Finding[]; r = integrity_check(no_load, f)
+        refs = [x for x in f if x.code == "E.INT.NO_VOLTAGE_REFERENCE"]
+        @test length(refs) == 1 && only(refs).detail["scope"] == "island" && r["n_without_reference"] == 1
         # A phase-to-phase load is no reference.
         pp = deepcopy(net)
         pp["load"]["aux"] = Dict{String,Any}("bus" => "it1", "terminal_map" => ["a","b"],
@@ -1068,6 +1117,33 @@ end
         @test !("E.VOLT.LEVEL_MISMATCH" in _pg_codes(rep.findings))
         split = only(f for f in rep.findings if f.code == "I.PROV.SPLIT_PHASE_ZONE" && f.detail["zone_anchor"] == "svc")
         @test isempty(split.detail["high_leg"]) && split.detail["other_phases"] == ["c"]
+        # Labels are not followed across a mapped conductor either. With the
+        # source balanced, feed BOTH pole.a and pole.b from sub.a: the two
+        # primaries are then in phase, whatever their terminals are called.
+        net = _pg_sys("na_high_leg_open_delta")
+        delete!(net["line"], "main")
+        mk(tf, tt, code) = Dict{String,Any}("bus_from" => "sub", "bus_to" => "pole", "linecode" => code,
+            "length" => 600.0, "terminal_map_from" => tf, "terminal_map_to" => tt)
+        lc = net["linecode"]["primary"]
+        net["linecode"]["one"] = Dict{String,Any}("R_series_1_1" => lc["R_series_1_1"],
+            "X_series_1_1" => lc["X_series_1_1"], "i_max" => [300.0])
+        net["line"]["to_a"] = mk(["a"], ["a"], "one")
+        net["line"]["to_b"] = mk(["a"], ["b"], "one")        # pole.b is on the conductor of sub.a
+        net["line"]["to_n"] = mk(["n"], ["n"], "one")
+        @test isempty(bank(net))                               # in phase: no delta, not "verified"
+        @test "E.VOLT.LEVEL_MISMATCH" in _pg_codes(_pg_analyze(net).findings)
+        # The same wiring from sub.b to pole.b is the real bank again.
+        net["line"]["to_b"] = mk(["b"], ["b"], "one")
+        @test only(bank(net))["status"] == "verified"
+        # A crossed feed that still delivers a different phase is a delta too:
+        # what counts is the conductor's angle, not its name at the pole.
+        net["line"]["to_b"] = mk(["c"], ["b"], "one")
+        @test only(bank(net))["status"] == "verified"
+        # Two sources that declare one conductor at different angles establish nothing.
+        net = _pg_sys("na_high_leg_open_delta")
+        net["voltage_source"]["second"] = Dict{String,Any}("bus" => "pole", "terminal_map" => ["a","b","c"],
+            "v_magnitude" => fill(7200.0, 3), "v_angle" => [0.5, -2π/3, 2π/3])
+        @test only(bank(net))["status"] == "unverified"
         # No source at all: unverified as well.
         net = _pg_sys("na_high_leg_open_delta"); delete!(net, "voltage_source")
         @test only(bank(net))["status"] == "unverified"
@@ -1122,6 +1198,19 @@ end
         @test any(startswith("dc_island:"), ra["longest_path_vertices"])
         @test length(ra["longest_path_vertices"]) == length(ra["longest_path_buses"]) + 1
         @test !any(startswith("dc_island:"), ra["degree_1_buses"])
+        # A real AC bus whose id looks like a DC-island label is still a bus:
+        # vertices are told apart by identity, not by name.
+        named = _pg_sys("eu_tn_four_wire")
+        named["bus"]["dc_island:lv1"] = pop!(named["bus"], "lv1")
+        for l in values(named["line"]), k in ("bus_from", "bus_to")
+            l[k] == "lv1" && (l[k] = "dc_island:lv1")
+        end
+        for l in values(named["load"]); l["bus"] == "lv1" && (l["bus"] = "dc_island:lv1"); end
+        plain = connectivity_analysis(_pg_sys("eu_tn_four_wire"), Finding[])
+        odd = connectivity_analysis(named, Finding[])
+        @test odd["longest_path_buses"] == replace(plain["longest_path_buses"], "lv1" => "dc_island:lv1")
+        @test odd["longest_path_buses"] == odd["longest_path_vertices"]
+        @test "dc_island:lv1" in odd["longest_path_buses"]
         # src -> DC island -> recv -> leaf: the near-source half of the bus path
         # still reaches recv, as it does over a direct AC branch.
         chain = Dict{String,Any}(

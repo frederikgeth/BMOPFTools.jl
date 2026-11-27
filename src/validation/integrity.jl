@@ -27,11 +27,18 @@ the terminals of one transformer winding side (both sides for the galvanically
 continuous subtypes). A group is referenced when one of its nodes is tied to
 earth: a perfectly grounded terminal, a voltage-source terminal or the neutral
 of a source bus, a shunt or stamped line-shunt row with a nonzero sum, a
-transformer neutral impedance, or a load or generator written against earth
-(WYE or one-terminal SINGLE_PHASE with no neutral in its map). Declared terminals that no element
+transformer neutral impedance, or a load written against earth (WYE or
+one-terminal SINGLE_PHASE with no neutral in its map) on a phase where its
+demand is nonzero. Declared terminals that no element
 touches are not groups (they are `W.INT.UNUSED_BUS_TERMINAL`).
 """
-function _unreferenced_conductor_groups(net)
+_unreferenced_conductor_groups(net) = _conductor_reference(net).groups
+
+# The one source of voltage-reference evidence. Returns the unreferenced
+# conductor `groups` and `earthed_buses`, the buses that carry at least one
+# terminal tied to earth; the island test and the conductor-group test both
+# read this, so they cannot disagree about what a reference is.
+function _conductor_reference(net)
     Node = Tuple{String,String}
     parent = Dict{Node,Node}()
     earthed = Set{Node}()
@@ -137,16 +144,26 @@ function _unreferenced_conductor_groups(net)
         c isa AbstractDict || continue
         b = get(c, "bus", nothing); tm = get(c, "terminal_map", nothing)
         tie_all!(b, tm)
-        # A WYE or one-terminal SINGLE_PHASE load or generator whose map holds
-        # no neutral is written against earth: the solver uses the
-        # phase-to-reference voltage, so the device itself references each of
-        # its phase terminals (an implicit earth return).
-        kind in ("load", "generator") && b isa AbstractString && strs(tm) && !isempty(tm) || continue
+        # A WYE or one-terminal SINGLE_PHASE load whose map holds no neutral is
+        # written against earth: the solver uses the phase-to-reference
+        # voltage, so the load itself references each of its phase terminals
+        # (an implicit earth return). A generator written the same way is not
+        # counted: its power is a decision variable, so a common shift of its
+        # terminals is absorbed by the dispatch instead of being pinned.
+        kind == "load" && b isa AbstractString && strs(tm) && !isempty(tm) || continue
         cfg = get(c, "configuration", nothing)
         has_neutral = engine_neutrals === nothing ? _neutral_pos(tm) !== nothing :
             _neutral_pos(tm, engine_neutrals) !== nothing
         implicit = (cfg == "WYE" && !has_neutral) || (cfg == "SINGLE_PHASE" && length(tm) == 1 && !has_neutral)
-        implicit && foreach(t -> earth!(b, t), tm)
+        implicit || continue
+        # ...but only where it contributes a voltage-dependent term: a phase
+        # whose demand is zero draws no current at any voltage and pins nothing.
+        p = get(c, "p_nom", nothing); q = get(c, "q_nom", nothing)
+        nonzero(v, k) = v isa AbstractVector && k <= length(v) && v[k] isa Real &&
+            isfinite(v[k]) && !iszero(v[k])
+        for (k, t) in enumerate(tm)
+            (nonzero(p, k) || nonzero(q, k)) && earth!(b, t)
+        end
     end
     for (_, sh) in table("shunt")
         sh isa AbstractDict || continue
@@ -196,7 +213,8 @@ function _unreferenced_conductor_groups(net)
         r = find(n)
         r in referenced || push!(get!(groups, r, Node[]), n)
     end
-    sort!([sort!(g) for g in values(groups)])
+    (groups=sort!([sort!(g) for g in values(groups)]),
+     earthed_buses=Set{String}(n[1] for n in earthed))
 end
 
 # Whether the Π-shunt block a line contributes to the nodal admittance has a
@@ -645,49 +663,13 @@ function integrity_check(net::Dict{String,Any},
 
     # --- galvanic islands: voltage reference required per island ---
     src_buses = Set(get(vs, "bus", "") for (_, vs) in get(net, "voltage_source", Dict()))
-    grounded_buses = Set{String}()
-    for (id, b) in buses
-        isempty(get(b, "perfectly_grounded_terminals", String[])) ||
-            push!(grounded_buses, id)
-    end
-    # a shunt grounds its bus iff its admittance has nonzero row sums
-    # (a pure delta capacitor bank has zero row sums — no ground current)
-    for (_, s) in get(net, "shunt", Dict())
-        b = get(s, "bus", nothing)
-        b isa AbstractString || continue
-        G = _pattern_keys_to_matrix(s, "G_")
-        B = _pattern_keys_to_matrix(s, "B_")
-        Y = G isa AbstractMatrix ? complex.(G,
-                (B isa AbstractMatrix && size(B) == size(G)) ? B : zero(G)) :
-            B isa AbstractMatrix ? complex.(zero(B), B) : nothing
-        Y === nothing && continue
-        scaleY = max(maximum(abs.(Y)), 1e-300)
-        any(abs(sum(Y[i, :])) > 1e-9 * scaleY for i in 1:size(Y, 1)) &&
-            push!(grounded_buses, b)
-    end
-
-    # A line's shunt admittance to earth (its capacitance) is a finite path to
-    # the reference at both ends: an unearthed delta or IT island with modeled
-    # line capacitance is referenced through it. The test reads exactly what the
-    # admittance builders stamp, so the profiler and the engine cannot disagree:
-    # ONE impedance source (inline totals, else the linecode scaled by length),
-    # and only the leading block over the mapped conductors. A block whose rows
-    # sum to zero is purely phase-to-phase and anchors nothing.
-    linecodes_ref = get(net, "linecode", Dict())
-    linecodes_ref isa AbstractDict || (linecodes_ref = Dict{String,Any}())
-    for (_, l) in get(net, "line", Dict())
-        l isa Dict{String,Any} || continue
-        f = get(l, "bus_from", nothing); t = get(l, "bus_to", nothing)
-        f isa AbstractString && t isa AbstractString || continue
-        _line_stamps_earth_shunt(l, linecodes_ref) || continue
-        push!(grounded_buses, f); push!(grounded_buses, t)
-    end
-
-    # a transformer's internal neutral impedance (r/x_neutral_*) is a finite
-    # branch from the winding neutral to earth: impedance and resonant earthing
-    for ((b, _), _) in _transformer_neutral_earthing(net)
-        push!(grounded_buses, b)
-    end
+    # One body of reference evidence for both tests below: a perfectly
+    # grounded terminal, a source, a shunt or stamped line-shunt row to earth,
+    # a transformer neutral impedance, a load written against earth with
+    # nonzero demand. An island is referenced when one of its buses carries
+    # such a tie; each conductor group then needs one of its own.
+    reference = _conductor_reference(net)
+    grounded_buses = reference.earthed_buses
 
     islands = _galvanic_islands(net)
     unreferenced = Vector{Vector{String}}()
@@ -702,7 +684,8 @@ function integrity_check(net::Dict{String,Any},
             :network, nothing,
             "Galvanic island of $(length(comp)) bus(es) has no voltage " *
             "reference (no source, perfect grounding, grounding shunt, line " *
-            "shunt admittance, or transformer neutral impedance) — " *
+            "shunt admittance, transformer neutral impedance, or load written " *
+            "against earth) — " *
             "voltages are defined only up to a shift (rank-deficient): " *
             "$(join(comp, ", ")).",
             Dict{String,Any}("buses" => comp, "scope" => "island")))
@@ -712,7 +695,7 @@ function integrity_check(net::Dict{String,Any},
     # earth shunt on a separately carried neutral leaves delta-connected phases
     # free to shift together. Each conductor group needs its own tie.
     floating_buses = Set{String}(b for comp in unreferenced for b in comp)
-    groups = [g for g in _unreferenced_conductor_groups(net)
+    groups = [g for g in reference.groups
               if !all(n -> n[1] in floating_buses, g)]
     result["n_unreferenced_conductor_groups"] = length(groups)
     for g in groups
