@@ -56,7 +56,7 @@ A tie references only the conductors it reaches. Conductors are grouped by the
 elements that fix voltage differences between them: a line conductor end to
 end, the terminals of one winding, the two ends of an active load, generator or
 IBR coil (a zero-power load coil, or a generator or inverter coil whose bounds,
-ratings, power-factor control or an all-zero Volt-var curve force zero current, carries no current at any
+ratings, power-factor control, an all-zero Volt-var curve or a zero DC-link balance force zero current, carries no current at any
 voltage and ties nothing), two shunt
 terminals with a nonzero admittance entry between them (listing a terminal in a
 shunt's map connects it to nothing), the terminal pairs a capacitor bank

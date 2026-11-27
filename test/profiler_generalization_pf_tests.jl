@@ -191,6 +191,34 @@ using JuMP, Ipopt
         @test all(hypot(res["ibr"]["pv"][t]["cri"], res["ibr"]["pv"][t]["cii"]) < 1e-6 for t in ("a", "b"))
     end
 
+    @testset "a single-coil STATCOM with a zero Volt-var curve ties nothing" begin
+        net = sys("it_delta_island_unreferenced")
+        net["bus"]["it1"]["terminal_names"] = ["a", "b", "c", "n"]
+        net["bus"]["it1"]["perfectly_grounded_terminals"] = ["n"]
+        net["control_profile"] = Dict{String,Any}("cp" => Dict{String,Any}("volt_var" => Dict{String,Any}(
+            "breakpoints" => [207.0, 220.0, 240.0, 253.0], "q_limits" => [0.0, 0.0])))
+        net["ibr"] = Dict{String,Any}("st" => Dict{String,Any}("bus" => "it1", "terminal_map" => ["a", "n"],
+            "topology" => "SINGLE_PHASE", "prime_mover" => "STATCOM", "s_max" => [3000.0],
+            "p_min" => [-3000.0], "p_max" => [3000.0], "q_min" => [-3000.0], "q_max" => [3000.0],
+            "control_profile" => "cp", "dc_link_coupled" => true))
+        @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(net))]
+        coil = solve(net)["ibr"]["st"]["a"]
+        @test hypot(coil["cri"], coil["cii"]) < 1e-6
+    end
+
+    @testset "phase and neutral swapped on the primary: not a high leg" begin
+        net = sys("na_high_leg_open_delta")
+        net["line"]["main"]["terminal_map_to"] = ["a", "b", "n", "c"]
+        rep = report(net)
+        @test !any(b -> b["status"] == "verified", rep.results[:voltage_levels]["high_leg_banks"])
+        res = solve(net)
+        # Both primaries are line-to-line: 208 V legs, and a third conductor far
+        # from sqrt(3) times that.
+        @test vmag(res, "svc", "a") ≈ 207.0 rtol = 0.03
+        @test vmag(res, "svc", "c") ≈ 548.0 rtol = 0.03
+        @test !isapprox(vmag(res, "svc", "c"), sqrt(3) * vmag(res, "svc", "a"); rtol = 0.1)
+    end
+
     @testset "a power winding fed from one conductor has no secondary voltage" begin
         net = sys("jp_three_wire_v_connection")
         net["line"]["main2"]["terminal_map_from"] = ["a", "b", "b"]

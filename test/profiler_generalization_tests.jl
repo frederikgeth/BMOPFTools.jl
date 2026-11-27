@@ -1123,6 +1123,33 @@ end
         @test isempty(groups(odd_vv))
         three = vvar([0.0, 0.0]); three["ibr"]["pv"]["topology"] = "THREE_LEG"
         @test isempty(groups(three))
+        # An isolated DC link balances the SUM of the coil powers (zero by
+        # default). On a single-coil device that is the coil's own power: with
+        # a wide P box and an all-zero Volt-var curve it still carries nothing.
+        statcom(; extra...) = begin
+            out = vvar([0.0, 0.0]; p_min=[-3000.0], p_max=[3000.0], dc_link_coupled=true, extra...)
+            out["ibr"]["pv"]["prime_mover"] = "STATCOM"
+            out
+        end
+        @test length(groups(statcom())) == 1
+        @test length(groups(statcom(p_dc_min=0.0, p_dc_max=0.0))) == 1
+        @test isempty(groups(statcom(p_dc_min=-100.0, p_dc_max=100.0)))      # a range: P is free
+        @test isempty(groups(statcom(p_dc_min=200.0, p_dc_max=200.0)))       # a nonzero balance: P flows
+        @test isempty(groups(statcom(dc_link_coupled=false)))                # no balance at all
+        @test isempty(groups(statcom(dc_bus="dc1")))                         # a shared DC bus: P follows DC KCL
+        live_q = statcom(); live_q["control_profile"]["cp"]["volt_var"]["q_limits"] = [-0.44, 0.44]
+        @test isempty(groups(live_q))                                        # reactive current still ties
+        # Several coils can circulate power between phases: the balance pins a
+        # coil only when every other coil is pinned and uses the balance up.
+        multi(pmin, pmax) = begin
+            out = statcom(); i = out["ibr"]["pv"]
+            i["terminal_map"] = ["a", "b", "n"]; i["topology"] = "FOUR_LEG"; i["s_max"] = [3000.0, 3000.0]
+            i["p_min"] = pmin; i["p_max"] = pmax; i["q_min"] = [-3000.0, -3000.0]; i["q_max"] = [3000.0, 3000.0]
+            out
+        end
+        @test isempty(groups(multi([-3000.0, -3000.0], [3000.0, 3000.0])))   # circulation
+        @test length(groups(multi([0.0, -3000.0], [0.0, 3000.0]))) == 1       # one pinned at 0, the other follows
+        @test isempty(groups(multi([500.0, -3000.0], [500.0, 3000.0])))      # the other carries -500 W
         # A profile with no power-factor law leaves the Q range free.
         free = pfc(1.0); free["control_profile"]["cp"] = Dict{String,Any}()
         @test isempty(groups(free))
@@ -1357,6 +1384,27 @@ end
         dead = _pg_sys("jp_three_wire_v_connection")
         dead["line"]["main2"]["terminal_map_from"] = ["a", "a", "c"]
         @test only(bank(dead))["status"] == "unverified"
+        # A terminal's label does not make it a return conductor. With phase c
+        # and the neutral swapped at the pole, `pole.n` carries the source's c
+        # and both primaries are line-to-line: no high leg.
+        swapped = _pg_sys("na_high_leg_open_delta")
+        swapped["line"]["main"]["terminal_map_to"] = ["a", "b", "n", "c"]
+        @test !any(b -> b["status"] == "verified", bank(swapped))
+        @test isempty(_pg_analyze(swapped).results[:voltage_levels]["mixed_phase_to_neutral_buses"])
+        # A neutral under another label still counts: the conductor reaches the
+        # grounded neutral of the source bus.
+        renamed = _pg_sys("na_high_leg_open_delta")
+        renamed["bus"]["pole"]["terminal_names"] = ["a", "b", "c", "x"]
+        renamed["line"]["main"]["terminal_map_to"] = ["a", "b", "c", "x"]
+        for (st, id, tm) in (("center_tap", "lighting", ["a", "x"]), ("single_phase", "power", ["b", "x"]))
+            renamed["transformer"][st][id]["terminal_map_from"] = tm
+        end
+        @test only(bank(renamed))["status"] == "verified"
+        # ...but not when nothing pins it and its terminals are not all returns.
+        loose = deepcopy(renamed); delete!(loose["bus"]["sub"], "perfectly_grounded_terminals")
+        loose["voltage_source"]["far"] = merge(deepcopy(loose["voltage_source"]["grid"]), Dict{String,Any}("bus" => "pole"))
+        delete!(loose["voltage_source"], "grid")
+        @test only(bank(loose))["status"] == "unverified"
         # A free tap (tap_min < tap_max) is a range, and `tap` only its start,
         # clamped into the bounds. Every position misses: a mismatch, although
         # the absent `tap` would read as 1.0.

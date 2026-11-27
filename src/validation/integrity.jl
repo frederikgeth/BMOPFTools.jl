@@ -206,10 +206,26 @@ function _conductor_reference(net)
         # Only the P box counts, as in the solver: `p_avail` is the base of a
         # droop curve, not a bound. A minimum power factor adds P >= 0, so a
         # zero upper bound alone then pins P.
+        # An isolated DC link (`dc_link_coupled`, no `dc_bus`) adds a balance
+        # on the SUM of the coil powers, `p_dc_min <= sum(P) <= p_dc_max`, both
+        # defaulting to zero. Where the balance is an equality and every other
+        # coil is pinned, this coil's power is what is left: for a single-coil
+        # device, the balance itself.
+        n_coils = topo == "SINGLE_PHASE" ? 1 : topo == "THREE_LEG" ? (length(tm) == 2 ? 1 : length(tm)) :
+                  length(tm) - 1
+        dc_balance = get(c, "dc_link_coupled", false) === true && !haskey(c, "dc_bus") ?
+            (lo = get(c, "p_dc_min", 0.0); hi = get(c, "p_dc_max", 0.0);
+             lo isa Real && hi isa Real && isfinite(lo) && lo == hi ? Float64(lo) : nothing) : nothing
+        function p_pin(k)
+            lo = number(get(c, "p_min", nothing), k); hi = number(get(c, "p_max", nothing), k)
+            lo !== nothing && hi !== nothing && lo == hi ? lo : nothing
+        end
         function p_is_zero(k)
             lo = number(get(c, "p_min", nothing), k); hi = number(get(c, "p_max", nothing), k)
-            hi !== nothing && iszero(hi) || return false
-            (lo !== nothing && iszero(lo)) || min_pf
+            hi !== nothing && iszero(hi) && ((lo !== nothing && iszero(lo)) || min_pf) && return true
+            dc_balance === nothing && return false
+            others = [p_pin(j) for j in 1:n_coils if j != k]
+            all(!isnothing, others) && isapprox(sum(others; init=0.0), dc_balance; atol=1e-9 * max(1.0, abs(dc_balance)))
         end
         # A Volt-var law is an equality too: Q = base * f(U). With both
         # `q_limits` at zero the curve is zero at every voltage, so Q is zero

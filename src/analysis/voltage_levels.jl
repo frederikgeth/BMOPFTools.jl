@@ -227,7 +227,6 @@ function _high_leg_banks(net::Dict{String,Any})
     # sources declare at different angles is not established either.
     conductor_angle = nothing
     function phasor(bus, t)
-        is_return(t) && return 0.0 + 0.0im
         if conductor_angle === nothing
             Node = Tuple{String,String}
             parent = Dict{Node,Node}()
@@ -275,7 +274,27 @@ function _high_leg_banks(net::Dict{String,Any})
                 ref = first(values)
                 all(v -> abs(v - ref) <= 1e-6 * max(abs(ref), 1.0), values) && (established[root] = ref)
             end
-            conductor_angle = n -> get(established, find(n), nothing)
+            # A conductor no source declares is at zero when it is a return
+            # conductor. The label of the terminal asked about does not decide
+            # that: a terminal called `n` that a line maps onto a source phase
+            # carries that phase. Zero needs either every terminal of the
+            # conductor to be a return terminal, or one of them to be a return
+            # terminal that is pinned (perfectly grounded, or on a source bus).
+            members = Dict{Node,Vector{Node}}()
+            for n in collect(keys(parent)); push!(get!(members, find(n), Node[]), n); end
+            source_buses = Set{String}(String(vs["bus"]) for (_, vs) in get(net, "voltage_source", Dict())
+                                       if vs isa AbstractDict && get(vs, "bus", nothing) isa AbstractString)
+            pinned(n) = is_return(n[2]) && (n[1] in source_buses || begin
+                b = get(get(net, "bus", Dict()), n[1], nothing)
+                g = b isa AbstractDict ? get(b, "perfectly_grounded_terminals", nothing) : nothing
+                g isa AbstractVector && n[2] in g
+            end)
+            conductor_angle = n -> begin
+                root = find(n)
+                haskey(declared, root) && return get(established, root, nothing)
+                group = get(members, root, [n])
+                (all(m -> is_return(m[2]), group) || any(pinned, group)) ? 0.0 + 0.0im : nothing
+            end
         end
         conductor_angle((String(bus), String(t)))
     end
