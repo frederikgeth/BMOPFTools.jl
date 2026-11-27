@@ -268,8 +268,19 @@ function connectivity_analysis(net::Dict{String,Any},
     cap_buses  = Set(string(get(c, "bus", "")) for (_, c) in get(net, "capacitor", Dict()))
     ibr_buses  = Set(string(get(v, "bus", "")) for (_, v) in get(net, "ibr",       Dict()))
     vsrc_set   = Set(vsrc_buses)
+    # A further leg of a transformer bank is not a separate edge of the bus
+    # graph, but its buses are not spare: the unit is connected there.
+    bank_leg_buses = Set{String}()
+    for (subtype, id) in banks.merged
+        t = get(get(xfmr, subtype, Dict()), id, nothing)
+        t isa AbstractDict || continue
+        for b in (get(t, "bus_from", nothing), get(t, "bus_to", nothing))
+            b isa AbstractString && push!(bank_leg_buses, String(b))
+        end
+    end
     dangling   = [b for b in degree_1_buses
-                  if !(b in load_buses) && !(b in gen_buses) &&
+                  if !(b in bank_leg_buses) &&
+                     !(b in load_buses) && !(b in gen_buses) &&
                      !(b in shunt_buses) && !(b in cap_buses) &&
                      !(b in ibr_buses)  && !(b in vsrc_set)]
     result["dangling_buses"] = dangling
@@ -618,6 +629,7 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
     end
 
     affected = String[]
+    supply_point = _supply_point(net)
     for z in zone_class
         # ── supplied phase count, and the source angle arrangement if source-fed ──
         supplied = 0
@@ -645,13 +657,15 @@ function _check_supply_phase_consistency(net::Dict{String,Any},
         # L-N units, or two open-delta units on (a,b) and (b,c), establish all
         # three phase conductors although each unit lands only one or two.
         # The union is taken per bank, that is over units sharing one
-        # (bus_from, bus_to) pair; unrelated single-phase units elsewhere in
+        # (supply point, bus_to) pair, primary buses joined by closed switches
+        # being one supply point; unrelated single-phase units elsewhere in
         # the zone do not add up to a three-phase supply.
         fed_by_pair = Dict{Any,Set{String}}()
         for (subtype, id) in z.feed
             rec = get(get(xfmr, subtype, Dict()), id, nothing)
             pair = subtype in WINDING_LIST_SUBTYPES || !(rec isa AbstractDict) ? (subtype, id) :
-                (get(rec, "bus_from", nothing), get(rec, "bus_to", nothing))
+                (bf = get(rec, "bus_from", nothing);
+                 (bf isa AbstractString ? supply_point(String(bf)) : bf, get(rec, "bus_to", nothing)))
             union!(get!(fed_by_pair, pair, Set{String}()), _xfmr_to_phases(subtype, id, z.buses))
         end
         for fed in values(fed_by_pair)
@@ -853,7 +867,9 @@ end
     _transformer_bank_groups(net) -> (merged, groups)
 
 Resolve, per ordered `(bus_from, bus_to)` pair, which single-phase units form
-one bank. The whole pair is resolved before anything is counted, and the result
+one bank. Primary buses joined by closed switches are one supply point (a
+primary disconnect does not split a bank); `bus_from` in a group is that
+supply point's canonical bus. The whole pair is resolved before anything is counted, and the result
 does not depend on component ids:
 
 - center-tapped units come first (the lighting transformer anchors its bank),
@@ -878,6 +894,7 @@ function _transformer_bank_groups(net)
     roles = _index_roles(net)
     neutrals = roles === nothing ? nothing : roles.neutral
     pairs = Dict{Tuple{String,String},Vector{Any}}()
+    supply = _supply_point(net)
     for subtype in _BANKABLE_SUBTYPES
         sub = get(xfmr, subtype, nothing)
         sub isa AbstractDict || continue
@@ -886,7 +903,8 @@ function _transformer_bank_groups(net)
             bf = get(t, "bus_from", nothing); bt = get(t, "bus_to", nothing)
             bf isa AbstractString && bt isa AbstractString && bf != bt || continue
             sig = _bank_unit_signature(t, neutrals)
-            push!(get!(pairs, (String(bf), String(bt)), Any[]),
+            supply(String(bf)) == supply(String(bt)) && continue
+            push!(get!(pairs, (supply(String(bf)), String(bt)), Any[]),
                   (subtype=subtype, id=string(id), sig=sig))
         end
     end
@@ -921,6 +939,31 @@ function _transformer_bank_groups(net)
                             count(u -> u.sig === nothing, units)))
     end
     (merged=merged, groups=groups)
+end
+
+# The supply point of a bus: a canonical bus id for all buses joined by closed
+# switches. The units of a transformer bank share a primary supply point, not
+# necessarily a bus id: a primary disconnect between them leaves the bank what
+# it was. Returns a function of the bus id.
+function _supply_point(net)
+    station = Dict{String,String}()
+    function supply(x)
+        haskey(station, x) || (station[x] = x)
+        root = x
+        while station[root] != root; root = station[root]; end
+        station[x] = root
+    end
+    switches = get(net, "switch", nothing)
+    if switches isa AbstractDict
+        for (_, sw) in switches
+            sw isa AbstractDict && get(sw, "open_switch", false) !== true || continue
+            a = get(sw, "bus_from", nothing); b = get(sw, "bus_to", nothing)
+            a isa AbstractString && b isa AbstractString || continue
+            ra = supply(String(a)); rb = supply(String(b))
+            ra == rb || (station[max(ra, rb)] = min(ra, rb))
+        end
+    end
+    supply
 end
 
 # Single-phase unit subtypes that are banked in practice.

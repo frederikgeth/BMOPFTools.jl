@@ -1187,6 +1187,32 @@ end
         @test length(groups(mirrored)) == 1                                  # the same with every P <= 0
         nobound = oneway(0.0, 0.0); delete!(nobound["ibr"]["pv"], "p_min")
         @test isempty(groups(nobound))                                       # a missing bound is no bound
+        # A Volt-watt law caps P at base * f(U). A zero base is a zero cap at
+        # every voltage, even beside a positive p_max.
+        vwatt(; ref="P_AVAILABLE", limits=[0.2, 1.0], extra...) = begin
+            out = ibr(["a", "n"], "SINGLE_PHASE"; p_min=[0.0], p_max=[2000.0], q_min=[0.0], q_max=[0.0],
+                      control_profile="cp", extra...)
+            out["control_profile"] = Dict{String,Any}("cp" => Dict{String,Any}("volt_watt" => Dict{String,Any}(
+                "breakpoints" => [250.0, 260.0], "p_limits" => limits, "p_ref" => ref)))
+            out
+        end
+        @test length(groups(vwatt(p_avail=0.0))) == 1
+        @test length(groups(vwatt())) == 1                                   # no p_avail reads as zero there
+        @test isempty(groups(vwatt(p_avail=1500.0)))                         # power is available
+        @test isempty(groups(vwatt(p_avail=0.0, p_min=[-500.0])))            # may still absorb
+        @test isempty(groups(vwatt(p_avail=0.0, q_min=[-500.0], q_max=[500.0])))   # reactive current ties
+        @test isempty(groups(vwatt(ref="S_MAX", p_avail=0.0)))               # another base: p_avail plays no part
+        @test isempty(groups(vwatt(ref="P_MAX", p_avail=0.0)))
+        @test length(groups(vwatt(limits=[0.0, 0.0], p_avail=1500.0))) == 1  # a curve that is zero throughout
+        # Read as the solver resolves it: unsupported or malformed laws, a
+        # constant power factor beside it, and THREE_LEG leave the box alone.
+        @test isempty(groups(vwatt(ref="P_RATED", p_avail=0.0)))
+        @test isempty(groups(vwatt(limits=[1.0], p_avail=0.0)))
+        w3 = vwatt(p_avail=0.0); w3["ibr"]["pv"]["topology"] = "THREE_LEG"
+        @test isempty(groups(w3))
+        wpf = vwatt(p_avail=0.0); wpf["control_profile"]["cp"]["power_factor"] = Dict{String,Any}("pf" => 0.95)
+        wpf["ibr"]["pv"]["q_min"] = [-500.0]; wpf["ibr"]["pv"]["q_max"] = [500.0]
+        @test isempty(groups(wpf))
         # A profile with no power-factor law leaves the Q range free.
         free = pfc(1.0); free["control_profile"]["cp"] = Dict{String,Any}()
         @test isempty(groups(free))
@@ -1468,6 +1494,32 @@ end
         loose["voltage_source"]["far"] = merge(deepcopy(loose["voltage_source"]["grid"]), Dict{String,Any}("bus" => "pole"))
         delete!(loose["voltage_source"], "grid")
         @test only(bank(loose))["status"] == "unverified"
+        # A primary disconnect between the two units does not split the bank:
+        # primary buses joined by a closed switch are one supply point.
+        behind(; open=false) = begin
+            out = _pg_sys("na_high_leg_open_delta")
+            out["bus"]["pole2"] = deepcopy(out["bus"]["pole"])
+            out["switch"] = Dict{String,Any}("disc" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "pole2",
+                "terminal_map_from" => ["a", "b", "c", "n"], "terminal_map_to" => ["a", "b", "c", "n"],
+                "open_switch" => open, "i_max" => fill(100.0, 4)))
+            out["transformer"]["single_phase"]["power"]["bus_from"] = "pole2"
+            out
+        end
+        b = only(bank(behind()))
+        @test b["status"] == "verified" && b["power_unit"] == "power" && b["bus_from"] == "pole2"
+        rep = _pg_analyze(behind()); base = _pg_analyze(_pg_sys("na_high_leg_open_delta"))
+        @test isempty(errors(rep)) && isempty(warnings(rep))
+        @test rep.results[:voltage_levels]["bus_voltage_map"]["svc"] ≈ base.results[:voltage_levels]["bus_voltage_map"]["svc"]
+        @test rep.results[:connectivity]["is_radial"]
+        @test only(rep.results[:connectivity]["transformer_banks"])["units"] == ["lighting", "power"]
+        @test isempty(rep.results[:connectivity]["dangling_buses"])
+        # The switch maps conductors, and the trace follows them: crossed
+        # phases at the disconnect change the bank's geometry.
+        crossed = behind(); crossed["switch"]["disc"]["terminal_map_to"] = ["b", "a", "c", "n"]
+        @test !any(b -> b["status"] == "verified", bank(crossed))
+        # An open disconnect: two separate supply points, no bank.
+        @test isempty(bank(behind(open=true)))
+        @test isempty(_pg_analyze(behind(open=true)).results[:connectivity]["transformer_banks"])
         # A free tap (tap_min < tap_max) is a range, and `tap` only its start,
         # clamped into the bounds. Every position misses: a mismatch, although
         # the absent `tap` would read as 1.0.

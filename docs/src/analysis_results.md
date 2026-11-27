@@ -183,7 +183,10 @@ transformer ratios. Three cases need care when reading it:
   The map holds the center-tapped leg voltage, the bus is listed in
   `mixed_phase_to_neutral_buses`, and the power units that create the high leg are
   listed in `high_leg_units`; `high_leg_banks` gives, per power unit, the
-  lighting unit, the buses, the high-leg conductor and a `status`. A bank is
+  lighting unit, the buses, the high-leg conductor and a `status`. The two
+  units share a primary supply point: primary buses joined by closed switches
+  count as one, so a primary disconnect between the units does not split the
+  bank (here, in `transformer_banks` and in the supplied-phase count). A bank is
   identified from the nominal phasors of the two primary windings. The phasor of
   a winding terminal is the magnitude and angle a voltage source declares for the conductor
   that terminal is on, followed through the terminal maps of lines and closed

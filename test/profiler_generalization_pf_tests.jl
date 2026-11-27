@@ -237,6 +237,41 @@ using JuMP, Ipopt
         @test all(hypot(res["ibr"]["st"][t]["cri"], res["ibr"]["st"][t]["cii"]) < 1e-3 for t in ("a", "b"))
     end
 
+    @testset "a zero Volt-watt cap leaves an inverter nothing to carry" begin
+        net = sys("it_delta_island_unreferenced")
+        net["bus"]["it1"]["terminal_names"] = ["a", "b", "c", "n"]
+        net["bus"]["it1"]["perfectly_grounded_terminals"] = ["n"]
+        net["control_profile"] = Dict{String,Any}("cp" => Dict{String,Any}("volt_watt" => Dict{String,Any}(
+            "breakpoints" => [250.0, 260.0], "p_limits" => [0.2, 1.0], "p_ref" => "P_AVAILABLE")))
+        net["ibr"] = Dict{String,Any}("pv" => Dict{String,Any}("bus" => "it1", "terminal_map" => ["a", "b", "n"],
+            "topology" => "FOUR_LEG", "prime_mover" => "PV", "s_max" => [3000.0, 3000.0],
+            "p_min" => [0.0, 0.0], "p_max" => [2000.0, 2000.0], "q_min" => [0.0, 0.0], "q_max" => [0.0, 0.0],
+            "control_profile" => "cp", "p_avail" => 0.0))
+        @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(net))]
+        res = redirect_stdout(devnull) do
+            redirect_stderr(devnull) do
+                solve_opf(net)
+            end
+        end
+        @test all(hypot(res["ibr"]["pv"][t]["cri"], res["ibr"]["pv"][t]["cii"]) < 1e-3 for t in ("a", "b"))
+    end
+
+    @testset "a primary disconnect does not change a high-leg bank" begin
+        base = solve(sys("na_high_leg_open_delta"))
+        net = sys("na_high_leg_open_delta")
+        net["bus"]["pole2"] = deepcopy(net["bus"]["pole"])
+        net["switch"] = Dict{String,Any}("disc" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "pole2",
+            "terminal_map_from" => ["a", "b", "c", "n"], "terminal_map_to" => ["a", "b", "c", "n"],
+            "open_switch" => false))
+        net["transformer"]["single_phase"]["power"]["bus_from"] = "pole2"
+        @test only(report(net).results[:voltage_levels]["high_leg_banks"])["status"] == "verified"
+        res = solve(net)
+        for t in ("a", "b", "c")
+            @test vmag(res, "svc", t) ≈ vmag(base, "svc", t) rtol = 1e-4
+        end
+        @test vmag(res, "svc", "c") ≈ sqrt(3) * vmag(res, "svc", "a") rtol = 0.03
+    end
+
     @testset "a shunt that couples the primary neutral to a phase" begin
         net = sys("na_high_leg_open_delta")
         net["line"]["main"]["terminal_map_from"] = ["a", "b", "c"]

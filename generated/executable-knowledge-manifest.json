@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "50a12f1b42e983a0b8c0239a002a3e3b7e48649fade32890e95620a8fd008965",
+  "corpus_sha256": "d2b0855f5686a79e7f09fe8f37481b212a6752f2e1b0ced3e156efa58711162e",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -446,7 +446,7 @@
     },
     {
       "path": "src/analysis/connectivity.jl",
-      "sha256": "f6846999866d85b792f9bf4aa20b723b7367f4cb370a8360e6531a5574b44d85"
+      "sha256": "763dd62ffbfa75dd4d9ce8a1b31a2da0cb620cbc62e418b5ee4f26e0836071a5"
     },
     {
       "path": "src/analysis/coordinate_semantics.jl",
@@ -534,7 +534,7 @@
     },
     {
       "path": "src/analysis/voltage_levels.jl",
-      "sha256": "3a6c7314efddedf4695135aa85335c957e147f940d4f5a48166d01b708bab4dd"
+      "sha256": "a5530d47e0a1149a3dff41461a0ee216da58ad7b8ebf5df75b73f864117c4214"
     },
     {
       "path": "src/analysis/winding_limit_coverage.jl",
@@ -714,7 +714,7 @@
     },
     {
       "path": "src/validation/integrity.jl",
-      "sha256": "bb2b8b464b60e4b140ee90ae319072426440401c849627a71851079a4bf6a0d6"
+      "sha256": "d8c322052bc6ddd096206f52589938d9cf0fa92c181d70393cba2cdf803ffd97"
     },
     {
       "path": "src/validation/power_factor.jl",

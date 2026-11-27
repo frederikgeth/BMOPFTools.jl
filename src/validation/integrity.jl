@@ -215,10 +215,31 @@ function _conductor_reference(net)
         # balance, each coil is at zero whatever its own upper bound.
         n_coils = topo == "SINGLE_PHASE" ? 1 : topo == "THREE_LEG" ? (length(tm) == 2 ? 1 : length(tm)) :
                   length(tm) - 1
+        # A Volt-watt law caps P at base * f(U), with f >= 0. A zero base is a
+        # zero cap at every voltage: no available power under P_AVAILABLE (a
+        # missing `p_avail` reads as zero there), a zero `s_max` or `p_max`
+        # entry under the other references, or `p_limits` that are both zero.
+        # Read as the solver resolves the law: not beside a constant power
+        # factor, not on THREE_LEG, and not when the object is unsupported.
+        vw = cp isa AbstractDict ? get(cp, "volt_watt", nothing) : nothing
+        vw_ref = constant_pf === nothing && topo != "THREE_LEG" && vw isa AbstractDict &&
+            (bp = get(vw, "breakpoints", nothing); pl = get(vw, "p_limits", nothing);
+             bp isa AbstractVector && length(bp) == 2 && all(x -> x isa Real && isfinite(x), bp) &&
+             pl isa AbstractVector && length(pl) == 2 && all(x -> x isa Real && isfinite(x), pl)) &&
+            get(vw, "p_unit", "VA_FRACTION") == "VA_FRACTION" &&
+            get(vw, "p_ref", "S_MAX") in ("S_MAX", "P_MAX", "P_AVAILABLE") ? get(vw, "p_ref", "S_MAX") : nothing
+        function volt_watt_zero(k)
+            vw_ref === nothing && return false
+            all(iszero, vw["p_limits"]) && return true
+            vw_ref == "P_AVAILABLE" && return (pa = get(c, "p_avail", nothing); !(pa isa Real) || iszero(pa))
+            base = number(get(c, vw_ref == "S_MAX" ? "s_max" : "p_max", nothing), k)
+            base !== nothing && iszero(base)
+        end
         function p_box(k)
             local lo = number(get(c, "p_min", nothing), k)
             local hi = number(get(c, "p_max", nothing), k)
             lo = lo === nothing ? -Inf : lo; hi = hi === nothing ? Inf : hi
+            volt_watt_zero(k) && (hi = min(hi, 0.0))
             (min_pf ? max(lo, 0.0) : lo, hi)
         end
         dc_range = let dlo = get(c, "p_dc_min", 0.0), dhi = get(c, "p_dc_max", 0.0)

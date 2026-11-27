@@ -204,6 +204,11 @@ function _high_leg_banks(net::Dict{String,Any})
     ct = get(xfmr, "center_tap", nothing); sp = get(xfmr, "single_phase", nothing)
     ct isa AbstractDict && sp isa AbstractDict || return out
     strs(tm, n) = tm isa AbstractVector && length(tm) == n && all(x -> x isa AbstractString, tm)
+    # The two units of a bank share a primary supply point, not necessarily a
+    # bus id: a primary disconnect (a closed switch) between them leaves the
+    # bank what it was. Primary buses are compared up to closed switches; the
+    # conductors themselves are followed by the phasor trace below.
+    supply = _supply_point(net)
     lighting = Dict{Tuple{String,String},Vector{Any}}()
     for id in sort!(collect(keys(ct)))
         t = ct[id]
@@ -211,7 +216,8 @@ function _high_leg_banks(net::Dict{String,Any})
         f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
         tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
         f isa AbstractString && b isa AbstractString && strs(tm, 3) && strs(tf, 2) || continue
-        push!(get!(lighting, (String(f), String(b)), Any[]), (id=string(id), to=string.(tm), from=string.(tf)))
+        push!(get!(lighting, (supply(String(f)), String(b)), Any[]),
+              (id=string(id), to=string.(tm), from=string.(tf), bus_from=String(f)))
     end
     isempty(lighting) && return out
 
@@ -335,7 +341,7 @@ function _high_leg_banks(net::Dict{String,Any})
         t isa AbstractDict || continue
         f = get(t, "bus_from", nothing); b = get(t, "bus_to", nothing)
         f isa AbstractString && b isa AbstractString || continue
-        units = get(lighting, (String(f), String(b)), nothing)
+        units = get(lighting, (supply(String(f)), String(b)), nothing)
         units === nothing && continue
         tm = get(t, "terminal_map_to", nothing); tf = get(t, "terminal_map_from", nothing)
         strs(tm, 2) && strs(tf, 2) || continue
@@ -349,7 +355,7 @@ function _high_leg_banks(net::Dict{String,Any})
             length(shared) == 1 && length(fresh) == 1 || continue
             record(status, amplitude, range=nothing) = (id=string(id), bus_from=String(f), bus_to=String(b),
                 lighting=u.id, high=fresh, status=status, amplitude_ratio=amplitude, amplitude_range=range)
-            p1 = winding(String(f), u.from); p2 = winding(String(f), string.(tf))
+            p1 = winding(u.bus_from, u.from); p2 = winding(String(f), string.(tf))
             r1 = ratio(get(ct, u.id, Dict())); r2 = ratio(t)
             if p1 === nothing || p2 === nothing || r1 === nothing || r2 === nothing || iszero(p1)
                 push!(out, record("unverified", nothing))
