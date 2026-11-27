@@ -206,26 +206,34 @@ function _conductor_reference(net)
         # Only the P box counts, as in the solver: `p_avail` is the base of a
         # droop curve, not a bound. A minimum power factor adds P >= 0, so a
         # zero upper bound alone then pins P.
-        # An isolated DC link (`dc_link_coupled`, no `dc_bus`) adds a balance
-        # on the SUM of the coil powers, `p_dc_min <= sum(P) <= p_dc_max`, both
-        # defaulting to zero. Where the balance is an equality and every other
-        # coil is pinned, this coil's power is what is left: for a single-coil
-        # device, the balance itself.
+        # The effective range of a coil's active power, from every constraint
+        # the solver stamps on it: its own box, P >= 0 under a minimum power
+        # factor, and the isolated DC-link balance (`dc_link_coupled`, no
+        # `dc_bus`) on the SUM of the coil powers, `p_dc_min <= sum(P) <=
+        # p_dc_max`, both defaulting to zero. The balance leaves coil k what
+        # the other coils' boxes allow: with every coil at P >= 0 and a zero
+        # balance, each coil is at zero whatever its own upper bound.
         n_coils = topo == "SINGLE_PHASE" ? 1 : topo == "THREE_LEG" ? (length(tm) == 2 ? 1 : length(tm)) :
                   length(tm) - 1
-        dc_balance = get(c, "dc_link_coupled", false) === true && !haskey(c, "dc_bus") ?
-            (lo = get(c, "p_dc_min", 0.0); hi = get(c, "p_dc_max", 0.0);
-             lo isa Real && hi isa Real && isfinite(lo) && lo == hi ? Float64(lo) : nothing) : nothing
-        function p_pin(k)
-            lo = number(get(c, "p_min", nothing), k); hi = number(get(c, "p_max", nothing), k)
-            lo !== nothing && hi !== nothing && lo == hi ? lo : nothing
+        function p_box(k)
+            local lo = number(get(c, "p_min", nothing), k)
+            local hi = number(get(c, "p_max", nothing), k)
+            lo = lo === nothing ? -Inf : lo; hi = hi === nothing ? Inf : hi
+            (min_pf ? max(lo, 0.0) : lo, hi)
+        end
+        dc_range = let dlo = get(c, "p_dc_min", 0.0), dhi = get(c, "p_dc_max", 0.0)
+            get(c, "dc_link_coupled", false) === true && !haskey(c, "dc_bus") &&
+                dlo isa Real && dhi isa Real && isfinite(dlo) && isfinite(dhi) ? (Float64(dlo), Float64(dhi)) : nothing
         end
         function p_is_zero(k)
-            lo = number(get(c, "p_min", nothing), k); hi = number(get(c, "p_max", nothing), k)
-            hi !== nothing && iszero(hi) && ((lo !== nothing && iszero(lo)) || min_pf) && return true
-            dc_balance === nothing && return false
-            others = [p_pin(j) for j in 1:n_coils if j != k]
-            all(!isnothing, others) && isapprox(sum(others; init=0.0), dc_balance; atol=1e-9 * max(1.0, abs(dc_balance)))
+            local (lo, hi) = p_box(k)
+            if dc_range !== nothing
+                others = [p_box(j) for j in 1:n_coils if j != k]
+                lo = max(lo, dc_range[1] - sum(x -> x[2], others; init=0.0))
+                hi = min(hi, dc_range[2] - sum(x -> x[1], others; init=0.0))
+            end
+            tol = 1e-9 * max(1.0, abs(lo), abs(hi))
+            isfinite(lo) && isfinite(hi) && abs(lo) <= tol && abs(hi) <= tol
         end
         # A Volt-var law is an equality too: Q = base * f(U). With both
         # `q_limits` at zero the curve is zero at every voltage, so Q is zero
@@ -243,7 +251,8 @@ function _conductor_reference(net)
         # control law, the DC-link balance. A constant power factor below one
         # works both ways (Q pinned at zero forces P to zero).
         function q_pinned_zero(k)
-            lo = number(get(c, "q_min", nothing), k); hi = number(get(c, "q_max", nothing), k)
+            local lo = number(get(c, "q_min", nothing), k)
+            local hi = number(get(c, "q_max", nothing), k)
             lo !== nothing && hi !== nothing && iszero(lo) && iszero(hi)
         end
         p_zero(k) = p_is_zero(k) || (constant_pf isa Real && abs(constant_pf) < 1 && q_pinned_zero(k))

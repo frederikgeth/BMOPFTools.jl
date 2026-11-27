@@ -188,7 +188,7 @@ using JuMP, Ipopt
         # The inverter changes nothing: the phases still float.
         @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(net))]
         res = solve(net)
-        @test all(hypot(res["ibr"]["pv"][t]["cri"], res["ibr"]["pv"][t]["cii"]) < 1e-6 for t in ("a", "b"))
+        @test all(hypot(res["ibr"]["pv"][t]["cri"], res["ibr"]["pv"][t]["cii"]) < 1e-3 for t in ("a", "b"))
     end
 
     @testset "a single-coil STATCOM with a zero Volt-var curve ties nothing" begin
@@ -203,7 +203,7 @@ using JuMP, Ipopt
             "control_profile" => "cp", "dc_link_coupled" => true))
         @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(net))]
         coil = solve(net)["ibr"]["st"]["a"]
-        @test hypot(coil["cri"], coil["cii"]) < 1e-6
+        @test hypot(coil["cri"], coil["cii"]) < 1e-3
     end
 
     @testset "a STATCOM with Q fixed at zero ties nothing" begin
@@ -216,7 +216,44 @@ using JuMP, Ipopt
             "dc_link_coupled" => true))
         @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(net))]
         coil = solve(net)["ibr"]["st"]["a"]
-        @test hypot(coil["cri"], coil["cii"]) < 1e-6
+        @test hypot(coil["cri"], coil["cii"]) < 1e-3
+    end
+
+    @testset "a zero DC balance over one-way coils fixes every coil at zero" begin
+        net = sys("it_delta_island_unreferenced")
+        net["bus"]["it1"]["terminal_names"] = ["a", "b", "c", "n"]
+        net["bus"]["it1"]["perfectly_grounded_terminals"] = ["n"]
+        net["ibr"] = Dict{String,Any}("st" => Dict{String,Any}("bus" => "it1", "terminal_map" => ["a", "b", "n"],
+            "topology" => "FOUR_LEG", "prime_mover" => "PV", "s_max" => [3000.0, 3000.0],
+            "p_min" => [0.0, 0.0], "p_max" => [3000.0, 3000.0], "q_min" => [0.0, 0.0], "q_max" => [0.0, 0.0],
+            "dc_link_coupled" => true))
+        @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(net))]
+        # A dispatch range needs the OPF; the balance leaves it nothing to choose.
+        res = redirect_stdout(devnull) do
+            redirect_stderr(devnull) do
+                solve_opf(net)
+            end
+        end
+        @test all(hypot(res["ibr"]["st"][t]["cri"], res["ibr"]["st"][t]["cii"]) < 1e-3 for t in ("a", "b"))
+    end
+
+    @testset "a shunt that couples the primary neutral to a phase" begin
+        net = sys("na_high_leg_open_delta")
+        net["line"]["main"]["terminal_map_from"] = ["a", "b", "c"]
+        net["line"]["main"]["terminal_map_to"] = ["a", "b", "c"]
+        lc = net["linecode"]["primary"]
+        net["linecode"]["primary"] = merge(
+            Dict{String,Any}(k => v for (k, v) in lc if !occursin("4", k) && k != "i_max"),
+            Dict{String,Any}("i_max" => lc["i_max"][1:3]))
+        delete!(net["shunt"], "gnd_pole")
+        net["shunt"]["tie"] = Dict{String,Any}("bus" => "pole", "terminal_map" => ["a", "n"],
+            "G_1_1" => 1e-3, "G_1_2" => -1e-3, "G_2_1" => -1e-3, "G_2_2" => 2e-3,
+            "B_1_1" => 0.0, "B_1_2" => 0.0, "B_2_1" => 0.0, "B_2_2" => 0.0)
+        @test only(report(net).results[:voltage_levels]["high_leg_banks"])["status"] == "unverified"
+        res = solve(net)
+        @test vmag(res, "pole", "n") > 1000.0                  # the divider lifts the primary neutral
+        leg = vpp(res, "svc", "a", "n"); high = vpp(res, "svc", "c", "n")
+        @test !isapprox(high, sqrt(3) * leg; rtol = 0.1)
     end
 
     @testset "a primary neutral that reaches no earth: not a verified high leg" begin

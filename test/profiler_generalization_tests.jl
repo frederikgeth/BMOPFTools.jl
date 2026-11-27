@@ -1159,7 +1159,7 @@ end
         unity = deepcopy(lagging); unity["control_profile"]["cp"]["power_factor"]["pf"] = 1.0
         @test isempty(groups(unity))
         # Several coils can circulate power between phases: the balance pins a
-        # coil only when every other coil is pinned and uses the balance up.
+        # coil only as far as the other coils' boxes leave it no room.
         multi(pmin, pmax) = begin
             out = statcom(); i = out["ibr"]["pv"]
             i["terminal_map"] = ["a", "b", "n"]; i["topology"] = "FOUR_LEG"; i["s_max"] = [3000.0, 3000.0]
@@ -1169,6 +1169,24 @@ end
         @test isempty(groups(multi([-3000.0, -3000.0], [3000.0, 3000.0])))   # circulation
         @test length(groups(multi([0.0, -3000.0], [0.0, 3000.0]))) == 1       # one pinned at 0, the other follows
         @test isempty(groups(multi([500.0, -3000.0], [500.0, 3000.0])))      # the other carries -500 W
+        # With every coil at P >= 0 and a zero balance, each coil is at zero
+        # whatever its own upper bound. Q decides the rest.
+        oneway(qlo, qhi; extra...) = begin
+            out = multi([0.0, 0.0], [3000.0, 3000.0]); i = out["ibr"]["pv"]
+            delete!(out, "control_profile"); delete!(i, "control_profile")
+            i["q_min"] = [qlo, qlo]; i["q_max"] = [qhi, qhi]
+            for (k, v) in extra; i[string(k)] = v; end
+            out
+        end
+        @test length(groups(oneway(0.0, 0.0))) == 1
+        @test isempty(groups(oneway(-500.0, 500.0)))                         # reactive current ties
+        @test isempty(groups(oneway(0.0, 0.0; p_dc_max=100.0)))              # room in the balance
+        @test isempty(groups(oneway(0.0, 0.0; p_min=[-100.0, 0.0])))         # one coil may absorb: circulation
+        @test length(groups(oneway(0.0, 0.0; p_dc_min=-50.0))) == 1          # sum <= 0 and every P >= 0
+        mirrored = oneway(0.0, 0.0; p_min=[-3000.0, -3000.0], p_max=[0.0, 0.0])
+        @test length(groups(mirrored)) == 1                                  # the same with every P <= 0
+        nobound = oneway(0.0, 0.0); delete!(nobound["ibr"]["pv"], "p_min")
+        @test isempty(groups(nobound))                                       # a missing bound is no bound
         # A profile with no power-factor law leaves the Q range free.
         free = pfc(1.0); free["control_profile"]["cp"] = Dict{String,Any}()
         @test isempty(groups(free))
@@ -1431,12 +1449,20 @@ end
         end
         @test only(bank(cut()))["status"] == "unverified"
         @test isempty(_pg_analyze(cut()).results[:voltage_levels]["mixed_phase_to_neutral_buses"])
-        @test only(bank(cut(electrode=true)))["status"] == "verified"
         wired = _pg_sys("na_high_leg_open_delta"); delete!(wired["shunt"], "gnd_pole")
         @test only(bank(wired))["status"] == "verified"
-        # A shunt that lists the terminal without stamping anything is no earth.
-        empty_shunt = cut(electrode=true); empty_shunt["shunt"]["gnd_pole"]["G_1_1"] = 0.0
-        @test only(bank(empty_shunt))["status"] == "unverified"
+        # A shunt to earth is a path, not a voltage. An electrode alone carries
+        # the primary return current, and a shunt that also couples the neutral
+        # to a phase drives it away from zero: neither establishes the phasor.
+        @test only(bank(cut(electrode=true)))["status"] == "unverified"
+        divider = cut()
+        divider["shunt"]["tie"] = Dict{String,Any}("bus" => "pole", "terminal_map" => ["a", "n"],
+            "G_1_1" => 1e-3, "G_1_2" => -1e-3, "G_2_1" => -1e-3, "G_2_2" => 2e-3,
+            "B_1_1" => 0.0, "B_1_2" => 0.0, "B_2_1" => 0.0, "B_2_2" => 0.0)
+        @test only(bank(divider))["status"] == "unverified"
+        # A perfect ground at the pole does hold it.
+        solid = cut(); solid["bus"]["pole"]["perfectly_grounded_terminals"] = ["n"]
+        @test only(bank(solid))["status"] == "verified"
         # ...but not when nothing pins it and its terminals are not all returns.
         loose = deepcopy(renamed); delete!(loose["bus"]["sub"], "perfectly_grounded_terminals")
         loose["voltage_source"]["far"] = merge(deepcopy(loose["voltage_source"]["grid"]), Dict{String,Any}("bus" => "pole"))

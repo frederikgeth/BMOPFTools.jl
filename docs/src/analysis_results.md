@@ -190,8 +190,9 @@ transformer ratios. Three cases need care when reading it:
   switches (a terminal called `b` that is fed from the source's `a` carries the
   angle of `a`, and a terminal called `n` that a line maps onto a source phase
   carries that phase; a conductor no source declares is at zero only when one
-  of its terminals is a return terminal that is perfectly grounded, on a source
-  bus or earthed through a shunt, and has no established voltage otherwise):
+  of its terminals is a return terminal that is perfectly grounded or on a
+  source bus, and has no established voltage otherwise; a shunt to earth is a
+  path, not a voltage):
   the third conductor must come out at √3 times the leg level, with each
   secondary voltage taken as the traced primary phasor times the unit's
   effective turns ratio, nameplate ratio and `tap` together, as the solver

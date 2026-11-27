@@ -275,29 +275,18 @@ function _high_leg_banks(net::Dict{String,Any})
                 all(v -> abs(v - ref) <= 1e-6 * max(abs(ref), 1.0), values) && (established[root] = ref)
             end
             # A conductor no source declares is at zero only when something
-            # holds it there: one of its terminals is a return terminal that
-            # is perfectly grounded, on a source bus, or earthed through a
-            # shunt. The label alone decides nothing: a terminal called `n`
-            # that a line maps onto a source phase carries that phase, and an
-            # `n` that reaches no earth has no established voltage at all.
+            # holds it there exactly: one of its terminals is a return terminal
+            # that is perfectly grounded or on a source bus. The label alone
+            # decides nothing: a terminal called `n` that a line maps onto a
+            # source phase carries that phase, and an `n` that reaches no such
+            # point has no established voltage. A shunt to earth is a path,
+            # not a voltage: an electrode carries the primary return current,
+            # and a shunt may couple the neutral to a phase as well.
             members = Dict{Node,Vector{Node}}()
             for n in collect(keys(parent)); push!(get!(members, find(n), Node[]), n); end
             source_buses = Set{String}(String(vs["bus"]) for (_, vs) in get(net, "voltage_source", Dict())
                                        if vs isa AbstractDict && get(vs, "bus", nothing) isa AbstractString)
-            earthed = Set{Node}()
-            for (_, sh) in get(net, "shunt", Dict())
-                sh isa AbstractDict || continue
-                sb = get(sh, "bus", nothing); tm = get(sh, "terminal_map", nothing)
-                sb isa AbstractString && tm isa AbstractVector || continue
-                for (k, label) in enumerate(tm)
-                    label isa AbstractString || continue
-                    row = sum(complex(Float64(g isa Real ? g : 0.0), Float64(bb isa Real ? bb : 0.0))
-                              for j in eachindex(tm)
-                              for (g, bb) in ((get(sh, "G_$(k)_$(j)", 0.0), get(sh, "B_$(k)_$(j)", 0.0)),); init=0.0im)
-                    isfinite(row) && !iszero(row) && push!(earthed, (String(sb), String(label)))
-                end
-            end
-            pinned(n) = is_return(n[2]) && (n[1] in source_buses || n in earthed || begin
+            pinned(n) = is_return(n[2]) && (n[1] in source_buses || begin
                 b = get(get(net, "bus", Dict()), n[1], nothing)
                 g = b isa AbstractDict ? get(b, "perfectly_grounded_terminals", nothing) : nothing
                 g isa AbstractVector && n[2] in g
