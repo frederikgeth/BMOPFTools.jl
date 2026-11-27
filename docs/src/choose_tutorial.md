@@ -27,6 +27,7 @@ start of that page; its dataset examples are not executed by the docs build.
 | **Triage a messy import** (warnings, provenance, repairs) | [Findings triage](tutorial_triage.md) | [Finding-code reference](findings.md), [Analysis & reports](analysis.md) |
 | **Check line lengths against coordinates** | [Spatial cleanup](tutorial_spatial_cleanup.md) | [Spatial diagnostics](spatial_diagnostics.md), [Visualizing a case with Tellegen](visualization.md) |
 | **Turn transformer test data into model fields** | [From test report to transformer model](tutorial_transformer_tests.md) | [Transformer models](transformer_models.md), [Transformer spec](spec/transformer.md) |
+| **Read a case file** block by block | [Anatomy of a case](case_anatomy.md) | [Data model conventions](conventions.md), [Device parameter indexing](device_indexing.md) |
 | **Understand four-wire physics** (why terminals, neutrals, matrices) | [Buses & terminals primer](terminals_primer.md) | [Impedance models & OPF decisions](tutorial_impedance_models.md), [Line geometry](tutorial_line_geometry.md) |
 | **Get grounding, neutrals, and sequence coordinates right** | [Ground, neutral, and earth return](tutorial_grounding.md) | [Grounding spec](spec/grounding.md), [SWER case study](tutorial_swer.md) |
 | **Get units, per-unit bases, and cost right** | [Units, bases, scaling, and economics](tutorial_units.md) | [Units and scaling](opf.md#Units-and-scaling), [Objective spec](spec/objective.md) |

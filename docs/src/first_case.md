@@ -115,6 +115,7 @@ this particular result.
 ## Choose the next task
 
 - **Understand the declarations:** [Buses & terminals](terminals_primer.md),
+  [Anatomy of a case](case_anatomy.md),
   [Units and bases](tutorial_units.md), and [Data model conventions](conventions.md).
 - **Investigate and prepare a case:** [Analysis & reports](analysis.md),
   [Spatial diagnostics](spatial_diagnostics.md), and [Case augmentation](augmentation.md).

@@ -29,7 +29,7 @@ needs them; they are not prerequisites for the first walkthrough.
 | Section | What you will learn or do | Start with |
 |---|---|---|
 | **Getting started** | Install the package and complete one small workflow. | [First case](first_case.md), [Tutorial routes](choose_tutorial.md) |
-| **Network models & data** | Understand terminals, units, grounding, model choices, and conversion conventions. | [Buses & terminals](terminals_primer.md), [Conversion guide](conversion.md) |
+| **Network models & data** | Understand terminals, units, grounding, model choices, and conversion conventions. | [Buses & terminals](terminals_primer.md), [Anatomy of a case](case_anatomy.md), [Conversion guide](conversion.md) |
 | **Inspect & prepare cases** | Read the evidence, select justified changes, record assumptions, and recheck. Inspection and transformation are separate steps. | [Analysis & reports](analysis.md), [Spatial review](spatial_diagnostics.md), [Case augmentation](augmentation.md), [Network reduction](network_reduction.md) |
 | **Power flow & OPF studies** | Choose a study question, solver and objective; compare operating scenarios and controls. | [OPF guide](opf.md), [Case families](tutorial_case_development.md) |
 | **Verify & diagnose results** | Check a returned solution against its case and investigate failures. | [Trust but verify](tutorial_trust_but_verify.md), [Power-flow comparison](solution_projection.md), [Infeasibility diagnosis](tutorial_infeasibility.md) |
