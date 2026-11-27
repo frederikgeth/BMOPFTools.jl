@@ -944,7 +944,8 @@ end
 # The supply point of a bus: a canonical bus id for all buses joined by closed
 # switches. The units of a transformer bank share a primary supply point, not
 # necessarily a bus id: a primary disconnect between them leaves the bank what
-# it was. Returns a function of the bus id.
+# it was. A switch that carries no phase conductor (a neutral bond) joins
+# nothing. Returns a function of the bus id.
 function _supply_point(net)
     station = Dict{String,String}()
     function supply(x)
@@ -955,8 +956,12 @@ function _supply_point(net)
     end
     switches = get(net, "switch", nothing)
     if switches isa AbstractDict
+        roles = _index_roles(net)
         for (_, sw) in switches
             sw isa AbstractDict && get(sw, "open_switch", false) !== true || continue
+            # Only a switch that carries a phase conductor joins two supply
+            # points. A neutral bond says nothing about where the phases come from.
+            _neutral_only_branch(sw, roles) && continue
             a = get(sw, "bus_from", nothing); b = get(sw, "bus_to", nothing)
             a isa AbstractString && b isa AbstractString || continue
             ra = supply(String(a)); rb = supply(String(b))

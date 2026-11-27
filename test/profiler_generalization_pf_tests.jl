@@ -256,6 +256,24 @@ using JuMP, Ipopt
         @test all(hypot(res["ibr"]["pv"][t]["cri"], res["ibr"]["pv"][t]["cii"]) < 1e-3 for t in ("a", "b"))
     end
 
+    @testset "an omitted p_max is a zero Volt-watt base under P_MAX" begin
+        net = sys("it_delta_island_unreferenced")
+        net["bus"]["it1"]["terminal_names"] = ["a", "b", "c", "n"]
+        net["bus"]["it1"]["perfectly_grounded_terminals"] = ["n"]
+        net["control_profile"] = Dict{String,Any}("cp" => Dict{String,Any}("volt_watt" => Dict{String,Any}(
+            "breakpoints" => [250.0, 260.0], "p_limits" => [0.2, 1.0], "p_ref" => "P_MAX")))
+        net["ibr"] = Dict{String,Any}("pv" => Dict{String,Any}("bus" => "it1", "terminal_map" => ["a", "b", "n"],
+            "topology" => "FOUR_LEG", "prime_mover" => "PV", "s_max" => [3000.0, 3000.0],
+            "p_min" => [0.0, 0.0], "q_min" => [0.0, 0.0], "q_max" => [0.0, 0.0], "control_profile" => "cp"))
+        @test "E.INT.NO_VOLTAGE_REFERENCE" in [f.code for f in errors(report(net))]
+        res = redirect_stdout(devnull) do
+            redirect_stderr(devnull) do
+                solve_opf(net)
+            end
+        end
+        @test all(hypot(res["ibr"]["pv"][t]["cri"], res["ibr"]["pv"][t]["cii"]) < 1e-3 for t in ("a", "b"))
+    end
+
     @testset "a primary disconnect does not change a high-leg bank" begin
         base = solve(sys("na_high_leg_open_delta"))
         net = sys("na_high_leg_open_delta")

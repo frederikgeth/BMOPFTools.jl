@@ -1203,6 +1203,15 @@ end
         @test isempty(groups(vwatt(p_avail=0.0, q_min=[-500.0], q_max=[500.0])))   # reactive current ties
         @test isempty(groups(vwatt(ref="S_MAX", p_avail=0.0)))               # another base: p_avail plays no part
         @test isempty(groups(vwatt(ref="P_MAX", p_avail=0.0)))
+        # The base is read as the solver reads it: a missing entry is zero, so
+        # an omitted optional `p_max` under P_MAX caps P at zero.
+        nomax = vwatt(ref="P_MAX"); delete!(nomax["ibr"]["pv"], "p_max")
+        @test length(groups(nomax)) == 1
+        @test length(groups(vwatt(ref="P_MAX", p_max=[0.0]))) == 1
+        norating = vwatt(ref="S_MAX"); delete!(norating["ibr"]["pv"], "s_max")
+        @test length(groups(norating)) == 1
+        @test isempty(groups(vwatt(ref="S_MAX", s_max=3000.0)))              # a scalar is its one entry
+        @test isempty(groups(vwatt(ref="P_MAX", p_max=["high"])))            # unreadable: not assumed zero
         @test length(groups(vwatt(limits=[0.0, 0.0], p_avail=1500.0))) == 1  # a curve that is zero throughout
         # Read as the solver resolves it: unsupported or malformed laws, a
         # constant power factor beside it, and THREE_LEG leave the box alone.
@@ -1520,6 +1529,36 @@ end
         # An open disconnect: two separate supply points, no bank.
         @test isempty(bank(behind(open=true)))
         @test isempty(_pg_analyze(behind(open=true)).results[:connectivity]["transformer_banks"])
+        # Only a switch that carries a phase conductor joins supply points. A
+        # closed neutral bond across the bank changes nothing...
+        bonded = _pg_sys("na_high_leg_open_delta")
+        bonded["switch"] = Dict{String,Any}("bond" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "svc",
+            "terminal_map_from" => ["n"], "terminal_map_to" => ["n"], "open_switch" => false, "i_max" => [100.0]))
+        rep = _pg_analyze(bonded)
+        @test only(bank(bonded))["status"] == "verified"
+        @test only(rep.results[:connectivity]["transformer_banks"])["units"] == ["lighting", "power"]
+        @test !("W.CONN.MESHED" in _pg_codes(rep.findings)) && rep.results[:connectivity]["is_radial"]
+        # ...and a neutral bond between two separately fed primaries does not
+        # make them one bank: the phase cycle through the two feeds stays.
+        twofeeds(; bond=false, phases=false) = begin
+            out = behind(open=true); delete!(out, "switch")
+            out["line"]["main2"] = merge(deepcopy(out["line"]["main"]), Dict{String,Any}("bus_to" => "pole2"))
+            tm = phases ? ["a", "b", "c", "n"] : ["n"]
+            if bond
+                out["switch"] = Dict{String,Any}("bond" => Dict{String,Any}("bus_from" => "pole", "bus_to" => "pole2",
+                    "terminal_map_from" => tm, "terminal_map_to" => copy(tm),
+                    "open_switch" => false, "i_max" => fill(100.0, length(tm))))
+            end
+            out
+        end
+        for net in (twofeeds(), twofeeds(bond=true))
+            rep = _pg_analyze(net)
+            @test "W.CONN.MESHED" in _pg_codes(rep.findings)
+            @test isempty(rep.results[:connectivity]["transformer_banks"])
+            @test isempty(bank(net))
+        end
+        @test only(_pg_analyze(twofeeds(bond=true, phases=true)).results[:connectivity]["transformer_banks"])["units"] ==
+              ["lighting", "power"]
         # A free tap (tap_min < tap_max) is a range, and `tap` only its start,
         # clamped into the bounds. Every position misses: a mismatch, although
         # the absent `tap` would read as 1.0.

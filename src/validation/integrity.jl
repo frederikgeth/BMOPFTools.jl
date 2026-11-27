@@ -217,8 +217,8 @@ function _conductor_reference(net)
                   length(tm) - 1
         # A Volt-watt law caps P at base * f(U), with f >= 0. A zero base is a
         # zero cap at every voltage: no available power under P_AVAILABLE (a
-        # missing `p_avail` reads as zero there), a zero `s_max` or `p_max`
-        # entry under the other references, or `p_limits` that are both zero.
+        # missing `p_avail` reads as zero there), a zero or missing `s_max` or
+        # `p_max` entry under the other references, or `p_limits` both zero.
         # Read as the solver resolves the law: not beside a constant power
         # factor, not on THREE_LEG, and not when the object is unsupported.
         vw = cp isa AbstractDict ? get(cp, "volt_watt", nothing) : nothing
@@ -232,8 +232,13 @@ function _conductor_reference(net)
             vw_ref === nothing && return false
             all(iszero, vw["p_limits"]) && return true
             vw_ref == "P_AVAILABLE" && return (pa = get(c, "p_avail", nothing); !(pa isa Real) || iszero(pa))
-            base = number(get(c, vw_ref == "S_MAX" ? "s_max" : "p_max", nothing), k)
-            base !== nothing && iszero(base)
+            # The base as the solver reads it: entry k of the rating, a scalar
+            # being its one entry, and zero where there is none. An omitted
+            # optional `p_max` is therefore a zero base under P_MAX.
+            rating = get(c, vw_ref == "S_MAX" ? "s_max" : "p_max", Float64[])
+            rating isa Real && (rating = [rating])
+            rating isa AbstractVector && all(x -> x isa Real && isfinite(x), rating) || return false
+            k > length(rating) || iszero(rating[k])
         end
         function p_box(k)
             local lo = number(get(c, "p_min", nothing), k)
