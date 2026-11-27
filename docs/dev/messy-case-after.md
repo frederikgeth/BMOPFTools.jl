@@ -1,6 +1,6 @@
 # BMOPF Network Summary: eu_tn_four_wire
 
-**Generated:** 2026-11-27 08:33:00  
+**Generated:** 2026-11-27 09:30:30  
 **Findings:** 0 errors · 0 warnings · 8 info  
 **Convention:** MV_5.8kV: no branch conductors represented; LV_231V: 4-wire; 1 grounding point(s); series-only line model
 

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 290" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <rect width="760" height="290" rx="8" fill="#ffffff"/>
+  <!-- phase and neutral conductors -->
+  <path d="M60 60 H700" stroke="#1f4e79" stroke-width="2"/>
+  <path d="M60 120 H700" stroke="#b5651d" stroke-width="2"/>
+  <text x="64" y="52" fill="#1f4e79">phase conductor</text>
+  <text x="64" y="112" fill="#b5651d" font-weight="bold">2 · neutral conductor: a wire with impedance; its voltage is a variable</text>
+  <!-- earth plane -->
+  <path d="M40 230 H720" stroke="#555" stroke-width="3"/>
+  <g stroke="#555" stroke-width="1"><path d="M60 230 l-12 14 M120 230 l-12 14 M180 230 l-12 14 M240 230 l-12 14 M300 230 l-12 14 M360 230 l-12 14 M420 230 l-12 14 M480 230 l-12 14 M540 230 l-12 14 M600 230 l-12 14 M660 230 l-12 14 M710 230 l-12 14"/></g>
+  <text x="380" y="268" text-anchor="middle" fill="#333" font-weight="bold">1 · ground reference: the 0 V datum; not a conductor, not a matrix row</text>
+  <!-- perfect grounding at source -->
+  <path d="M140 120 V230" stroke="#6a1b9a" stroke-width="2"/>
+  <circle cx="140" cy="120" r="4" fill="#b5651d"/>
+  <text x="150" y="170" fill="#6a1b9a" font-size="12">perfect grounding</text>
+  <text x="150" y="186" fill="#6a1b9a" font-size="12">(V = 0 exactly)</text>
+  <!-- electrode at load -->
+  <circle cx="610" cy="120" r="4" fill="#b5651d"/>
+  <path d="M610 120 V145" stroke="#6a1b9a" stroke-width="2"/>
+  <rect x="601" y="145" width="18" height="50" fill="#f3e5f5" stroke="#6a1b9a" stroke-width="2"/>
+  <path d="M610 195 V230" stroke="#6a1b9a" stroke-width="2"/>
+  <text x="592" y="160" text-anchor="end" fill="#6a1b9a" font-weight="bold" font-size="12">3 · grounding electrode:</text>
+  <text x="592" y="176" text-anchor="end" fill="#6a1b9a" font-size="12">an imperfect tie to earth,</text>
+  <text x="592" y="192" text-anchor="end" fill="#6a1b9a" font-size="12">modeled as a shunt</text>
+  <!-- load -->
+  <rect x="659" y="75" width="22" height="30" rx="3" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2"/>
+  <path d="M670 60 V75 M670 105 V120" stroke="#2e7d32" stroke-width="2"/>
+  <text x="690" y="94" fill="#2e7d32" font-size="12">load</text>
+  <!-- NEV arrow -->
+  <path d="M360 124 V226" stroke="#c62828" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <path d="M360 124 l-4 8 h8 z M360 226 l-4 -8 h8 z" fill="#c62828"/>
+  <text x="350" y="180" text-anchor="end" fill="#c62828" font-size="12">neutral-to-earth</text>
+  <text x="350" y="196" text-anchor="end" fill="#c62828" font-size="12">voltage</text>
+</svg>
