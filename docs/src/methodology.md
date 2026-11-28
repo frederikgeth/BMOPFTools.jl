@@ -164,10 +164,12 @@ with the wrong sign. Severity calibration:
   cable or a four-core underground cable) it puts a small *positive* mutual
   between diagonally opposite cores, where an accurate solution gives a
   small negative one (about +2.5 pF/m against −3.4 pF/m for 95 mm² aerial
-  bundled cores). LineConstants-style tools, including
-  [`overhead_line_constants`](@ref), use this formula, so matrices for
-  tightly bundled conductors carry the finding by construction; the
-  error is in the opposite-core mutual, and the matrix stays passive.
+  bundled cores). LineConstants-style tools use this formula, and so does
+  [`overhead_line_constants`](@ref) by default, so matrices for tightly
+  bundled conductors carry the finding by construction; the error is in the
+  opposite-core mutual, and the matrix stays passive. The geometry option
+  `capacitance_model = "charge_simulation"` computes the accurate matrix
+  (`W.DOM.GEOM_THIN_WIRE` flags geometries where the default is out of range).
   Sequence data with C₀ > C₁ (the mutual is (C₀ − C₁)/3) and a sign-convention
   mix-up give the same pattern.
 

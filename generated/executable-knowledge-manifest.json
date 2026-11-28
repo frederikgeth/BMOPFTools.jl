@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "2a5acafb15350a724b52d66fa9c70acf439b87f85bad3044e9726e0689f8ae8f",
+  "corpus_sha256": "62bad25024c0ccf45cda6697287995a38abe6b6ee59e2725ccece0bea5266386",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "e0d56645c3292d641c65051723cd003ce9699387c847e6540a6d06df293243ad"
+      "sha256": "7dfaf9339b89216c1e704328ce8fe8aec5d63785a7d3e3b13dbbe9fd86697d17"
     },
     {
       "path": "docs/src/first_case.md",
@@ -318,7 +318,7 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "250fdbbae353dc12e7205867679dedb0a9349226f0545480ecc3ae4373260a29"
+      "sha256": "1a381e4cac5f37872e1efa35a991dba829d2600ca4a8af6c13a07a03509afefb"
     },
     {
       "path": "knowledge/executable.toml",
@@ -410,7 +410,7 @@
     },
     {
       "path": "schemas/bundled-schema.toml",
-      "sha256": "c71e12044593173235d0279a1b0af75c33ec570c8506e31183e9f810e411f84c"
+      "sha256": "0dceeef04abb23a8a071534421ebddcb0003bbde461ed5f9c57fe02230aed4fa"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
@@ -670,7 +670,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "3e9fc02c1ef216ea8ba658920138c3dda2cc8cd4e5874358060297331c3ac974"
+      "sha256": "16808ee7ef4d80ded8cb13b09e81e1acea2426518349a92d4fb92f15c1d0ab7d"
     },
     {
       "path": "src/report/formatting.jl",
@@ -726,11 +726,11 @@
     },
     {
       "path": "src/validation/schema.jl",
-      "sha256": "0854f838f06faaffbbd15cd2d63f85b2ba995c3c3053e307a72647bf2eb29a8e"
+      "sha256": "b7be56af2d3bfb11b6640e08fc5a54de0e18f7bbb938c6db8f8c6354e93d67c0"
     },
     {
       "path": "src/validation/schemas/draft_bmopf_schema.json",
-      "sha256": "0a40bf888b47510537a8573907ddb385c461c0be7cea11fa13f78aa833e8ab22"
+      "sha256": "ec44d30c924a105fa3889978d6c86ebe8dc88a6329450ff8d4c6e09b1cfea72c"
     },
     {
       "path": "src/validation/solution.jl",
@@ -1522,7 +1522,7 @@
     },
     {
       "path": "test/lineconstants_tests.jl",
-      "sha256": "a513a630778902b6542c1f494e924c36b07b82ef367dde98cc3ca3a08905f154"
+      "sha256": "17fbfc8b7b15792d02e3639d0673e75416690120edbfd3ab24444b6366dc8dd8"
     },
     {
       "path": "test/mcp_execution_tests.jl",

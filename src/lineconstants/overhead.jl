@@ -6,7 +6,7 @@
 """
     overhead_line_constants(r_ac, gmr, radius, x, y;
         cap_radius=radius, frequency, earth_model="modified_carson",
-        earth_resistivity=100.0) -> (; Z, C)
+        earth_resistivity=100.0, capacitance_model="thin_wire") -> (; Z, C)
 
 Compute the full primitive series-impedance matrix `Z` [Ω/m] and Maxwell
 capacitance matrix `C` [F/m] of an overhead conductor arrangement. Input vectors
@@ -19,6 +19,15 @@ read or mutate a BMOPF dictionary, apply wire-data defaults, stamp provenance,
 or Kron-reduce any circuit conductor. It uses the same Carson/Deri and Maxwell
 kernels as the compiler. `compile_linecode` remains the preferred entry point
 for ordinary network data.
+
+`capacitance_model` selects the electrostatic kernel. `"thin_wire"` (default,
+OpenDSS LineConstants parity) treats each conductor as a line charge at its
+center; it is accurate while (r_i + r_j)/d stays small, reaching about 5 %
+error in the mutual capacitance at 0.5, and for touching insulated cores (about
+0.7 and above) it gives a small *positive* mutual between diagonally opposite
+cores. `"charge_simulation"` resolves the charge distribution around each
+conductor's surface and keeps the Maxwell sign pattern; use it for tightly
+bundled conductors such as aerial bundled cable.
 
 The implementation is generic over `Real` element types so numerical clients
 can propagate alternative scalar types. Modified Carson is smooth on the
@@ -34,7 +43,8 @@ function overhead_line_constants(r_ac::AbstractVector{<:Real},
                                  cap_radius::AbstractVector{<:Real}=radius,
                                  frequency::Real,
                                  earth_model::AbstractString="modified_carson",
-                                 earth_resistivity::Real=100.0)
+                                 earth_resistivity::Real=100.0,
+                                 capacitance_model::AbstractString="thin_wire")
     n = length(r_ac)
     n > 0 || throw(ArgumentError("at least one conductor is required"))
     all(==(n), (length(gmr), length(radius), length(x), length(y),
@@ -42,6 +52,8 @@ function overhead_line_constants(r_ac::AbstractVector{<:Real},
         throw(DimensionMismatch("all conductor-property vectors must have equal length"))
     earth_model in _EARTH_MODELS ||
         throw(ArgumentError("unknown earth_model '$earth_model'"))
+    capacitance_model in _CAPACITANCE_MODELS ||
+        throw(ArgumentError("unknown capacitance_model '$capacitance_model'"))
     frequency > 0 || throw(ArgumentError("frequency must be > 0 Hz"))
     earth_resistivity > 0 || throw(ArgumentError("earth_resistivity must be > 0 Ω·m"))
     all(>(0), r_ac) || throw(ArgumentError("all r_ac values must be > 0 Ω/m"))
@@ -71,6 +83,6 @@ function overhead_line_constants(r_ac::AbstractVector{<:Real},
     prims = [_PrimitiveConductor(rac[i], gm[i], xs[i], ys[i], nothing, zero(T))
              for i in 1:n]
     Z = _primitive_z(prims, earth_model, f, rho)
-    C = _overhead_shunt_c(cr, xs, ys)
+    C = _overhead_shunt_c(cr, xs, ys; capacitance_model)
     (; Z, C)
 end

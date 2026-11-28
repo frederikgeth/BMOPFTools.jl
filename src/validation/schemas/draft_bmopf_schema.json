@@ -988,6 +988,11 @@
                         "description": "Earth-return formulation; default modified_carson (Kersting two-term). Note OpenDSS defaults to deri",
                         "enum": ["modified_carson", "full_carson", "deri"]
                     },
+                    "capacitance_model": {
+                        "type": "string",
+                        "description": "Electrostatic kernel for overhead conductors; default thin_wire (line charge at each conductor center, OpenDSS parity). charge_simulation resolves the surface charge distribution and is accurate for tightly bundled conductors",
+                        "enum": ["thin_wire", "charge_simulation"]
+                    },
                     "earth_resistivity": {
                         "$ref": "#/$defs/nonnegative_number",
                         "description": "Homogeneous earth resistivity [Ohm-m]; default 100"
