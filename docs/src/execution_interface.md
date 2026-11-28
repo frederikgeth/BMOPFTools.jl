@@ -1,44 +1,26 @@
 # JSON execution interface and recipes
 
-BMOPFTools provides a small automation surface for evaluating package-owned
-scientific contracts and running ordinary case analysis without asking an agent
-to construct Julia calls or parse diagnostic prose. The interface is
-deliberately narrower than the public Julia API: each supported operation maps
-to a reviewed package function and returns a versioned JSON response.
+BMOPFTools provides a small automation surface for running ordinary case analysis
+and evaluating package-owned scientific contracts without asking an agent to
+construct Julia calls or parse diagnostic prose. The interface is deliberately
+narrower than the public Julia API: each operation maps to a reviewed package
+function and returns a versioned JSON response.
 
-## Supported contracts
+| Operation | CLI (`bin/bmopf …`) | Julia | MCP tool |
+|---|---|---|---|
+| Parse and inventory a case | `parse-case` | `execute_case_parse` | `bmopf_parse` |
+| Analyze a case | `analyze-case` | `execute_analysis` | `bmopf_analyze` |
+| Verify a solution | `verify-solution` | `execute_solution_verification` | `bmopf_verify_solution` |
+| Explain a Finding code | `explain-finding` | `execute_finding_explanation` | `bmopf_explain_finding` |
+| Check parallel-member limit preservation | `check-contract parallel_member_limit_preservation` | `execute_contract` | `bmopf_check_parallel_member_limits` |
+| Check neutral/ground/reference preservation | `check-contract neutral_ground_reference_preservation` | `execute_contract` | `bmopf_check_neutral_ground_reference` |
 
-From a repository checkout, evaluate the scalar parallel-member contract with:
-
-```sh
-bin/bmopf check-contract parallel_member_limit_preservation \
-  --source test/fixtures/negative/parallel-rating-outer-relaxation/source.json \
-  --target test/fixtures/negative/parallel-rating-outer-relaxation/transformed.json \
-  --member-id l1 --member-id l2 --aggregate-id leq --pretty
-```
-
-The wrapper activates the repository environment and runs
-`scripts/bmopf_cli.jl`. Applications may invoke that Julia script directly if
-they already control the environment.
-
-The second curated route checks explicit neutral, ground, and reference
-relations with a declared bus mapping:
-
-```sh
-bin/bmopf check-contract neutral_ground_reference_preservation \
-  --source test/fixtures/negative/neutral-ground-reference-conflation/source.json \
-  --target test/fixtures/negative/neutral-ground-reference-conflation/transformed.json \
-  --bus-map source=source --bus-map load=load --pretty
-```
-
-`--bus-map` is repeatable and uses `SOURCE_BUS=TARGET_BUS`. BMOPFTools does not
-infer this mapping from matching names: explicit mapping is part of the
-scientific request whenever the target alone cannot establish source identity.
-
-The CLI intentionally exposes only these two reviewed contracts. They are
-registered through package-owned adapters with explicit parameter allowlists;
-additional contracts should be promoted one at a time after their required
-inputs and mappings have an unambiguous transport representation.
+The `bin/bmopf` wrapper activates the repository environment and runs
+`scripts/bmopf_cli.jl`; applications that already control the environment may
+invoke that script directly. For every operation, a `completed` status means the
+operation ran, not that the case is clean, valid, solver-ready or feasible: the
+Findings and contract statuses in the response carry that information (see the
+[response contract](#Response-contract)).
 
 ## Parse and inventory one case
 
@@ -52,17 +34,13 @@ bin/bmopf parse-case --input recipes/parse_case/input.json --pretty
 
 Julia callers use `execute_case_parse(net)` after `parse_bmopf`. The result
 reports document identity, known component counts, time-series detection,
-migration notes, and terminal-coercion evidence. It deliberately omits a
-validation verdict. `completed` means only that JSON decoding and supported
-ingest processing ran; it does not establish JSON Schema conformance, domain
-validity, solver readiness, feasibility, or scientific validity. Use
-`analyze-case` for the package's complete structured validation and analysis
-report.
+migration notes, and terminal-coercion evidence. It runs no validation: use
+`analyze-case` for schema, domain and readiness checks.
 
 ## Analyze one case
 
-The first non-contract route parses one BMOPF JSON file and runs the same
-[`analyze`](@ref) battery used throughout the tutorials:
+This route parses one BMOPF JSON file and runs the same [`analyze`](@ref) battery
+used throughout the tutorials:
 
 ```sh
 bin/bmopf analyze-case --input recipes/analyze_case/input.json --pretty
@@ -73,15 +51,23 @@ equivalent Julia entry point is `execute_analysis(net; t_index=1)`.
 
 An analysis response has operation `analyze_case`, status `completed`, and the
 structured `SummaryReport` under `result`: severity counts, stable result
-sections, and full Finding records. `completed` means that the requested
-analysis ran. It does not mean the case is clean, solver-ready, feasible, or
-scientifically validated; ERROR and WARNING Findings describe the case and do
-not turn transport status into `error`.
+sections, and full Finding records. ERROR and WARNING Findings describe the case;
+they do not turn the operation status into `error`.
+
+### Suppressing geospatial analysis
+
+Spatial analysis runs by default when bus coordinate fields are present. Use
+`execute_analysis(net; spatial_enabled=false)`, CLI `analyze-case --no-spatial`,
+or the MCP `bmopf_analyze` argument `"spatial_enabled": false` to skip it.
+The Boolean defaults to `true` and is recorded in response request parameters.
+Suppression leaves other analyses active and returns an explicit spatial
+`inapplicable` / `disabled` record, with `analysis_performed=false`.
+The analysis recipe exercises this opt-out on a synthetic case with coordinates.
 
 ## Verify one solution
 
 The solution route reads a BMOPF case and a compatible result JSON, then runs
-the existing [`profile_solution`](@ref) checks without invoking a solver:
+the [`profile_solution`](@ref) checks without invoking a solver:
 
 ```sh
 bin/bmopf verify-solution \
@@ -108,8 +94,8 @@ bin/bmopf explain-finding E.SOL.VOLT_VIOLATION --pretty
 Julia callers use `explain_finding(code)` for the catalog entry alone or
 `execute_finding_explanation(code)` for the versioned execution envelope. The
 result contains canonical severity, namespace, catalog section, meaning,
-documentation hash, and any existing links to executable contracts and scientific references. It does
-not inspect a case, infer a root cause, recommend a repair, or query the book.
+documentation hash, and any links to executable contracts and scientific
+references. It does not inspect a case, infer a root cause, or recommend a repair.
 
 For a Finding already returned by Julia analysis, `explain_finding(finding)`
 also returns its serialized `instance` and recorded `interpretation`, or
@@ -122,6 +108,40 @@ The registry is generated from the complete [Finding-code reference](findings.md
 and checked against `schemas/finding-registry.schema.json`. External PowerIO
 conversion codes such as `EMIT.*` are refused explicitly because their meanings
 belong to PowerIO's catalog.
+
+## Scientific contracts
+
+A scientific contract checks that a model transformation (a source case and a
+transformed target) preserves a stated property. Each contract links to a stable
+`PSK-*` statement in the companion book *What Power-Network Models Preserve*,
+which owns the scientific claim and its evidence; BMOPFTools owns the executable
+check. From a repository checkout, evaluate the scalar parallel-member contract
+with:
+
+```sh
+bin/bmopf check-contract parallel_member_limit_preservation \
+  --source test/fixtures/negative/parallel-rating-outer-relaxation/source.json \
+  --target test/fixtures/negative/parallel-rating-outer-relaxation/transformed.json \
+  --member-id l1 --member-id l2 --aggregate-id leq --pretty
+```
+
+The second curated route checks explicit neutral, ground, and reference
+relations with a declared bus mapping:
+
+```sh
+bin/bmopf check-contract neutral_ground_reference_preservation \
+  --source test/fixtures/negative/neutral-ground-reference-conflation/source.json \
+  --target test/fixtures/negative/neutral-ground-reference-conflation/transformed.json \
+  --bus-map source=source --bus-map load=load --pretty
+```
+
+`--bus-map` is repeatable and uses `SOURCE_BUS=TARGET_BUS`. BMOPFTools does not
+infer this mapping from matching names: explicit mapping is part of the
+scientific request whenever the target alone cannot establish source identity.
+
+The CLI exposes only these two contracts, through adapters with explicit
+parameter allowlists. The other contracts in the
+[scientific-contract reference](scientific_contracts.md) are available from Julia.
 
 ## Response contract
 
@@ -163,7 +183,7 @@ The example is structural; actual checked dimensions, Findings, and evidence
 come from the supplied cases. Input hashes bind the runtime evidence to the
 files that were evaluated.
 
-The four scientific-contract statuses retain their existing meanings:
+The four scientific-contract statuses are:
 
 - `passed`: every implemented obligation held in the applicable domain;
 - `failed`: at least one implemented obligation was violated;
@@ -250,25 +270,14 @@ agents and CI can execute.
 
 ## MCP stdio adapter
 
-`bin/bmopf-mcp` exposes the same settled execution operations to local MCP
-clients. It is a transport adapter, not another execution or retrieval layer:
-every successful tool call returns the existing `0.6.0` execution envelope as
-`structuredContent`, while tool failures return a schema-valid execution error
-with MCP `isError = true`.
-
-| MCP tool | Existing operation |
-|---|---|
-| `bmopf_parse` | `parse_case` |
-| `bmopf_analyze` | `analyze_case` |
-| `bmopf_verify_solution` | `verify_solution` |
-| `bmopf_explain_finding` | `explain_finding` |
-| `bmopf_check_parallel_member_limits` | reviewed `parallel_member_limit_preservation` adapter |
-| `bmopf_check_neutral_ground_reference` | reviewed `neutral_ground_reference_preservation` adapter |
+`bin/bmopf-mcp` exposes the same operations to local MCP clients (tool names in
+the table at the top of this page). It is a transport adapter, not another
+execution layer: every successful tool call returns the `0.6.0` execution
+envelope as `structuredContent`, while tool failures return a schema-valid
+execution error with MCP `isError = true`.
 
 The server also exposes `bmopf://execution/manifest` and
-`bmopf://execution/response-schema` as read-only resources. It does not expose
-arbitrary Julia evaluation, invoke a solver, infer source-to-target mappings,
-or retrieve scientific prose from the book.
+`bmopf://execution/response-schema` as read-only resources.
 
 Run the newline-delimited MCP stdio server from any directory with:
 
@@ -282,7 +291,15 @@ default. To allow case and result files elsewhere, set
 directories. Existing files are resolved through symlinks before containment is
 checked.
 
-For Codex, the current official configuration can be added with:
+Register it in any MCP client as a stdio server with that command and, if
+needed, the `BMOPFTOOLS_MCP_ALLOWED_ROOTS` environment variable. For example,
+with Claude Code or Codex:
+
+```sh
+claude mcp add --transport stdio \
+  --env BMOPFTOOLS_MCP_ALLOWED_ROOTS=/absolute/path/to/BMOPFTools.jl:/absolute/path/to/cases \
+  bmopftools -- /absolute/path/to/BMOPFTools.jl/bin/bmopf-mcp
+```
 
 ```sh
 codex mcp add bmopftools \
@@ -290,11 +307,9 @@ codex mcp add bmopftools \
   -- /absolute/path/to/BMOPFTools.jl/bin/bmopf-mcp
 ```
 
-The ChatGPT desktop app can add the same executable as a local STDIO server
-under **Settings → MCP servers**. See the
-[official OpenAI MCP configuration](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
-for current client instructions. Other MCP clients use the same executable and
-environment variable.
+Desktop clients (Claude Desktop, ChatGPT desktop) take the same command and
+environment variable in their MCP server settings; see each client's
+documentation.
 
 The adapter follows standard MCP tool/resource conventions and can run
 alongside the power-system servers collected by
@@ -303,18 +318,7 @@ a runtime dependency of, the `powermcp` package.
 
 ## Interface boundary
 
-The CLI does not retrieve scientific prose, infer mappings, expose arbitrary
-Julia evaluation, or contact the companion book. The book remains the authority
-for the scope and evidence behind its scientific statements. This interface reports what BMOPFTools
-checked on the supplied models. The MCP adapter exposes exactly this curated
-surface and response schema; it does not introduce another execution model.
-
-### Suppressing geospatial analysis
-
-Spatial analysis runs by default when bus coordinate fields are present. Use
-`execute_analysis(net; spatial_enabled=false)`, CLI `analyze-case --no-spatial`,
-or the MCP `bmopf_analyze` argument `"spatial_enabled": false` to skip it.
-The Boolean defaults to `true` and is recorded in response request parameters.
-Suppression leaves other analyses active and returns an explicit spatial
-`inapplicable` / `disabled` record, with `analysis_performed=false`.
-The analysis recipe exercises this opt-out on a synthetic case with coordinates.
+Neither the CLI nor the MCP adapter exposes arbitrary Julia evaluation, invokes a
+solver, infers source-to-target mappings, or retrieves scientific prose. They
+report what BMOPFTools checked on the supplied models; the companion book remains
+the authority for the scope and evidence behind its scientific statements.

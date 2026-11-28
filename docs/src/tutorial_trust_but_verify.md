@@ -207,4 +207,4 @@ acceptance tolerance. The verdict does **not** guarantee that:
     solver status, result coverage, and the independent checks required by your
     study as separate evidence. A clean profiler report covers only its stated checks.
     For the engine-level validation (agreement with OpenDSS, projection
-    triangulation, optimality tiers) see [Validating the OPF](validation.md).
+    triangulation, optimality tiers) see [Engine validation evidence](validation.md).

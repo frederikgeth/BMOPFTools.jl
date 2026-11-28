@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "7dfaf9339b89216c1e704328ce8fe8aec5d63785a7d3e3b13dbbe9fd86697d17"
+    "sha256": "fc858a6d4fa99af1866fbd13e14174e69e90bd1f07efcc537c67eeffa5f995c6"
   },
   "finding_count": 395,
   "findings": [
@@ -13,7 +13,7 @@
       "namespace": "EXPORT",
       "catalogue_section": "EXPORT",
       "section_title": "explicit conversion admission",
-      "meaning": "DSS re-import changes component/terminal correspondence or declared bounds/ratings, fails, or lies outside the static AC domain. Evidence reports `indeterminate`, changed source/target declarations when available, PowerIO version, unassessed dimensions and powerio#762. Default export refuses; explicit `allow_unverified_ratings=true` permits power-flow verification and retains the warning. It makes no OPF preservation claim.",
+      "meaning": "DSS re-import changes component/terminal correspondence or declared bounds/ratings, fails, or lies outside the static AC domain. Evidence reports `indeterminate`, changed source/target declarations when available, PowerIO version, unassessed dimensions and the upstream issue link. Default export refuses; explicit `allow_unverified_ratings=true` permits power-flow verification and retains the warning. It makes no OPF preservation claim.",
       "contract_id": null,
       "knowledge_ids": [
         "PSK-000007"
@@ -587,7 +587,7 @@
       "namespace": "PRE",
       "catalogue_section": "PRE",
       "section_title": "infeasibility pre-flight",
-      "meaning": "Exactly one voltage source. The spec *requires* this in the current version; operationally it is still a single point of failure worth knowing about.",
+      "meaning": "At most one voltage source. The spec requires exactly one; operationally a single source is a single point of failure worth knowing about.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1267,7 +1267,7 @@
       "namespace": "LOAD",
       "catalogue_section": "LOAD",
       "section_title": "load model validation & analysis",
-      "meaning": "A load's `v_nom` differs from the BFS-inferred bus nominal voltage by more than 25 %. For WYE loads `v_nom` is compared against the inferred phase-to-neutral voltage; for DELTA loads against phase-to-neutral × √3 (line-to-line). A large deviation means the power setpoint and voltage sensitivity are referenced to the wrong operating point — a common OpenDSS conversion error where the load `kV` field is left at a default or is set to the wrong voltage level.",
+      "meaning": "A load's `v_nom` lies outside [0.8, 1.25] × the BFS-inferred bus nominal voltage. For WYE loads `v_nom` is compared against the inferred phase-to-neutral voltage; for DELTA loads against phase-to-neutral × √3 (line-to-line). A large deviation means the power setpoint and voltage sensitivity are referenced to the wrong operating point — a common OpenDSS conversion error where the load `kV` field is left at a default or is set to the wrong voltage level.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1277,7 +1277,7 @@
       "namespace": "LOAD",
       "catalogue_section": "LOAD",
       "section_title": "load model validation & analysis",
-      "meaning": "An exponential exponent $\\gamma \\notin (0, 2)$ — outside the range typical of distribution loads (motors ≈ 0.08, constant-impedance = 2). Still valid; flagged as context.",
+      "meaning": "An exponential exponent $\\gamma \\notin [0, 2]$ — outside the range typical of distribution loads (motors ≈ 0.08, constant-impedance = 2). Still valid; flagged as context.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -1567,7 +1567,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "The case study mixes topologies (e.g. some branches series-only, others π). Legitimate when short spurs are modeled as series and long trunks as π, but flagged so the mix can be reviewed for consistency — especially any asymmetric-π or Γ members. Replaces the former `I.PROV.NO_PI_SHUNT` / `I.PROV.PARTIAL_PI_SHUNT`.",
+      "meaning": "The case study mixes topologies (e.g. some branches series-only, others π). Legitimate when short spurs are modeled as series and long trunks as π, but flagged so the mix can be reviewed for consistency — especially any asymmetric-π or Γ members.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2152,7 +2152,7 @@
       "namespace": "INT",
       "catalogue_section": "INT",
       "section_title": "structural integrity",
-      "meaning": "A Volt-var/Volt-watt droop uses an option the engine does not yet implement — a `voltage_reference` other than `PN_PER_PHASE`, or a `q_unit`/`p_unit`/`q_ref`/`p_ref` outside the supported set.",
+      "meaning": "A Volt-var/Volt-watt droop uses an option the engine does not implement — a `voltage_reference` other than `PN_PER_PHASE`, or a `q_unit`/`p_unit`/`q_ref`/`p_ref` outside the supported set.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2265,6 +2265,26 @@
       "catalogue_section": "INT",
       "section_title": "structural integrity",
       "meaning": "Groups of generators with identical cost vectors — any dispatch split among them is optimal (degeneracy); diversify costs for benchmark use.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "E.INT.CONNECTION_SHAPE",
+      "severity": "ERROR",
+      "namespace": "INT",
+      "catalogue_section": "INT",
+      "section_title": "structural integrity",
+      "meaning": "A branch/transformer component or winding is not an object, a winding list is not an array, a bus identifier is missing/non-string, or an endpoint map is not a nonempty string array. Raw traversal preserves the original winding index and never converts numeric winding fields.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "E.INT.SWITCH_DIM_MISMATCH",
+      "severity": "ERROR",
+      "namespace": "INT",
+      "catalogue_section": "INT",
+      "section_title": "structural integrity",
+      "meaning": "Switch endpoint maps have unequal lengths. Each position denotes one through conductor; no truncation or inferred mapping is allowed. Evidence includes both endpoints.",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -2393,12 +2413,32 @@
       "knowledge_ids": []
     },
     {
+      "code": "E.TMAP.WINDING_ROLES",
+      "severity": "ERROR",
+      "namespace": "TMAP",
+      "catalogue_section": "TMAP",
+      "section_title": "terminal-map conventions",
+      "meaning": "A transformer winding map violates the represented subtype's phase/neutral or positional rule, or coupled winding coil counts differ. This does not impose line continuity across independent windings. Evidence identifies the rule, side/winding and resolved roles; see [coverage table](connection_maps.md).",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
+      "code": "W.TMAP.CONNECTION_UNASSESSED",
+      "severity": "WARNING",
+      "namespace": "TMAP",
+      "catalogue_section": "TMAP",
+      "section_title": "terminal-map conventions",
+      "meaning": "Branch/winding role comparison is indeterminate because role declarations are malformed, roles are ambiguous/unclassified, bus neutrals are multiple, or earth conductors are outside this supported domain. References and structural errors retain their integrity owners. No role count is guessed.",
+      "contract_id": null,
+      "knowledge_ids": []
+    },
+    {
       "code": "W.SPEC.N_SOURCES",
       "severity": "WARNING",
       "namespace": "SPEC",
       "catalogue_section": "SPEC",
       "section_title": "TF-spec conformance",
-      "meaning": "Voltage-source count ≠ 1 (spec Eq. 17 requires exactly one in this version).",
+      "meaning": "Voltage-source count ≠ 1 (spec Eq. 17 requires exactly one).",
       "contract_id": null,
       "knowledge_ids": []
     },
@@ -3402,7 +3442,7 @@
       "namespace": "CONTRACT",
       "catalogue_section": "CONTRACT",
       "section_title": "executable scientific contracts",
-      "meaning": "A declared executable contract is outside its implemented domain, for example because the initial parallel-member check received a multiconductor or shunted line. No preservation conclusion is drawn.",
+      "meaning": "A declared executable contract is outside its implemented domain, for example because the parallel-member check received a multiconductor or shunted line. No preservation conclusion is drawn.",
       "contract_id": "parallel_member_limit_preservation",
       "knowledge_ids": [
         "PSK-000001"
@@ -3498,7 +3538,7 @@
       "namespace": "CONTRACT",
       "catalogue_section": "CONTRACT",
       "section_title": "executable scientific contracts",
-      "meaning": "The solver did not claim a feasible result, or the network has no declared bus terminals. The initial claimed-solution contract therefore makes no validity conclusion.",
+      "meaning": "The solver did not claim a feasible result, or the network has no declared bus terminals. The claimed-solution contract therefore makes no validity conclusion.",
       "contract_id": "claimed_solution_validity",
       "knowledge_ids": [
         "PSK-000003"
@@ -3534,7 +3574,7 @@
       "namespace": "CONTRACT",
       "catalogue_section": "CONTRACT",
       "section_title": "executable scientific contracts",
-      "meaning": "The initial contract has no unique voltage-dependent WYE or DELTA load to check.",
+      "meaning": "The contract has no unique voltage-dependent WYE or DELTA load to check.",
       "contract_id": "load_voltage_base_consistency",
       "knowledge_ids": [
         "PSK-000004"
@@ -3618,7 +3658,7 @@
       "namespace": "CONTRACT",
       "catalogue_section": "CONTRACT",
       "section_title": "executable scientific contracts",
-      "meaning": "The initial winding-convention contract does not cover the subtype, adjustable tap, non-bijective mapping, or subtype-changing reversal. No preservation conclusion is drawn.",
+      "meaning": "The winding-convention contract does not cover the subtype, adjustable tap, non-bijective mapping, or subtype-changing reversal. No preservation conclusion is drawn.",
       "contract_id": "transformer_winding_convention_preservation",
       "knowledge_ids": [
         "PSK-000006"
@@ -3714,7 +3754,7 @@
       "namespace": "CONTRACT",
       "catalogue_section": "CONTRACT",
       "section_title": "executable scientific contracts",
-      "meaning": "The initial Kron contract does not cover the supplied conductor count, terminal order, endpoint mapping, line shunts, or self-loop shape. No reduction conclusion is drawn.",
+      "meaning": "The Kron contract does not cover the supplied conductor count, terminal order, endpoint mapping, line shunts, or self-loop shape. No reduction conclusion is drawn.",
       "contract_id": "kron_boundary_recovery_preservation",
       "knowledge_ids": [
         "PSK-000008"
@@ -3786,7 +3826,7 @@
       "namespace": "CONTRACT",
       "catalogue_section": "CONTRACT",
       "section_title": "executable scientific contracts",
-      "meaning": "The initial positive-sequence contract does not cover the supplied conductor count, terminal order, factor shape, or unsupported shunt structure.",
+      "meaning": "The positive-sequence contract does not cover the supplied conductor count, terminal order, factor shape, or unsupported shunt structure.",
       "contract_id": "positive_sequence_collapse_applicability",
       "knowledge_ids": [
         "PSK-000009"
@@ -3846,7 +3886,7 @@
       "namespace": "CONTRACT",
       "catalogue_section": "CONTRACT",
       "section_title": "executable scientific contracts",
-      "meaning": "The initial state-dependent-equivalent contract does not cover the supplied domain declaration.",
+      "meaning": "The state-dependent-equivalent contract does not cover the supplied domain declaration.",
       "contract_id": "state_dependent_equivalent_provenance",
       "knowledge_ids": [
         "PSK-000010"
@@ -3894,7 +3934,7 @@
       "namespace": "CONTRACT",
       "catalogue_section": "CONTRACT",
       "section_title": "executable scientific contracts",
-      "meaning": "No connected-island reference evidence was supplied, so this initial validation bundle is not applicable.",
+      "meaning": "No connected-island reference evidence was supplied, so this check is not applicable.",
       "contract_id": "reference_singularity_validation",
       "knowledge_ids": [
         "PSK-000011"
@@ -4055,46 +4095,6 @@
       "knowledge_ids": [
         "PSK-000014"
       ]
-    },
-    {
-      "code": "E.INT.CONNECTION_SHAPE",
-      "severity": "ERROR",
-      "namespace": "INT",
-      "catalogue_section": "CONTRACT",
-      "section_title": "executable scientific contracts",
-      "meaning": "A branch/transformer component or winding is not an object, a winding list is not an array, a bus identifier is missing/non-string, or an endpoint map is not a nonempty string array. Raw traversal preserves the original winding index and never converts numeric winding fields.",
-      "contract_id": null,
-      "knowledge_ids": []
-    },
-    {
-      "code": "E.INT.SWITCH_DIM_MISMATCH",
-      "severity": "ERROR",
-      "namespace": "INT",
-      "catalogue_section": "CONTRACT",
-      "section_title": "executable scientific contracts",
-      "meaning": "Switch endpoint maps have unequal lengths. Each position denotes one through conductor; no truncation or inferred mapping is allowed. Evidence includes both endpoints.",
-      "contract_id": null,
-      "knowledge_ids": []
-    },
-    {
-      "code": "E.TMAP.WINDING_ROLES",
-      "severity": "ERROR",
-      "namespace": "TMAP",
-      "catalogue_section": "CONTRACT",
-      "section_title": "executable scientific contracts",
-      "meaning": "A transformer winding map violates the represented subtype's phase/neutral or positional rule, or coupled winding coil counts differ. This does not impose line continuity across independent windings. Evidence identifies the rule, side/winding and resolved roles; see [coverage table](connection_maps.md).",
-      "contract_id": null,
-      "knowledge_ids": []
-    },
-    {
-      "code": "W.TMAP.CONNECTION_UNASSESSED",
-      "severity": "WARNING",
-      "namespace": "TMAP",
-      "catalogue_section": "CONTRACT",
-      "section_title": "executable scientific contracts",
-      "meaning": "Branch/winding role comparison is indeterminate because role declarations are malformed, roles are ambiguous/unclassified, bus neutrals are multiple, or earth conductors are outside this supported domain. References and structural errors retain their integrity owners. No role count is guessed.",
-      "contract_id": null,
-      "knowledge_ids": []
     }
   ]
 }

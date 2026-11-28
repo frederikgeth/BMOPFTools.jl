@@ -1,7 +1,7 @@
 # Developing a small family of OPF cases
 
 For studies that reuse a parameterized JuMP model, see
-[Repeated solves and parameter updates](repeated_solves.md).
+[Repeated solves, parameters and coefficient providers](repeated_solves.md).
 
 Start with a question: **how does this feeder behave when demand, PV availability,
 or the location of installed PV changes?** This tutorial builds a few comparable

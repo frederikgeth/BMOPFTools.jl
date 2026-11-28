@@ -37,7 +37,7 @@ These Findings are emitted by `to_dss`, including on refusal, rather than by
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `W.EXPORT.DSS_RATING_UNVERIFIED` | W | DSS re-import changes component/terminal correspondence or declared bounds/ratings, fails, or lies outside the static AC domain. Evidence reports `indeterminate`, changed source/target declarations when available, PowerIO version, unassessed dimensions and powerio#762. Default export refuses; explicit `allow_unverified_ratings=true` permits power-flow verification and retains the warning. It makes no OPF preservation claim. |
+| `W.EXPORT.DSS_RATING_UNVERIFIED` | W | DSS re-import changes component/terminal correspondence or declared bounds/ratings, fails, or lies outside the static AC domain. Evidence reports `indeterminate`, changed source/target declarations when available, PowerIO version, unassessed dimensions and the upstream issue link. Default export refuses; explicit `allow_unverified_ratings=true` permits power-flow verification and retains the warning. It makes no OPF preservation claim. |
 
 ## COMP — completeness
 
@@ -160,7 +160,7 @@ symmetry follows; repeated values alone do not establish degeneracy.
 | `E.PRE.PBOUND_CONFLICT` | E | Generator `p_min > p_max` — infeasible by construction. |
 | `E.PRE.QBOUND_CONFLICT` | E | Generator `q_min > q_max` — same. |
 | `I.PRE.NO_VOLT_BOUNDS` | I | Buses with no voltage-magnitude bound of any kind (`v_min`/`v_max`, `vpn_min`/`vpn_max`, `vpp_min`/`vpp_max` or `vpos_min`/`vpos_max`) — voltages are unconstrained there (spec semantics for absent optional bounds). This is a coverage screen: a `vpp_*` bound leaves the common-mode (neutral-shift) component free, and a `vpos_*` bound alone does not bound each phase magnitude under unbalance, but both still count as declared coverage. Unbalance and neutral-shift limits (`vneg_max`, `vzero_max`, `vuf_max`, `vn_max`) do not bound the phase voltage magnitude and do not count. |
-| `I.PRE.SINGLE_SOURCE` | I | Exactly one voltage source. The spec *requires* this in the current version; operationally it is still a single point of failure worth knowing about. |
+| `I.PRE.SINGLE_SOURCE` | I | At most one voltage source. The spec requires exactly one; operationally a single source is a single point of failure worth knowing about. |
 | `W.PRE.SOURCE_VOLTAGE_OOB` | W | A voltage source setpoint (`v_magnitude`) falls outside the bus's declared `v_min`/`v_max`. The source pins that voltage as a hard equality in the OPF, so the bound is trivially violated before the solver starts — a guaranteed infeasibility. Common cause: `v_magnitude` set in kV while bounds are in V, or an augmented bound tighter than the actual supply voltage. |
 | `W.PRE.SOURCE_BUS_GENERATOR` | W | A generator without `p_max`/`q_max` sits at a voltage-source bus. The voltage source is itself the network's current slack, so two unbounded current injections share one fixed-voltage bus — the dispatch split is degenerate (non-unique). Remove the generator and express its role as flow bounds/cost on the voltage source instead. |
 | `I.PRE.SOURCE_BUS_GENERATOR` | I | A *bounded* generator sits at a voltage-source bus. Well-posed (the generator is bounded, the source takes the remainder), but if its bounds/cost are meant to limit or price grid import, set them on the voltage source (`p_min`/`p_max`/`q_min`/`q_max`/`cost`) instead. |
@@ -257,8 +257,8 @@ and [`load_model_analysis`](@ref) (`load_models` pass).
 | `W.LOAD.ZIP_SUM` | W | For a ZIP load, the active ($\alpha^Z + \alpha^I + \alpha^P$) or reactive ($\beta^Z + \beta^I + \beta^P$) coefficients do not sum to 1. At nominal voltage the load will not consume its nominal power; usually a data entry error. |
 | `W.LOAD.GAMMA_NEGATIVE` | W | An exponential exponent $\gamma < 0$ — power increases as voltage falls. Physically possible for some device classes but extremely unusual in distribution-network demand models; almost always a sign error. |
 | `W.LOAD.MODEL_MIXED` | W | A `zip` load carries `gamma_p`/`gamma_q` fields, or an `exponential` load carries ZIP coefficient fields. The extra fields are ignored; this finding flags the likely copy-paste error. |
-| `W.LOAD.VNOM_MISMATCH` | W | A load's `v_nom` differs from the BFS-inferred bus nominal voltage by more than 25 %. For WYE loads `v_nom` is compared against the inferred phase-to-neutral voltage; for DELTA loads against phase-to-neutral × √3 (line-to-line). A large deviation means the power setpoint and voltage sensitivity are referenced to the wrong operating point — a common OpenDSS conversion error where the load `kV` field is left at a default or is set to the wrong voltage level. |
-| `I.LOAD.GAMMA_RANGE` | I | An exponential exponent $\gamma \notin (0, 2)$ — outside the range typical of distribution loads (motors ≈ 0.08, constant-impedance = 2). Still valid; flagged as context. |
+| `W.LOAD.VNOM_MISMATCH` | W | A load's `v_nom` lies outside [0.8, 1.25] × the BFS-inferred bus nominal voltage. For WYE loads `v_nom` is compared against the inferred phase-to-neutral voltage; for DELTA loads against phase-to-neutral × √3 (line-to-line). A large deviation means the power setpoint and voltage sensitivity are referenced to the wrong operating point — a common OpenDSS conversion error where the load `kV` field is left at a default or is set to the wrong voltage level. |
+| `I.LOAD.GAMMA_RANGE` | I | An exponential exponent $\gamma \notin [0, 2]$ — outside the range typical of distribution loads (motors ≈ 0.08, constant-impedance = 2). Still valid; flagged as context. |
 | `I.LOAD.MODEL_FIELDS_IGNORED` | I | A `constant_power`, `constant_current`, or `constant_impedance` load carries ZIP or exponential coefficient fields. These fields are redundant for named degenerate models and will be ignored by the OPF. |
 
 ### Analysis (load model pass)
@@ -328,7 +328,7 @@ networks.
 | Code | Sev | Trigger & rationale |
 |---|---|---|
 | `I.PROV.LINE_MODEL_UNIFORM` | I | Every line-model definition (linecode or inline line) uses a single topology — series-only, symmetric-π, etc. The network is internally consistent; the message states which model and whether it is the expected one. |
-| `I.PROV.LINE_MODEL_MIXED` | I | The case study mixes topologies (e.g. some branches series-only, others π). Legitimate when short spurs are modeled as series and long trunks as π, but flagged so the mix can be reviewed for consistency — especially any asymmetric-π or Γ members. Replaces the former `I.PROV.NO_PI_SHUNT` / `I.PROV.PARTIAL_PI_SHUNT`. |
+| `I.PROV.LINE_MODEL_MIXED` | I | The case study mixes topologies (e.g. some branches series-only, others π). Legitimate when short spurs are modeled as series and long trunks as π, but flagged so the mix can be reviewed for consistency — especially any asymmetric-π or Γ members. |
 | `W.PROV.ASYMMETRIC_PI` | W | A line/linecode has shunts on both ends but the from-side and to-side admittances differ. A uniform reciprocal line splits its charging equally; unequal halves indicate a network-reduction artifact or a data error. |
 | `I.PROV.GAMMA_SECTION` | I | A line/linecode carries shunt admittance on exactly one end (a Γ-section). Valid as a deliberate lumping of charging at one terminal, but it breaks the from/to symmetry of a physical line — confirm it is intended. |
 | `I.PROV.SHUNT_CONDUCTANCE` | I | A line/linecode π-shunt carries non-zero conductance (`G_from`/`G_to`) — dielectric loss / leakage is modeled. Unusual in distribution, where the line shunt is normally purely capacitive; confirm it is not an X/B or units confusion. |
@@ -444,7 +444,7 @@ Motivated by the benchmark-pitfall catalog of ([ref. 2](references.md#refs)).
 | `W.INT.VOLT_VAR_QLIMITS` | W | A `volt_var` droop's `q_limits` are not in the expected `[absorb ≤ 0, inject ≥ 0]` order — usually a sign or ordering slip, though the curve still builds. |
 | `E.INT.VOLT_WATT_SHAPE` | E | A `volt_watt` droop does not have exactly 2 breakpoints and 2 `p_limits` — the curtailment curve is malformed and cannot be stamped. |
 | `E.INT.VOLT_WATT_BREAKPOINTS` | E | A `volt_watt` droop's voltage breakpoints are not strictly increasing — the curtailment curve is non-monotone and ill-defined. |
-| `E.INT.DROOP_UNSUPPORTED` | E | A Volt-var/Volt-watt droop uses an option the engine does not yet implement — a `voltage_reference` other than `PN_PER_PHASE`, or a `q_unit`/`p_unit`/`q_ref`/`p_ref` outside the supported set. |
+| `E.INT.DROOP_UNSUPPORTED` | E | A Volt-var/Volt-watt droop uses an option the engine does not implement — a `voltage_reference` other than `PN_PER_PHASE`, or a `q_unit`/`p_unit`/`q_ref`/`p_ref` outside the supported set. |
 | `W.INT.DIM_MISMATCH` | W | An indexed field has an incompatible shape for its device topology: powers/capabilities/costs, current limits, load setpoints, source reference prefixes, or bus phase/pair bounds. Device evidence identifies roles, map positions, indexing domain, allowed lengths and observed shape; see [device parameter indexing](device_indexing.md). No universal conductor-count rule applies. The line-matrix case remains the stricter `E.INT.LINE_DIM_MISMATCH`. |
 | `W.INT.DEVICE_INDEXING_UNASSESSED` | W | Device/bus indexing is indeterminate because roles or references are unresolved, the map is malformed, earth-conductor behavior is unsupported, or a phase-to-neutral bound lacks its reference. Evidence carries `status="indeterminate"` and a reason; no expected count is guessed. Declaration and reference defects retain their existing Finding owners. |
 | `W.INT.IMAX_NO_NEUTRAL` | W | A star generator/IBR with ≥2 phases rates only its phase conductors (`i_max` length = phases); add a trailing entry for the neutral conductor, which can carry more current than the phases under unbalance compensation. |
@@ -456,6 +456,8 @@ Motivated by the benchmark-pitfall catalog of ([ref. 2](references.md#refs)).
 | `W.INT.UNUSED_BUS_TERMINAL` | W | A bus declares a terminal in `terminal_names` that is not referenced by any component at that bus (no branch end, load, generator, shunt, capacitor, IBR, or voltage source uses it) and is not perfectly grounded — a grounded terminal is pinned, not free. The terminal adds a free voltage variable with no KCL constraint — pure numeric overhead. Almost always a conversion artifact or a missing connection. Voltage-source buses are excluded (the source pins every declared terminal regardless). |
 | `W.INT.LOW_IMPEDANCE_LINE` | W | Lines whose total series impedance is below 10⁻³× the network median — they degrade conditioning; the spec's lossless switch object is the intended model ([ref. 2](references.md#refs)). |
 | `I.INT.UNIFORM_GEN_COST` | I | Groups of generators with identical cost vectors — any dispatch split among them is optimal (degeneracy); diversify costs for benchmark use. |
+| `E.INT.CONNECTION_SHAPE` | E | A branch/transformer component or winding is not an object, a winding list is not an array, a bus identifier is missing/non-string, or an endpoint map is not a nonempty string array. Raw traversal preserves the original winding index and never converts numeric winding fields. |
+| `E.INT.SWITCH_DIM_MISMATCH` | E | Switch endpoint maps have unequal lengths. Each position denotes one through conductor; no truncation or inferred mapping is allowed. Evidence includes both endpoints. |
 
 ## CONV — terminal-role conventions
 
@@ -484,6 +486,8 @@ Checks on how component `terminal_map`s reference bus terminals.
 | `E.TMAP.DEVICE_ROLES` | E | A supported nodal device includes an explicit earth conductor outside its model, or a FOUR_LEG IBR lacks its identified neutral return. Structured map/role evidence describes the unsupported connection; this does not introduce an earth-conductor model. |
 | `I.TMAP.CROSS_PHASE_LINE` | I | A line or switch has different from/to terminal maps — the conductors are cross-connected between phases across the branch. Valid (e.g. an intentional phase swap) but flagged as context. |
 | `I.TMAP.PERMUTED_ORDER` | I | A component's `terminal_map` is a permutation of the bus's nodal terminal order — non-canonical ordering; verify the swap is deliberate rather than a data-entry slip. |
+| `E.TMAP.WINDING_ROLES` | E | A transformer winding map violates the represented subtype's phase/neutral or positional rule, or coupled winding coil counts differ. This does not impose line continuity across independent windings. Evidence identifies the rule, side/winding and resolved roles; see [coverage table](connection_maps.md). |
+| `W.TMAP.CONNECTION_UNASSESSED` | W | Branch/winding role comparison is indeterminate because role declarations are malformed, roles are ambiguous/unclassified, bus neutrals are multiple, or earth conductors are outside this supported domain. References and structural errors retain their integrity owners. No role count is guessed. |
 
 ## SPEC — TF-spec conformance
 
@@ -491,7 +495,7 @@ Rules the JSON Schema cannot express.
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `W.SPEC.N_SOURCES` | W | Voltage-source count ≠ 1 (spec Eq. 17 requires exactly one in this version). |
+| `W.SPEC.N_SOURCES` | W | Voltage-source count ≠ 1 (spec Eq. 17 requires exactly one). |
 | `W.SPEC.BAD_CONFIG` | W | A configuration outside `SINGLE_PHASE`/`WYE`/`DELTA` for a load/generator/capacitor, or outside `SINGLE_PHASE`/`WYE` for native voltage-source references. |
 | `W.SPEC.CONFIG_ARITY` | W | Terminal-map arity inconsistent with the configuration (SINGLE_PHASE = 2, WYE = 4, DELTA = 3). |
 | `E.SPEC.DUPLICATE_TERMINAL` | E | A component's `terminal_map` (or `terminal_map_from`/`terminal_map_to` for lines/switches) contains the same terminal label more than once — a degenerate connection that collapses two distinct conductors onto one. |
@@ -632,7 +636,7 @@ analysis never emits them.
 |---|---|---|
 | `E.CONTRACT.PARALLEL_TERMINAL_RELATION_MISMATCH` | E | The declared scalar aggregate line's admittance differs from the sum of the explicitly mapped source-member admittances. The target therefore fails even the unconstrained terminal-current relation. |
 | `W.CONTRACT.PARALLEL_MEMBER_LIMIT_LOSS` | W | The aggregate preserves the summed scalar terminal admittance but its current rating defines an inner restriction or outer relaxation of the source member-current-limit region. Detail includes the scientific reference, the classification, exact voltage-drop bounds, and a concrete current witness. |
-| `I.CONTRACT.NOT_APPLICABLE` | I | A declared executable contract is outside its implemented domain, for example because the initial parallel-member check received a multiconductor or shunted line. No preservation conclusion is drawn. |
+| `I.CONTRACT.NOT_APPLICABLE` | I | A declared executable contract is outside its implemented domain, for example because the parallel-member check received a multiconductor or shunted line. No preservation conclusion is drawn. |
 | `W.CONTRACT.INDETERMINATE` | W | Required source, target, mapping, impedance, or rating evidence is missing or unresolved. No preservation conclusion is drawn; detail names the missing evidence and recommended follow-up. |
 | `E.CONTRACT.NEUTRAL_IDENTITY_LOSS` | E | A mapped target bus has no identifiable explicit neutral terminal. Omitting it does not establish that its voltage, current, limits, or grounding relation are represented by the mathematical reference. |
 | `E.CONTRACT.NEUTRAL_CONTINUITY_MISMATCH` | E | The target changes whether mapped bus neutrals are connected through neutral-bearing lines, closed switches, or single-phase autotransformers. A matching simple bus graph is not sufficient. |
@@ -640,17 +644,17 @@ analysis never emits them.
 | `I.CONTRACT.NEUTRAL_GROUND_NOT_APPLICABLE` | I | The neutral/ground/reference check is outside its implemented domain, for example because the source lacks explicit neutrals or a grounding shunt couples multiple terminals. No preservation conclusion is drawn. |
 | `W.CONTRACT.NEUTRAL_GROUND_INDETERMINATE` | W | A mapped bus or scalar grounding relation is missing or unresolved. No preservation conclusion is drawn; detail names the missing evidence and recommended follow-up. |
 | `E.CONTRACT.CLAIMED_FEASIBLE_SOLUTION_INVALID` | E | A result labeled `LOCALLY_SOLVED`, `OPTIMAL`, or `ALMOST_LOCALLY_SOLVED` contains non-finite values or violates a declared bus voltage or angle limit when independently recomputed by `profile_solution`. The contract finding retains the underlying `E.SOL.*` evidence. |
-| `I.CONTRACT.SOLUTION_STATUS_NOT_APPLICABLE` | I | The solver did not claim a feasible result, or the network has no declared bus terminals. The initial claimed-solution contract therefore makes no validity conclusion. |
+| `I.CONTRACT.SOLUTION_STATUS_NOT_APPLICABLE` | I | The solver did not claim a feasible result, or the network has no declared bus terminals. The claimed-solution contract therefore makes no validity conclusion. |
 | `W.CONTRACT.SOLUTION_VALIDATION_INDETERMINATE` | W | Termination status or required `vr`/`vi`/`vm` data for a declared bus terminal is missing. No validation conclusion is drawn; detail identifies the missing evidence. |
 | `E.CONTRACT.LOAD_VOLTAGE_BASE_MISMATCH` | E | Scientific contract `load_voltage_base_consistency` found that a voltage-dependent load's `v_nom` lies outside the declared ratio band for its source-propagated connection-coordinate base. |
-| `I.CONTRACT.LOAD_VOLTAGE_BASE_NOT_APPLICABLE` | I | The initial contract has no unique voltage-dependent WYE or DELTA load to check. |
+| `I.CONTRACT.LOAD_VOLTAGE_BASE_NOT_APPLICABLE` | I | The contract has no unique voltage-dependent WYE or DELTA load to check. |
 | `W.CONTRACT.LOAD_VOLTAGE_BASE_INDETERMINATE` | W | A selected load, numeric `v_nom`, or source-reachable bus voltage base is unavailable, so connection-coordinate consistency cannot be decided. |
 | `E.CONTRACT.TRANSFORMER_TAP_DOMAIN_LOSS` | E | The mapped target transformer has a different continuous tap interval from the adjustable source: an inner restriction, outer extension, shifted overlap, or disjoint decision domain. Detail includes both intervals, the classification, and a tap witness admitted by only one domain. |
 | `I.CONTRACT.TRANSFORMER_TAP_NOT_APPLICABLE` | I | The source is not an adjustable continuous tap transformer in the implemented domain, the subtype is unsupported or changes, or mapped non-tap declarations differ. No domain-preservation conclusion is drawn. |
 | `W.CONTRACT.TRANSFORMER_TAP_INDETERMINATE` | W | A mapped transformer, complete numeric tap interval, or admissible start is missing or invalid. No domain-preservation conclusion is drawn. |
 | `E.CONTRACT.TRANSFORMER_WINDING_INCIDENCE_MISMATCH` | E | The target changes a mapped transformer winding side, stored orientation, or ordered terminal-to-coil incidence. A bare `bus_from`/`bus_to` swap is not a complete typed transformer reversal. |
 | `E.CONTRACT.TRANSFORMER_WINDING_BASE_RATIO_MISMATCH` | E | The target changes a mapped `v_nom_from`/`v_nom_to` winding reference or the resulting fixed effective coil ratio under the subtype's connection convention. |
-| `I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE` | I | The initial winding-convention contract does not cover the subtype, adjustable tap, non-bijective mapping, or subtype-changing reversal. No preservation conclusion is drawn. |
+| `I.CONTRACT.TRANSFORMER_WINDING_NOT_APPLICABLE` | I | The winding-convention contract does not cover the subtype, adjustable tap, non-bijective mapping, or subtype-changing reversal. No preservation conclusion is drawn. |
 | `W.CONTRACT.TRANSFORMER_WINDING_INDETERMINATE` | W | A mapped transformer, bus, terminal map, positive winding reference, fixed tap, or constructible incidence relation is missing. No preservation conclusion is drawn. |
 | `E.CONTRACT.DECISION_MANIFEST_EVIDENCE_GAP` | E | A manifest claiming exact decision equivalence omits a required admissible-domain, terminal, observation, constraint, decision-variable, objective, or recovery disposition, or lacks the evidence reference or justification required by that disposition. Terminal evidence alone is insufficient. |
 | `E.CONTRACT.DECISION_MANIFEST_UNRESOLVED_OBLIGATION` | E | A manifest claiming exact decision equivalence explicitly marks a required dimension as `unassessed` or `not_preserved`, contradicting the unqualified exactness claim. |
@@ -658,22 +662,22 @@ analysis never emits them.
 | `W.CONTRACT.DECISION_MANIFEST_INDETERMINATE` | W | The manifest schema, identity, claim, dimension object, or disposition is missing, malformed, or unsupported. No declaration-completeness conclusion is drawn. |
 | `E.CONTRACT.KRON_BOUNDARY_RELATION_MISMATCH` | E | The target series impedance differs from the source Schur-complement boundary relation in the declared phase coordinate order. |
 | `E.CONTRACT.KRON_GROUNDING_PRECONDITION` | E | The eliminated source neutral is not perfectly grounded at every source line endpoint, so the three-wire Kron target is not exact for the declared network boundary. |
-| `I.CONTRACT.KRON_NOT_APPLICABLE` | I | The initial Kron contract does not cover the supplied conductor count, terminal order, endpoint mapping, line shunts, or self-loop shape. No reduction conclusion is drawn. |
+| `I.CONTRACT.KRON_NOT_APPLICABLE` | I | The Kron contract does not cover the supplied conductor count, terminal order, endpoint mapping, line shunts, or self-loop shape. No reduction conclusion is drawn. |
 | `W.CONTRACT.KRON_INDETERMINATE` | W | A mapped line, bus, conductor order, impedance matrix, or endpoint declaration is missing or unresolved, so the Kron boundary cannot be decided. |
 | `W.CONTRACT.KRON_RECOVERY_INDETERMINATE` | W | The required eliminated-terminal recovery map is missing, malformed, or names a different terminal, so internal recovery obligations cannot be decided. |
 | `E.CONTRACT.SEQUENCE_SYMMETRY_MISMATCH` | E | A source series or shunt factor is not circulant in the declared phase order and can mix positive, negative, and zero sequence components. |
 | `E.CONTRACT.SEQUENCE_DOMAIN_MISMATCH` | E | The declared boundary, grounding, device, decision, or observation domain is not closed under the positive-sequence restriction. |
 | `E.CONTRACT.SEQUENCE_RELATION_MISMATCH` | E | The scalar target relation differs from the source positive-sequence eigenvalue in the declared convention. |
-| `I.CONTRACT.SEQUENCE_NOT_APPLICABLE` | I | The initial positive-sequence contract does not cover the supplied conductor count, terminal order, factor shape, or unsupported shunt structure. |
+| `I.CONTRACT.SEQUENCE_NOT_APPLICABLE` | I | The positive-sequence contract does not cover the supplied conductor count, terminal order, factor shape, or unsupported shunt structure. |
 | `W.CONTRACT.SEQUENCE_INDETERMINATE` | W | A source or target factor, terminal map, or required collapse-domain declaration is missing or unresolved. |
 | `E.CONTRACT.STATE_UPDATE_PROVENANCE_LOSS` | E | The target freezes or omits update provenance for a source equivalent that varies over a non-singleton state domain. |
 | `E.CONTRACT.STATE_DOMAIN_MISMATCH` | E | The target state domain differs from the source domain, so the declared equivalent does not cover the same state range. |
 | `E.CONTRACT.STATE_BASE_ALIGNMENT_MISMATCH` | E | The target calibration state differs from the source base state. |
-| `I.CONTRACT.STATE_EQUIVALENT_NOT_APPLICABLE` | I | The initial state-dependent-equivalent contract does not cover the supplied domain declaration. |
+| `I.CONTRACT.STATE_EQUIVALENT_NOT_APPLICABLE` | I | The state-dependent-equivalent contract does not cover the supplied domain declaration. |
 | `W.CONTRACT.STATE_EQUIVALENT_INDETERMINATE` | W | A required state parameter, domain, base state, or update declaration is missing or malformed. |
 | `E.CONTRACT.REFERENCE_LOSS` | E | A target island loses a voltage reference present in the source island. |
 | `E.CONTRACT.SINGULARITY_CHANGE` | E | A target island becomes rank-deficient relative to a full-rank source island. |
-| `I.CONTRACT.REFERENCE_SINGULARITY_NOT_APPLICABLE` | I | No connected-island reference evidence was supplied, so this initial validation bundle is not applicable. |
+| `I.CONTRACT.REFERENCE_SINGULARITY_NOT_APPLICABLE` | I | No connected-island reference evidence was supplied, so this check is not applicable. |
 | `W.CONTRACT.REFERENCE_SINGULARITY_INDETERMINATE` | W | Reference-analysis island records or their mapping are missing or malformed. |
 | `E.CONTRACT.TERMINAL_ORDER_MISMATCH` | E | Target endpoint terminal maps do not follow the declared permutation. |
 | `E.CONTRACT.PERMUTATION_RELATION_MISMATCH` | E | The target series primitive is not the source primitive conjugated by the declared permutation. |
@@ -687,12 +691,3 @@ analysis never emits them.
 | `E.CONTRACT.BASE_MAP_MISMATCH` | E | Target serialization does not preserve the declared unit/base map. |
 | `E.CONTRACT.SERIALIZED_PAYLOAD_MISMATCH` | E | Target serialization has a different canonical semantic payload hash. |
 | `W.CONTRACT.UNIT_BASE_SERIALIZATION_INDETERMINATE` | W | Required unit/base or canonical semantic-hash metadata is missing or malformed. |
-
-## Connection-map structure and supported winding roles
-
-| Code | Severity | Meaning |
-|:--|:--|:--|
-| `E.INT.CONNECTION_SHAPE` | E | A branch/transformer component or winding is not an object, a winding list is not an array, a bus identifier is missing/non-string, or an endpoint map is not a nonempty string array. Raw traversal preserves the original winding index and never converts numeric winding fields. |
-| `E.INT.SWITCH_DIM_MISMATCH` | E | Switch endpoint maps have unequal lengths. Each position denotes one through conductor; no truncation or inferred mapping is allowed. Evidence includes both endpoints. |
-| `E.TMAP.WINDING_ROLES` | E | A transformer winding map violates the represented subtype's phase/neutral or positional rule, or coupled winding coil counts differ. This does not impose line continuity across independent windings. Evidence identifies the rule, side/winding and resolved roles; see [coverage table](connection_maps.md). |
-| `W.TMAP.CONNECTION_UNASSESSED` | W | Branch/winding role comparison is indeterminate because role declarations are malformed, roles are ambiguous/unclassified, bus neutrals are multiple, or earth conductors are outside this supported domain. References and structural errors retain their integrity owners. No role count is guessed. |

@@ -152,7 +152,7 @@ Ipopt, MadNLP, and ExaModels with NLPModelsIpopt commonly report
 `"OPTIMAL"` for a supported quadratic model. These statuses are not
 interchangeable claims about global optimality. Read the solver status together
 with residuals, bounds, and the independent checks in
-[Validating the OPF](validation.md).
+[Engine validation evidence](validation.md).
 
 ## Ipopt: the reference local NLP solve
 
@@ -506,7 +506,7 @@ A problem with at least one degree of freedom is not affected in this way:
 Ipopt then requires the scaled optimality error, which includes the constraint
 violation, to fall below `tol` (default `1e-8`). Whatever the settings, a
 status is a claim by the solver; check physical residuals in SI (see
-[Validating the OPF](validation.md)).
+[Engine validation evidence](validation.md)).
 
 ### A practical solver-selection workflow
 

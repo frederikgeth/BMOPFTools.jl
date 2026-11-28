@@ -16,7 +16,7 @@ A `time_series` entry is a named profile.
 | Field | Type | Unit | Req. | Description |
 |-------|------|:----:|:----:|-------------|
 | `values` | number[] | – | ✔ | Multiplicative scale factors, one per step |
-| `time` | number[] | s | | Optional time stamps for the steps |
+| `time` | number[] | – | | Optional time stamps for the steps (informational; not read by `get_snapshot`) |
 
 ### Referencing a profile
 
@@ -34,11 +34,16 @@ Any component that supports time variation carries a `time_series` map from a
 ```
 
 Here the load's `p_nom` is scaled by the `residential_shape` profile; unreferenced
-parameters stay static.
+parameters stay static. The referenced parameter must carry a static number or
+vector on the component; a reference to a missing parameter, or to an unknown profile
+id, is an error. References are resolved on every component collection and on every
+transformer subtype except `control_profile`, whose scalable values are nested inside
+the control-law sub-objects; a `time_series` map on a control profile is left
+unresolved.
 
 ## Snapshot semantics
 
-A snapshot at integer time index $\textcolor{red}{\tau}$ replaces each referenced
+A snapshot at integer time index $\textcolor{red}{\tau}$ (1-based) replaces each referenced
 parameter $\textcolor{red}{x}$ by
 
 ```math
@@ -53,11 +58,15 @@ solved exactly as documented on the component pages. A time series is therefore 
 
 ## Implementation in BMOPFTools
 
-- `get_snapshot(net, t_index)` walks every component's `time_series` map and multiplies
-  the named static parameter by `values[t_index]`, returning a plain static network.
-- The OPF builders (`solve_opf`, `solve_feasibility_opf`) accept a `t_index` argument
-  and snapshot the network before building the model; with the default index the
-  network is used as-is.
+- `get_snapshot(net, t_index)` returns a deep copy in which every component's
+  `time_series` map has been applied (the named static parameter multiplied by
+  `values[t_index]`) and removed, along with the root-level `time_series` object. An
+  out-of-range `t_index` raises a `BoundsError`. A network without time series is
+  returned as an unchanged copy.
+- `solve_opf`, `solve_feasibility_opf`, `solve_pf`, and `build_opf_model` accept a
+  `t_index` keyword (default `1`) and snapshot the network at that step before
+  building the model, so a time-series case solved without `t_index` uses its first
+  step.
 - Because a snapshot is a static network, all component models, the
   [objective](objective.md), and the [feasibility relaxation](objective.md#Feasibility-relaxation)
   apply unchanged.

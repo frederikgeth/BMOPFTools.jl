@@ -1,4 +1,4 @@
-# Validating the OPF engine
+# Engine validation evidence
 
 BMOPFTools ships a reference nonlinear four-wire rectangular current–voltage OPF ([`solve_opf`](opf.md)) used to
 validate cases and profile solutions. A reference solver is only as useful as its
@@ -109,8 +109,8 @@ rather than to an acceptable-but-loose point. Both sides use tight stopping
 tolerances (`1e-8`). A tolerance setting is not by itself proof of
 machine-precision solution accuracy; the voltage, KCL-slack, and loss assertions
 below are the observed checks. A residual difference can reflect an
-implementation/model mismatch or incomplete convergence, so convergence status
-is inspected separately.
+implementation/model mismatch or incomplete convergence; the comparison helper
+therefore refuses any OpenDSS solve that did not converge.
 
 The node-name mapping bridges the two conventions:
 
@@ -134,7 +134,7 @@ differences, conversion differences, and incomplete convergence.
 | `Load`/`PVSystem … Vminpu=0 Vmaxpu=2` (and `Vcutoff=0` for ZIP/exponential) | ≈ `Vminpu=0.95`, `Vmaxpu=1.05` | Outside that band OpenDSS silently switches a constant-power load to constant-impedance — a convergence aid BMOPF has no equivalent for. Widening the band keeps `model=1` strictly constant-P/Q (and the ZIP/exponential models on their true curve) across the whole voltage sweep. |
 | `Set Tolerance=1e-8` | `1e-4` (per-unit voltage-change convergence) | At the default, OpenDSS permits a voltage-change stopping threshold of ≈ `1e-4` pu — about `1.1 V` on an 11 kV base and comparable to the voltage-comparison `atol`. Tightening to `1e-8` reduces this convergence confound; the resulting voltage/residual assertions, not the setting alone, measure agreement. |
 | `Set MaxIterations=100` | `15` | Headroom so the tighter tolerance is actually reached rather than silently capping out. |
-| `Set DefaultBaseFreq=50` | `60` (or whatever a Windows GUI session persisted to the registry/environment) | Line and transformer reactances are interpreted *at the base frequency*, so an ambient default silently rescales every `X`. BMOPF models at 50 Hz ([`to_pmd`](api.md)), so the cases pin 50 Hz explicitly. The absolute value matters less than locking it unambiguously: with the solve frequency tracking the base frequency, the ohmic reactances are used as written either way — but the lock removes the dependency on the host's configuration so the cases are portable and reproducible. |
+| `Set DefaultBaseFreq=50` | `60` (or whatever a Windows GUI session persisted to the registry/environment) | Line and transformer reactances are interpreted *at the base frequency*, so an ambient default silently rescales every `X`. BMOPF impedances are given in ohms, not at a frequency; the decks pin 50 Hz explicitly (also the default frequency of [`to_pmd`](@ref)) so OpenDSS interprets the reactances the same way. The absolute value matters less than locking it unambiguously: with the solve frequency tracking the base frequency, the ohmic reactances are used as written either way — but the lock removes the dependency on the host's configuration so the cases are portable and reproducible. |
 
 Two further points on what we deliberately do **not** touch, so the "match the
 math, don't tune the answer" claim stays honest:
@@ -146,12 +146,11 @@ math, don't tune the answer" claim stays honest:
   (left at the default `Normal`) are likewise untouched — neither changes the
   physics.
 - **The open-delta regulator fixture (`pf_open_delta_reg`) does not produce a
-  converged OpenDSS reference** under the attempted algorithms/tolerances. Its
-  last iterate is retained as a diagnostic comparison, but a non-converged last
-  iterate is **not validation evidence** and is excluded from claims about
-  converged cross-engine agreement. The fixture should become a validated oracle
-  case only when a converged independent reference and residual report are
-  available.
+  converged OpenDSS reference** (it stops at the iteration limit), so it is not
+  compared with OpenDSS: its test checks the regulated line-to-line voltages
+  against the taps only. The comparison helper refuses any non-converged OpenDSS
+  solve. The converged open-delta decks in `test/data/opf_review_oracles/` carry
+  the cross-engine check for this subtype.
 
 ### Tolerances and their rationale
 
@@ -193,7 +192,7 @@ concern, so a failure points straight at the responsible component:
 | `pf_1ph_line`, `pf_3ph_line` | single- and three-phase line series impedance, unbalanced 4-wire loads |
 | `pf_1ph_freeneutral`, `pf_1ph_impedanceneutral`, `pf_1ph_perfectneutral` | neutral grounding: floating, grounding-reactor (Z = 0.2 Ω), and perfectly grounded |
 | `pf_zip_1ph`, `pf_zip_3ph`, `pf_zip_delta`, `pf_exp_1ph`, `pf_delta_load` | voltage-dependent load models — ZIP (distinct P/Q fractions), exponential (γ), and delta (line-to-line) connection |
-| `pf_1ph_xfmr`, `pf_yd_xfmr`, `pf_dy_xfmr`, `pf_center_tap_xfmr` | transformer windings/vector groups: YY, Yd, Dy, and split-phase center-tap |
+| `pf_1ph_xfmr`, `pf_yd_xfmr`, `pf_dy_xfmr` | transformer windings/vector groups: YY, Yd, Dy (the split-phase decks are listed below; `pf_center_tap_xfmr` is used by the round-trip harness only) |
 | `pf_dy_xfmr_rneut`, `pf_dy_xfmr_tap` | a Dy unit whose **only earth path is its internal neutral impedance** (`rneut`/`xneut` → `r_neutral_to`/`x_neutral_to`, 2 + j1 Ω, with no external grounding reactor), and a Dy unit at a **fixed off-nominal tap** (`taps=` → `tap`). The first is also the oracle for the profiler: OpenDSS solves it, so `analyze` must not report its low-voltage island as unreferenced |
 | `pf_3wdg_unequal_kva` | a three-winding unit with **unequal winding ratings**, which separates two readings of the per-winding `%R` base (winding 1's rating in OpenDSS, each winding's own in the importer). It records an open disagreement at primitive-admittance level and is used by the importer regression tests, not as a voltage oracle |
 | `pf_combined_3ph_split` | **source-bus angle offset**: one MV source feeding a 3-phase Dy *and* a split-phase center-tap transformer, solved both at the baseline angle and at a non-zero (+17°) source angle (see [Source-angle convention](#Source-angle-convention) below) |
@@ -228,7 +227,7 @@ harness, and so they are not counted in the generated inventory above.
     and power-balance oracles in `test/opf_review_regression_tests.jl`.
 
 The same decks hold the **profiler** to account. Every deck in
-`pf_comparison/` (and the SWER feeder) is solved by OpenDSS, so `analyze` must
+`pf_comparison/` (and the SWER feeder) is a case OpenDSS accepts, so `analyze` must
 report no error on them and a bounded number of warnings: the noise-budget test
 in `test/profiler_consolidation_tests.jl`. One exception is recorded there by
 name (`pf_pv_1ph`, `E.INT.UNKNOWN_TERMINAL`, an import artifact), so a new error
@@ -242,7 +241,7 @@ shows zero is feasible, not that it is forced.
 
 Single-phase, FOUR_LEG per-phase, and FOUR_LEG AVERAGE-reference **smart-IBR
 droop** are additionally validated against OpenDSS `InvControl` (deadband, slope,
-and saturation regimes) within the same file.
+and saturation regimes) in `test/powerflow_comparison_tests.jl`.
 
 **Each case must produce a meaningful voltage difference between its buses.** If
 every terminal sat at ≈ 1 pu there would be nothing for a model error to
@@ -294,36 +293,38 @@ and a family of fixtures pins it down rather than a single light-load case:
 
 - **Leg symmetry under a balanced heavy load** (`pf_center_tap_balanced_heavy`):
   a perfectly balanced load must keep the two legs equal; the fixture asserts
-  `|V_leg1 − V_ctr| ≈ |V_ctr − V_leg2|` directly, which is exactly what the old
-  decoupled model failed.
+  `|V_leg1 − V_ctr| ≈ |V_ctr − V_leg2|` directly, which a decoupled per-leg
+  model fails.
 - **Phase-to-phase, single-leg, and extreme one-leg loads**
   (`pf_center_tap_240` / `_singleleg_pn` / `_oneleg_extreme`): the 240 V load
   exercises the series-aiding winding polarity with zero center-tap current;
   the unbalanced loads drive the legs apart and check the split against OpenDSS.
-  Node voltages hold the default tight band (**atol 0.3 V / rtol 3e-3**) and
-  total losses match within **3 %** — the looser legacy tolerance is retired.
+  Node voltages are asserted at **atol 0.3 V / rtol 3e-3** (the general default
+  is rtol 1e-3; `pf_center_tap_loaded` uses 0.5 V / 2e-3) and total losses
+  within **3 %**.
 - **OPF ↔ Ybus agreement** (`center_tap OPF and Ybus models agree`): the OPF
   builder and the Ybus exporter implement the device independently, so a test
-  asserts the center-tap KCL closes on the `_yprim_center_tap` admittance — a
-  guard against the two paths drifting apart again.
+  asserts the center-tap KCL closes on the `_yprim_center_tap` admittance, so
+  the two paths cannot drift apart unnoticed.
 - **Continuous tap optimization under drop + unbalance** (*optimized tap vs
   OpenDSS (center_tap)*): a free HV tap on `pf_center_tap_loaded` (5 km feeder,
   heavy unequal legs) is optimized, then OpenDSS is solved with that tap set on
-  winding 1. Node voltages match to **≈ 0.25 V** and **total losses to ≈ 5 %**
-  (`rtol = 0.08` — the core loss now matches OpenDSS exactly on the boosted LV;
-  the residual is a documented center_tap leakage deviation at this extreme
+  winding 1. Node voltages are asserted at **atol 0.5 V** (observed ≈ 0.25 V)
+  and **total losses at rtol 0.08** (observed ≈ 5 %)
+  (the core loss matches OpenDSS exactly on the boosted LV; the residual is a
+  documented center_tap leakage deviation at this extreme
   boost point, see [transformer models](transformer_models.md)), and a wide-band
   internal-exactness check confirms the free degree-2 T-model reproduces the
-  fixed-`Yprim` re-solve at ``t^\star`` to **0.0 V** — so promoting the ratio to
-  a variable adds no modeling error.
+  fixed-`Yprim` re-solve at ``t^\star`` (asserted at **atol 1e-3 V**) — so
+  promoting the ratio to a variable adds no modeling error.
 - **Exact tap² referral for Yd/Dy** (*optimized tap vs OpenDSS (delta_wye Dy)*,
   and *Yd/Dy fixed tap across the schema band*): the coupled delta-arm leakage
   carries the exact ``tap²`` referral (matching OpenDSS's winding-1
   self-impedance scaling — verified directly against OpenDSS's short-circuit
   `Yprim`), applied identically in the OPF and the `Yprim` export. Validated at
   the ±10 % schema band edges at 4 fixed taps for both Yd and Dy against
-  OpenDSS's turns-scaled `Yprim`, plus the Dy optimized free tap — agreement is
-  at the ~0.3 V node-voltage floor at *every* tap, not just nominal.
+  OpenDSS's turns-scaled `Yprim`, plus the Dy optimized free tap — asserted at
+  atol 0.5 V / rtol 3e-3 (observed ≈ 0.3 V) at *every* tap, not just nominal.
 
 ### Parse-path and primitive-admittance gates
 
@@ -336,7 +337,7 @@ fixtures above:
   compares to OpenDSS, matching voltages and total losses. It guards the
   no-load shunt normalization — placed on **winding 2** (the OpenDSS
   convention), including the magnetizing susceptance (`%imag` → negative
-  `b_no_load`) — and the `delta_wye` leakage carried by PowerIO v0.9's BMOPF
+  `b_no_load`) — and the `delta_wye` leakage carried by PowerIO's BMOPF
   export, plus the `phases=1` requirement on grounding reactors without which
   the Dy neutral floats and the solve diverges.
 - **Transformer `Yprim` matches OpenDSS** (`single_phase`, `center_tap`,
@@ -369,7 +370,7 @@ fixtures above:
   and the OPF↔`Yprim` setpoint gate.
 - **PowerIO import fidelity** (`from_dss`): fixed off-nominal `taps=`, neutral
   grounding, and validated 3-phase 3-winding transformers arrive through
-  PowerIO v0.9's BMOPF export and are checked end to end against OpenDSS.
+  PowerIO's BMOPF export and are checked end to end against OpenDSS.
   Unsupported winding sets refuse loudly.
 
 ### System nodal admittance gates
@@ -394,15 +395,13 @@ whole-network ``\mathbf{Y}`` built by [`ybus_passive`](@ref) /
   ``\mathbf{Y}\,\mathbf{v}_0 = \mathbf{i}_{\text{comp}}(\mathbf{v}_0)`` must hold
   — i.e. the net current is ``\approx 0`` at every non-source node. This is
   asserted for **both** fold modes (`:constant_z` and `:all`) across the
-  `pf_comparison` WYE / DELTA / SINGLE\_PHASE ZIP and constant-power decks, and
+  `pf_comparison` ZIP (single-phase and delta), exponential, and constant-power
+  decks, and
   is the strongest single check: it exercises the passive assembly *and* the
   load folding together against an independent OpenDSS power flow, with the load
-  model's constant-Z / constant-I / constant-P split reconstructed exactly. Two
-  decks are excluded because `from_dss` imports them lossily rather than for any
-  Ybus reason — a 4-wire line whose neutral is dropped from the terminal map
-  ([#332](https://github.com/frederikgeth/BMOPFTools.jl/issues/332)) and an
-  exponential/CVR load previously imported as constant-power; now recovered from source IR and checked against OpenDSS
-  ([#333](https://github.com/frederikgeth/BMOPFTools.jl/issues/333)).
+  model's constant-Z / constant-I / constant-P split reconstructed exactly. One
+  deck, `pf_zip_3ph`, is excluded because of a line-import quirk, not for any
+  Ybus reason.
 
 The `Ybus` gates run without JuMP — they need only OpenDSSDirect.jl — so they
 execute on any CI job that has the OpenDSS reference available, independently of
@@ -460,7 +459,9 @@ These fixtures rebuild PMD's small OPF test networks directly in BMOPF's native
 schema (no PMD dependency) and assert the **published PMD dispatch totals** — the slack
 injection summed over phases, reported as `voltage_source[...]["ps"|"qs"]`. The
 2/3-bus cases target PMD's `IVRUPowerModel` (the formulation closest to BMOPF's
-current-voltage engine); the 4/5-bus and delta cases target PMD's AC formulations.
+current-voltage engine); the 4/5-bus cases target PMD's AC formulations, and the
+delta + ZIP case targets PMD's linearized formulations (FOTP/FOTR/FBS), the only
+references PMD gives for that voltage-dependent case.
 Because the values are ported rather than recomputed live by an independent
 global method, they are regression targets rather than proofs of the true/global
 optimum.
@@ -475,7 +476,7 @@ unless noted):
 | 3-bus unbalanced | 21.4812 | 9.27263 | `opf_iv.jl` (IVR) |
 | 4-bus phase drop | 18.2632 | 9.02334 | `opf.jl` (AC) — also pins load-bus voltages |
 | 5-bus phase drop | 59.9363 | −33.5395 | `opf.jl` (AC) — also pins mid-bus voltages |
-| 3-bus delta + ZIP | 42.0464 | 18.1928 | `opf.jl` (AC) — `atol = 1.0 kW/kvar`, voltage-dependent |
+| 3-bus delta + ZIP | 42.0464 | 18.1928 | PMD linearized (FOTP/FOTR/FBS) — `atol = 1.0 kW/kvar`, voltage-dependent |
 
 Each fixture rebuilds the network from the underlying OpenDSS source that PMD
 ships (`case{2_diag,3_balanced,3_unbalanced,4_phase_drop,5_phase_drop,3_unbalanced_delta_loads}.dss`),
@@ -621,14 +622,15 @@ row is one unit test to develop, and the *status* column tracks coverage.
 | Branch apparent power (`s_max`) | D | `P²+Q² ≤ s_max²`, `S=v∘conj(I_tot)` ground-referenced per conductor (both ends) | `branch.jl` | covered (L-SMAX-LINE) |
 | Branch angle difference (`va_diff_*`) | B | `tan·c ≤ s ≤ tan·c` | `branch.jl` | covered (Tier-4 D1) |
 | Switch current | A | `cr_sw²+ci_sw² ≤ ilim²` | `branch.jl` | covered (Tier-4 D) |
-| Switch apparent power (`s_max`) | D | `P²+Q² ≤ s_max²` ground-referenced per conductor | `branch.jl` | covered (L-SMAX-SW) |
+| Switch apparent power (`s_max`) | D | `P²+Q² ≤ s_max²` ground-referenced per conductor | `branch.jl` | partial (stamping checked by T-SEMANTIC-SWITCH; no binding test) |
 | Transformer winding/terminal currents | A | `Is²,It²,In² ≤ i_max²` (native); post-solve per-winding `cm ≤ i_max_from/to` | `transformer.jl`, `solution.jl` | covered (post-solve) |
 | Transformer nameplate power (`s_rating`, required → always enforced) | D | per-winding coil `P²+Q² ≤ (s_rating/n_ph)²` (native); post-solve coil `\|S\| ≤ s_max` from result `s`/`s_max` | `transformer.jl`, `solution.jl` | covered (L-SMAX-XFMR, Tier-4 X1) |
-| n-winding per-winding power (`s_max`) | D | per-winding coil `P²+Q² ≤ (s_max/n_ph)²` (native + post-solve) | `nwinding.jl`, `solution.jl` | covered (L-SMAX-NW) |
+| n-winding per-winding power (`s_max`) | D | per-winding coil `P²+Q² ≤ (s_max/n_ph)²` (native + post-solve) | `nwinding.jl`, `solution.jl` | gap (no dedicated binding test) |
 | Generator / source P,Q limits | D | bounds on `p=vr·ir+vi·ii` | `generator.jl`, `source.jl` | covered (T3, T4) |
 | Generator / IBR apparent power (`s_max`) | A | `pg²+qg² ≤ s_max²` | `generator.jl`, `ibr.jl` | covered (T-INV3); strict recompute scaffold (L-A8) |
 | Generator / IBR current magnitude (`i_max`) | A | `cr²+ci² ≤ i_max²` (optional, opt-in) | `generator.jl`, `ibr.jl` | covered (T-INV5, T-INV6, T-GEN-IMAX, T-GEN-IMAX-PU) |
-| IBR power-factor coupling | D | `pf·q + tan_φ·p = 0` | `ibr.jl` | gap (see [VVWO](tutorial_vvwo.md)) |
+| IBR power-factor coupling | D | `pf·q + tan_φ·p = 0` | `ibr.jl` | covered (T-INV2) |
+| Neutral current (`i_max` neutral entry) | A | `\|Σ Iₖ\|² ≤ i_max,n²` | `generator.jl`, `ibr.jl` | covered (L-A9) |
 
 ## [Network reduction evidence — Opti-KRON against the published results](@id opti-kron-validation)
 
@@ -716,10 +718,11 @@ The OPF and OpenDSS tests are optional dependencies, guarded in
   OpenDSSDirect.jl (`_HAS_ODS`).
 
 When a dependency is absent the relevant testset is `@test_skip`-ped rather than
-failed, so the core suite runs anywhere. Run everything from the package root:
+failed, so the core suite runs anywhere; CI sets `BMOPF_REQUIRE_TEST_DEPS=true` so
+that a missing dependency fails instead. Run everything from the package root:
 
 ```
-julia --project=. -e "using Pkg; Pkg.test()"
+julia --project=test --startup-file=no test/runtests.jl
 ```
 
 ## [References](@id refs-validation)
@@ -737,17 +740,3 @@ julia --project=. -e "using Pkg; Pkg.test()"
 4. R. C. Dugan, "A perspective on transformer modeling for distribution system analysis," 
    2003 IEEE Power Engineering Society General Meeting (IEEE Cat. No.03CH37491), Toronto, 
    ON, Canada, 2003, pp. 114-119 Vol. 1, doi: 10.1109/PES.2003.1267146.
-
-### Exact and modeled Volt-watt compliance
-
-`profile_solution` reports `controller_compliance` separately for each assessed
-IBR phase. `exact_profile_compliance` uses the network's declared piecewise-linear
-cap and retains `E.SOL.IBR_VIOLATION` for excess output. It is not relaxed to
-accommodate smoothing. `modeled_cap_feasibility` reconstructs the supplied
-`modeled_volt_watt` curve in SI using its live hinge coefficients, fixed smoothing
-width, and softplus/Swish encoding. Native solves export those coefficients.
-
-The report includes both caps and excesses, the signed approximation error,
-and `epsilon_V`. Missing or unsupported curve evidence is indeterminate. A
-modeled-cap pass concerns that declared curve only; it does not authenticate
-solver stamping or establish complete network feasibility.

@@ -5,7 +5,7 @@ AI coding assistants can help inspect BMOPF cases, explain diagnostics, write Ju
 This page applies equally to ChatGPT, Codex, Claude, and other assistants. It describes safe use of the package; it does not add an LLM retrieval service to BMOPFTools.
 
 For machine discovery, start with the concise published
-[`llms.txt`](https://frederikgeth.github.io/BMOPFTools.jl/docs/llms.txt) index.
+[`llms.txt`](https://frederikgeth.github.io/BMOPFTools.jl/dev/llms.txt) index.
 It links the canonical documentation, executable manifests, response schema,
 MCP adapter, and recipes; this page remains the fuller operating guide.
 
@@ -24,41 +24,18 @@ MCP adapter, and recipes; this page remains the fuller operating guide.
 | Analyze confidential network data | A locally controlled environment approved for that data | Do not upload protected models to an unapproved external service |
 | Establish a general scientific conclusion | The book's grounded access route, followed by the relevant executable check | A package result alone is not a literature or evidence review |
 
-BMOPFTools does not expose a package-specific retrieval service: scientific
-retrieval remains in the book. An assistant with repository and terminal access
-can call the Julia API directly or use the package's curated
-[JSON execution interface](execution_interface.md). Application integrations
-should consume these structured outputs rather than scrape documentation or
-diagnostic prose. Local MCP clients can launch `bin/bmopf-mcp`; the adapter
-returns the same versioned execution envelopes and does not add retrieval logic.
+An assistant with repository and terminal access can call the Julia API
+directly or use the curated [JSON execution interface](execution_interface.md),
+from the CLI or through the MCP adapter. Application integrations should consume
+these structured outputs rather than scrape documentation or diagnostic prose.
 
-## Connect ChatGPT, Codex, Claude, or another MCP client
+## Connect an MCP client
 
-The repository ships a read-only local MCP stdio server:
-
-```sh
-/absolute/path/to/BMOPFTools.jl/bin/bmopf-mcp
-```
-
-For Codex, add it with the current documented CLI form:
-
-```sh
-codex mcp add bmopftools \
-  --env BMOPFTOOLS_MCP_ALLOWED_ROOTS=/absolute/path/to/BMOPFTools.jl:/absolute/path/to/cases \
-  -- /absolute/path/to/BMOPFTools.jl/bin/bmopf-mcp
-```
-
-The ChatGPT desktop app can register the executable as a local STDIO server in
-**Settings → MCP servers**; Codex CLI, the IDE extension, and the desktop app
-share MCP configuration on the same Codex host. Consult the
-[official OpenAI MCP documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
-for current setup details.
-
-Claude Desktop and Claude Code can use the same executable as an MCP stdio
-command. Other clients should configure the command using their own MCP server
-settings. By default the server reads only files inside this checkout; expand
-the allowlist deliberately with `BMOPFTOOLS_MCP_ALLOWED_ROOTS` when case or
-result files live elsewhere.
+The repository ships a read-only local MCP stdio server, `bin/bmopf-mcp`. Any MCP
+client (Claude Code, Claude Desktop, Codex, ChatGPT desktop, or others) registers
+it as a stdio command; the [MCP adapter section](execution_interface.md#MCP-stdio-adapter)
+gives the command, example registrations, and the `BMOPFTOOLS_MCP_ALLOWED_ROOTS`
+allowlist for case files outside the checkout.
 
 The server exposes package execution, not scientific retrieval. Keep the
 book's `multi-graph-book` MCP server connected when the task also requires
@@ -85,28 +62,11 @@ For a development checkout, record the Git commit as well. Version `0.1.0` at tw
 
 ## Prompt templates
 
-For the initial parallel-member contract, the same evidence can be produced
-without composing Julia code:
-
-```sh
-bin/bmopf check-contract parallel_member_limit_preservation \
-  --source source.json --target aggregate.json \
-  --member-id line_1 --member-id line_2 --aggregate-id aggregate --pretty
-```
-
-The response records package identity, input hashes, request parameters,
-contract status, checked and unassessed dimensions, Findings, and evidence.
-An `error` response means no scientific evaluation occurred; it must not be
-reported as `failed` or `inapplicable`.
-
-The neutral/ground/reference route likewise requires an explicit mapping rather
-than inferring identity from equal bus names:
-
-```sh
-bin/bmopf check-contract neutral_ground_reference_preservation \
-  --source source.json --target transformed.json \
-  --bus-map source_bus=source_bus --bus-map load_bus=load_bus --pretty
-```
+Each template below is a starting prompt for one task, followed by the package
+entry points the assistant should use. The CLI equivalents and their response
+format are in the [JSON execution interface](execution_interface.md); an `error`
+response there means no evaluation occurred and must not be reported as `failed`
+or `inapplicable`.
 
 ### Parse and inventory without validating
 
@@ -211,6 +171,11 @@ overload does not accept them. The recorded context is already present in the
 JSON report, while the code-only lookup supplies the catalog explanation.
 
 ### Evaluate a scientific contract
+
+The same reporting rule applies to every contract below: report the status,
+checked and unassessed dimensions, Findings, tolerances and witness; never convert
+`inapplicable` or `indeterminate` into a pass or failure; and never promote a pass
+beyond the property the contract checks.
 
 > Evaluate `parallel_member_limit_preservation` for the declared source members `<IDs>` and target aggregate `<ID>`. Report the `ScientificContractResult` status, checked dimensions, unassessed dimensions, Findings, tolerances, and witness. If the result is `inapplicable` or `indeterminate`, do not convert it to a pass or failure. Treat `PSK-000001` as a link to the book's scoped scientific statement, not as a claim that the scalar implementation covers multiconductor or state-dependent branches.
 

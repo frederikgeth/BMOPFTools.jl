@@ -103,8 +103,10 @@ for pair $k$ (nodes $[p,q]$), with $\textcolor{brown}{\mathbf{C}}=[\,1\;\;-\text
 \begin{bmatrix}\textcolor{blue}{U_p}\\ \textcolor{blue}{U_q}\end{bmatrix}.
 ```
 
-The full block is **block-diagonal** over the $\textcolor{red}{n_c}$ phase-pairs. Each
-grounded neutral (from and/or to) that a phase-pair returns to adds
+This $2\times2$ block applies to each of the $\textcolor{red}{n_c}$ coils, on its coil
+voltages. The full matrix is block-diagonal over the phase pairs only when every coil
+is phase-to-ground; a neutral terminal shared by several coils couples their blocks
+through that node. Each grounded neutral (from and/or to) that a coil returns to adds
 $\textcolor{brown}{y_n}$ to that neutral node's diagonal.
 
 ## 3. `center_tap` (split-phase, 3-winding)
@@ -121,7 +123,6 @@ $g$). Refer all arms to the LV base:
 
 The stored primary arm is in nominal ohms; its physical impedance scales by
 `tap²`, so the referred primary admittance is independent of the primary tap.
-This matches the non-unity-tap OpenDSS fixtures for #393.
 
 Eliminating the internal star node gives the symmetric 3-port star admittance in the
 winding-terminal ordering $[\text{HV-ref},\,\text{leg-1},\,\text{leg-2}]$, with
@@ -304,19 +305,19 @@ across the from/to pair $(p,q)$, summed with the from-side shunt:
 ```
 
 This is the device's natural line-to-line admittance — the "unspecified neutral" matrix
-of Yan et al. (2018), IEEE Trans. Smart Grid **9**(3):2224–2234, [doi:10.1109/TSG.2016.2609440](https://doi.org/10.1109/TSG.2016.2609440), Eq. (11): the shared phase
+of Yan et al. (2018) ([ref. 29](../references.md#refs)), Eq. (11): the shared phase
 carries $2\textcolor{brown}{y_t}$ on its diagonal (both regulators) and the from↔to
 coupling scales as $\textcolor{red}{n^{\text{eff}}}$ and $(\textcolor{red}{n^{\text{eff}}})^2$ — the autotransformer factor, not an isolated-transformer ratio. The galvanic
 straight-through of the shared phase (the paper's *common-neutral* model, its Eq. 14) is
-a **topological constraint imposed in the OPF**, not folded into this primitive — folding
+a **topological constraint imposed by the OPF and by the network Ybus builders**
+(which alias the shared phase), not folded into this primitive — folding
 it in would conflate the device admittance with one particular elimination of the shared
 node.
 
 ## 7. Validation and implementation
 
-The blocks are built by
-[`transformer_yprim`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/src/io/to_ybus.jl)
-(`nwinding_yprim` for `n_winding`) and exported node-aligned via `export_yprim` /
+The blocks are built by [`transformer_yprim`](@ref) (an internal `nwinding_yprim`
+for `n_winding`) and exported node-aligned via `export_yprim` /
 `write_yprim`, for direct comparison with OpenDSS `Export Y`. Four gates hold each block
 to the physics:
 
@@ -324,7 +325,7 @@ to the physics:
 |------|-------|
 | **Symmetry** | $\lVert\textcolor{brown}{\mathbf{Y}_x}-\textcolor{brown}{\mathbf{Y}_x}^{\text{T}}\rVert_\infty<\epsilon$ for every block. |
 | **Closed form** | the `single_phase` $2\times2$ block matches §2 exactly (unit-test oracle). |
-| **Power balance** | $\mathfrak{R}[\textcolor{blue}{\mathbf{U}}^{\text{H}}\textcolor{brown}{\mathbf{Y}_x}\textcolor{blue}{\mathbf{U}}]=\sum_k\lvert\textcolor{blue}{I_k}\rvert^2\textcolor{red}{R_k}$ (winding resistive loss) for arbitrary $\textcolor{blue}{\mathbf{U}}$. |
+| **Passivity** | $\mathfrak{R}[\textcolor{blue}{\mathbf{U}}^{\text{H}}\textcolor{brown}{\mathbf{Y}_x}\textcolor{blue}{\mathbf{U}}]\ge 0$ (non-negative absorbed power) at a set of test excitations, and invariance under a common phase rotation. This is a finite check, not a proof of passivity. |
 | **OpenDSS cross-check** | dump `Yprim` per fixture, permute to the same node order, assert $\lVert\textcolor{brown}{\mathbf{Y}_x}^{\text{bmopf}}-\textcolor{brown}{\mathbf{Y}_x}^{\text{dss}}\rVert_\infty<\text{tol}$ — catches turns-ratio direction, $\sqrt3$ scaling, delta phase-shift, and shunt placement in one shot. |
 
 A fifth gate ties this export to the [OPF constraints](transformer.md#6.-Implementation-in-BMOPFTools):

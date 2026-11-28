@@ -26,8 +26,6 @@ makedocs(
             "Installation & first steps" => "installation.md",
             "First case: inspect, solve & verify" => "first_case.md",
             "Choose your tutorial" => "choose_tutorial.md",
-            "Positioning & ecosystem" => "positioning.md",
-            "Why benchmarks matter" => "benchmarking_gap.md",
         ],
         "Network models & data" => [
             # Ordered concept -> component guide -> reference -> conversion.
@@ -49,6 +47,37 @@ makedocs(
                 "Device parameter indexing" => "device_indexing.md",
                 "Branch and winding maps" => "connection_maps.md",
                 "Transformer phase relations" => "transformer_phase.md",
+            ],
+            # BMOPFTools behavior per data-model element. The external Task Force
+            # specification owns the foundational model for the elements it covers;
+            # these pages record extensions and implementation, and are the only
+            # reference for IBRs, control profiles, regulators, DC and time series.
+            "Data model specification" => [
+                "Overview" => "spec/index.md",
+                "Background & scope" => "spec/scope.md",
+                "Notation" => "spec/notation.md",
+                "Data input formatting" => "spec/data-format.md",
+                "Grounding" => "spec/grounding.md",
+                "Worked example" => "spec/example.md",
+                "Document metadata" => "spec/metadata.md",
+                "Buses" => "spec/bus.md",
+                "Lines" => "spec/line.md",
+                "Impedance derivation" => "spec/impedance.md",
+                "Switches" => "spec/switch.md",
+                "Loads" => "spec/load.md",
+                "Generators" => "spec/generator.md",
+                "Inverter-based resources" => "spec/ibr.md",
+                "Control profiles" => "spec/control-profile.md",
+                "Shunts" => "spec/shunt.md",
+                "Capacitors" => "spec/capacitor.md",
+                "Voltage sources" => "spec/source.md",
+                "Transformers" => "spec/transformer.md",
+                "Regulators" => "spec/regulator.md",
+                "DC networks" => "spec/dc.md",
+                "Time series" => "spec/timeseries.md",
+                "Objective & feasibility" => "spec/objective.md",
+                "Modeling notes & FAQ" => "spec/faq.md",
+                "References" => "spec/references.md",
             ],
             "Import & export" => [
                 "Conversion guide" => "conversion.md",
@@ -84,6 +113,7 @@ makedocs(
             # Overview first, then focused tutorials, then guide and reference.
             "Prepare a case" => [
                 "From OpenDSS to a solved OPF benchmark" => "tutorial_end_to_end.md",
+                "Developing OPF case families" => "tutorial_case_development.md",
                 "Reading augmentation provenance" => "tutorial_nameplate.md",
                 "From test report to transformer model" => "tutorial_transformer_tests.md",
                 "Placing DERs and reading the binding constraint" => "tutorial_ders.md",
@@ -101,24 +131,30 @@ makedocs(
             ],
         ],
         "Power flow & OPF studies" => [
-            "OPF guide & model" => "opf.md",
-            "Transformer equations in the OPF" => "opf_transformers.md",
-            "Solver guide" => "solvers.md",
-            "Choosing an objective" => "objectives.md",
-            "Objectives tutorial" => "tutorial_objectives.md",
-            "Developing OPF case families" => "tutorial_case_development.md",
-            "Time series: a day on an LV feeder" => "tutorial_timeseries.md",
-            "PV volt-var / volt-watt study" => "tutorial_vvwo.md",
-            "Transformer tap optimization" => "tutorial_tap.md",
-            "D-STATCOM unbalance study" => "tutorial_statcom.md",
-            "SWER case study" => "tutorial_swer.md",
-            "MVDC/LVDC converter stations" => "tutorial_mvdc.md",
+            # Guides and reference first, then worked studies.
+            "Guide & reference" => [
+                "OPF guide & model" => "opf.md",
+                "Transformer equations in the OPF" => "opf_transformers.md",
+                "Solver guide" => "solvers.md",
+                "Choosing an objective" => "objectives.md",
+            ],
+            "Studies" => [
+                "Objectives tutorial" => "tutorial_objectives.md",
+                "Time series: a day on an LV feeder" => "tutorial_timeseries.md",
+                "PV volt-var / volt-watt study" => "tutorial_vvwo.md",
+                "Transformer tap optimization" => "tutorial_tap.md",
+                "D-STATCOM unbalance study" => "tutorial_statcom.md",
+                "SWER case study" => "tutorial_swer.md",
+                "MVDC/LVDC converter stations" => "tutorial_mvdc.md",
+            ],
         ],
         "Verify & diagnose results" => [
             "Trust but verify: one solved case" => "tutorial_trust_but_verify.md",
             "Solution projection & power-flow comparison" => "solution_projection.md",
             "OPF result dictionary" => "results.md",
             "Infeasibility diagnosis tutorial" => "tutorial_infeasibility.md",
+            "Trusting the solver" => "bounds/solver_trust.md",
+            "Diagnosing a formulation" => "bounds/diagnostics.md",
         ],
         "Advanced formulations & numerics" => [
             "Choose an advanced route" => "advanced.md",
@@ -127,22 +163,27 @@ makedocs(
             "Exact substitutions & formulation boundaries" => "formulation_substitutions.md",
             "Smooth droop encoding" => "relu_softplus_encoding.md",
             "Custom formulations: CVR, envelopes & hooks" => "tutorial_custom_formulations.md",
-            "Model extensions & sensitivities" => "differentiable_extensions.md",
+            "Extending the OPF model" => "differentiable_extensions.md",
+            "Repeated solves, parameters & providers" => "repeated_solves.md",
+            "Sensitivities with DiffOpt" => "diffopt_sensitivities.md",
             "Scaling, initialization & diagnostics" => "numerical_workflows.md",
-            "Repeated solves & parameter updates" => "repeated_solves.md",
+            # Theory of bounds and solution branches. The practical pages
+            # (solver_trust, diagnostics) sit under Verify & diagnose results.
             "Bounds & feasibility" => [
                 "bounds/index.md",
                 "bounds/decision_matrix.md",
-                "bounds/loss_maximization.md",
-                "bounds/diagnostics.md",
                 "bounds/known_traps.md",
-                "bounds/solver_trust.md",
                 "bounds/references.md",
             ],
         ],
         "Automation & integration" => [
             "JSON execution & recipes" => "execution_interface.md",
             "Use with AI coding assistants" => "ai_assistants.md",
+        ],
+        # Background and motivation, not prerequisites for any workflow.
+        "About BMOPFTools" => [
+            "Positioning & ecosystem" => "positioning.md",
+            "Why benchmarks matter" => "benchmarking_gap.md",
         ],
         "Reference & development" => [
             "API reference" => "api.md",
@@ -154,12 +195,10 @@ makedocs(
                 "Contributing & workflow" => "dev/contributing.md",
                 "Style guide" => "dev/style_guide.md",
                 "Versioning & the data model" => "dev/versioning.md",
-                "OPF engine: scope & status" => "dev/opf_engine.md",
+                "OPF engine: design & runtime contracts" => "dev/opf_engine.md",
                 "Profiling pipeline" => "dev/profiling.md",
             ],
         ],
-        # Existing spec pages still render for inbound links.
-        "BMOPF specification" => "spec/index.md",
     ],
     checkdocs = :exports,   # every exported symbol must have a docstring (no suppression)
 )

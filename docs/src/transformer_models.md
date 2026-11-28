@@ -153,7 +153,7 @@ agreement at a given setpoint is a guarded invariant: the test suite reconstruct
 the element current `I = Yₚ·V` from a solved power flow and checks it node-by-node
 against the solved OPF winding-current variables, for `single_phase`,
 `center_tap`, `wye_delta`, and `delta_wye`, including off-nominal fixed taps. See
-[Validating the OPF](validation.md).
+[Engine validation evidence](validation.md).
 
 ## Tap fields and tap optimization
 

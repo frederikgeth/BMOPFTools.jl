@@ -20,7 +20,7 @@ goes deeper on the conventions and guard-rails:
 - [Versioning & the data model](versioning.md) — the two version axes (package
   SemVer and the BMOPF spec version), the migration requirement, and how
   data-model changes go through the Task Force.
-- [OPF engine: scope & status](opf_engine.md) — the correctness bar for the
+- [OPF engine: design & runtime contracts](opf_engine.md) — the correctness bar for the
   reference optimizer and the modeling preferences for new constraints.
 - [Profiling pipeline: priorities](profiling.md) — what makes a good new finding
   and what is currently out of scope.
@@ -59,21 +59,22 @@ So: contribute drafts freely; don't assume a draft becomes official.
    sure nothing is badly wrong. Aim to clear `E.` (error) findings, but a draft
    with understood warnings is still welcome — read the
    [finding-code reference](../findings.md).
-3. **Cross-check** against OpenDSS where you can: the test suite runs a relaxed
-   power-flow comparison against OpenDSSDirect when it is installed. A case that
-   matches the source deck's power flow is more trustworthy than one that only
+3. **Cross-check** against OpenDSS where you can: solve the case and compare it
+   with the source deck's power flow, as in
+   [solution projection and power-flow comparison](../solution_projection.md). A
+   case that matches its source deck is more trustworthy than one that only
    parses — and helps when the Task Force later assesses it.
 4. **Prepare** the case if it is destined to be an OPF benchmark — see
    [case augmentation](../augmentation.md) (`fix_case` → `add_generators` →
    `augment_case`), which records every change in a `TransformationManifest`.
 5. **Open a PR**, and confirm the license in the case header.
 
-!!! note "Official benchmark data is the Task Force's, and will live elsewhere"
-    The Task Force owns the official benchmark releases. The accepted cases under
-    `/output` and the source decks under `/test/data` are expected to be carved
-    out into a separate, versioned, Task-Force-governed repository so they can be
-    released and cited independently of the tooling. Draft cases can be hosted
-    here in the meantime.
+!!! note "Benchmark data lives outside this repository"
+    The Task Force owns the official benchmark releases. Source networks,
+    converted benchmark cases and their generation pipeline are kept in
+    [BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData), so they can
+    be versioned, licensed and cited independently of the tooling. This
+    repository bundles only small test fixtures under `test/data/`.
 
 ## Contributing tooling or analysis
 
@@ -84,25 +85,21 @@ should include:
 - **A docstring** on every exported symbol — CI fails otherwise
   (`checkdocs = :exports`).
 - **A `findings.md` row** if you introduce a new finding code, with its trigger
-  and rationale. Finding codes are a stable, matched-on API; see the
-  [style guide](style_guide.md).
-- **No drop in coverage** — Codecov reports on every PR.
+  and rationale, followed by `python3 scripts/generate_finding_registry.py --write`
+  (the registry is generated from that page). Finding codes are a stable,
+  matched-on API; see the [style guide](style_guide.md).
+- **Coverage** — Codecov reports on every PR; explain any drop.
 
 See the [style guide](style_guide.md) for the full set of conventions.
 
 ## Contributing a tutorial
 
 Tutorials are welcome contributions. The one rule: **a new tutorial must not
-substantially overlap an existing one.** The current tutorials are
-
-- [End-to-end tutorial](../tutorial_end_to_end.md) — load → analyze → fix →
-  place DERs → augment → solve,
-- [DER placement tutorial](../tutorial_ders.md),
-- [VVWO tutorial](../tutorial_vvwo.md),
-- [SWER case study](../tutorial_swer.md).
+substantially overlap an existing one.** Check the
+[tutorial map](../choose_tutorial.md) first.
 
 Litmus test: a tutorial earns its own page only if it teaches a workflow or
-feature that none of the above already walks through. If your idea overlaps an
+feature that no existing tutorial already walks through. If your idea overlaps an
 existing tutorial, propose **merging** your material into that page rather than
 adding a parallel one. When two pages drift into heavy overlap, we will consider
 merging them.
@@ -113,20 +110,18 @@ From the package root:
 
 ```sh
 # full test suite (power-flow comparison tests are skipped when OpenDSSDirect is absent)
-julia --project=. -e "using Pkg; Pkg.test()"
+julia --project=test --startup-file=no test/runtests.jl
 
-# generate analysis reports and simplified variants for all output/ networks
-julia --project=. scripts/generate_output.jl
+# optional suites, each with its own environment (also run in CI)
+julia --project=test/diffopt    test/diffopt/runtests.jl
+julia --project=test/examodels  test/examodels/runtests.jl
+julia --project=test/downstream test/downstream/runtests.jl
 ```
 
-The OPF / benchmark scripts carry `JuMP` + `Ipopt` in their own environment;
-instantiate it once:
-
-```sh
-julia --project=scripts -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
-julia --project=scripts scripts/run_benchmark.jl            # all stages
-julia --project=scripts scripts/run_benchmark.jl opf        # or: outputs / solutions
-```
+The benchmark networks, their analysis reports and the generation pipeline
+(`generate_output.jl`, `run_benchmark.jl`) live in
+[BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData); run them from
+that repository.
 
 Build the documentation locally:
 
@@ -137,6 +132,47 @@ julia --project=docs docs/make.jl
 ```
 
 One-off data-migration scripts live in `scripts/oneoff/`.
+
+## [Scientific guardrails and generated metadata](@id contributing-guardrails)
+
+BMOPFTools owns executable behavior (APIs, applicability checks, Findings,
+fixtures, exports); the companion book *What Power-Network Models Preserve* owns
+the scientific claims and their stable `PSK-*` identities. Read `AGENTS.md` and
+`ARCHITECTURE.md` before changing a scientific contract or cross-repository
+metadata. In short: link behavior to a PSK id, declare the supported domain and
+return an explicit inapplicable/indeterminate result outside it, match Finding
+codes rather than message text, and add positive, negative, boundary and
+serialization tests (with a minimized fixture when a failure witness is central).
+
+The primary gates, also run in CI:
+
+```sh
+python3 scripts/generate_finding_registry.py --check
+python3 scripts/generate_executable_knowledge.py --check
+julia --project=test --startup-file=no -e 'using Test, BMOPFTools; include("test/scientific_contract_tests.jl"); include("test/executable_knowledge_tests.jl"); include("test/execution_interface_tests.jl")'
+julia --project=test --startup-file=no test/runtests.jl
+```
+
+### Executable discovery export
+
+`knowledge/executable.toml` is the package-owned registry for executable contracts and Findings. The generator validates its source paths, exported API, fixture metadata, Finding definitions, and source hashes, then writes:
+
+- `generated/executable_knowledge.jsonl`, containing contract, API, Finding,
+  fixture, and recipe records; and
+- `generated/executable-knowledge-manifest.json`, containing package identity, record counts, corpus hash, and source hashes.
+
+Check that committed records are current with:
+
+```bash
+python3 scripts/generate_finding_registry.py --check
+python3 scripts/generate_executable_knowledge.py --check
+```
+
+The sibling book pins this export in its federated pair manifest. That link lets book retrieval expose an implemented guardrail without copying package semantics into the scientific registry.
+
+The [JSON execution interface and recipes](../execution_interface.md) use these
+same stable identifiers. Recipe metadata is canonical under `recipes/` and is
+validated and source-hash-bound by the executable-knowledge generator.
 
 ## Licensing of contributions
 

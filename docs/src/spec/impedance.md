@@ -25,7 +25,7 @@ A `wire_data` entry is a reusable conductor/cable construction type, referenced 
 | `i_max`, `i_max_emergency` | number | A | | Continuous / emergency current rating |
 | `eps_r`, `t_insulation`, `d_insulation`, `d_cable` | number | –, m | | Insulation permittivity and cable dimensions (cables) |
 | `n_strands`, `d_strand`, `gmr_strand`, `r_strand` | – | –, m, Ω/m | | Concentric-neutral strand data (`cn_cable`) |
-| `d_shield`, `t_tape`, `tape_lap` | number | m, %, m | | Tape-shield data (`ts_cable`) |
+| `d_shield`, `t_tape`, `tape_lap` | number | m, m, % | | Tape-shield data (`ts_cable`) |
 
 ## Line geometry
 
@@ -39,38 +39,48 @@ terminal.
 | `earth_model` | string | – | | `modified_carson` (default), `full_carson`, or `deri` |
 | `earth_resistivity` | number | Ω·m | | Homogeneous earth resistivity (default 100) |
 | `capacitance_model` | string | – | | `thin_wire` (default; a line charge at each conductor center) or `charge_simulation` (resolves each conductor's surface charge; accurate for tightly bundled conductors) |
-| `temperature` | number | °C | | Conductor operating temperature (resistances corrected via `alpha_20`) |
+| `temperature` | number | °C | | Conductor operating temperature (resistances corrected from `temperature_ref` via `alpha_20` when present) |
 
 The `conductors` **order defines the matrix row order** of the compiled linecode, and
 each conductor maps to exactly one circuit terminal.
 
 ## Compilation to a linecode
 
-`compile_linecode` builds the **full primitive** per-meter matrices from the geometry:
+`compile_linecode(net, geometry_id; id=geometry_id, force=false)` builds the
+**full primitive** per-meter matrices from the geometry and stores them as
+`net["linecode"][id]` (an existing linecode is overwritten only with `force=true`):
 
 - **Series impedance** $\textcolor{brown}{\mathbf{Z}^{\text{s}}_c}$ (Ω/m) from the
   conductor self/mutual impedances (GMR, spacing) plus the earth-return correction of
   the selected `earth_model` (modified/full Carson, or Deri), with resistances
-  temperature-corrected to `temperature`.
-- **Shunt admittance** $\textcolor{brown}{\mathbf{Y}^{\text{sh}}_c}$ (S/m) from the
-  Maxwell potential coefficients (using `cap_radius`), split into the from/to
-  half-sections. `capacitance_model` selects how the overhead capacitance is
-  computed; `thin_wire` loses accuracy once (r_i + r_j)/d exceeds about 0.5.
-- **Ratings** carried from `wire_data.i_max` into the linecode's `i_max`.
+  temperature-corrected to `temperature` (see Kersting in [References](references.md)).
+- **Shunt susceptance** (S/m), split equally into the from/to half-sections: for
+  overhead conductors from the Maxwell potential coefficients (perfect-earth images,
+  using `cap_radius`); for cables the coaxial phase-to-shield capacitance (diagonal).
+  No shunt conductance is emitted. `capacitance_model` selects the overhead kernel;
+  `thin_wire` loses accuracy once $(r_i + r_j)/d$ exceeds about 0.5
+  (`W.DOM.GEOM_THIN_WIRE`).
+- **Ratings** carried from `wire_data.i_max` into the linecode's `i_max`, when every
+  conductor's wire type has one.
 
 Every conductor maps to a terminal, so the compiled matrix is the **full primitive
-matrix — there is no Kron elimination**. Grounding is expressed on the bus
-(`perfectly_grounded_terminals`), not by reducing the matrix, keeping the neutral/earth
-conductors explicit (consistent with the four-wire model). The compilation records its
-provenance (method, earth resistivity, frequency, temperature) in the linecode's
-`derivation` block.
+matrix of the circuit conductors — they are never Kron-eliminated**. Grounding is
+expressed on the bus (`perfectly_grounded_terminals`), not by reducing the matrix,
+keeping the neutral/earth conductors explicit (consistent with the four-wire model).
+The one exception is internal cable structure: concentric-neutral strands and tape
+shields are built as subconductors held at earth potential and reduced into the
+cable's equivalent conductor (recorded under `derivation.shields_reduced`). The
+compilation records its provenance in the linecode: `source = "geometry"`, a
+`line_geometry` back-reference, and a `derivation` block (earth model, capacitance
+model, earth resistivity, frequency, temperature, applied defaults, tool version).
 
 ## Implementation in BMOPFTools
 
 - `compile_linecode` assembles the primitive impedance (Carson/Deri) and Maxwell
   potential matrices and emits a `linecode` object with `R_series_k_j`, `X_series_k_j`,
-  `G_from_k_j`/`G_to_k_j`, `B_from_k_j`/`B_to_k_j`, plus `i_max` and a `derivation`
-  provenance block.
+  and (when the capacitance is nonzero) `B_from_k_j`/`B_to_k_j`, plus `i_max` and the
+  provenance fields
+  ([`src/lineconstants/compile.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/src/lineconstants/compile.jl)).
 - Concentric-neutral and tape-shield cables build their shield/strand conductors from
   the cable fields before the primitive assembly.
 - The resulting linecode is consumed by the [line](line.md) model exactly as a

@@ -98,8 +98,11 @@ boundary, not a rejection — proposals are welcome, but they should go through 
 Task Force and the migration path (see [Versioning](versioning.md)) rather than
 being bolted on:
 
-- **Explicit earth wires.** Modeling the earth/ground return as an explicit
-  conductor is not currently supported.
+- **Earth as a conductor.** The earth is the ideal 0 V reference. Dedicated
+  earth/PE wires can be declared as terminals (see
+  [terminal conventions](../conventions.md)) and grounding impedances as shunts,
+  but the soil itself is not represented as a separate conductor with its own
+  impedance.
 - **n-wire polyphase.** Buses and lines beyond the up-to-four-wire model
   (arbitrary n-wire polyphase) are out of scope.
 - **Harmonics.** The model is fundamental-frequency; harmonic representation and

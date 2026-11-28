@@ -18,13 +18,13 @@ and traceable transformations.
 
 [Documentation](https://frederikgeth.github.io/BMOPFTools.jl/) ·
 [Quickstart](#quickstart) ·
-[Visual inspection](docs/src/visualization.md) ·
+[Visual inspection](https://frederikgeth.github.io/BMOPFTools.jl/dev/visualization/) ·
 [BMOPF specification](https://distribution-system-opt.github.io/math-and-data-model-specifications/)
 
 > [!WARNING]
 > The first registered release is being prepared. Development on `main` can
 > include unreleased breaking changes; registered releases follow the
-> [documented compatibility policy](docs/src/dev/versioning.md).
+> [documented compatibility policy](https://frederikgeth.github.io/BMOPFTools.jl/dev/dev/versioning/).
 
 The package supports the IEEE PES Task Force on **Benchmarking Multiconductor
 OPF for Distribution Systems** and its BMOPF JSON data model for up-to-four-wire
@@ -70,7 +70,7 @@ certify physical fidelity, feasibility, or fitness for a particular study.
   `fix_case`, add explicit study assumptions with `augment_case`, and record
   their `TransformationManifest` audit trails. Build demand/PV sweeps, place
   generators or inverters with explicit phase choices, and compare controls
-  using the [case-family workflow](docs/src/tutorial_case_development.md).
+  using the [case-family workflow](https://frederikgeth.github.io/BMOPFTools.jl/dev/tutorial_case_development/).
 - **Solve and check supported models.** Run multiconductor power flow or OPF
   through the optional JuMP extension. Use `profile_solution` to inspect bound
   violations, near-active constraints, equation residuals, and solution-quality
@@ -98,8 +98,8 @@ flowchart TD
     verify --> review
 ```
 
-Follow the [Tellegen diagnosis and review workflow](docs/src/visualization.md)
-to connect the map to [spatial diagnostics and cleanup evidence](docs/src/spatial_diagnostics.md).
+Follow the [Tellegen diagnosis and review workflow](https://frederikgeth.github.io/BMOPFTools.jl/dev/visualization/)
+to connect the map to [spatial diagnostics and cleanup evidence](https://frederikgeth.github.io/BMOPFTools.jl/dev/spatial_diagnostics/).
 Bus `latitude`/`longitude` fields provide geographic placement and are preserved
 by `write_bmopf` by default. Without coordinates, the viewer offers a topology
 layout; that drawing does not establish geographic location. Use
@@ -112,7 +112,7 @@ successful import or a clean-looking map is not a validation certificate.
 ## Installation
 
 BMOPFTools requires **Julia ≥ 1.10**. New to Julia? Start with
-[Installation & first steps](docs/src/installation.md), which covers installing
+[Installation & first steps](https://frederikgeth.github.io/BMOPFTools.jl/dev/installation/), which covers installing
 Julia and using its prompt. Run `julia` blocks below at the `julia>` prompt or
 in a Julia script; run `sh` blocks in your system terminal.
 
@@ -133,7 +133,7 @@ using BMOPFTools, JuMP, Ipopt
 ```
 
 The OPF extension activates when its dependencies are loaded. See the
-[solver guide](docs/src/solvers.md) for other supported solver configurations.
+[solver guide](https://frederikgeth.github.io/BMOPFTools.jl/dev/solvers/) for other supported solver configurations.
 
 > [!TIP]
 > Pin a revision for reproducibility:
@@ -188,7 +188,7 @@ warnings(report)  # near-active bounds and residual warnings
 Inspect both the solver status and the verification report. Successful solver
 termination alone does not establish that the result meets the model's checks.
 For demand/PV variations and control comparisons, continue with
-[Developing OPF case families](docs/src/tutorial_case_development.md).
+[Developing OPF case families](https://frederikgeth.github.io/BMOPFTools.jl/dev/tutorial_case_development/).
 
 ### Convert your OpenDSS model
 
@@ -203,7 +203,7 @@ render(analyze(net), "intake_report.md")
 write_bmopf(net, "imported_case.json")
 ```
 
-After reviewing the report, the separate [case-preparation workflow](docs/src/augmentation.md)
+After reviewing the report, the separate [case-preparation workflow](https://frederikgeth.github.io/BMOPFTools.jl/dev/augmentation/)
 provides `fix_case` and `augment_case`. Structural transformations can remove
 inert elements, convert near-zero-impedance lines to switches, or drop disconnected
 islands. Augmentation can add voltage bounds, optionally estimate synthetic
@@ -214,18 +214,18 @@ retain the returned manifests, and analyze the resulting case again.
 
 | I want to… | Start here |
 |---|---|
-| Follow the full preparation and solve workflow | [End-to-end tutorial](docs/src/tutorial_end_to_end.md) |
-| Understand a case and its diagnostics | [Profile your first messy case](docs/src/tutorial_profile_messy_case.md), [Analysis & reports](docs/src/analysis.md), [Finding-code reference](docs/src/findings.md) |
-| See what the profiler reports for your kind of network (North American, European, Japanese, Australian) | [System types and regional practice](docs/src/tutorial_system_types.md), [Grounding and neutral findings explained](docs/src/grounding_findings.md) |
-| Investigate geographic and electrical inconsistencies | [Spatial cleanup tutorial](docs/src/tutorial_spatial_cleanup.md), [Spatial diagnostics](docs/src/spatial_diagnostics.md), [Tellegen visualization](docs/src/visualization.md) |
-| Understand the input model and conversion choices | [Data model conventions](docs/src/conventions.md), [Conversion guide](docs/src/conversion.md), [BMOPF specification](https://distribution-system-opt.github.io/math-and-data-model-specifications/) |
-| Prepare scenarios and study assumptions | [Case augmentation](docs/src/augmentation.md), [Developing OPF case families](docs/src/tutorial_case_development.md) |
-| Run and verify OPF | [OPF guide](docs/src/opf.md), [Result dictionary](docs/src/results.md), [Trust but verify](docs/src/tutorial_trust_but_verify.md) |
-| Extend the model or automate checks | [Parameterized and differentiable extensions](docs/src/differentiable_extensions.md), [JSON execution & recipes](docs/src/execution_interface.md), [AI-assistant guide](docs/src/ai_assistants.md) |
-| Explore the technical rationale | [Methodology and references](docs/src/methodology.md), [Positioning & ecosystem](docs/src/positioning.md) |
+| Follow the full preparation and solve workflow | [End-to-end tutorial](https://frederikgeth.github.io/BMOPFTools.jl/dev/tutorial_end_to_end/) |
+| Understand a case and its diagnostics | [Profile your first messy case](https://frederikgeth.github.io/BMOPFTools.jl/dev/tutorial_profile_messy_case/), [Analysis & reports](https://frederikgeth.github.io/BMOPFTools.jl/dev/analysis/), [Finding-code reference](https://frederikgeth.github.io/BMOPFTools.jl/dev/findings/) |
+| See what the profiler reports for your kind of network (North American, European, Japanese, Australian) | [System types and regional practice](https://frederikgeth.github.io/BMOPFTools.jl/dev/tutorial_system_types/), [Grounding and neutral findings explained](https://frederikgeth.github.io/BMOPFTools.jl/dev/grounding_findings/) |
+| Investigate geographic and electrical inconsistencies | [Spatial cleanup tutorial](https://frederikgeth.github.io/BMOPFTools.jl/dev/tutorial_spatial_cleanup/), [Spatial diagnostics](https://frederikgeth.github.io/BMOPFTools.jl/dev/spatial_diagnostics/), [Tellegen visualization](https://frederikgeth.github.io/BMOPFTools.jl/dev/visualization/) |
+| Understand the input model and conversion choices | [Data model conventions](https://frederikgeth.github.io/BMOPFTools.jl/dev/conventions/), [Conversion guide](https://frederikgeth.github.io/BMOPFTools.jl/dev/conversion/), [BMOPF specification](https://distribution-system-opt.github.io/math-and-data-model-specifications/) |
+| Prepare scenarios and study assumptions | [Case augmentation](https://frederikgeth.github.io/BMOPFTools.jl/dev/augmentation/), [Developing OPF case families](https://frederikgeth.github.io/BMOPFTools.jl/dev/tutorial_case_development/) |
+| Run and verify OPF | [OPF guide](https://frederikgeth.github.io/BMOPFTools.jl/dev/opf/), [Result dictionary](https://frederikgeth.github.io/BMOPFTools.jl/dev/results/), [Trust but verify](https://frederikgeth.github.io/BMOPFTools.jl/dev/tutorial_trust_but_verify/) |
+| Extend the model or automate checks | [Extending the OPF model](https://frederikgeth.github.io/BMOPFTools.jl/dev/differentiable_extensions/), [JSON execution & recipes](https://frederikgeth.github.io/BMOPFTools.jl/dev/execution_interface/), [AI-assistant guide](https://frederikgeth.github.io/BMOPFTools.jl/dev/ai_assistants/) |
+| Explore the technical rationale | [Methodology and references](https://frederikgeth.github.io/BMOPFTools.jl/dev/methodology/), [Positioning & ecosystem](https://frederikgeth.github.io/BMOPFTools.jl/dev/positioning/) |
 
-[Choose your tutorial](docs/src/choose_tutorial.md) provides the wider learning
-map, and the [API reference](docs/src/api.md) documents individual functions.
+[Choose your tutorial](https://frederikgeth.github.io/BMOPFTools.jl/dev/choose_tutorial/) provides the wider learning
+map, and the [API reference](https://frederikgeth.github.io/BMOPFTools.jl/dev/api/) documents individual functions.
 The [14-bus LV walkthrough](examples/lv1_14bus_walkthrough.jl) demonstrates each
 analysis on a real feeder; it requires the [external dataset setup](#testing-with-external-datasets).
 
@@ -240,7 +240,7 @@ code, and the `to_pmd` PowerModelsDistribution ENGINEERING export.
 `from_dss` translates OpenDSS networks through
 [PowerIO.jl](https://github.com/eigenergy/PowerIO.jl), including earth-terminal
 conventions, grounding reactors, and transformer impedance bases. The
-[conversion guide](docs/src/conversion.md) records the deliberate projection
+[conversion guide](https://frederikgeth.github.io/BMOPFTools.jl/dev/conversion/) records the deliberate projection
 choices and migration details.
 
 [PowerIO](https://powerio.dev/) is a [Rust project](https://github.com/eigenergy/powerio)
@@ -254,14 +254,14 @@ and SINCAL distribution readers. Those are separate from BMOPFTools' tested
 terminal or Markdown rendering. Provenance checks include sequence-derived
 impedances, Kron-reduction likelihood, earthing-system tagging, OpenDSS default
 fingerprints, and regulator patterns. Match Findings by code rather than message
-text; consult the [Finding reference](docs/src/findings.md) for their scope.
+text; consult the [Finding reference](https://frederikgeth.github.io/BMOPFTools.jl/dev/findings/) for their scope.
 
 The embedded IVR-EN engine supports staged JuMP construction, typed
 device-formulation replacement, semantic parameter/coefficient registries, and
 explicit integration with DiffOpt-compatible models. BMOPFTools supplies network
 formulations and diagnostics; downstream packages retain ownership of bilevel
 semantics and sensitivity algorithms. See the
-[extension guide](docs/src/differentiable_extensions.md).
+[extension guide](https://frederikgeth.github.io/BMOPFTools.jl/dev/differentiable_extensions/).
 
 ### JSON execution and MCP
 
@@ -278,10 +278,10 @@ completion is not a schema-validity or solver-readiness claim. The generated
 without diagnosing a particular observation or guessing a repair.
 
 Local MCP clients can launch the curated surface through `bin/bmopf-mcp`.
-The read-only stdio adapter returns the existing versioned execution envelopes,
+The read-only stdio adapter returns the same versioned execution envelopes,
 restricts file access to declared roots, and leaves scientific retrieval to the
-companion book. See [JSON execution & recipes](docs/src/execution_interface.md)
-and [Use with AI coding assistants](docs/src/ai_assistants.md).
+companion book. See [JSON execution & recipes](https://frederikgeth.github.io/BMOPFTools.jl/dev/execution_interface/)
+and [Use with AI coding assistants](https://frederikgeth.github.io/BMOPFTools.jl/dev/ai_assistants/).
 The machine-discovery entry point is [llms.txt](llms.txt); the documentation
 build publishes the same canonical file alongside the site.
 
@@ -384,15 +384,19 @@ Task force outputs (`docs/taskforce_feedback.md`) are CC BY 4.0.
 ### Tests and dependencies
 
 Dependencies are declared in `Project.toml`: the core runtime uses `Graphs`,
-`JSON3`, `JSONSchema`, `PowerIO`, `TOML`, and the standard libraries.
+`JSON3`, `JSONSchema`, `PowerIO`, `StatsFuns`, and the standard libraries.
 `JuMP`/`Ipopt` are weak dependencies behind the OPF extension. The test suite
 skips power-flow comparison tests when `OpenDSSDirect` is absent.
 
 Run the full suite from the package root:
 
 ```sh
-julia --project=. -e 'using Pkg; Pkg.test()'
+julia --project=test --startup-file=no test/runtests.jl
 ```
+
+The scientific guardrails, generated-metadata checks and the other gates are
+listed in [`AGENTS.md`](AGENTS.md) and the
+[contributor guide](https://frederikgeth.github.io/BMOPFTools.jl/dev/dev/contributing/).
 
 One-off data-migration scripts live in `scripts/oneoff/`.
 

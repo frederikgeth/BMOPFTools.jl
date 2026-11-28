@@ -1,10 +1,9 @@
 # Exact substitutions and formulation boundaries
 
 An alternative encoding can remove an auxiliary variable or equation without
-introducing a modeling approximation **within its supported domain**. That
-is the useful meaning of “at no cost” here. It does not promise the same
-sparsity, conditioning, solve time, constraint multipliers, or derivative
-behavior at a singular boundary.
+introducing a modeling approximation **within its supported domain**. Exact in
+that sense does not mean the same sparsity, conditioning, solve time, constraint
+multipliers, or derivative behavior at a singular boundary.
 
 Read this after [First case](first_case.md) and the
 [buses and terminals primer](terminals_primer.md). It explains how to recognize
@@ -13,7 +12,7 @@ reference for device equations, keys and units.
 
 ## Substitute, retain, or approximate?
 
-| Situation | Current package behavior | Boundary to preserve |
+| Situation | What BMOPFTools does | Boundary to preserve |
 |---|---|---|
 | A shunt current is determined by its terminal voltages | Insert the current expression directly into KCL. | Keep the full admittance and terminal map; removing an auxiliary variable does not remove the device. |
 | Two orientations describe the same series current | Keep one independent series current and expose the reverse orientation as its negative. | Total line-end currents also include their local shunts; they are generally not negatives of each other. Both end limits remain relevant. |
@@ -73,14 +72,10 @@ constraint changes how its multiplier must be interpreted; a matching primal
 voltage alone does not establish matching duals or local sensitivities.
 
 The detailed [line](opf.md#Lines), [shunt](opf.md#Standalone-shunts), and
-[load](opf.md#Loads) sections own the implementation details. The package's
-`test/opf_device_substitution_tests.jl` supplies analytic device witnesses,
-including zero voltage and parameter updates through zero. The
+[load](opf.md#Loads) sections own the implementation details, and the
 [admittance guide](spec/nodal-admittance.md) explains transformer references and
-port boundaries. These finite witnesses do
-not establish a universal formulation-equivalence claim; use
-[independent solution verification](tutorial_trust_but_verify.md) for the
-actual study case.
+port boundaries. For a study case, check the solution independently as in
+[Trust but verify](tutorial_trust_but_verify.md).
 
 ## References
 

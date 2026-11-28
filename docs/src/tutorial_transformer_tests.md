@@ -488,7 +488,7 @@ not derivable, and the provenance discipline of the
     (shunt placement, tap referral, grounding);
     [the admittance spec](spec/transformer-admittance.md) has every subtype's
     symbolic `Yprim` and the four validation gates;
-    [Validating the OPF](validation.md) shows the OpenDSS reference
+    [Engine validation evidence](validation.md) shows the OpenDSS reference
     comparisons the test suite runs; the
     [tap-optimization tutorial](tutorial_tap.md) makes §6's tap fields
     decision variables; and the [SWER tutorial](tutorial_swer.md) features a

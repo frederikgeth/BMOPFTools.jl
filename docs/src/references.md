@@ -83,7 +83,7 @@ References cited by number across this documentation.
     (CIM) extensions for distribution*; the network "wires model" represents
     connectivity through explicit `Terminal` and `ConnectivityNode` objects (the
     structure OpenDSS leaves implicit). See also the OpenDSS CIM100 export of
-    [ref. 9].
+    ref. 9 above.
 24. F. Wiese et al., "Open Power System Data — Frictionless data for electricity
     system modelling," *Applied Energy* 236 (2019) 401–409 (a validated,
     schema-checked, reproducible path from raw data to results for energy-system

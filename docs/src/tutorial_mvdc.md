@@ -339,7 +339,7 @@ for f in rep.findings
 end
 ```
 
-[`solution_check`](validation.md) adds post-solve DC checks
+[`solution_check`](@ref) adds post-solve DC checks
 (`E.SOL.DC_VOLT_VIOLATION`, `E.SOL.DC_THERMAL_VIOLATION`). See the
 [finding-code reference](findings.md#DC-—-MVDC/LVDC-network).
 

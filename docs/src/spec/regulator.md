@@ -39,14 +39,15 @@ Entries under `transformer.single_phase_autotransformer` and
 |-------|------|:----:|:----:|-------------|
 | `bus_from`, `bus_to` | string | – | ✔ | Source-side and regulated-side buses |
 | `terminal_map_from`, `terminal_map_to` | string[] | – | ✔ | Arity (2,2) single-phase; (4,4) open-delta |
-| `tap_ratio` | number / number[] | – | | Regulation ratio (regulated/source), e.g. $[0.9,1.1]$; per-regulator array for open-delta |
-| `tap_ratio_min`, `tap_ratio_max` | number | – | | A free OPF variable when `min < max`; otherwise fixed |
-| `regulator_type` | enum | – | | ANSI `A` or `B` (see below) |
+| `tap_ratio` | number / number[] | – | | Regulation ratio $a$, typically in $[0.9,1.1]$; default 1.0. Open-delta takes `[a1, a2]`, one per regulator (a single entry applies to both) |
+| `tap_ratio_min`, `tap_ratio_max` | number / number[] | – | | The tap is a free OPF variable when `min < max` (element-wise for open-delta); otherwise fixed at `tap_ratio`, which is then the start value |
+| `regulator_type` | enum | – | | ANSI `A` or `B` (default `B`; see below) |
 | `connection` | enum | – | (open-delta) | Phase-pair wiring `ABBC` / `BCAC` / `CABA` |
 | `r_series_from`/`_to`, `x_series_from`/`_to` | number | Ω | | Series-winding leakage |
-| `g_no_load`, `b_no_load` | number | S | | No-load shunt at the `from` terminals |
-| `s_rating` | number | VA | | Rating |
-| `i_max_from`, `i_max_to` | number[] | A | | Per-conductor current limits |
+| `g_no_load`, `b_no_load` | number | S | | No-load shunt at the `from` terminals (per regulator for open-delta) |
+| `no_load_shunt` | object | – | | Explicit excitation `{winding, g, b}`; mutually exclusive with `g_no_load`/`b_no_load` |
+| `s_rating` | number | VA | | Through-power rating, per regulator for open-delta |
+| `i_max_from`, `i_max_to` | number[] | A | | Current limits, one entry per regulating winding |
 
 ## 2. Input symbols
 
@@ -57,14 +58,16 @@ Entries under `transformer.single_phase_autotransformer` and
 | `r/x_series_*` | $\textcolor{brown}{Z^{\text{fr}}_x},\ \textcolor{brown}{Z^{\text{to}}_x}$ | series leakage |
 | `g/b_no_load` | $\textcolor{brown}{Y_0}=\textcolor{red}{G_0}+\textcolor{brown}{j}\textcolor{red}{B_0}$ | no-load shunt |
 
-The **effective from→to ratio** depends on the ANSI connection (which winding is the
-series winding):
+The **effective from→to ratio** $\textcolor{red}{n_{\text{eff}}}$, defined by
+$\textcolor{blue}{V^{\text{fr}}}=\textcolor{red}{n_{\text{eff}}}\,\textcolor{blue}{V^{\text{to}}}$
+for an ideal winding, depends on the ANSI connection (which winding is the series
+winding):
 
 ```math
 \textcolor{red}{n_{\text{eff}}} =
 \begin{cases}
-\textcolor{red}{a} & \text{type B (series on source side, standard SVR)},\\
-1/\textcolor{red}{a} & \text{type A (series on regulated side)}.
+1/\textcolor{red}{a} & \text{type B (standard SVR, default): } V^{\text{to}} = a\,V^{\text{fr}},\\
+\textcolor{red}{a} & \text{type A (reciprocal connection): } V^{\text{to}} = V^{\text{fr}}/a.
 \end{cases}
 ```
 
@@ -136,22 +139,29 @@ pairs implied by `connection` (`ABBC` ⇒ regulators across $(a,b)$ and $(b,c)$;
 each obeying the regulating-winding relation above with its own $\textcolor{red}{n_{\text{eff}}}$.
 The phase common to both windings ($b$ in `ABBC`) is a **copper straight-through**: its
 from and to voltages are tied, $\textcolor{blue}{U_{i,b}}=\textcolor{blue}{U_{j,b}}$, with
-a wire current carrying the balance (the "common neutral" model that matches OpenDSS and
-field measurement). The third phase and neutral follow from KCL.
+a wire current carrying the balance (the "common neutral" model of Yan et al. (2018),
+see [References](references.md), which matches OpenDSS and field measurement). The third phase and neutral follow from KCL.
 
 ## 5. Inequality constraints
 
 ### Cartesian variable bounds
 
-Optional per-conductor boxes on the series-current components from `i_max_from`/`i_max_to`.
+Optional boxes on the series-current components from `i_max_from`/`i_max_to`, one
+per regulating winding and side (on the from side only when there is no no-load
+shunt; with a shunt the from-side limit applies to the terminal current, series
+plus shunt, through the circle below).
 
 ### Engineering bounds
 
-Per-winding current-magnitude circles, per side and conductor:
+Per-winding current-magnitude circles, per side:
 
 ```math
 \textcolor{blue}{I_{x,\sigma,k}}\,(\textcolor{blue}{I_{x,\sigma,k}})^{*} \le (\textcolor{red}{I^{\max}_{x,\sigma,k}})^2.
 ```
+
+When `s_rating` is positive, each winding's from-side through power
+$(\textcolor{blue}{V^{\text{fr}}_{x,k}})(\textcolor{blue}{I_{x,\text{fr},k}})^{*}$ is
+additionally bounded in magnitude by `s_rating`.
 
 ## 6. Implementation in BMOPFTools
 
@@ -173,9 +183,10 @@ two line-to-line open-delta cores — given in closed form on the
 - **`open_delta_regulator`** (`_add_open_delta_regulator!`) — two windings per the
   `connection` map, each with its own tap ratio, plus the shared-phase straight-through
   (a further through-branch current) reproducing the common-neutral model.
-- **ANSI type** selects $\textcolor{red}{n_{\text{eff}}}=\textcolor{red}{a}$ (B) or
-  $1/\textcolor{red}{a}$ (A); the tap ratio can be a fixed number or a free OPF variable
-  (`tap_ratio_min`/`max`).
+- **ANSI type** selects $\textcolor{red}{n_{\text{eff}}}=1/\textcolor{red}{a}$ (B, default) or
+  $\textcolor{red}{a}$ (A) (`BMOPFTools._autotransformer_neff`); the tap ratio can be a
+  fixed number or a free OPF variable (`tap_ratio_min`/`max`), in which case the
+  variable is $\textcolor{red}{n_{\text{eff}}}$ itself.
 
 ### Source map
 
@@ -188,6 +199,6 @@ two line-to-line open-delta cores — given in closed form on the
 !!! warning "Regulators are not in the Task Force PDF"
     Step-voltage regulators (`single_phase_autotransformer`, `open_delta_regulator`) —
     galvanically-tied autotransformers with tap optimization — are a BMOPFTools
-    extension with no counterpart in the current PDF, and are modeled as a distinct
+    extension with no counterpart in the Task Force PDF, and are modeled as a distinct
     element from the isolated [transformers](transformer.md). Add them to the superseding
     spec as their own component.

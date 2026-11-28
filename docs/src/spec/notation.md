@@ -99,8 +99,10 @@ $\textcolor{blue}{\mathbf{I}_{\ell ij}}$, and it splits into a series and a shun
 = \textcolor{blue}{\mathbf{I}^{\text{s}}_{\ell ij}} + \textcolor{blue}{\mathbf{I}^{\text{sh}}_{\ell ij}}.
 ```
 
-The sign convention throughout is **positive current flows into the bus** at the
-terminal where it is summed by Kirchhoff's current law (KCL).
+Branch terminal currents are thus defined as flowing from the bus into the element,
+while source-type elements (voltage sources, generators, IBRs) are written as
+injections into the bus. Kirchhoff's current law (KCL) at each terminal sums all of
+them with the matching sign; see [Kirchhoff's current law](bus.md#Kirchhoff's-current-law).
 
 ## Standard transforms and constants
 
@@ -242,8 +244,10 @@ r i \in \mathcal{C}^{V},
 s i \in \mathcal{C}^{S}.
 ```
 
-This model version permits a single voltage source, so the source bus set
+The specification assumes a single voltage source, so the source bus set
 $\mathcal{I}^{\text{source}}=\{i : si\in\mathcal{C}^{S}\}$ has $|\mathcal{I}^{\text{source}}|=1$.
+BMOPFTools warns when a case has a different number (`W.SPEC.N_SOURCES`) but builds
+the OPF with every declared source.
 
 ### Terminal names and maps
 
@@ -261,8 +265,9 @@ the network. As a *set*, a terminal mapping is written $\mathcal{M}^{\bullet}$: 
 $d\,z\,p$ of the load mapping $\mathcal{M}^{D}$ says load $d$'s conductor at order $z$
 maps to bus terminal $p$; branch mappings carry an extra bus index ($\ell i z p$).
 
-The **neutral terminal** $n$ of a bus is identified by the bus's declaration (an
-explicit neutral field, or a terminal named `"n"`/`"N"`). If a bus has no neutral,
+The **neutral terminal** $n$ of a bus is identified by the bus's `neutral_terminal`
+field, then by the case-level `terminal_conventions`, and, only in a case that declares
+no roles, by the name `"n"`/`"N"`. If a bus has no neutral,
 all its terminals are treated as phases.
 
 ### Configurations
@@ -296,7 +301,7 @@ that indexes each:
 | $\mathcal{C}^{H}$ | shunt–bus connectivity | $h i$ |
 | $\mathcal{C}^{V}$ | IBR–bus connectivity | $r i$ |
 | $\mathcal{C}^{K}$ | capacitor–bus connectivity | $\kappa i$ |
-| $\mathcal{I}^{\text{source}}$ | source bus set ($\lvert\cdot\rvert=1$) | $i$ |
+| $\mathcal{I}^{\text{source}}$ | source bus set ($\lvert\cdot\rvert=1$ in the specification) | $i$ |
 | $\mathcal{M}^{S},\mathcal{M}^{G},\mathcal{M}^{D},\mathcal{M}^{H},\mathcal{M}^{V},\mathcal{M}^{K}$ | nodal terminal mappings | $\cdot\,z\,p$ |
 | $\mathcal{M}^{L},\mathcal{M}^{X},\mathcal{M}^{W}$ | branch terminal mappings | $\cdot\,i\,z\,p$ |
 | $\mathcal{M}^{\emptyset}$ | ground terminal mapping | $i p$ |

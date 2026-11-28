@@ -12,9 +12,10 @@ claims, evidence status, misconceptions, and stable PSK identities.
 - Visualizing BMOPF cases with Tellegen: docs/src/visualization.md
 - Data-model conventions: docs/src/conventions.md
 - Advanced formulation and numerical routes: docs/src/advanced.md
-- Model extensions and sensitivities: docs/src/differentiable_extensions.md
+- Extending the OPF model: docs/src/differentiable_extensions.md
+- Sensitivities with DiffOpt: docs/src/diffopt_sensitivities.md
 - Scaling and numerical diagnostics: docs/src/numerical_workflows.md
-- Repeated solves: docs/src/repeated_solves.md
+- Repeated solves, parameters and coefficient providers: docs/src/repeated_solves.md
 - Solution projection and power-flow comparison: docs/src/solution_projection.md
 - API reference: docs/src/api.md
 - Finding codes: docs/src/findings.md

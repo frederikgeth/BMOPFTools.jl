@@ -9,10 +9,10 @@ for you, and where these choices quietly break down near voltage collapse.
     - **Building or curating a dataset?** Read the *Takeaway* box in each section and
       the [decision matrix](decision_matrix.md). Skip the collapsible
       *Derivation* blocks. Check your objective against the
-      [loss-maximization list](loss_maximization.md) before you ship.
+      [loss-maximization list](@ref loss-maximization) before you ship.
     - **Validating your own formulation against the benchmarks?** Read everything,
       expand the *Derivation* blocks, and then work through
-      [Diagnostics & validation](diagnostics.md), the
+      [Diagnosing a formulation](diagnostics.md), the
       [Known traps](known_traps.md) gallery, and — once you have cleared those — the
       [Trusting the solver](solver_trust.md) capstone on how far to trust an
       `INFEASIBLE` or `LOCALLY_SOLVED` verdict.
@@ -20,12 +20,12 @@ for you, and where these choices quietly break down near voltage collapse.
     Every collapsible block titled **Derivation** or **Proof sketch** is safe to
     skip on a first read; nothing later depends on having expanded it.
 
-## Scope: this is a formulation-aware discussion
+## Scope: a formulation-agnostic discussion
 
 !!! info "What BMOPFTools ships, and what this page is about"
     BMOPFTools ships a single reference optimizer — the **nonconvex four-wire
     rectangular current–voltage**
-    engine ([`solve_opf`](../opf.md), [`solve_feasibility_opf`](../validation.md)). It
+    engine ([`solve_opf`](@ref), [`solve_feasibility_opf`](@ref)). It
     does **not** ship convex relaxations or linear approximations. This page is
     deliberately *formulation-agnostic*: it is written for anyone validating a linear,
     convex, or nonconvex formulation against the benchmarks — including formulations you
@@ -151,7 +151,7 @@ polynomial system, which generically has finitely many isolated solutions — no
 
     The two signs are the **high-voltage** and **low-voltage** solutions. Real
     solutions exist only while the radicand is non-negative; it vanishes at the
-    **saddle-node / nose point** (Sections 4 and 5 below). This is the smallest example
+    **saddle-node / nose point** (Section 4 below). This is the smallest example
     of the multiplicity that the term "unique solution" hides.
 
 Uniqueness of the operationally meaningful (high-voltage) solution holds under explicit
@@ -179,7 +179,7 @@ is an *extrapolation*, not a theorem — see the caveat in the scope section abo
     with *every other bus PQ*. A PV / voltage-regulating bus keeps the system **square**
     — it swaps the reactive-balance equation for a magnitude specification — so the
     determined-system count still holds. What it *does* break is (a) the PQ-network
-    uniqueness theorems cited below, whose hypotheses assume constant-power buses, and
+    uniqueness theorems cited above, whose hypotheses assume constant-power buses, and
     (b) smoothness: once a `Q`-limit is hit, the bus switches PV↔PQ, introducing a
     complementarity condition (and, in an OPF, a non-smooth active set) that the clean
     two-branch picture does not cover.
@@ -304,8 +304,10 @@ the solution is no longer physical
     [Gan et al. (2015)](https://arxiv.org/abs/1311.7170) run by contradiction: if the
     cone constraint were slack at the optimum, one could *decrease* $\ell_{ij}$, which
     decreases losses and (with an objective non-decreasing in generation/losses) cannot
-    worsen the objective, contradicting optimality. The physical reading is that
-    reducing a line's loss increases every upstream reverse flow.
+    worsen the objective, contradicting optimality. The catch is that decreasing
+    $\ell_{ij}$ changes the upstream flows, and the argument needs the result to stay
+    feasible; that is where the conditions on upstream reverse power flows below come
+    from.
 
     The recurring technical conditions in the exactness literature — no generator lower
     bounds, or allowing **load over-satisfaction**
@@ -330,7 +332,7 @@ what the optimization prefers, and does not certify which branch a local solver
 returned.
 
 The objectives that violate the monotonicity test, and the reformulations that fix them,
-are cataloged in [Objectives that imply loss maximization](loss_maximization.md).
+are cataloged in [Objectives that imply loss maximization](@ref loss-maximization).
 
 ## 6. Practical recommendations by task
 
@@ -348,7 +350,7 @@ are cataloged in [Objectives that imply loss maximization](loss_maximization.md)
     This is a **nonconvex / continuation** problem. Drop the voltage lower bound that
     clips the lower branch, expect multiplicity, and do **not** trust *any* relaxation
     as a feasibility oracle in this regime. Use BMOPFTools' nonconvex
-    [`solve_opf`](../opf.md) (continuation around it) here, not a relaxation reached via
+    [`solve_opf`](@ref) (continuation around it) here, not a relaxation reached via
     [`to_pmd`](../conversion.md). Maximizing loadability in an SOC model and believing
     the number is the single most common error this page exists to prevent.
 
@@ -361,8 +363,8 @@ is right.
 ---
 
 See also: [Decision matrix](decision_matrix.md) ·
-[Objectives that imply loss maximization](loss_maximization.md) ·
-[Diagnostics & validation](diagnostics.md) ·
+[Objectives that imply loss maximization](@ref loss-maximization) ·
+[Diagnosing a formulation](diagnostics.md) ·
 [Known traps](known_traps.md) ·
 [Trusting the solver](solver_trust.md) ·
 [References](references.md)

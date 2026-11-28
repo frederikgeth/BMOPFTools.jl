@@ -17,8 +17,9 @@
 Accumulate shunt admittance (G + jB, S) current into the pre-allocated
 `AffExpr` vectors `cr` and `ci` (one entry per terminal).
 
-Grounded terminals are absent from the `vr`/`vi` dicts and are silently
-skipped (their voltage is zero, contributing nothing).
+Terminals with no entry in the `vr`/`vi` dicts (not declared on the bus) are
+skipped. Perfectly grounded terminals do have voltage variables, fixed at zero,
+so they contribute nothing.
 """
 function _shunt_current!(cr::Vector{JuMP.AffExpr},
                          ci::Vector{JuMP.AffExpr},
@@ -31,7 +32,7 @@ function _shunt_current!(cr::Vector{JuMP.AffExpr},
     n = length(terminals)
     for k in 1:n, j in 1:n
         key_j = (bus, terminals[j])
-        haskey(vr, key_j) || continue   # grounded — voltage is zero
+        haskey(vr, key_j) || continue   # terminal not declared on the bus
         g_kj = (G !== nothing && k <= size(G,1) && j <= size(G,2)) ? G[k,j] : 0.0
         b_kj = (B !== nothing && k <= size(B,1) && j <= size(B,2)) ? B[k,j] : 0.0
         (iszero(g_kj) && iszero(b_kj)) && continue

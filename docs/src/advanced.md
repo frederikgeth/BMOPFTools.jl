@@ -24,10 +24,10 @@ relaxations or approximations.
 | Your question | Start here | Continue with |
 |:--|:--|:--|
 | Can I change the objective or add a constraint? | [Custom formulations](tutorial_custom_formulations.md) | [Staged model construction](differentiable_extensions.md#Current-extension-substrate). |
-| Can I replace a device formulation and retain result access? | [Model extensions and sensitivities](differentiable_extensions.md) | [Device replacement](differentiable_extensions.md#Replaceable-device-formulations) and [semantic solution access](differentiable_extensions.md#Semantic-solution-access). DiffOpt is not required. |
+| Can I replace a device formulation and retain result access? | [Extending the OPF model](differentiable_extensions.md) | [Device replacement](differentiable_extensions.md#Replaceable-device-formulations) and [semantic solution access](differentiable_extensions.md#Semantic-solution-access). DiffOpt is not required. |
 | Can several periods share constraints and one objective? | [Coupled snapshots](tutorial_custom_formulations.md#5.-Rung-3-—-two-snapshots,-one-model:-an-energy-budget) | [Multi-period construction](@ref staged-api). This is one joint optimization; an independent time-series sweep does not impose inter-temporal coupling. Storage dynamics remain user-supplied. |
-| Can I update coefficients without rebuilding everything? | [Repeated solves and parameter updates](repeated_solves.md) | The supported parameter-provider and optimizer-reset workflow. |
-| How does a solution respond to a small parameter change? | [DiffOpt worked example](@ref diffopt-worked-example) | Local differentiability, active-set and KKT qualifications in the same guide. |
+| Can I update coefficients without rebuilding everything? | [Repeated solves, parameters and coefficient providers](repeated_solves.md) | Parameter bindings, coefficient providers and the optimizer-reset workflow. |
+| How does a solution respond to a small parameter change? | [Sensitivities with DiffOpt](@ref diffopt-sensitivities) | The [worked example](@ref diffopt-worked-example), then local differentiability, active-set and KKT qualifications on the same page. |
 
 ## How do I understand numerical behavior?
 

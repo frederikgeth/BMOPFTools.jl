@@ -36,13 +36,16 @@ start of that page; its dataset examples are not executed by the docs build.
 | **Make a network smaller** without losing what matters | [Reducing a four-wire feeder, step by step](tutorial_network_reduction.md) | [Network reduction: which tool?](network_reduction.md), [Opti-KRON tutorial](tutorial_opti_kron.md), [Simplification tutorial](tutorial_simplify.md) |
 | **Diagnose an infeasible case** | [Infeasibility diagnosis](tutorial_infeasibility.md) | [Bounds & feasibility](bounds/index.md), [Trusting the solver](bounds/solver_trust.md) |
 | **Verify a solved OPF** you don't yet trust | [Trust but verify](tutorial_trust_but_verify.md) | [Solution projection](solution_projection.md), [Engine validation evidence](validation.md) |
+| **Run a day of operation** (time series, hourly snapshots) | [Time series: a day on an LV feeder](tutorial_timeseries.md) | [Developing OPF case families](tutorial_case_development.md) |
+| **Choose or compare objectives** (losses, unbalance, cost) | [Objectives tutorial](tutorial_objectives.md) | [Choosing an objective](objectives.md) |
+| **Pick a solver and its settings** | [Solver guide](solvers.md) | [Scaling, initialization and diagnostics](numerical_workflows.md) |
 | **Model a specific device** (STATCOM, MVDC, regulator, PV droop) | [D-STATCOM study](tutorial_statcom.md) | [MVDC](tutorial_mvdc.md), [Tap optimization](tutorial_tap.md), [VVWO](tutorial_vvwo.md) |
 | **Change the formulation** (custom objectives, constraints, multi-period) | [Custom formulations](tutorial_custom_formulations.md) | [OPF model](opf.md), [Units, bases & economics](tutorial_units.md) |
 | **Assemble a network matrix or understand ideal-device boundaries** | [Nodal admittance builders](spec/nodal-admittance.md) | [Exact substitutions](formulation_substitutions.md), [Engine validation evidence](validation.md) |
 | **Choose numerical coordinates or inspect initialization** | [Scaling, initialization and diagnostics](numerical_workflows.md) | [Solver guide](solvers.md), [Trusting the solver](bounds/solver_trust.md) |
-| **Update coefficients and re-solve safely** | [Repeated solves](repeated_solves.md) | [Case families](tutorial_case_development.md), [Model extensions](differentiable_extensions.md) |
-| **Build a differentiable or bilevel research extension** | [Model extensions and sensitivities](differentiable_extensions.md) | [Custom formulations](tutorial_custom_formulations.md), [OPF engine](dev/opf_engine.md) |
-| **Extend or debug the solver** | [OPF engine: scope & status](dev/opf_engine.md) | [OPF model](opf.md), [Contributing](dev/contributing.md) |
+| **Update coefficients and re-solve safely** | [Repeated solves](repeated_solves.md) | [Case families](tutorial_case_development.md), [Extending the OPF model](differentiable_extensions.md) |
+| **Build a differentiable or bilevel research extension** | [Extending the OPF model](differentiable_extensions.md), then [Sensitivities with DiffOpt](diffopt_sensitivities.md) | [Custom formulations](tutorial_custom_formulations.md), [OPF engine](dev/opf_engine.md) |
+| **Extend or debug the solver** | [OPF engine: design & runtime contracts](dev/opf_engine.md) | [OPF model](opf.md), [Contributing](dev/contributing.md) |
 
 ## Route by system type
 
@@ -87,7 +90,7 @@ needs — not just *how* to call the tools, but *when to trust the answer*:
    with dozens of findings; learn to separate *defects* (fix), *judgment
    calls* (decide and document), and *disclosures* (keep — they are the
    case's provenance record).
-2. **Assumptions** — [From nameplate data to a defensible model](tutorial_nameplate.md).
+2. **Assumptions** — [Reading augmentation provenance](tutorial_nameplate.md).
    Incomplete datasheets in; a model out. What can be *derived*, what needs an
    *assumption*, and what must stay *unknown* — and the difference between
    standards-derived, standards-inspired, and synthetic values.
@@ -131,7 +134,7 @@ each demonstrating live how that choice *writes the answer*:
 | [First case](first_case.md), inspection steps | BMOPFTools and the bundled feeder; no solver or external dataset. |
 | [First case](first_case.md), solve and verify steps | BMOPFTools, JuMP and Ipopt; the same bundled feeder. |
 | [Nodal admittance builders](spec/nodal-admittance.md) | BMOPFTools and Julia standard libraries; synthetic examples run in the docs build. |
-| [DiffOpt worked example](differentiable_extensions.md#diffopt-worked-example) | Repository checkout and the optional `test/diffopt` environment (DiffOpt, JuMP, Ipopt); executed by the optional integration test job. |
+| [DiffOpt worked example](@ref diffopt-worked-example) | Repository checkout and the optional `test/diffopt` environment (DiffOpt, JuMP, Ipopt); executed by the optional integration test job. |
 | [Case families](tutorial_case_development.md) | BMOPFTools, JuMP and Ipopt; the bundled feeder and example script. |
 | Utility-data tutorials, including [end-to-end](tutorial_end_to_end.md), [DER placement](tutorial_ders.md) and [PV controls](tutorial_vvwo.md) | Follow each page's external-dataset notice and software prerequisites. Reading a page does not require acquiring its data. |
 

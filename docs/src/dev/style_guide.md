@@ -63,9 +63,12 @@ guidelines.
   docs build (and CI) fails. Adding an `export` is therefore also a
   documentation task — and an API-surface change (see
   [Versioning](versioning.md)).
-- **Coverage must not decrease.** Codecov runs on every PR
-  (`.github/workflows/ci.yml`). New code needs tests; a coverage drop will be
-  flagged.
+- **Coverage is reported on every PR** by Codecov (`.github/workflows/ci.yml`).
+  New code needs tests; explain any coverage drop in the PR.
+- **Generated metadata must be current.** CI runs
+  `python3 scripts/generate_finding_registry.py --check` and
+  `python3 scripts/generate_executable_knowledge.py --check`; regenerate with
+  `--write` after changing a Finding, fixture, or knowledge source.
 - **Must pass on Julia `lts` and `1`.** The CI matrix runs the declared LTS
   (the compat floor, currently Julia 1.10) and the latest stable. Do not use
   syntax or stdlib APIs newer than the floor.
@@ -83,14 +86,11 @@ These describe how the code is actually written. New code should match them.
   `Dict{String,Any}` that mirrors the BMOPF JSON exactly (see
   [the design rationale](../index.md#Design)). Data flows to and from JSON, and
   out to PowerModelsDistribution via [`to_pmd`](../conversion.md), with no
-  conversion layer. The only structs in the library are:
-  - **outputs** — `Finding`, `SummaryReport`, `SolutionReport` (stable shape for
-    rendering and programmatic use);
-  - **config recipes** — `AugmentationRecipe`, `FixRecipe`, `IBRRecipe`,
-    `GeneratorRecipe` (keyword-constructed options);
-  - the `TransformationManifest` audit types.
-
-  None of these wrap network data. Do not introduce a struct that does.
+  conversion layer. Structs are used for outputs (`Finding`, `SummaryReport`,
+  `SolutionReport`), keyword-constructed options (the `*Recipe` types,
+  `OpfScaling`, `CaseScenario`), audit records (`TransformationManifest`), and
+  engine/result objects (the `Opf*` keys and contexts, Ybus results). None of them
+  wraps the network data itself; do not introduce a struct that does.
 - **SI units everywhere.** All physical quantities are SI
   ([conventions, Table 8](../conventions.md#Units)) — V, A, m, W/var/VA, Ω, S,
   rad. Never introduce per-unit, kV, or kW at the data-model boundary.
@@ -99,9 +99,10 @@ These describe how the code is actually written. New code should match them.
   transformer no-load branch are naturally admittance `G + jB` (a lossless shunt
   is pure `B`, with no blow-up), and stay that way. The rationale is in the
   [OPF engine page](opf_engine.md).
-- **Thermal/branch ratings are current.** Line and branch limits are current
-  magnitude limits (`i_max`), not apparent-power limits; `augment_case` infers
-  `i_max` from conductor ampacity. (Injection limits are a separate story — see
+- **Thermal/branch ratings are primarily current.** Line and switch limits are
+  current magnitude limits (`i_max`) first; `s_max` is also supported (see
+  [current vs. apparent-power limits](@ref Current-vs-apparent-power-limits)), and
+  `augment_case` infers `i_max` from conductor ampacity. (Injection limits are a separate story — see
   Tier 3.)
 - **Every transformation is auditable.** Anything that mutates a network records
   what it did: `fix_case` and `augment_case` return a `TransformationManifest`,
@@ -127,11 +128,10 @@ already does this everywhere.
   expressions, so **new injection constraints should prefer a current form where
   practical.** Existing power-based limits are not a bug to be rewritten en
   masse.
-- **Doc examples should be runnable.** Only the two end-to-end tutorials
-  (`tutorial_end_to_end.md`, `tutorial_swer.md`) use executed `@example` / `@repl`
-  blocks today; most pages use plain, non-executed ` ```julia ` fences. The rule
-  is: **if you add an `@example`, keep it runnable** (the docs build executes it).
-  Do not claim every code block in the docs executes — most do not.
+- **Doc examples should be runnable.** Executed `@example` / `@repl` blocks run on
+  every docs build; plain ` ```julia ` fences do not. **If you add an `@example`,
+  keep it runnable**, and do not claim that a page's plain code blocks execute
+  (pages built on restricted data cannot).
 
 ## See also
 

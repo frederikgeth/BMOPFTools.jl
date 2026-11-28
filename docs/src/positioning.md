@@ -13,7 +13,7 @@ semantic parameters and coefficients, and place the model behind DiffOpt. This
 does not reposition BMOPFTools as a differentiable-optimization service;
 outer-level semantics, sensitivity execution, and bespoke study logic remain in
 the downstream package. See
-[Parameterized and differentiable extensions](differentiable_extensions.md).
+[Extending the OPF model](differentiable_extensions.md).
 
 ## The transmission/distribution maturity gap
 

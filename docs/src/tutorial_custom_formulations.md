@@ -8,9 +8,9 @@
     are not executed by the package documentation build.
 
 *The reference OPF is a floor, not a ceiling: conservation voltage reduction
-without writing a hook, a connection-point export cap with one constraint, a
-phase-balancing objective with three lines — and a two-period energy budget
-through the staged API.*
+without writing a hook, a connection-point export cap as one constraint, a
+phase-balancing objective — and a two-period energy budget through the staged
+API.*
 
 Research formulations rarely stop at least-cost dispatch: conservation voltage
 reduction (CVR), dynamic operating envelopes, unbalance mitigation, and
@@ -20,11 +20,12 @@ answer is a ladder of extension points, documented in the
 [staged API](opf.md#staged-api). This tutorial climbs that ladder with worked
 studies, one rung at a time, and starts with the rung people skip: checking
 whether the study you want is *already expressible* without touching the
-formulation at all. Every block runs at build time.
+formulation at all. The blocks need the restricted dataset (see the note above),
+so they are not run by the docs build; the numbers quoted come from running them.
 
 For replaceable device ownership, semantic object/parameter registries, and
 DiffOpt-compatible research models, continue with
-[Parameterized and differentiable extensions](differentiable_extensions.md).
+[Extending the OPF model](differentiable_extensions.md).
 Before choosing a lift, smoothing term, or redundant bound, consult the
 [formulation helper guide](@ref opf-formulation-helpers) for its domain and purpose.
 
@@ -96,7 +97,7 @@ for (label, model, free_tap) in (
     r = solve_opf(net; optimizer = OPT)
     p_imp = sum(ph["ps"] for ph in values(r["voltage_source"][src_id]))
     tap   = get(get(r["transformer"], xfmr_id, Dict()), "tap", 1.0)
-    vmin  = minimum(v["vm"] for (b, ts) in r["bus"] if b != "b2577"
+    vmin  = minimum(v["vm"] for (b, ts) in r["bus"] if b != "b2577"   # skip the MV source bus
                             for (t, v) in ts if t != "n")
     println(rpad(label, 24), lpad(round(p_imp; digits = 1), 10), " W",
             lpad(round(tap; digits = 4), 9), lpad(round(vmin; digits = 1), 9), " V")
@@ -119,7 +120,7 @@ construction. No `model_hook!` was harmed — nor needed.
 Now something genuinely inexpressible in data: two rooftop PV systems at
 different buses share **one connection agreement** — their *combined* export
 may not exceed a cap (the flat ancestor of a dynamic operating envelope).
-Per-device `p_max` cannot say "jointly"; a one-line hook can. The hook builds
+Per-device `p_max` cannot say "jointly"; a short hook can. The hook builds
 each generator's total active power the same way the engine's own objective
 does — the bilinear ``\sum_k \Delta v_k \cdot c^g_k`` over phase terms — and
 constrains the sum. One unit rule to burn in: **the hook sees the model in
@@ -252,7 +253,7 @@ r3 = solve_opf(net; optimizer = OPT, model_hook! = ctx -> begin
         @constraint(model, e <= t_hi)
         @constraint(model, e >= t_lo)
     end
-    sb = opf_bases(ctx).s_base
+    bases = opf_bases(ctx); sb = bases === nothing ? 1.0 : bases.s_base
     # spread is per-unit power → ×s_base/1000 puts it in kW, penalized at 1 $/kWh-equivalent,
     # commensurate with generation_cost's $/h.
     @objective(model, Min,
@@ -291,12 +292,11 @@ model = JuMP.Model(Ipopt.Optimizer); JuMP.set_silent(model)
 ctxs  = [build_opf_model(n; model = model, add_objective = false) for n in (netA, netB)]
 
 Δt_h  = 1.0
-sb    = ctxs[1].bases.s_base
+bases = opf_bases(ctxs[1]); sb = bases === nothing ? 1.0 : bases.s_base
 Ppv1  = [gen_p(c, "pv1") for c in ctxs]
 @constraint(model, sum(Ppv1[t] * Δt_h for t in 1:2) <= 5_000.0 / sb)   # 5 kWh budget
 @objective(model, Min, sum(Δt_h * generation_cost(c) for c in ctxs))
-foreach(enforce_kcl!, ctxs)
-optimize!(model)
+optimize_opf!(ctxs...)              # finalizes each snapshot's KCL, then solves once
 
 results = [extract_result(c) for c in ctxs]
 for (t, r) in enumerate(results)
@@ -313,8 +313,9 @@ displaced import) is high — and idles the plant in the light hour. Note the
 contract details that make this correct rather than merely runnable: every
 snapshot is built into the **same** `model` with `add_objective = false`; the
 objective duration-weights each snapshot's [`generation_cost`](@ref) (a
-*rate*, \$/h — see the [units tutorial](tutorial_units.md)); `enforce_kcl!`
-runs once per snapshot before the single `optimize!`; and each `ctx` extracts
+*rate*, \$/h — see the [units tutorial](tutorial_units.md));
+[`optimize_opf!`](@ref) finalizes KCL for every snapshot and solves the shared
+model once; and each `ctx` extracts
 its own SI result afterwards. Real storage studies replace the one budget
 constraint with a state-of-charge recursion — the
 [OPF reference](opf.md#staged-api) shows that pattern.

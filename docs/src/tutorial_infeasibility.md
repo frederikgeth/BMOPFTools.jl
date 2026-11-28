@@ -139,7 +139,7 @@ are consistent and the relaxed solve converges, a terminal using slack identifie
 where that local relaxed solution could not close KCL without intervention. It is
 the four-wire analogue
 of an irreducible-infeasible-subsystem search, run as a single least-squares NLP
-(see [Diagnostics & validation](bounds/diagnostics.md)).
+(see [Diagnosing a formulation](bounds/diagnostics.md)).
 
 ```@example infeas
 fres = solve_feasibility_opf(tight; optimizer = OPT)
@@ -239,7 +239,7 @@ println("is_feasible : ", d_fix["is_feasible"],
 `LOCALLY_SOLVED`, and the feasibility OPF's residual collapses to numerical zero.
 Together with an independent residual check, this supplies an explicit
 numerically feasible point satisfying the represented KCL, KVL, and device equations
-([Diagnostics & validation](bounds/diagnostics.md)). The loop is closed: claim,
+([Diagnosing a formulation](bounds/diagnostics.md)). The loop is closed: claim,
 localization, quantified fix, confirmation.
 
 ## When to trust `LOCALLY_INFEASIBLE`

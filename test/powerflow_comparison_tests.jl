@@ -49,6 +49,10 @@ non-earth node name (e.g. `"src.1"`, `"lb.4"`) to its complex voltage in V.
 function _ods_volts(dss_path::String)::Dict{String,ComplexF64}
     OpenDSSDirect.dss("Clear")
     OpenDSSDirect.dss("Redirect \"$(normpath(dss_path))\"")
+    # A non-converged OpenDSS iterate is not a reference solution.
+    OpenDSSDirect.Solution.Converged() || error(
+        "OpenDSS did not converge on $(basename(dss_path)) " *
+        "($(OpenDSSDirect.Solution.Iterations()) iterations); not a valid oracle")
     names = Circuit.AllNodeNames()
     volts = Circuit.AllBusVolts()
     return Dict(n => v for (n, v) in zip(names, volts))
@@ -2074,29 +2078,22 @@ end
     _cmp_volts(V_ods, V_bm; label="autotrafo: ")
 end
 
-# Open-delta regulator (open_delta_regulator) vs OpenDSS. OpenDSS builds the bank
-# from two single-phase line-to-line transformers. Only the two regulated
-# line-to-line voltages are physically pinned (the third floats — open-delta), so
-# the comparison is on line-to-line magnitudes, not raw node voltages.
+# Open-delta regulator (open_delta_regulator). OpenDSS does not converge on the
+# `pf_open_delta_reg.dss` deck (it stops at its iteration limit), so there is no
+# OpenDSS reference here; the regulated line-to-line magnitudes are checked
+# against the taps instead. The open-delta cases in test/data/opf_review_oracles do converge
+# and are compared with OpenDSS in opf_review_opendss_tests.jl.
 @testset "PF comparison — open-delta regulator (ABBC)" begin
-    path  = joinpath(_PF_CMP_DIR, "pf_open_delta_reg.dss")
     net   = _net_open_delta_reg()
-    V_ods = _ods_volts(path)
-
     res     = solve_feasibility_opf(net; optimizer=Ipopt.Optimizer)
     slack_A = res["total_slack_magnitude_A"]
     @test slack_A < 1e-3
     @test haskey(get(net, "transformer", Dict()), "open_delta_regulator")
 
-    # Line-to-line magnitudes from each solver.
     rv = res["bus"]["reg"]
     Vll_bm(p, q) = abs((rv[p]["vr"] - rv[q]["vr"]) + im*(rv[p]["vi"] - rv[q]["vi"]))
-    Vll_ods(p, q) = abs(V_ods["reg.$p"] - V_ods["reg.$q"])
 
-    # reg1 across A-B (tap 1.05), reg2 across B-C (tap 1.025).
-    @test Vll_bm("1", "2") ≈ Vll_ods("1", "2")   rtol=2e-3
-    @test Vll_bm("2", "3") ≈ Vll_ods("2", "3")   rtol=2e-3
-    # Boost ratios match the taps (source LL ≈ 4156.9 V).
+    # reg1 across A-B (tap 1.05), reg2 across B-C (tap 1.025); source LL ≈ 4156.9 V.
     @test Vll_bm("1", "2") / (2400*sqrt(3)) ≈ 1.05   rtol=5e-3
     @test Vll_bm("2", "3") / (2400*sqrt(3)) ≈ 1.025  rtol=5e-3
 end

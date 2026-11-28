@@ -1,4 +1,4 @@
-# Diagnostics & Validation
+# Diagnosing a formulation
 
 How to *detect* the failure modes from
 [Bounds, Branches, and Feasibility](index.md), rather than merely avoid them. This page
@@ -17,17 +17,18 @@ relaxed solution against the AC equations is the exactness test of
     inside this package, and you should reach for them first:
 
     - **AC-feasibility of a candidate point** (Symptom 3) can be tested by first
-      pinning its decisions with [`project_solution`](../validation.md), then
-      running [`solve_feasibility_opf`](../validation.md) on that determined
+      pinning its decisions with [`project_solution`](@ref), then
+      running [`solve_feasibility_opf`](@ref) on that determined
       snapshot. A converged near-zero slack plus independently checked residuals
-      supplies a numerical feasible point. This is the native, four-wire analogue
-      of `primal_feasibility_report` against the AC model.
+      supplies a numerical feasible point. This tests the candidate's *dispatch*
+      (generator/IBR setpoints and free taps), with voltages re-solved; a point from
+      your own formulation must first be written into a BMOPFTools result
+      dictionary.
     - **Ill-posedness *before* you solve** — flat objectives, free injections, and
-      cost degeneracy — is caught structurally by the benchmark-readiness flags
+      cost degeneracy — is screened for structurally by the benchmark-readiness flags
       (`W.BENCH.GEN_ZERO_COST`, `W.BENCH.GEN_DEGENERATE_COST`, `W.BENCH.GEN_NO_DOF`;
-      see [Methodology § Benchmark readiness](../methodology.md)). Diverging iterates
-      (`NORM_LIMIT`) from a zero-cost generator are the runtime echo of
-      `W.BENCH.GEN_ZERO_COST`.
+      see [Methodology § Benchmark readiness](../methodology.md)). They flag
+      candidates, not proven degeneracy.
 
 ## Symptom 1 — `INFEASIBLE_OR_UNBOUNDED` / `DUAL_INFEASIBLE`
 
@@ -82,7 +83,7 @@ When no IIS is available, the **penalty relaxation** locates the binding constra
 letting them be violated at a cost:
 
 ```julia
-map = relax_with_penalty!(model)   # adds slacks + penalty to the objective
+penalties = relax_with_penalty!(model)   # adds slacks + penalty to the objective
 optimize!(model)
 for (con, slack) in map
     value(slack) > 1e-6 && @info "violated" con value(slack)
@@ -116,9 +117,12 @@ isempty(report) ? @info("AC-feasible: relaxation exact") :
                   @info("AC-infeasible: relaxation INEXACT", report)
 ```
 
-In BMOPFTools the same check is available natively for a four-wire network: pin the
-candidate dispatch into the case and call [`solve_feasibility_opf`](../validation.md),
-which minimizes an injected slack current. A converged near-zero slack, together
+In BMOPFTools a related check is available natively for a four-wire network: pin the
+candidate dispatch into the case and call [`solve_feasibility_opf`](@ref),
+which minimizes an injected slack current. It tests whether that *dispatch* is
+AC-feasible, re-solving the voltages, rather than testing the relaxed point itself;
+`project_solution` takes a BMOPFTools result dictionary, so map your formulation's
+dispatch into one first. A converged near-zero slack, together
 with independently recomputed residuals, demonstrates a valid numerical power
 flow. A non-zero slack localizes the residual used by that relaxed solve:
 
@@ -126,7 +130,7 @@ flow. A non-zero slack localizes the residual used by that relaxed solve:
 snap    = project_solution(net, result)
 res     = solve_feasibility_opf(snap; optimizer = Ipopt.Optimizer)
 slack_A = res["total_slack_magnitude_A"]
-slack_A < 1e-3 ? @info("candidate has near-zero KCL slack; verify residuals") :
+slack_A < 1e-3 ? @info("candidate has near-zero KCL slack; verify residuals") :  # A; scale to your currents
                  @info("candidate/relaxation has residual current", slack_A)
 ```
 
@@ -150,7 +154,7 @@ second eigenvalue $\to 0$) means exact
     any consistent voltage-angle assignment around a loop. Per-branch tightness certifies
     exactness only on radial feeders. On meshes, fall back to the direct AC-residual
     checks above — `primal_feasibility_report` against the AC model, or
-    [`solve_feasibility_opf`](../validation.md)'s slack current — which remain valid
+    [`solve_feasibility_opf`](@ref)'s slack current — which remain valid
     regardless of topology because they test the recovered point against the full AC
     equations rather than the relaxation's own constraints.
 
@@ -161,7 +165,7 @@ second eigenvalue $\to 0$) means exact
     ([Gan et al., 2015](https://arxiv.org/abs/1311.7170);
     [Bobo et al., 2020](https://arxiv.org/abs/2001.00898)). If your validation
     diverges from the benchmark, check whether you are in a loss-rewarding objective
-    ([list](loss_maximization.md)) or against an upper voltage bound first.
+    ([list](@ref loss-maximization)) or against an upper voltage bound first.
 
 ## Symptom 4 — I think I am on the wrong (low-voltage) branch
 
@@ -230,7 +234,7 @@ J = jacobian_of_active_constraints(model)   # your assembly of ∇g for active g
 ```
 
 For the AC-feasibility leg of this triage, reach for
-[`solve_feasibility_opf`](../validation.md): a verified near-zero
+[`solve_feasibility_opf`](@ref): a verified near-zero
 `total_slack_magnitude_A` supplies a feasible point, while non-zero slack is a
 local diagnostic that should be checked across starts and formulations.
 
@@ -242,7 +246,7 @@ local diagnostic that should be checked across starts and formulations.
    if exact.
 3. If values differ, classify before debugging code: is the row in the
    [decision matrix](decision_matrix.md) a ✗ cell? Is the objective on the
-   [loss-maximization list](loss_maximization.md)? Are upper voltage bounds binding?
+   [loss-maximization list](@ref loss-maximization)? Are upper voltage bounds binding?
    Expected divergence is not a bug.
 4. For collapse/loadability instances, compare margins from a continuation sweep, not
    single-point objective values.
@@ -265,6 +269,6 @@ Model debugging is an established craft, not specific to this library:
 
 See also: [Bounds, Branches, and Feasibility](index.md) ·
 [Decision matrix](decision_matrix.md) ·
-[Objectives that imply loss maximization](loss_maximization.md) ·
+[Objectives that imply loss maximization](@ref loss-maximization) ·
 [Known traps](known_traps.md) · [Trusting the solver](solver_trust.md) ·
 [References](references.md)

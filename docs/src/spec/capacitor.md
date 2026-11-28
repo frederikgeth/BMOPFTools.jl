@@ -2,65 +2,53 @@
 
 A **capacitor** is a fixed, nameplate-rated shunt capacitor bank. Electrically it is a
 constant susceptance derived from its rating, delivering voltage-dependent reactive
-power. Parts 1–5 state the foundational model;
-[part 6](#6.-Implementation-in-BMOPFTools) records how BMOPFTools realizes it. Symbols
-are defined in [Notation](notation.md).
+power.
 
-## 1. Data model
+The foundational model (data model, symbols, variables, constraints) is in the
+[Capacitor page of the BMOPF specification](https://distribution-system-opt.github.io/math-and-data-model-specifications/stable/spec/capacitor/).
+This page records where BMOPFTools extends it and how BMOPFTools implements it.
+Symbols are defined in [Notation](notation.md).
 
-A capacitor is an entry of the top-level `capacitor` object, keyed by its string ID.
+## BMOPFTools extensions to the specification
 
-| Field | Type | Unit | Req. | Description |
-|-------|------|:----:|:----:|-------------|
-| `bus` | string | – | ✔ | Host bus ID $i$ |
-| `terminal_map` | string[] | – | ✔ | Conductor→terminal map |
-| `configuration` | string | – | ✔ | `WYE`, `SINGLE_PHASE`, or `DELTA` |
-| `q_rated` | number[] | var | ✔ | Rated reactive power per phase (WYE) or per phase-pair (DELTA) |
-| `v_nom` | number | V | ✔ | Rated voltage (phase-to-neutral for WYE, line-to-line for DELTA) |
+### Per-element ratings
 
-## 2. Input symbols
+The specification rates a balanced bank with one scalar `q_rated` for the whole bank
+and a line-to-line `v_nom` (for `WYE` and `DELTA`). BMOPFTools instead rates each
+element separately, which also admits unbalanced banks:
 
-| Field | Symbol | Notes |
-|-------|:------:|-------|
-| `q_rated` | $\textcolor{red}{\mathbf{Q}^{\text{rated}}}$ | per phase / phase-pair |
-| `v_nom` | $\textcolor{red}{V^{\text{nom}}}$ | rated voltage |
+| Field | Type | Unit | Description |
+|-------|------|:----:|-------------|
+| `q_rated` | number[] | var | Rated reactive power per element: one per phase (`WYE`), one per phase pair (`DELTA`), one entry (`SINGLE_PHASE`) |
+| `v_nom` | number | V | Rated element voltage: phase-to-neutral for `WYE`/`SINGLE_PHASE`, line-to-line for `DELTA` |
 
-The bank's susceptance follows from the nameplate: $\textcolor{red}{B}=\textcolor{red}{Q^{\text{rated}}}/(\textcolor{red}{V^{\text{nom}}})^2$,
-assembled (per configuration) into a terminal-space admittance
-$\textcolor{brown}{\mathbf{Y}}=\textcolor{brown}{j}\,\textcolor{red}{\mathbf{B}}$.
+Element $k$ has susceptance
+$\textcolor{red}{b_{\kappa,k}}=\textcolor{red}{Q^{\text{rated}}_{\kappa,k}}/(\textcolor{red}{V^{\text{nom}}_\kappa})^2$,
+so the configuration constant $\beta_\kappa$ of the specification's
+[Susceptance from nameplate data](https://distribution-system-opt.github.io/math-and-data-model-specifications/stable/spec/capacitor/#Susceptance-from-nameplate-data)
+is not needed. Each element is then placed with the specification's
+reciprocal two-node stamp (see its
+[Terminal-space assembly](https://distribution-system-opt.github.io/math-and-data-model-specifications/stable/spec/capacitor/#Terminal-space-assembly)),
+using its own $b_{\kappa,k}$; `DELTA` element $k$ spans terminals $(k, k+1)$
+cyclically. A balanced specification bank maps to equal entries
+$Q^{\text{rated}}_{\kappa,k}=Q^{\text{rated}}_\kappa/3$, with
+$V^{\text{nom}}_{\text{LL}}/\sqrt3$ as `v_nom` for `WYE`; both give the same
+susceptance matrix.
 
-## 3. Variables
+A `WYE` bank is stamped phase-to-neutral, so its terminal map needs a resolvable
+neutral; without one the bank contributes nothing, and validation reports
+`W.SPEC.CAP_WYE_NO_NEUTRAL`. A missing or non-positive `v_nom` is refused, and a
+negative `q_rated` entry is reported as `E.SPEC.CAP_NEGATIVE_Q` (model a reactor as
+a [shunt](shunt.md) instead).
 
-**None.** Like a shunt, a capacitor introduces no unknown — its current follows from
-the bus voltage and its fixed susceptance.
-
-## 4. Equality constraints
-
-The current drawn into the capacitor is linear in the bus voltage, and is the bank's
-contribution to KCL at bus $i$:
-
-```math
-\textcolor{blue}{\mathbf{I}} = \textcolor{brown}{j}\,\textcolor{red}{\mathbf{B}}\,\textcolor{blue}{\mathbf{U}_i}[\textcolor{purple}{\mathbf{N}}].
-```
-
-The delivered reactive power is therefore voltage-dependent,
-$\textcolor{red}{\mathbf{B}}\,|\textcolor{blue}{\mathbf{U}}|^2$ — it rises and falls
-with the square of the terminal voltage, the defining behavior of a fixed capacitor
-(as opposed to a fixed-power source).
-
-## 5. Inequality constraints
-
-**None.** With a fixed susceptance the current follows the voltage; no rating bound is
-imposed.
-
-## 6. Implementation in BMOPFTools
+## Implementation in BMOPFTools
 
 ### [Realization](@id Realisation)
 
 A capacitor is treated as a **connection-aware shunt**. The nameplate and connection
 are assembled into a terminal-space susceptance matrix ($\textcolor{red}{\mathbf{B}}$,
 via `_cap_bmatrix`), and the current is injected with the **same** in-place machinery
-as a standalone [shunt](shunt.md) — `_shunt_current!` with $G=$ nothing — subtracting
+as a standalone [shunt](shunt.md) (`_shunt_current!` with $G=$ `nothing`), subtracting
 the affine expression $\textcolor{red}{\mathbf{B}}\textcolor{blue}{\mathbf{U}}$ from
 the KCL accumulator. No decision variable or defining equality is created
 ([`capacitor.jl:_add_capacitor_constraints!`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/ext/BMOPFOpfExt/capacitor.jl)).

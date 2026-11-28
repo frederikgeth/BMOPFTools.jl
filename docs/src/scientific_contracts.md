@@ -6,6 +6,48 @@ supported domain, status, Findings and unassessed quantities. A pass covers only
 the documented checks. The [companion book](https://github.com/frederikgeth/multi-graph-book)
 explains the scientific background; this page documents the executable APIs.
 
+## Overview
+
+Each check links to a stable `PSK-*` statement in the companion book, which owns
+the scientific claim; the check is the executable test of that claim on supplied
+models.
+
+| Check | Function | Contract id | Book statement |
+|---|---|---|---|
+| [Parallel member-current limits](#Parallel-member-current-limits) | [`check_parallel_member_limit_preservation`](@ref) | `parallel_member_limit_preservation` | PSK-000001 |
+| [Neutral, ground, and reference relations](#Neutral,-ground,-and-reference-relations) | [`check_neutral_ground_reference_preservation`](@ref) | `neutral_ground_reference_preservation` | PSK-000002 |
+| [Claimed-feasible solution validity](#Claimed-feasible-solution-validity) | [`check_claimed_solution_validity`](@ref) | `claimed_solution_validity` | PSK-000003 |
+| [Load connection voltage bases](#Load-connection-voltage-bases) | [`check_load_voltage_base_consistency`](@ref) | `load_voltage_base_consistency` | PSK-000004 |
+| [Adjustable transformer tap domains](#Adjustable-transformer-tap-domains) | [`check_transformer_tap_domain_preservation`](@ref) | `transformer_tap_domain_preservation` | PSK-000005 |
+| [Transformer winding conventions](#Transformer-winding-conventions) | [`check_transformer_winding_convention_preservation`](@ref) | `transformer_winding_convention_preservation` | PSK-000006 |
+| [Decision-preservation manifests](#Decision-preservation-manifests) | [`check_decision_preservation_manifest`](@ref) | `decision_preservation_manifest_completeness` | PSK-000007 |
+| [Kron boundary and recovery](#Kron-boundary-and-recovery) | [`check_kron_boundary_recovery`](@ref) | `kron_boundary_recovery_preservation` | PSK-000008 |
+| [Positive-sequence collapse applicability](#Positive-sequence-collapse-applicability) | [`check_positive_sequence_collapse`](@ref) | `positive_sequence_collapse_applicability` | PSK-000009 |
+| [Fixed versus state-dependent equivalents](#Fixed-versus-state-dependent-equivalents) | [`check_state_dependent_equivalent`](@ref) | `state_dependent_equivalent_provenance` | PSK-000010 |
+| [Floating references and singularity](#Floating-references-and-singularity) | [`check_reference_singularity`](@ref) | `reference_singularity_validation` | PSK-000011 |
+| [Terminal and conductor permutation invariance](#Terminal-and-conductor-permutation-invariance) | [`check_terminal_permutation_invariance`](@ref) | `terminal_permutation_invariance` | PSK-000012 |
+| [Complete solved-network feasibility witness](#Complete-solved-network-feasibility-witness) | [`check_solved_network_feasibility`](@ref) | `solved_network_feasibility_validation` | PSK-000013 |
+| [Unit/base and serialization invariance](#Unit/base-and-serialization-invariance) | [`check_unit_base_serialization_invariance`](@ref) | `unit_base_serialization_invariance` | PSK-000014 |
+
+## Result statuses
+
+[`ScientificContractResult`](@ref) uses four statuses:
+
+| Status | Meaning |
+|---|---|
+| `:passed` | Every declared checked dimension passed within tolerance |
+| `:failed` | An in-domain preservation condition was disproved |
+| `:inapplicable` | The case lies outside the declared model domain |
+| `:indeterminate` | Required mapped components or ratings are unavailable |
+
+A pass is deliberately narrow. Each contract names its checked and unassessed
+dimensions in the result and the executable registry. The parallel contract
+checks `terminal_behavior` and `scalar_member_current_limits`; the neutral
+contract checks representation relations only. Neither result licenses an
+inference about a dimension it does not name as checked.
+
+Use [`contract_result_to_dict`](@ref) for deterministic JSON-ready serialization. Finding codes and their meanings are listed in the [Finding-code reference](findings.md).
+
 ## Floating references and singularity
 
 [`check_reference_singularity`](@ref) compares mapped connected-island
@@ -21,7 +63,8 @@ target = Dict("reference_analysis" => Dict("islands" => [
     Dict("id" => "i1", "has_voltage_reference" => false, "dimension" => 4, "rank" => 3)]))
 result = check_reference_singularity(source, target;
     source_model_id="source", target_model_id="target")
-result.findings[1].code # "E.CONTRACT.REFERENCE_LOSS"
+[f.code for f in result.findings]
+# ["E.CONTRACT.REFERENCE_LOSS", "E.CONTRACT.SINGULARITY_CHANGE"]
 ```
 
 ## Fixed versus state-dependent equivalents
@@ -191,7 +234,7 @@ terminal magnitude violates the network's declared 200--260 V range. The
 contract reuses [`profile_solution`](@ref), retains the underlying `E.SOL`
 evidence, and rejects the tempting inference from status alone.
 
-The initial contract requires numeric `vr`, `vi`, and `vm` values for every
+The contract requires numeric `vr`, `vi`, and `vm` values for every
 declared bus terminal. It checks the complete result tree for non-finite values
 and recomputes declared bus magnitude, sequence, and angle-difference limits.
 Missing status or terminal data is `:indeterminate`; a status that does not
@@ -200,8 +243,8 @@ claim feasibility is `:inapplicable`.
 A pass remains deliberately incomplete. Network-equation residuals, branch and
 device limits, load-model residuals, power balance, objective optimality,
 local/global guarantees, and solver derivative quality are unassessed by this
-initial contract even though other BMOPFTools profiling paths already cover
-parts of that larger validation problem.
+contract; [`profile_solution`](@ref) covers parts of that larger validation
+problem.
 
 ## Load connection voltage bases
 
@@ -279,7 +322,7 @@ mapped base-factor identity, start admissibility, and equality of the continuous
 tap interval. It does not establish pointwise transformer equations,
 tap-dependent losses, discrete positions, coupling, automatic-control behavior,
 network feasible-set or objective equality, the optimal tap, or solver
-guarantees. Those dimensions remain explicit follow-on contracts.
+guarantees.
 
 ## Transformer winding conventions
 
@@ -324,8 +367,8 @@ The bus mapping is mandatory because a target cannot recover source identity
 after a transformation. Terminal labels are stable by default; pass
 `terminal_mapping=Dict("a"=>"1", ...)` for a bijective relabeling. Adjustable
 taps return `:inapplicable` and belong to the tap-domain contract. Subtype-
-changing or fully reversed transformer encodings are also outside this initial
-compact contract: they require a complete typed transformation, not a guessed
+changing or fully reversed transformer encodings are also outside this
+contract: they require a complete typed transformation, not a guessed
 field swap.
 
 A pass is narrow. Leakage, excitation-shunt placement and value, grounding,
@@ -341,14 +384,18 @@ follow it, and a target matrix formed by the corresponding source row/column
 permutation.
 
 ```julia
-source = parse_bmopf("source.json")
-target = parse_bmopf("relabeled-target.json")
+fixture = joinpath(pkgdir(BMOPFTools), "test", "fixtures", "negative",
+                   "terminal-permutation")
+source = parse_bmopf(joinpath(fixture, "source.json"))
+target = parse_bmopf(joinpath(fixture, "target.json"))
 result = check_terminal_permutation_invariance(
     source, target;
     source_line_id = "l3", target_line_id = "l3",
     permutation = [2, 3, 1],
 )
-result.status                 # :passed or :failed
+result.status                 # :failed
+[f.code for f in result.findings]
+# ["E.CONTRACT.PERMUTATION_RELATION_MISMATCH"]
 result.evidence["relation_error"]
 ```
 
@@ -493,25 +540,6 @@ solver equivalence. Use narrower case-specific contracts—such as the parallel
 member-limit or transformer tap-domain checks—to produce actual evidence for
 individual dimensions.
 
-## Result statuses
-
-[`ScientificContractResult`](@ref) uses four statuses:
-
-| Status | Meaning |
-|---|---|
-| `:passed` | Every declared checked dimension passed within tolerance |
-| `:failed` | An in-domain preservation condition was disproved |
-| `:inapplicable` | The case lies outside the declared model domain |
-| `:indeterminate` | Required mapped components or ratings are unavailable |
-
-A pass is deliberately narrow. Each contract names its checked and unassessed
-dimensions in the result and the executable registry. The parallel contract
-checks `terminal_behavior` and `scalar_member_current_limits`; the neutral
-contract checks representation relations only. Neither result licenses an
-inference about a dimension it does not name as checked.
-
-Use [`contract_result_to_dict`](@ref) for deterministic JSON-ready serialization. Finding codes and their meanings are listed in the [Finding-code reference](findings.md).
-
 ## Kron boundary and recovery
 
 [`check_kron_boundary_recovery`](@ref) checks a fixed-series boundary relation and its recovery declaration. It follows the grounding tutorial's
@@ -524,8 +552,10 @@ order, and requires an explicit recovery-map declaration.
 ```julia
 using BMOPFTools
 
-source = parse_bmopf("source-four-wire.json")
-target = parse_bmopf("target-three-wire.json")
+fixture = joinpath(pkgdir(BMOPFTools), "test", "fixtures", "negative",
+                   "kron-boundary-grounding")
+source = parse_bmopf(joinpath(fixture, "source.json"))      # neutral grounded at one end only
+target = parse_bmopf(joinpath(fixture, "transformed.json"))
 result = check_kron_boundary_recovery(
     source,
     target;
@@ -538,6 +568,9 @@ result = check_kron_boundary_recovery(
         "current_recovery" => "recover the source neutral current",
     ),
 )
+result.status                 # :failed
+[f.code for f in result.findings]
+# ["E.CONTRACT.KRON_GROUNDING_PRECONDITION"]
 ```
 
 A floating or finite-grounded neutral returns `:failed` with
@@ -550,23 +583,5 @@ recovery declaration. Internal asset identity, equipment limits, protection
 quantities, state-dependent factors, complete network feasible sets, objectives,
 and solver results remain unassessed.
 
-## Executable discovery export
-
-`knowledge/executable.toml` is the package-owned registry for executable contracts and Findings. The generator validates its source paths, exported API, fixture metadata, Finding definitions, and source hashes, then writes:
-
-- `generated/executable_knowledge.jsonl`, containing contract, API, Finding,
-  fixture, and recipe records; and
-- `generated/executable-knowledge-manifest.json`, containing package identity, record counts, corpus hash, and source hashes.
-
-Check that committed records are current with:
-
-```bash
-python3 scripts/generate_finding_registry.py --check
-python3 scripts/generate_executable_knowledge.py --check
-```
-
-The sibling book pins this export in its federated pair manifest. That link lets book retrieval expose an implemented guardrail without copying package semantics into the scientific registry.
-
-The [JSON execution interface and recipes](execution_interface.md) use these
-same stable identifiers. Recipe metadata is canonical under `recipes/` and is
-validated and source-hash-bound by the executable-knowledge generator.
+Registering a new contract and its generated metadata is covered in the
+[contributor guide](@ref contributing-guardrails).

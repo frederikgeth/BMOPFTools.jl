@@ -24,7 +24,9 @@ adds conversion and preparation with an external dataset.
 | Fill bounds, limits, costs | [`augment_case`](@ref) ([`AugmentationRecipe`](@ref)) | [Case augmentation](augmentation.md) |
 | Audit every change | [`render_manifest`](@ref), [`manifest_to_dict`](@ref) | [Case augmentation](augmentation.md) |
 | Solve the OPF | [`solve_opf`](@ref), [`solve_pf`](@ref), [`solve_feasibility_opf`](@ref) | [Optimal power flow](opf.md) |
-| Extend a staged OPF model | [`build_opf_model`](@ref), [`OpfModelKey`](@ref), [`add_terminal_injection!`](@ref) | [Parameterized and differentiable extensions](differentiable_extensions.md) |
+| Extend a staged OPF model | [`build_opf_model`](@ref), [`OpfModelKey`](@ref), [`add_terminal_injection!`](@ref) | [Extending the OPF model](differentiable_extensions.md) |
+| Bind parameters, supply coefficients, re-solve | [`bind_opf_parameter!`](@ref), [`OpfCoefficientProvider`](@ref), [`resolve_opf!`](@ref) | [Repeated solves, parameters and coefficient providers](repeated_solves.md) |
+| Compute a local solution sensitivity | [`opf_differentiability_report`](@ref), [`opf_kkt_diagnostic`](@ref) | [Sensitivities with DiffOpt](diffopt_sensitivities.md) |
 | Inspect / profile a result | [`profile_solution`](@ref), [`render_solution`](@ref), [`diagnose_infeasibility`](@ref) | [OPF result dictionary](results.md) |
 | Reduce a network | [`simplify_network`](@ref), [`kron_reduce_neutrals`](@ref), [`opti_kron_reduction`](@ref) + [`kron_reduce_buses`](@ref) | [Network reduction](network_reduction.md) |
 | Export | [`write_bmopf`](@ref), [`write_result`](@ref), [`to_pmd`](@ref), [`to_dss`](@ref) | [Conversion guide](conversion.md) |
@@ -81,20 +83,29 @@ BMOPFTools.check_kron_boundary_recovery
 BMOPFTools.check_positive_sequence_collapse
 BMOPFTools.check_state_dependent_equivalent
 BMOPFTools.check_reference_singularity
-
 BMOPFTools.check_terminal_permutation_invariance
 BMOPFTools.check_solved_network_feasibility
 BMOPFTools.check_unit_base_serialization_invariance
 BMOPFTools.contract_result_to_dict
+```
+
+## JSON execution interface
+
+```@docs
 BMOPFTools.execute_contract
 BMOPFTools.execute_case_parse
 BMOPFTools.execute_analysis
 BMOPFTools.execute_solution_verification
+BMOPFTools.execute_finding_explanation
+BMOPFTools.execution_error_response
+```
+
+## Finding lookup and consolidation
+
+```@docs
 BMOPFTools.explain_finding
 BMOPFTools.expand_findings
 BMOPFTools.is_rolled_up
-BMOPFTools.execute_finding_explanation
-BMOPFTools.execution_error_response
 ```
 
 ## IO
@@ -306,14 +317,8 @@ BMOPFTools.register_opf_semantic_block!
 BMOPFTools.opf_semantic_blocks
 ```
 
-Native semantic blocks are registered lazily on the first schema/provenance
-request after KCL finalization, or when `register_opf_semantic_block!` is
-called after KCL finalization. Ordinary solves therefore do not pay for
-diagnostic metadata they never inspect, while post-KCL custom registration
-incurs the same materialization cost and surfaces overlaps at that call.
-Before KCL finalization the schema reports `semantic_blocks_available=false`; a
-complete native registry is only claimed once the KCL rows and late auxiliary
-bounds exist.
+Native semantic blocks become available after KCL finalization; before that the
+schema reports `semantic_blocks_available=false`.
 
 ## Network reduction
 
@@ -391,8 +396,25 @@ benchmark_readiness_check
 ## Case preparation
 
 See [Augmentation reference](augmentation_reference.md) for the full reference and worked
-examples.  The main entry points are `fix_case` / `FixRecipe` (structural
-repairs) and `augment_case` / `AugmentationRecipe` / `default_recipe`
-(standards-grounded gap-filling), together with the shared
-`TransformationManifest` / `TransformEntry` / `manifest_to_dict` /
-`render_manifest` audit trail.
+examples. The main entry points are [`fix_case`](@ref) / [`FixRecipe`](@ref)
+(structural repairs) and [`augment_case`](@ref) / [`AugmentationRecipe`](@ref) /
+[`default_recipe`](@ref) (standards-grounded gap-filling), together with the shared
+[`TransformationManifest`](@ref) / [`TransformEntry`](@ref) /
+[`manifest_to_dict`](@ref) / [`render_manifest`](@ref) audit trail; DER placement
+is [`add_generators`](@ref) / [`add_ibrs`](@ref) / [`add_statcom!`](@ref).
+
+## Documented on other pages
+
+These exported names have their docstrings next to the guide that explains them:
+
+- **OPF** ([Optimal power flow](opf.md)): [`solve_opf`](@ref), [`solve_pf`](@ref),
+  [`solve_feasibility_opf`](@ref), [`diagnose_infeasibility`](@ref),
+  [`build_opf_model`](@ref), [`enforce_kcl!`](@ref), [`optimize_opf!`](@ref),
+  [`generation_cost`](@ref), [`extract_result`](@ref).
+- **Re-solving** ([Repeated solves](repeated_solves.md)): [`resolve_opf!`](@ref).
+- **Case families** ([Case development](tutorial_case_development.md)):
+  [`CaseScenario`](@ref), [`materialize_scenario`](@ref), [`run_case_sweep`](@ref),
+  [`write_case_log`](@ref).
+- **Case preparation** ([Augmentation reference](augmentation_reference.md)): the
+  names above, plus [`GeneratorRecipe`](@ref), [`IBRRecipe`](@ref),
+  [`default_generator_recipe`](@ref), [`default_ibr_recipe`](@ref).

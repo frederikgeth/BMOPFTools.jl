@@ -58,8 +58,14 @@ For code or analysis changes:
   `checkdocs = :exports`.
 - Add every new finding code to
   [`docs/src/findings.md`](docs/src/findings.md), including its trigger and
-  rationale. Match findings on `f.code`; renaming, removing, or changing the
-  meaning of a code is a breaking change.
+  rationale, then regenerate the registry with
+  `python3 scripts/generate_finding_registry.py --write`. Match findings on
+  `f.code`; renaming, removing, or changing the meaning of a code is a breaking
+  change.
+- Changes to scientific contracts, fixtures or knowledge sources follow
+  [`AGENTS.md`](AGENTS.md): regenerate the executable-knowledge export with
+  `python3 scripts/generate_executable_knowledge.py --write`. CI checks both
+  generated outputs.
 - Avoid coverage regressions. CI uploads coverage to Codecov for each run.
 - Keep the code compatible with Julia 1.10, the floor declared in
   `Project.toml`. CI tests the Julia LTS channel and the latest stable release.
@@ -67,21 +73,13 @@ For code or analysis changes:
 Run the full test suite from the repository root:
 
 ```sh
-julia --project=. -e 'using Pkg; Pkg.test()'
+julia --project=test --startup-file=no test/runtests.jl
 ```
 
-Changes that affect generated reports or simplified cases should also run:
-
-```sh
-julia --project=. scripts/generate_output.jl
-```
-
-The OPF and benchmark scripts use the environment in `scripts/`. Set it up
-once with:
-
-```sh
-julia --project=scripts -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
-```
+The benchmark-generation scripts (`generate_output.jl`, `run_benchmark.jl`) and
+the networks they process live in
+[BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData); run them from
+that repository.
 
 ## Contributing a draft network case
 

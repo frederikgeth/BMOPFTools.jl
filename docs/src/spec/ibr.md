@@ -19,47 +19,57 @@ An IBR is an entry of the top-level `ibr` object, keyed by its string ID $r$.
 | `terminal_map` | string[] | – | ✔ | Conductor→terminal map |
 | `topology` | string | – | ✔ | `FOUR_LEG`, `THREE_LEG`, or `SINGLE_PHASE` |
 | `prime_mover` | string | – | ✔ | PV / battery / STATCOM / … |
-| `s_max` | number[] | VA | ✔ | Per-phase apparent-power rating |
-| `p_min`, `p_max` | number[] | W | | Per-phase active-power bounds |
-| `q_min`, `q_max` | number[] | var | | Per-phase reactive-power bounds |
-| `i_max` | number[] | A | | Per-conductor current-magnitude limit (optional neutral entry) |
-| `p_avail` | number | W | | Available active power (PV curtailment ceiling) |
+| `s_max` | number[] | VA | ✔ | Apparent-power rating, one entry per coil |
+| `p_min`, `p_max` | number[] | W | | Active-power bounds, one entry per coil |
+| `q_min`, `q_max` | number[] | var | | Reactive-power bounds, one entry per coil |
+| `i_max` | number[] | A | | Current-magnitude limit; per-entry meaning depends on `topology` (see [below](#Engineering-bounds)) |
+| `p_avail` | number | W | | Scalar available active power; augmentation derives a missing `p_max` from it, and it is the `P_AVAILABLE` Volt-Watt base |
+| `cost` | number[] | currency/kWh | | Per-coil linear energy price |
 | `control_profile` | string | – | | Reference to a [control profile](control-profile.md) |
+| `voltage_aggregation` | string | – | | Legacy `PER_PHASE` / `AVERAGE` override of the droop aggregation |
 | `dc_link_coupled` | bool | – | | Couple the phases through a shared DC link |
 | `p_dc_min`, `p_dc_max` | number | W | | Net DC-side active-power bounds (when `dc_link_coupled`) |
 | `dc_bus`, `dc_terminal_map`, `dc_control`, … | – | – | | Shared DC-node coupling — see [DC networks](dc.md) |
+| `r_filter`, `x_filter`, `b_filter_shunt`, `grid_forming`, `v_ref_internal` | – | – | | Accepted by the schema; not used by the OPF (`grid_forming` only informs a DC-island validation check) |
+
+A *coil* is one independently controlled converter current: one per phase
+conductor for `FOUR_LEG`, one per cyclic terminal pair for `THREE_LEG`, and one
+for `SINGLE_PHASE`. A supplied `p_min`/`p_max`/`q_min`/`q_max` vector must have
+exactly one entry per coil; a shorter one is rejected with an `ArgumentError`.
 
 ## 2. Input symbols
 
 | Field | Symbol | Notes |
 |-------|:------:|-------|
-| `s_max` | $\textcolor{red}{\mathbf{S}^{\max}_r}$ | per phase |
-| `p_min`, `p_max` | $\textcolor{red}{P^{\min}_r},\ \textcolor{red}{P^{\max}_r}$ | per phase |
-| `q_min`, `q_max` | $\textcolor{red}{Q^{\min}_r},\ \textcolor{red}{Q^{\max}_r}$ | per phase |
-| `i_max` | $\textcolor{red}{\mathbf{I}^{\max}_r}$ | per conductor |
+| `s_max` | $\textcolor{red}{\mathbf{S}^{\max}_r}$ | per coil |
+| `p_min`, `p_max` | $\textcolor{red}{P^{\min}_r},\ \textcolor{red}{P^{\max}_r}$ | per coil |
+| `q_min`, `q_max` | $\textcolor{red}{Q^{\min}_r},\ \textcolor{red}{Q^{\max}_r}$ | per coil |
+| `i_max` | $\textcolor{red}{\mathbf{I}^{\max}_r}$ | per coil, plus optional neutral (`FOUR_LEG`) |
 | `p_dc_min`, `p_dc_max` | $\textcolor{red}{P^{\text{dc},\min}_r},\ \textcolor{red}{P^{\text{dc},\max}_r}$ | net DC bounds |
 
 ## 3. Variables
 
-Each phase conductor $k$ injects a complex converter current $\textcolor{blue}{I_{r,k}}$,
+Each coil $k$ injects a complex converter current $\textcolor{blue}{I_{r,k}}$,
 stacked into $\textcolor{blue}{\mathbf{I}_{r}}$. The number of currents follows the
-topology: one per phase (`FOUR_LEG`), one per conductor pair (`THREE_LEG`), or one
-(`SINGLE_PHASE`).
+topology: one per phase conductor (`FOUR_LEG`), one per cyclic terminal pair
+(`THREE_LEG`), or one (`SINGLE_PHASE`).
 
 ## 4. Equality constraints
 
 ### Per-phase power
 
 With $\Delta\textcolor{blue}{U_{r,k}}$ the phase voltage difference set by the
-topology — phase-to-neutral (`FOUR_LEG`), line-to-line (`THREE_LEG`), or the terminal
-pair (`SINGLE_PHASE`) — the injected complex power is
+topology — phase-to-neutral (`FOUR_LEG`; phase-to-earth when `terminal_map` has no
+neutral), terminal $k$ to the next terminal cyclically (`THREE_LEG`), or
+`terminal_map[1]` to `terminal_map[2]` (`SINGLE_PHASE`) — the injected complex power is
 
 ```math
 \textcolor{blue}{S_{r,k}} = \Delta\textcolor{blue}{U_{r,k}}\,(\textcolor{blue}{I_{r,k}})^{*} = P_{r,k} + \textcolor{brown}{j}\,Q_{r,k}.
 ```
 
-Current conservation over the IBR terminals gives its KCL contribution (injection
-positive at the phase terminal, return at the neutral for `FOUR_LEG`).
+Current conservation over the IBR terminals gives its KCL contribution: each coil
+current enters at its positive terminal and returns at its reference terminal (the
+neutral for `FOUR_LEG`, or earth when there is none).
 
 ### Reactive-power control law
 
@@ -85,13 +95,17 @@ Q_{r,k} = \textcolor{red}{Q^{\text{base}}_{r,k}}\; f^{\text{VV}}(U_k),
 
   where $U_k$ is phase-to-neutral, phase-to-ground, or phase-to-phase per the
   profile's `voltage_reference`, and may be per-phase or phase-averaged.
+  $\textcolor{red}{Q^{\text{base}}_{r,k}}$ is the coil's `s_max` entry (`q_ref = VAR_MAX`).
+
+If a profile declares both `power_factor` and a droop curve, the power factor is
+used and both droop curves are dropped, with a warning.
 
 ## 5. Inequality constraints
 
 ### Cartesian variable bounds
 
-Optional per-conductor current box on the converter-current components, from `i_max`
-(implied by the current circle below).
+None. The converter-current components are free variables; `i_max` enters only
+through the current circle below.
 
 ### Engineering bounds
 
@@ -109,16 +123,18 @@ Optional per-conductor current box on the converter-current components, from `i_
 
 BMOPFTools enforces these bounds alongside PF or supported Volt-VAr control,
 without clipping the equality or dropping the bounds. A conflicting requirement
-can leave no feasible point. This changes the older implementation's replacement
-of Q boxes by control equalities; see the [compatibility note](../opf.md).
-For THREE_LEG, the implemented P/Q quantities index cyclic conductor pairs;
-these bounds do not constrain independently dispatched external-conductor powers.
+can leave no feasible point; see [IBRs in the OPF formulation](../opf.md).
+For `THREE_LEG`, the P/Q quantities index cyclic terminal pairs;
+these bounds do not constrain the external conductor powers.
 
 A **Volt-Watt droop** (from `volt_watt`) adds a voltage-dependent curtailment cap
 $P_{r,k}\le\textcolor{red}{P^{\text{base}}_{r,k}}\,f^{\text{VW}}(U_k)$ on top, so the
-effective limit is the tighter of the two.
+effective limit is the tighter of the two. $\textcolor{red}{P^{\text{base}}_{r,k}}$
+is selected by the profile's `p_ref`: the coil's `s_max` (`S_MAX`, default), its
+`p_max` (`P_MAX`), or `p_avail` divided equally over the coils (`P_AVAILABLE`).
 
-**Apparent-power circle** (the converter rating):
+**Apparent-power circle** (the converter rating; stamped by OPF and feasibility
+OPF, omitted in power flow):
 
 ```math
 P_{r,k}^2 + Q_{r,k}^2 \le (\textcolor{red}{S^{\max}_{r,k}})^2.
@@ -133,7 +149,16 @@ voltage-source-converter behavior — rather than staying flat at $\textcolor{re
 \textcolor{blue}{I_{r,k}}(\textcolor{blue}{I_{r,k}})^{*} \le (\textcolor{red}{I^{\max}_{r,k}})^2.
 ```
 
-A trailing `i_max` entry additionally bounds the `FOUR_LEG` neutral return current.
+The meaning of `i_max` depends on the topology:
+
+- `FOUR_LEG`: one entry per phase conductor; a trailing extra entry (length =
+  phases + 1) bounds the neutral return current $\lvert\sum_k I_{r,k}\rvert$ when the
+  map has a neutral terminal. A phases-only vector warns.
+- `SINGLE_PHASE`: length 1 or 2; both entries bound the same current, so one circle
+  is stamped at the tighter value.
+- `THREE_LEG`: `i_max[k]` caps the cyclic pair current $I_{r,k}$, not the external
+  conductor current (which is the difference of two adjacent pair currents and can
+  exceed the pair cap). There is no neutral.
 
 **Shared-DC-link net power** (when `dc_link_coupled` without an external `dc_bus`):
 the per-phase active powers are coupled by a net balance, letting the converter
@@ -144,7 +169,10 @@ unbalanced feeder):
 \textcolor{red}{P^{\text{dc},\min}_r} \le \sum_k P_{r,k} \le \textcolor{red}{P^{\text{dc},\max}_r}.
 ```
 
-For a pure STATCOM both bounds are $0$ (no net active source). When the IBR instead
+This follows the four-wire inverter model of Heidari and Geth (2024) (see
+[References](references.md)). For a pure STATCOM both bounds are $0$ (no net active
+source). The OPF builder reads a missing bound as $0$; augmentation fills missing
+bounds with $0/0$ for a STATCOM and $0/$`p_avail` (else $0/\sum_k$`p_max`) otherwise. When the IBR instead
 references an external `dc_bus`, this net power is balanced through DC KCL — see
 [DC networks](dc.md).
 
@@ -166,8 +194,9 @@ references an external `dc_bus`, this net power is balanced through DC KCL — s
   BMOPFTools stamps them with a smoothed ReLU/softplus operator
   (`_resolve_volt_var`/`_resolve_volt_watt`, `curve_expr`) so the corners are
   differentiable for Ipopt. Droop is applied for `SINGLE_PHASE`/`FOUR_LEG` only;
-  `THREE_LEG` (delta) has too few degrees of freedom and falls back to box bounds with
-  a warning.
+  a `THREE_LEG` (delta) IBR keeps its box bounds, with a warning. Unsupported
+  `volt_var`/`volt_watt` variants (see [Control profiles](control-profile.md))
+  likewise fall back to the box bounds with a warning.
 - **Neutral-conductor limit** via `_neutral_current_limit!` (as for generators).
 
 ### Source map
@@ -184,6 +213,6 @@ references an external `dc_bus`, this net power is balanced through DC KCL — s
 !!! warning "IBR is not in the Task Force PDF"
     The entire `ibr` object — topologies, smart-inverter control profiles (constant-PF,
     Volt-VAr, Volt-Watt), the shared-DC-link STATCOM coupling, and grid-forming fields
-    — is a BMOPFTools extension with no counterpart in the current PDF. It should be a
+    — is a BMOPFTools extension with no counterpart in the Task Force PDF. It should be a
     first-class component in the superseding spec, alongside the DC subsystem it pairs
     with.
