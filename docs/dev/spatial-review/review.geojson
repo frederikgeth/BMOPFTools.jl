@@ -101,7 +101,7 @@
                     "subjects_complete": true
                 },
                 "geometry_basis": "eligible_referenced_bus_locations",
-                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+                "case_fingerprint": "507a3fe89190d085b7a0613817a2e7f31a1ca7a58b54725692bddb6cc2883183"
             },
             "geometry": {
                 "coordinates": [
@@ -142,7 +142,7 @@
                         "analysis_fingerprint": "c9c948c925e021cc04419049510237d0edb925b843b581dabfc33161dfde1750",
                         "reviewer": "j.doe",
                         "rationale": "Length 520 m is a typing error; drawing sheet 14 gives 52 m.",
-                        "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c",
+                        "case_fingerprint": "507a3fe89190d085b7a0613817a2e7f31a1ca7a58b54725692bddb6cc2883183",
                         "evidence_fingerprint": "30649f9e2d70a414066054f0471cad94775f59c2381f41edd7cde6a486669e51"
                     },
                     "status": "recorded",
@@ -195,7 +195,7 @@
                     "subjects_complete": true
                 },
                 "geometry_basis": "eligible_referenced_bus_locations",
-                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+                "case_fingerprint": "507a3fe89190d085b7a0613817a2e7f31a1ca7a58b54725692bddb6cc2883183"
             },
             "geometry": {
                 "coordinates": [
@@ -275,7 +275,7 @@
                     "subjects_complete": true
                 },
                 "geometry_basis": "eligible_referenced_bus_locations",
-                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+                "case_fingerprint": "507a3fe89190d085b7a0613817a2e7f31a1ca7a58b54725692bddb6cc2883183"
             },
             "geometry": {
                 "coordinates": [
@@ -355,7 +355,7 @@
                     "subjects_complete": true
                 },
                 "geometry_basis": "eligible_referenced_bus_locations",
-                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+                "case_fingerprint": "507a3fe89190d085b7a0613817a2e7f31a1ca7a58b54725692bddb6cc2883183"
             },
             "geometry": {
                 "coordinates": [
@@ -435,7 +435,7 @@
                     "subjects_complete": true
                 },
                 "geometry_basis": "eligible_referenced_bus_locations",
-                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+                "case_fingerprint": "507a3fe89190d085b7a0613817a2e7f31a1ca7a58b54725692bddb6cc2883183"
             },
             "geometry": {
                 "coordinates": [
@@ -515,7 +515,7 @@
                     "subjects_complete": true
                 },
                 "geometry_basis": "eligible_referenced_bus_locations",
-                "case_fingerprint": "0c33df853e4113e161104b9fdb06e8af37b186bbb60c5a2c3e6c30c0adc4a25c"
+                "case_fingerprint": "507a3fe89190d085b7a0613817a2e7f31a1ca7a58b54725692bddb6cc2883183"
             },
             "geometry": {
                 "coordinates": [
