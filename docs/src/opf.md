@@ -1914,8 +1914,8 @@ Everything a snapshot exposes for coupling is the same context object a
 single-snapshot case. Downstream packages should prefer the stable accessors
 [`opf_model`](@ref), [`opf_network`](@ref), [`opf_bases`](@ref),
 [`opf_object`](@ref), and [`add_terminal_injection!`](@ref) over depending on the
-raw context dictionaries. See [Parameterized and differentiable
-extensions](differentiable_extensions.md) for the compatibility contract and
+raw context dictionaries. See [Model extensions and
+sensitivities](differentiable_extensions.md) for the compatibility contract and
 scientific limitations.
 
 When an extension must intervene before native device physics is stamped, start

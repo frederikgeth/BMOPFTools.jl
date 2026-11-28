@@ -22,7 +22,7 @@ objective not on the safe list:
     anywhere — or does its optimum sit where an upper voltage bound binds?** If either
     is yes, audit relaxation exactness and voltage-sheet selection explicitly.
 
-## [The catalog](@id The-catalogue)
+## [The catalog](@id loss-max-catalog)
 
 | Objective as written | Why it rewards loss / current | Safer reformulation |
 |---|---|---|
@@ -40,15 +40,10 @@ objective not on the safe list:
     both sound like "less reliance on the grid." Direction of the optimization, not the
     English description, is what determines the monotonicity.
 
-!!! note "This is a tested behavior, not just a caution"
-    The negative-coefficient row is exercised directly in the OPF suite: test **T4**
-    ([Validating the OPF](../validation.md)) gives a generator a *negative* cost
-    coefficient and confirms the optimum drives each phase to `p_max` with
-    `objective = −3·P_max/1000` (\$/h, with `P_max` in W) — i.e. min-cost has
-    silently become max-generation. If your
-    own formulation reproduces that number, it is reproducing the trap, not a bug.
+A negative cost coefficient is the simplest instance: min-cost silently becomes
+max-generation, and each phase is driven to `p_max`.
 
-## Two that look risky but are mostly fine
+## Borderline and safe cases
 
 - **Maximize $\sum_i |V_i|$.** Counterintuitively this is usually loss-*reducing* and
   often favors a high-voltage branch under the cited radial assumptions. It can
@@ -73,7 +68,7 @@ to model them correctly:
 
 !!! note
     Solve these in the **nonconvex AC** model (optionally with a continuation /
-    margin formulation) — for BMOPFTools that is [`solve_opf`](../opf.md) — not in a
+    margin formulation) — for BMOPFTools that is [`solve_opf`](@ref) — not in a
     relaxation. *No* relaxation is a valid feasibility certificate in this regime,
     including any you reach via [`to_pmd`](../conversion.md): a relaxation will happily
     report an "optimal" loadability past the true collapse point. See

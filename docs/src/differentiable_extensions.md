@@ -205,13 +205,12 @@ nothing
 
 For extensions that need to intervene between native construction stages, use
 the same composable sequence and insert their objects and injections before
-`enforce_kcl!`. The convenience form remains:
+`enforce_kcl!`. The convenience form is:
 
 ```julia
 ctx = build_opf_model(net; model=my_model, add_objective=false)
 # add a downstream objective, constraints, devices, or parameter links
-enforce_kcl!(ctx)
-JuMP.optimize!(opf_model(ctx))
+optimize_opf!(ctx)        # finalizes KCL and solves; records the warm start for resolve_opf!
 result = extract_result(ctx)
 ```
 
@@ -272,10 +271,9 @@ all native registry families:
 | DC source current and dispatched power | `opf_dc_source_current_key`, `opf_dc_source_power_key` |
 
 These functions construct keys only; they do not require JuMP or a live context.
-`OpfModelKey` remains public for extension-owned variables, expressions,
-constraints, objectives, and future native families. Consequently this
-convenience layer does not close the semantic namespace or constrain bespoke
-research formulations.
+For extension-owned variables, expressions, constraints, and objectives, use
+`OpfModelKey` directly; the named constructors are a convenience for native
+objects and do not limit what an extension can register.
 
 ## Replaceable device formulations
 
@@ -303,23 +301,22 @@ Replacement transfers responsibility for every native equation associated with
 the selected component: terminal injections, limits, control laws, auxiliary
 variables, result semantics, and coupled physics. In particular, native IBR
 ownership includes apparent-power/current limits and converter/DC balance.
-Because the DC-coupling accumulator is not yet a public extension seam,
+Because the DC-coupling accumulator is not a public extension seam,
 BMOPFTools rejects custom ownership of an IBR with `dc_bus` or
 `dc_link_coupled=true` instead of constructing a partially disconnected model.
 
-Whole-family replacement is available for `:voltage_source`, `:switch`,
-`:shunt`, `:capacitor`, `:load`, `:generator`, `:ibr`, and `:grounding`.
-Per-component native/custom partitioning is currently supported for those flat
-collections except `:grounding`. A family-level and a component-level
-assignment for the same family is rejected.
+Whole-family replacement, `OpfBuildSpec(family_builders=Dict(:ibr => builder))`, is
+available for `:voltage_source`, `:switch`, `:shunt`, `:capacitor`, `:load`,
+`:generator`, `:ibr`, and `:grounding`. Per-component native/custom partitioning
+(`component_builders`) is supported for those flat collections except
+`:grounding`. A family-level and a component-level assignment for the same family
+is rejected.
 
-`:line` and `:transformer` replacement is rejected until the native branch
-injection/result ledger has a public extension seam; accepting it now could
+`:line` and `:transformer` replacement is rejected, because the native branch
+injection and result ledger is not a public extension seam; accepting it could
 silently omit element flows and losses from `extract_result`. `:dc_network`
-replacement is likewise rejected until downstream builders can contribute to
-the DC-KCL accumulator through a public API. These are fail-closed capability
-boundaries, not promises that a custom callback can fill private ledgers.
-For a bespoke line model today, follow the [model-hook omit-and-re-stamp
+replacement is rejected because downstream builders cannot contribute to the
+DC-KCL accumulator through a public API. For a bespoke line model, follow the [model-hook omit-and-re-stamp
 guidance](dev/opf_engine.md#Authoring-a-model_hook!) instead.
 
 ```julia
@@ -448,7 +445,7 @@ changing layers:
 - `model_structure_sha256`: variables, constraints, objective, construction
   manifest, and semantic keys, excluding solver results and parameter values;
 - `parameter_state_sha256`: all current JuMP parameter values, including raw
-  downstream parameters that were not bound through BMOPFTools; and
+  downstream parameters that were not bound through BMOPFTools;
 - `regularization_declarations_sha256`: the explicit declarations above; and
 - `differentiability_annotations_sha256`: extension-declared nonsmooth,
   dynamically branched, and unsupported parameter locations.
@@ -519,13 +516,13 @@ that is separate from the optimizer's numerical evaluation cache. This matters
 in scenario sweeps, learning loops, and finite-difference sensitivity checks.
 
 !!! warning "A successful repeat solve can still contain stale evaluations"
-    In the tested stack (JuMP 1.31.2, MathOptInterface 1.53.0, Ipopt.jl 1.15.0,
-    MadNLP 0.10.1), exponential-load parameter updates through nonzero → zero →
-    nonzero reproduced stale nonlinear evaluations. Both solvers could report
-    success while currents violated the updated load law. This is a measured
-    compatibility limitation, not a claim about every parameter path or version.
+    After a parameter update, a reused optimizer can evaluate the nonlinear
+    functions at a stale point: exponential-load parameters changed through
+    nonzero → zero → nonzero have produced a successful status from both Ipopt and
+    MadNLP while the currents violated the updated load law.
 
-For an already finalized **cached JuMP model**, the tested workaround is:
+For an already finalized **cached JuMP model**, reset the optimizer and check the
+residuals:
 
 ```julia
 JuMP.set_parameter_value(p, new_value)
@@ -545,22 +542,12 @@ is an example, not a universal engineering tolerance.
 
 `resolve_opf!` explicitly reloads and solves once, preserves optimize hooks,
 and refuses unfinished contexts or contexts from different models. Parameter
-updates made outside this workflow do not automatically reset the backend. This workflow is for cached models; `direct_model` requires a separately
-managed optimizer/model rebuild. It does not make structural edits safe in place:
-changes to topology, dimensions, or the physical voltage-domain certificates
-still require rebuilding. See `test/opf_final_hardening_tests.jl` for repeat-solve
-witnesses with independent analytic current checks and a range of voltage scales.
+updates made outside this workflow do not automatically reset the backend.
 
-A standalone two-variable reproducer is retained in
-`test/data/parameter_updates/stale_evaluation.jl`. With `x` starting at zero,
-`x = p * exp(y)`, and `y = 1`, the 1 → 0 → 2 parameter sequence returns
-`x = 0` on the last solve on the tested Ipopt and MadNLP stack, rather than
-`2exp(1)`. A nonzero start avoids this particular witness. The shared MOI
-reverse-mode evaluator caches on the primal point; changing parameters without
-invalidating that evaluation is unsafe when the point is repeated. This
-isolates the issue below BMOPF stamping; it does not establish that every
-solver has the same invalidation path. Regression checks use the reset and
-independent analytic currents, not successful status alone.
+This workflow is for cached models; `direct_model` requires a separately managed
+optimizer and model rebuild. It does not make structural edits safe in place:
+changes to topology, dimensions, or the physical voltage-domain certificates still
+require rebuilding.
 
 ### Coefficient providers for bespoke builders
 
@@ -580,7 +567,7 @@ spec = OpfBuildSpec(
     coefficient_providers=Dict(p_key => provider))
 
 # Inside pv_builder:
-p = opf_coefficient(ctx, p_key, inverter["p_max"][1])
+p = opf_coefficient(ctx, p_key, opf_network(ctx)["ibr"]["pv1"]["p_max"][1])
 @constraint(opf_model(ctx), active_power_expression == p)
 ```
 
@@ -596,7 +583,7 @@ rewrite every native BMOPFTools equation. Native coefficient families should be
 made provider-aware deliberately, with formulation-specific scaling and tests.
 Structural data is excluded from `OpfCoefficientKey`.
 
-The following native scalar paths currently consume providers:
+The following native scalar paths consume providers:
 
 | Category | Family | Fields | Index |
 |:--|:--|:--|:--|
@@ -611,7 +598,7 @@ The following native scalar paths currently consume providers:
 
 Known native gaps are deliberate capability boundaries, not implied support:
 
-| Not yet provider-aware | Consequence |
+| Not provider-aware | Consequence |
 |:--|:--|
 | IBR `s_max`, `i_max`, and `p_avail` | Capability circles, current limits, and some Volt-var/Volt-watt normalization bases remain fixed at build time |
 | Native IBR and generator costs | Parameterize an extension-owned objective term instead |

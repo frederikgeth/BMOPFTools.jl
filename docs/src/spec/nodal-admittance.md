@@ -13,7 +13,7 @@ they do not choose source boundary conditions or certify a solvable network.
 | Inspect the passive network | [`ybus_passive`](@ref) | `Y`, `nodes`, `index`; loads, generators, IBRs and ideal voltage sources are excluded. Supply injections and source boundaries separately. |
 | Keep nonlinear loads in a power-flow iteration | [`ybus_linearized`](@ref), `fold=:constant_z` | A constant-Z load contribution in `Y`, plus a voltage-dependent `i_comp`. The assembled equations still contain nonlinear load behavior. |
 | Replace loads by admittances at one operating point | [`ybus_linearized`](@ref), `fold=:all` | An equivalent admittance at the supplied `v0`, with zero `i_comp`. It matches load current at that point; it is not a Jacobian linearization. |
-| Retain supported small/zero transformer leakage or explicit switch currents | [`ybus_augmented`](@ref) | A bordered `K`, node mappings and `couplings`. Additional unknowns represent scaled port currents; finite leakage is retained. Loads are excluded. |
+| Retain supported small/zero transformer leakage or explicit switch currents | [`ybus_augmented`](@ref) (`switches=:constrain` for switch currents) | A bordered `K`, node mappings and `couplings`. Additional unknowns represent scaled port currents; finite leakage is retained. Loads are excluded. |
 
 The passive relation is ``I=YV`` with node-to-earth voltages. The augmented
 relation uses ``K=[Y\ A^T;\ A\ {-D}]``; the lower block vanishes only for
@@ -150,7 +150,8 @@ non-perfectly-grounded neutral as its own node. A voltage source is ideal in the
 BMOPF model — it contributes no admittance and sets only the boundary.
 
 **Zero-impedance aliasing.** Closed switches and negligible-impedance lines
-fuse their terminal pairs. Transformer windings use voltage/current equations:
+(series impedance norm below `config["domain_rules"]["z_line_min_ohm"]`, default
+1e-4 Ω) fuse their terminal pairs. Transformer windings use voltage/current equations:
 a unity nameplate ratio does not identify their terminal-to-earth voltages or
 bond isolated neutrals.
 
@@ -180,18 +181,19 @@ Float64 arithmetic.
 below it selects a bordered representation, **not an approximation to zero**.
 For ordinary two-winding units, the test uses the primitive's effective series
 impedance: tapped from-coil base for single-phase, wye-coil base for Yd/Dy with
-the existing delta-base and tap referral. Regulators use each from-referred core
+the delta-base and tap referral of the primitive. Regulators use each from-referred core
 impedance. Center-tap uses each LV-referred star arm (primary tap scaling cancels
 against the effective turns ratio). N-winding uses the smallest singular value
 of the winding-1 coil-base `ZB`, including partly singular matrices.
 
-`ybus_augmented` currently supports small/zero leakage for `single_phase`,
+`ybus_augmented` supports small/zero leakage for `single_phase`,
 `wye_delta`, `delta_wye`, `single_phase_autotransformer`,
 `open_delta_regulator`, `center_tap`, and `n_winding` within the domains below.
 Unsupported winding configurations raise `ArgumentError`. `ybus_passive`,
 `ybus_linearized`, standalone primitives and `ideal_xfmrs=:stamp` reject such
-couplings rather than omit them or stamp a large inverse. Set a lower threshold
-explicitly to request a finite primitive for a nonzero impedance.
+couplings rather than omit them or stamp a large inverse. To request a finite
+primitive for a small nonzero impedance, lower
+`config["domain_rules"]["xfmr_z_min_ohm"]` (default 1e-6 Ω).
 `transformer_yprim(...; shunt_only=true)` is an explicit inspection operation,
 not a complete transformer model.
 
@@ -262,8 +264,8 @@ The OpenDSS documentation describes the related compensation-current approach
 
 !!! note "Generators and IBRs are not folded"
     Generator and IBR injections are OPF variables (or, for state estimation,
-    measured), not a fixed model, so they are not folded here. Adding them as
-    `i_comp` injections is a planned extension.
+    measured), not a fixed model, so they are not folded here; add them to the
+    injection vector yourself.
 
 ## Uses
 
@@ -296,8 +298,7 @@ voltage relations.
 
 Each regulator core uses its own positive finite fixed tap and Type A/B ratio.
 If one core needs a border, both core equations are retained, including all
-finite leakage and one no-load shunt per core. Terminal current and absorbed
-power tests cover shifted references, unbalanced excitation and mixed cutoffs.
+finite leakage and one no-load shunt per core.
 
 ### Center-tap ports
 
@@ -319,7 +320,7 @@ auxiliary row cannot be interpreted as an independent ideal constraint.
 
 ### N-winding ports
 
-N-winding ports retain the existing winding-1 coil-base `ZB` matrix. For each
+N-winding ports use the winding-1 coil-base `ZB` matrix. For each
 phase, port `k-1` has voltage `u1-uk/Nk`, where `Nk=v_nom[k]/v_nom[1]` and each
 `uk` is the explicitly connected WYE or DELTA coil voltage. The lower block
 is `-scale²*ZB`, including all finite and singular modes. Neither inversion,

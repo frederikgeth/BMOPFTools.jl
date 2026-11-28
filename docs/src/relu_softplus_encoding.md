@@ -181,24 +181,24 @@ overflows or underflows well inside the operating range — and the problem gets
 
 BMOPFTools therefore evaluates the surrogate through
 [StatsFuns.jl](https://github.com/JuliaStats/StatsFuns.jl)'s `log1pexp` and
-`logistic`, which use the regime-split identities of Mächler [3]:
+`logistic` (implemented in LogExpFunctions.jl). `log1pexp` uses the regime-split
+identities of Mächler [3]:
 
 ```math
 \log(1+e^{t}) =
 \begin{cases}
-e^{t} & t \lesssim -37 \quad(\text{1+}e^t\approx 1;\ \log 1p)\\
-\log\!\bigl(1+e^{t}\bigr) & -37 \lesssim t \lesssim 18\\
+e^{t} & t \lesssim -37 \quad(1+e^t\approx 1)\\
+\operatorname{log1p}\!\bigl(e^{t}\bigr) & -37 \lesssim t \lesssim 18\\
 t + e^{-t} & 18 \lesssim t \lesssim 33.3\\
 t & t \gtrsim 33.3
 \end{cases}
 ```
 
 so the result is accurate to full Float64 precision and never overflows: the
-large-$t$ branch returns $t$ (the ReLU asymptote) directly, and the small-$t$
-branch uses `log1p` to retain precision near zero. `logistic` applies the
-companion overflow-safe split, evaluating $\tfrac{e^{t}}{1+e^{t}}$ for $t<0$ and
-$\tfrac{1}{1+e^{-t}}$ for $t\ge 0$ so the exponential argument is always
-non-positive. The second derivative reuses $\sigma$, so it inherits the same
+large-$t$ branch returns $t$ (the ReLU asymptote) directly, and the middle
+branch uses `log1p` to retain precision. `logistic` evaluates
+$\tfrac{e^{t}}{1+e^{t}}$ and returns exactly 0 or 1 outside the range where that
+quotient is representable, so it never produces `NaN`. The second derivative reuses $\sigma$, so it inherits the same
 stability. This is what lets the encoding use aggressively small $\varepsilon$
 without the floating-point failures the naive formulas would suffer [1, §III-C].
 
@@ -254,11 +254,11 @@ works in model units (per-unit when the OPF is solved per-unit), and the operato
 uses
 
 ```math
-\varepsilon = \texttt{relu\_eps}\times\overline{x},\qquad \overline{x}=\tfrac1n\sum_i \bar x_i,
+\varepsilon = \texttt{volt\_var\_watt\_eps}\times\overline{x},\qquad \overline{x}=\tfrac1n\sum_i \bar x_i,
 ```
 
-i.e. `relu_eps` (default `2e-3`, exposed as the `volt_var_watt_eps` keyword of
-[`solve_opf`](@ref)) times the mean breakpoint. Scaling $\varepsilon$ with the
+i.e. the `volt_var_watt_eps` keyword of [`solve_opf`](@ref) (default `2e-3`) times
+the mean breakpoint. Scaling $\varepsilon$ with the
 breakpoints makes it transform like a voltage, so the droop is identical in SI
 and per-unit solves.
 
@@ -287,8 +287,9 @@ small enough to stay well inside the $\pm 7.5\,\%$ voltage-accuracy band of real
 IBRs while preserving reliability; in their normalization $\varepsilon\le
 10^{-5}$ was the sweet spot. The default here is deliberately conservative and can
 be tightened per study. The same paper presents a **quadratic Bézier spline** as
-an alternative smoothing with an equivalent $\Delta U$ tolerance; BMOPFTools ships
-the softplus form, which has the cheaper gradient/Hessian evaluation.
+an alternative smoothing with an equivalent $\Delta U$ tolerance; BMOPFTools uses
+softplus by default (`softplus=:user_defined`), which has the cheaper
+gradient/Hessian evaluation, and offers swish as an alternative (§2.1).
 
 ### Parameterized curve points
 
@@ -317,8 +318,8 @@ topology and an untrustworthy derivative.
 
 !!! warning "Swish changes the curve semantics"
     `softplus=:swish` is a native-logistic compatibility mode, not merely a
-    numerically different implementation of softplus. It is non-monotone in a
-    narrow region below each hinge, non-convex, and has a two-sided signed
+    numerically different implementation of softplus. It decreases (slightly) for
+    $z \lesssim -1.28\,\varepsilon$ below each hinge, is non-convex, and has a two-sided signed
     approximation error. Use it when backend compatibility is required and
     validate the resulting droop curve against the exact characteristic and
     physical device bounds.

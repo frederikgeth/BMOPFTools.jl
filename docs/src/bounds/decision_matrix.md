@@ -7,7 +7,7 @@ prose reasoning behind every entry in
 
 !!! note "How to use this"
     - **Dataset authors:** find your intended objective and confirm the instance lands
-      in a green row before shipping.
+      in a row that is ✓ under full operational limits before shipping.
     - **Validators:** this is the map of where your formulation *should* agree with the
       benchmark and where it is *expected* to diverge. Divergence inside a "✗ not
       physical" cell is not a bug in your code.
@@ -20,9 +20,9 @@ Legend: ✓ = well behaved / exact / physical; ⚠ = conditional, verify;
 | Objective family | Bounded? (no op. limits) | Bounded? (full op. limits) | Branch favored | Relaxation exactness (SOC/SDP) | Recommended model |
 |---|:---:|:---:|---|:---:|---|
 | **Min generation cost** (non-neg. coeffs) | ⚠ coercive only if strongly convex (e.g. strictly convex quadratic) | ✓ | High-voltage | ✓ under standard conditions | Relaxation, verify ex post |
-| **Min losses / min slack power** | ✓ (coercive) | ✓ | High-voltage | ✓ | Relaxation |
+| **Min losses / min slack power** | ⚠ bounded below but not attained: at fixed power, losses → 0 as all voltages rise; needs `v̄` | ✓ | High-voltage | ✓ | Relaxation |
 | **Feasibility (constant objective)** | ✗ vacuous: every profile feasible, iterates drift (not "unbounded" — a constant objective can't be) | ✓ | Undetermined among feasible pts | ⚠ one-sided certificate only | Nonconvex or verified relaxation |
-| **Min import from grid** | ✓ | ✓ | High-voltage | ⚠ with dispatchable DER (drives local injection up → upper `v` bounds) | Relaxation, watch upper bounds |
+| **Min import from grid** | ⚠ as min losses: import → load as voltages rise; needs `v̄` | ✓ | High-voltage | ⚠ with dispatchable DER (drives local injection up → upper `v` bounds) | Relaxation, watch upper bounds |
 | **Max Σ voltage magnitude** | ⚠ unbounded above without `v̄` | ✓ | High-voltage | ⚠ fails when upper `v` bounds bind | Relaxation, watch upper bounds |
 | **Max PV / DER injection** | ✗ | ⚠ bounded but boundary-seeking | Drives to upper `v` bound | ✗ typically inexact | Nonconvex; see [list](loss_maximization.md) |
 | **Max load served / loadability** | ✗ | ⚠ drives to the nose | Toward low-voltage / nose | ✗ inexact near collapse | Nonconvex + continuation |
@@ -35,13 +35,13 @@ Legend: ✓ = well behaved / exact / physical; ⚠ = conditional, verify;
 !!! warning "The columns are not independent — and none of them is a certificate"
     "Bounded," "branch," and "exact" are three readings of one underlying property
     (see [§5](index.md)). A row that is ✗ on
-    exactness is almost always boundary-seeking and low-voltage-leaning too. The green
-    family at the top — objectives non-decreasing in generation/losses — is green in
-    every column for the same reason.
+    exactness is almost always boundary-seeking and low-voltage-leaning too. The
+    family at the top — objectives non-decreasing in generation/losses — is ✓ in
+    every column once voltage bounds are present, for the same reason.
 
     The "branch favored" column records which branch an objective *pulls toward*,
     not which branch a local solver will return. Confirm the sheet a solve actually
-    landed on with the [diagnostics](diagnostics.md); a green row is a reason to
+    landed on with the [diagnostics](diagnostics.md); a ✓ row is a reason to
     expect an operational answer, not evidence that you got one.
 
 ## Formulation cross-cut

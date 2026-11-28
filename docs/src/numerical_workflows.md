@@ -15,7 +15,7 @@ consistent-base policies; an explicit `scaling_policy` takes precedence over
 | Task | Where to go |
 |:--|:--|
 | Learn voltage/current/power bases and objective units | [Units, bases and economics](tutorial_units.md), which derives the classic bases by hand on a bundled feeder. |
-| Choose a typed policy or experiment with zone-specific bases | [Custom and zone-local bases](#Custom-and-zone-local-bases) below, then [Units and scaling](opf.md#Units-and-scaling) for the qualified transformer/converter domains and rejected combinations. |
+| Choose a typed policy or experiment with zone-specific bases | [Custom and zone-local bases](#Custom-and-zone-local-bases) below, then [Units and scaling](opf.md#Units-and-scaling) for the transformers and converters that support a change of power base, and the rejected combinations. |
 | Inspect the coordinates at an AC or DC location | [`opf_coordinate_bases`](@ref). Use the location's bases rather than assuming a universal power base. |
 | Inspect model blocks, scaling and initialization evidence | [`opf_diagnostic_schema`](@ref). Check the returned capabilities before relying on semantic-block completeness. |
 | Interpret objective weights or compare different norm encodings | [Objective weights](objectives.md#Weights-carry-units-—-and-that-is-deliberate), [norms](objectives.md#Which-norm?) and [pitfalls](objectives.md#objective-pitfalls). |
@@ -110,7 +110,7 @@ continuous regulator families (`single_phase_autotransformer`,
 or power-base jump across one is rejected before the model is built.
 
 `opf_bases(ctx).s_base` is retained under a zone-local policy as a reference
-value for compatibility and reporting; it is not a universal local power base.
+value for reporting; it is not a universal local power base.
 Use `opf_coordinate_bases(ctx, bus).power` (or the `s_base_bus` table) when
 writing a bus-local hook or interpreting a local residual.
 
@@ -127,9 +127,7 @@ How the coefficients enter, by subtype:
 `opf_coordinate_bases(ctx, bus; domain = :dc)` expose the voltage, current, and
 power coordinates to hooks without relying on internal base tables, and
 `opf_diagnostic_schema(ctx).acdc_scaling` records every stamped converter
-coefficient and the qualified controller mode. Each of these domains is
-covered by tests that compare SI and local-base solves on solved state,
-losses, constraint sets, initialization, and physical Jacobians.
+coefficient and the controller mode.
 
 ### Auditing a proposed base change
 
@@ -159,16 +157,14 @@ audits a design and never mutates an existing model.
 
 ### Power-base sensitivity
 
-Keep the power base explicit when comparing solver settings. In
-[issue #429](https://github.com/frederikgeth/BMOPFTools.jl/issues/429), the
-default `s_base = 1e6` performed well on the measured French MV/LV feeders;
-reducing it to `1e4` increased iterations from 35 to 97 on the reported 995-bus
-example. These observations do not establish a universal best base. A base
-derived from total load or the largest transformer rating has not been
-validated by that comparison, and BMOPFTools keeps its 1 MVA default.
+Keep the power base fixed and explicit when comparing solver settings: changing it
+changes the coordinates the solver works in, and on some feeders a smaller base
+has markedly increased the iteration count. There is no universal best base;
+BMOPFTools defaults to 1 MVA.
 
 Per-zone power bases, written `OpfScaling(; voltage_bases, power_bases)`, are an
-experimental coordinate policy with a qualified device domain. Seeding those
+experimental coordinate policy, supported for the device families listed in
+[Units and scaling](opf.md#Units-and-scaling). Seeding those
 bases from transformer ratings is a separate experiment, not an automatic
 recommendation. Compare physical results under the same initialization policy
 as well as numerical effort, and do not infer a scaling defect only because a
@@ -190,8 +186,8 @@ residual-set contract.
 The set contract is derived from the actual JuMP constraints. An equality to
 the origin is `:zero_equality`; paired source-voltage or load-power equations
 with nonzero right-hand sides are `:scalar_bounds`. The distinction matters:
-treating every equality pair as a zero residual would make a physically false
-covariance claim.
+treating every equality pair as a zero residual would misreport how the residual
+transforms between unit modes.
 
 Selected declarations also carry a local physical reference scale and its
 provenance. A load active/reactive residual pair, for example, uses the
@@ -247,7 +243,8 @@ autotransformer, and open-delta relations. Zigzag would need an explicit
 connection matrix in both the model and initialization layers and is not
 supported.
 
-Follow that section for the construction and its scope, then
+[Warm-start initialization](@ref Warm-start-initialisation) in the OPF reference
+describes the construction and its scope; continue with
 [Trusting the solver](bounds/solver_trust.md) for solution branches and
 start-dependence. The [solver guide](@ref solvers-common-settings)
 connects model coordinates, tolerances and independent validation. Changing
