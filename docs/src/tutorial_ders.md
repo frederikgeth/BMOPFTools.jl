@@ -1,4 +1,4 @@
-# Tutorial: Placing DERs and reading the *binding constraint*
+# Placing DERs and reading the *binding constraint*
 
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
@@ -17,10 +17,10 @@ physics and the operating envelope *at once*, and the **active constraint set** 
 the optimum *is* the hosting-capacity answer. Which constraint binds — and which
 DER is curtailed to respect it — is the modeling content, not the objective value.
 
-This tutorial builds that OPF from a raw LV feeder using the library's
-**recipe-driven DER placement** (`add_ibrs` / `add_generators`), then runs
-three scenarios on the *same* feeder and DER fleet that each make a **different
-constraint bind**. The throughline:
+This tutorial builds that OPF from a raw LV feeder with recipe-driven DER
+placement (`add_ibrs` / `add_generators`), then runs three scenarios on the
+*same* feeder and DER fleet that each make a **different constraint bind**. The
+throughline:
 
 > B and C share a feeder, a DER fleet, an operating point, and a limit set. They
 > differ in the service-cable linecode — its ampacity, plus zeroed charging
@@ -78,18 +78,15 @@ GEN_RECIPE = GeneratorRecipe(
     cost_basis = :uniform, der_cost_uniform = 0.3)   # dearer than PV, cheaper than slack
 ```
 
-!!! note "`add_ibrs` vs `add_generators`, and why both here"
-    The two calls place *different objects*, not different siting rules.
-    [`add_ibrs`](@ref) places converter-interfaced `ibr` units — an
-    apparent-power nameplate `s_max`, a `topology`, and the `P²+Q²≤s_max²` circle;
-    [`add_generators`](@ref) places thin `generator` units carrying only an
-    active-power box and a cost. This tutorial places *both* so the merit order
-    below has two priced tiers (cheap PV IBRs, mid-priced generators) to sort
-    against the network limits. The `:load_following` **strategy** is what puts
-    "one per load bus"; the IBRs are PV because `:PV` is the placement default
-    `prime_mover`, not because IBRs must be PV. See
-    [Adding IBRs](augmentation.md#adding-IBRs-der-placement) for the object
-    choice, absolute (kVA) sizing, zero-load buses, and other DER technologies.
+!!! note "Why both `add_ibrs` and `add_generators`"
+    The two calls place *different objects*: converter-interfaced `ibr` units
+    with an apparent-power nameplate and a `P²+Q²≤s_max²` circle, and thin
+    `generator` units with only an active-power box and a cost. Placing both
+    gives the merit order below two priced tiers (cheap PV IBRs, mid-priced
+    generators). The `:load_following` strategy puts one of each on every load
+    bus; the IBRs are PV because `:PV` is the default `prime_mover`. See
+    [Adding IBRs](@ref adding-IBRs-der-placement) for the object choice,
+    absolute (kVA) sizing, zero-load buses, and other DER technologies.
 
 The scenarios need a little network surgery before placement, so we wrap the
 whole preparation in one function: load the JSON, strip the pre-existing DERs
@@ -147,18 +144,16 @@ function set_vpn_limits!(net)
 end
 ```
 
-`augment_case` then fills the gaps: the IBR active-power bounds and EN 50549-1
-reactive box, the generator reactive limits, and a per-phase slack price. The
-IBR's `P²+Q²≤s_max²` circle is part of the IBR model in the OPF, not something
-augmentation writes. Neither preset below runs the thermal pass
-(`apply_thermal` is off by default), so the current limits are the ratings
-already stored on the linecodes: `lv1_14bus.json` carries `i_max = 600` A on
-every linecode (the OpenDSS default, not a conductor rating), and scenario C
-replaces it on the two drops with `imax`. Two [`AugmentationRecipe`](@ref)
-presets separate scenario A from B and C. Both skip the EN 50160 phase-to-neutral,
-phase-to-phase and unbalance passes; A keeps the loose `v_min`/`v_max` guard
-bounds (0.85/1.15 pu), while B/C drop them and get their voltage ceiling from
-`set_vpn_limits!` above:
+`augment_case` then fills the IBR active-power bounds and EN 50549-1 reactive
+box, the generator reactive limits, and a per-phase slack price (the
+`P²+Q²≤s_max²` circle is part of the OPF's IBR model, not an augmented field).
+The thermal pass stays off, so the current limits are the ratings already on
+the linecodes: `lv1_14bus.json` carries `i_max = 600` A on every linecode (the
+OpenDSS default, not a conductor rating), and scenario C replaces it on the two
+drops with `imax`. Two [`AugmentationRecipe`](@ref) presets both skip the
+EN 50160 phase-to-neutral, phase-to-phase and unbalance passes; A keeps the
+loose `v_min`/`v_max` guard bounds (0.85/1.15 pu), while B and C drop them and
+take their voltage ceiling from `set_vpn_limits!`:
 
 ```julia
 RECIPE_NOLIMITS = AugmentationRecipe(          # scenario A
@@ -242,16 +237,16 @@ function show_outcome(o)
 end
 ```
 
-The metric helpers (worst phase-to-neutral voltage, worst `cm_fr/i_max` thermal
-utilization, a classifier that names the headline active constraint within 1 %
-of its bound, and a `run_scenario` wrapper around `augment_case → solve_opf`)
-sit in a hidden setup block on this page, which the blocks below call. Because
-those blocks are not executed by the docs build, run the scenarios from
+The blocks below also call reporting helpers — the worst phase-to-neutral
+voltage (`vpn_pu`), the worst `cm_fr/i_max` utilization (`max_thermal`), a
+classifier that names the active constraint within 1 % of its bound
+(`classify`), and a `run_scenario` wrapper around `augment_case → solve_opf`.
+They are defined in a setup block hidden from this page, so to run the
+scenarios use
 [`examples/place_and_solve_ders.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/place_and_solve_ders.jl),
-which contains the same helpers (`vpn_pu`, `max_thermal`, `classify`,
-`run_scenario`; its `run_scenario` also takes a label). The numbers quoted below
-come from that script. With everything in place, the recipes drop one PV IBR
-and one thinner generator on each load bus:
+which contains the same helpers (its `run_scenario` also takes a label). The
+numbers quoted below come from that script. The recipes drop one PV IBR and one
+thinner generator on each load bus:
 
 ```julia
 demo = base_net()
@@ -293,12 +288,8 @@ order working exactly as priced.
 
 Now raise the feeder head to 1.05 pu (utilities run the LV head high to cover
 downstream drop — precisely when midday PV export over-voltages the far end) and
-impose the EN 50160 ceiling via `set_vpn_limits!`, which writes on every LV bus:
-
-```julia
-net["bus"][b]["vpn_max"] = fill(1.10 * 230.0, 3)
-net["bus"][b]["vpn_min"] = fill(0.90 * 230.0, 3)
-```
+impose the EN 50160 phase-to-neutral envelope (0.90–1.10 × 230 V) on every LV
+bus with `set_vpn_limits!`:
 
 ```julia
 B = run_scenario(set_vpn_limits!(base_net(head_pu = 1.05)), RECIPE_LIMITS)
@@ -369,10 +360,11 @@ end
 
 B and C differ only in the service-drop linecode — its ampacity, plus zeroed
 charging shunts — yet the **active constraint** moves from voltage to thermal,
-and with it how far the PV is curtailed and how much the feeder exports. Adding or tightening a binding constraint cannot lower the
-objective — it weakly raises cost (less export revenue); *which* constraint binds
-is the signature of an optimization that respects the network physics and the
-operating envelope at once.
+and with it how far the PV is curtailed and how much the feeder exports.
+Tightening a constraint cannot lower the objective — it weakly raises cost
+(less export revenue); *which* constraint binds is the signature of an
+optimization that respects the network physics and the operating envelope at
+once.
 
 ## Appendix: the hosting-capacity curve and the constraint crossover
 

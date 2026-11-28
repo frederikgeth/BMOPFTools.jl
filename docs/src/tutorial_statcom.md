@@ -255,7 +255,7 @@ and one that balances the feeder outright.
 
 !!! tip "Where to go next"
     The [OPF model](opf.md#IBRs) gives the full IBR/STATCOM formulation, including the
-    DC-link coupling and the `i_max` rolloff; [Case augmentation](augmentation.md)
+    DC-link coupling and the `i_max` rolloff; [STATCOMs and active power circulation](@ref "STATCOMs and active power circulation")
     documents how [`add_statcom!`](@ref) and `augment_case` fill the dispatch box. The
     [SWER case study](tutorial_swer.md) makes the complementary point on a
     *single-phase* high-R/X feeder, where reactive support is likewise a limited lever.

@@ -60,7 +60,7 @@ follow the `config` passed to `analyze`.
 
 | Key | Default | Effect |
 |---|---|---|
-| `rollup_threshold` | 25 | An `I.` or `W.` code raised on more components than this is reported as one roll-up Finding ([Report consolidation](analysis.md#Report-consolidation)). `0` disables roll-up. |
+| `rollup_threshold` | 25 | A code raised on more components is rolled up into one Finding ([Report consolidation](analysis.md#Report-consolidation)); `0` disables roll-up |
 
 ### `[domain_rules]`
 
@@ -145,14 +145,14 @@ feeder. Set `kv_v` to a value your network does not use to silence it there.
 | `proximity_enabled`, `discrepancy_enabled`, `review_enabled` | true | `false` turns off the proximity inventory, the discrepancy checks, or the capture of review candidates |
 | `proximity_radius_m` | 1.0 | buses within this distance are proximity neighbors |
 | `long_span_threshold_m` | 10000 | review candidate `S.LONG_BRANCH_SPAN` above this |
-| `route_endpoint_tolerance_m` | 5.0 | route endpoint gaps above this are counted |
+| `route_endpoint_tolerance_m` | 5.0 | tolerance for `S.ROUTE_ENDPOINT_DISAGREEMENT`, the alternative-bus search radius, and the floor of the series-detour rule |
 | `max_candidate_pairs`, `max_topology_pairs` | 1e6, 1e5 | search budgets; exceeding one makes that check indeterminate |
 | `max_series_hops` | 8 | longest line-only series path (in edges, 2–64) compared with a direct line |
 | `witness_limit`, `max_review_candidates` | 20, 5000 | how much evidence is kept |
 
 The length tolerances of the `W.GEO.*` Findings (`max(5 m, 10 %)` for a line
 shorter than its chord, `max(5 × chord, chord + 100 m)` for one far longer) are
-fixed. See [Spatial diagnostics](spatial_diagnostics.md).
+fixed. See the [spatial thresholds](@ref spatial-thresholds).
 
 ### Not used by `analyze`
 

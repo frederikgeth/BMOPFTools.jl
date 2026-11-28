@@ -12,7 +12,7 @@ If you are new, follow [Installation & first steps](installation.md), then
 bundled synthetic feeder and needs no external data. You can stop after inspection
 if you do not need a solver yet.
 
-The [utility-data end-to-end tutorial](tutorial_end_to_end.md) is a later,
+The [end-to-end tutorial from OpenDSS to a solved benchmark](tutorial_end_to_end.md) is a later,
 optional route. Its external dataset and license requirements are stated at the
 start of that page; its dataset examples are not executed by the docs build.
 
@@ -22,9 +22,9 @@ start of that page; its dataset examples are not executed by the docs build.
 |---|---|---|
 | **Explore a network visually** in the browser | [Visualizing a case with Tellegen](visualization.md) | [Analysis & reports](analysis.md), [Buses & terminals primer](terminals_primer.md) |
 | **Convert OpenDSS** into a BMOPF case | [Conversion guide](conversion.md) | [Porting an OpenDSS feeder](tutorial_opendss_port.md), [Utility-data end-to-end tutorial](tutorial_end_to_end.md) |
-| **Derive model inputs from nameplate data** | [From nameplate data to a defensible model](tutorial_nameplate.md) | [Case augmentation](augmentation.md), [Data model conventions](conventions.md) |
+| **See which model inputs were derived, assumed or left unknown** | [Reading augmentation provenance](tutorial_nameplate.md) | [Case augmentation guide](augmentation.md), [Data model conventions](conventions.md) |
 | **Learn to read a profiler report** on a small case | [Profile your first messy case](tutorial_profile_messy_case.md) | [Accept and track findings](howto_accept_findings.md), [Analysis & reports](analysis.md) |
-| **Triage a messy import** (warnings, provenance, repairs) | [Findings triage](tutorial_triage.md) | [Finding-code reference](findings.md), [Analysis & reports](analysis.md) |
+| **Triage a large messy import** (warnings, repairs, readiness gates) | [Case study: findings triage at scale](tutorial_triage.md) | [Finding-code reference](findings.md), [Analysis & reports](analysis.md) |
 | **Check line lengths against coordinates** | [Spatial cleanup](tutorial_spatial_cleanup.md) | [Spatial diagnostics](spatial_diagnostics.md), [Visualizing a case with Tellegen](visualization.md) |
 | **Turn transformer test data into model fields** | [From test report to transformer model](tutorial_transformer_tests.md) | [Transformer models](transformer_models.md), [Transformer spec](spec/transformer.md) |
 | **Read a case file** block by block | [Anatomy of a case](case_anatomy.md) | [Data model conventions](conventions.md), [Device parameter indexing](device_indexing.md) |
@@ -32,7 +32,7 @@ start of that page; its dataset examples are not executed by the docs build.
 | **Get grounding, neutrals, and sequence coordinates right** | [Ground, neutral, and earth return](tutorial_grounding.md) | [Grounding spec](spec/grounding.md), [SWER case study](tutorial_swer.md) |
 | **Get units, per-unit bases, and cost right** | [Units, bases, scaling, and economics](tutorial_units.md) | [Units and scaling](opf.md#Units-and-scaling), [Objective spec](spec/objective.md) |
 | **Pick a defensible load model** (CVR, hosting, collapse) | [Choosing and identifying a load model](tutorial_load_models.md) | [Load spec](spec/load.md), [Impedance models & OPF decisions](tutorial_impedance_models.md) |
-| **Build a benchmark** an optimizer can respect | [Case augmentation](augmentation.md) | [From nameplate data to a defensible model](tutorial_nameplate.md), [DER placement](tutorial_ders.md) |
+| **Build a benchmark** an optimizer can respect | [Case augmentation](augmentation.md) | [Reading augmentation provenance](tutorial_nameplate.md), [DER placement](tutorial_ders.md) |
 | **Make a network smaller** without losing what matters | [Reducing a four-wire feeder, step by step](tutorial_network_reduction.md) | [Network reduction: which tool?](network_reduction.md), [Opti-KRON tutorial](tutorial_opti_kron.md), [Simplification tutorial](tutorial_simplify.md) |
 | **Diagnose an infeasible case** | [Infeasibility diagnosis](tutorial_infeasibility.md) | [Bounds & feasibility](bounds/index.md), [Trusting the solver](bounds/solver_trust.md) |
 | **Verify a solved OPF** you don't yet trust | [Trust but verify](tutorial_trust_but_verify.md) | [Solution projection](solution_projection.md), [Engine validation evidence](validation.md) |
@@ -70,7 +70,7 @@ The fixtures are in `test/data/profiler_systems`.
 | `W.GEO.` | line lengths against coordinates | [Spatial cleanup](tutorial_spatial_cleanup.md) |
 | `I.PROV.DSS_DEFAULT_`, `W.PROV.REGULATOR_PATTERN` | values an OpenDSS import may have invented | [Porting an OpenDSS feeder](tutorial_opendss_port.md), [How network diagnostics work](methodology.md) |
 | `EMIT.`, `READ.`, `PARSE.` | what an import could not carry | [Ingest warnings](conversion.md#ingest-warnings) |
-| `I.PROV.` on linecodes and impedances | where the impedance data came from | [Impedance provenance hints](analysis.md#Impedance-provenance-hints) |
+| `I.PROV.` on linecodes and impedances | where the impedance data came from | [Impedance provenance hints](methodology.md#Impedance-provenance-hints) |
 | `E.PRE.`, `W.PRE.`, `I.PRE.` | whether an OPF can be feasible | [Infeasibility diagnosis](tutorial_infeasibility.md) |
 | `E.SOL.`, `W.SOL.` | a solved result | [Trust but verify](tutorial_trust_but_verify.md) |
 | anything else | | `explain_finding("CODE")`, then the [finding-code reference](findings.md) |
@@ -83,7 +83,7 @@ to live with one, see [Accept and track findings](howto_accept_findings.md).
 Six of the tutorials, read in order, teach the reasoning a defensible study
 needs — not just *how* to call the tools, but *when to trust the answer*:
 
-1. **Triage** — [Findings triage](tutorial_triage.md). A raw import arrives
+1. **Triage** — [Case study: findings triage at scale](tutorial_triage.md). A raw import arrives
    with dozens of findings; learn to separate *defects* (fix), *judgment
    calls* (decide and document), and *disclosures* (keep — they are the
    case's provenance record).

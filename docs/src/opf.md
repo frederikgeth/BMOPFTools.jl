@@ -171,7 +171,7 @@ shared building blocks, see the [formulation helper guide](@ref opf-formulation-
 
 These principles were inspired by the IVR-EN formulation in
 [PowerModelsDistribution](positioning.md) and by Claeys et al.'s four-wire OPF
-paper ([ref. 6](methodology.md#refs)), but the model here has been generalized
+paper ([ref. 6](references.md#refs)), but the model here has been generalized
 well beyond that starting point.
 
 ---
@@ -305,17 +305,17 @@ Both modes exist because **variable scaling affects the conditioning of a
 nonlinear interior-point solve**. Ipopt's initialization, barrier updates and
 stopping tests are scale-sensitive, and it cannot infer good scaling in general,
 so bringing variables to order ≈1 is standard practice for nonlinear programs
-[ref. 18](methodology.md#refs). In SI, a four-wire LV problem spans many orders
+[ref. 18](references.md#refs). In SI, a four-wire LV problem spans many orders
 of magnitude at once (volts, amperes, ohms, watts), which is the regime
 interior-point methods handle least well.
 
 Whether per-unit normalization actually improves convergence **here** is an
 open, instance- and formulation-dependent question, not a settled fact: the
 benefit of scaling a nonlinear program is known to be problem-dependent
-[ref. 19](methodology.md#refs), and AC-OPF numerical performance is governed
-strongly by the formulation as well [ref. 20](methodology.md#refs). The two
+[ref. 19](references.md#refs), and AC-OPF numerical performance is governed
+strongly by the formulation as well [ref. 20](references.md#refs). The two
 modes are provided precisely so this can be **benchmarked** rather than assumed —
-the SI data model (a representation choice, [ref. 16](methodology.md#refs)) does
+the SI data model (a representation choice, [ref. 16](references.md#refs)) does
 not commit the solver to computing in SI.
 
 The [units, bases & economics tutorial](tutorial_units.md) works both modes on

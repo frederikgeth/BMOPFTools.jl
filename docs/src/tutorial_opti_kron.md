@@ -104,8 +104,7 @@ the data:
   sampled range in directions of real variation;
 - the **Wasserstein** set covers distributions close to the empirical one.
 
-Wider sets can mean more super-nodes and safer reductions (here all three
-keep four). That is the price of robustness.
+Wider sets can need more super-nodes; here all three keep four.
 
 ## 5. A solvable reduced case
 
@@ -162,7 +161,7 @@ relying on a reduced case:
   [`simplify_network`](@ref) and [`kron_reduce_neutrals`](@ref) on real
   feeders, and how to combine them.
 - [Error-bounded bus reduction](@ref opti-kron): the mathematics, the
-  guarantees, and the validation against the paper.
+  guarantees, and how the implementation differs from the paper.
 
 [1] O. Mokhtari, J. Bagrow, M. R. Almassalkhi, S. Chevalier, "Robust optimal
 network reduction for distribution systems," arXiv:2611.21313, 2026.

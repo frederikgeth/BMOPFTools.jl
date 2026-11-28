@@ -10,8 +10,9 @@ straight distance between its ends, and it is rarely many times longer. This
 tutorial follows that check from start to finish on a small street feeder.
 Every block is executed when the documentation is built.
 
-For the full reference of the spatial result, the candidate codes and the
-evidence model, see [Spatial diagnostics](spatial_diagnostics.md).
+For the evidence model, see [Spatial diagnostics](spatial_diagnostics.md); for
+the result keys, thresholds and candidate codes, see the
+[spatial reference](@ref spatial-reference).
 
 !!! note "Prerequisites"
     Only `BMOPFTools`.

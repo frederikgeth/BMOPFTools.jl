@@ -630,6 +630,67 @@ row is one unit test to develop, and the *status* column tracks coverage.
 | Generator / IBR current magnitude (`i_max`) | A | `cr²+ci² ≤ i_max²` (optional, opt-in) | `generator.jl`, `ibr.jl` | covered (T-INV5, T-INV6, T-GEN-IMAX, T-GEN-IMAX-PU) |
 | IBR power-factor coupling | D | `pf·q + tan_φ·p = 0` | `ibr.jl` | gap (see [VVWO](tutorial_vvwo.md)) |
 
+## [Network reduction evidence — Opti-KRON against the published results](@id opti-kron-validation)
+
+[Error-bounded bus reduction](@ref opti-kron) implements robust Opti-KRON
+(Mokhtari et al., arXiv:2611.21313). This section compares it with the
+paper's results on the IEEE European LV test feeder: 907 nodes, all 1,440
+one-minute load samples as training data, H = 5, ε = 0.01, 95% quantile
+radii, and `K = 3` worst-case loadings added per iteration. The numbers come
+from `scripts/opti_kron_eulv.jl` with Gurobi as the MILP solver and a 1 h time
+limit per cell (`OPTI_KRON_TIME_LIMIT=3600`; the script defaults to 7200 s); the feeder data come from the IEEE
+European LV test case.
+
+**Structure.** The candidate set has 11,227 pairs and the structural maximum
+(no error bound) is 88.6% of buses removed (103 super-nodes), both as in the
+paper. The maximum is reproduced only when the reduced network must stay
+radial (`preserve_radial=true`, the default); the paper does not state this
+constraint, and without it the maximum is 91.1%.
+
+**Reduction (% of buses removed) by set and threshold.** Unmarked cells are
+certified for their set and minimal. Cells marked † hit the time limit before
+the adversary certified an assignment; the value shown is a proven upper bound
+on the reduction, the tighter of the master's lower bound and the certified
+result at the next threshold (a larger Ē never needs more super-nodes).
+
+| Set | Ē = 0.001 | 0.002 | 0.003 | 0.004 | 0.005 | Paper, Ē = 0.001 |
+|---|---|---|---|---|---|---|
+| scenario baseline | 86.7 | 88.2 | 88.3 | 88.5 | 88.6 | 86.7 |
+| convex hull | 83.7 | 87.4 | 87.9 | 88.2 | 88.5 | 83.0 |
+| box | 79.4 | 85.2 | 86.7 | 87.5 | 88.0 | ≈ 79.5 |
+| ellipsoid | ≤ 68.8 † | 68.8 | 76.2 | 79.3 | 81.6 | ≈ 76 |
+| Wasserstein ℓ1 | ≤ 83.1 † | 87.1 | 87.7 | 88.4 | 88.6 | 75.0 |
+| Wasserstein ℓ2 | ≤ 84.9 † | 87.4 | 88.2 | 88.3 | 88.5 | ≈ 81 |
+| Wasserstein ℓ∞ | 69.1 | 78.1 | 84.6 | 86.4 | 87.4 | ≈ 80 |
+
+Paper values marked ≈ are read from its Fig. 2(a); the others are stated in
+its text. Screening keeps 64–89% of the candidate pairs at Ē = 0.001 and
+90–100% at Ē = 0.005 (paper: 54–70% and 89–98%).
+
+- **The scenario baseline, convex hull and box agree with the paper** to
+  within 0.7 percentage points. These sets have no tuning parameters: the
+  samples fix them.
+- **The ellipsoid and Wasserstein sets depend on calibration choices the paper
+  does not fully specify** (the POET covariance tuning and the Wasserstein
+  radius; see [Differences from the paper](opti_kron.md#Differences-from-the-paper)). Ours come out
+  more conservative for the ellipsoid and ℓ∞ and less conservative for ℓ1 and
+  ℓ2. All of them approach the structural maximum as Ē grows, as in the paper.
+- **A Wasserstein certificate is a CVaR bound.** With N = 1,440 and ε = 0.01
+  it bounds the average error over the worst 1% of the distribution, not
+  every individual sample, so single training samples can exceed Ē (by up to
+  1.9 Ē in this sweep).
+
+**AC check.** On the same feeder (convex hull, Ē = 0.001), the largest AC
+error at the eliminated buses is 0.96 Ē, against 0.92 Ē for the linear model,
+and 0.07 Ē after the linear lift ([`lift_solution`](@ref)). The metric
+compares each eliminated bus's super-node voltage in the reduced case with its
+voltage in an AC power flow of the full network, over 48 training samples
+(every 30th minute, starting at minute 1), from
+`scripts/opti_kron_ac_validation.jl` (Gurobi for the reduction, Ipopt for the
+power flows). The comparison on [Network reduction](@ref network-reduction)
+covers kept and eliminated buses on a different sample set, so its numbers
+differ.
+
 ## Reusing this for your own tool
 
 | You want to … | Use | Evidence obtained |

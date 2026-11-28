@@ -1,7 +1,7 @@
 # [Grounding and neutral findings explained](@id grounding-findings)
 
-*What each grounding and neutral finding means electrically, one case where it
-is right, and one case where the same data is harmless.*
+*What each grounding and neutral finding means electrically, and how to tell
+a modeling error from a legitimate feature of the network.*
 
 The findings on this page are the ones people most often ask about, because
 they concern something a positive-sequence tool never shows: where the neutral
@@ -9,6 +9,23 @@ is, and what ties the network to earth. For the modeling background, read
 [Ground, neutral and earth return](tutorial_grounding.md) first; this page is
 about reading the profiler's output. Every block is executed when the
 documentation is built.
+
+The examples use the regional fixtures in `test/data/profiler_systems/`, named
+after the IEC 60364 earthing systems. In a **TN** system the supply neutral is
+earthed at the source and customer protective conductors connect back to it;
+`eu_tn_four_wire` models this as one perfect ground at the transformer star
+point. In a **TT** system each customer has its own electrode, connected to
+the installation's exposed metalwork but not to the neutral, so the network
+model looks the same as TN: the neutral is earthed at the source only. The
+Australian and New Zealand **MEN** (multiple earthed neutral) practice, a form
+of TN-C-S, bonds the neutral to earth at every customer installation as well
+as at the transformer, so the neutral has many earth paths in parallel;
+`au_men_four_wire` models them as finite electrodes (10 Ω at the transformer,
+30 Ω at each customer). Modeled instead as perfect grounds at every bus, an
+MEN neutral is held at zero volts everywhere, and
+[`I.PROV.KRON_REDUCIBLE`](@ref kron-reducible-men) then fires for a
+legitimate reason. An **IT** system is unearthed or earthed through a high
+impedance; the `it_delta_island_*` fixtures cover it.
 
 ```@example grounding
 using BMOPFTools
@@ -52,33 +69,31 @@ What counts as a tie to the reference:
 A delta-connected capacitor bank, whose admittance rows sum to zero, ties
 phases to each other and not to earth, so it does not count.
 
-A tie references only the conductors it reaches. Conductors are grouped by the
-elements that fix voltage differences between them: a line conductor end to
-end, the terminals of one winding, the two ends of an active load, generator or
-IBR coil (a zero-power load coil, or a generator coil whose bounds or ratings
-force zero current, carries no current at any voltage and ties nothing; an
-IBR coil is left out only when the constraints the solver stamps on it
-prove the same, see below), two shunt
-terminals with a nonzero admittance entry between them (listing a terminal in a
-shunt's map connects it to nothing), the terminal pairs a capacitor bank
-actually stamps. Each group needs
-its own tie. An earth shunt on a neutral that is carried along a delta feeder,
+A tie references only the conductors it reaches. Conductors form groups
+through the elements that fix voltage differences between them:
+
+- a line conductor, end to end;
+- the terminals of one transformer winding;
+- the two ends of a load, generator or IBR coil that can carry current. A
+  zero-power load coil, or a generator coil whose bounds or ratings force zero
+  current, ties nothing; for IBR coils see the note below;
+- two shunt terminals with a nonzero admittance entry between them (listing a
+  terminal in a shunt's map does not by itself connect it to anything);
+- the terminal pairs a capacitor bank actually stamps.
+
+Each group needs its own tie. An earth shunt on a neutral that is carried along a delta feeder,
 with no winding or load between that neutral and the phases, leaves the phases
 free to shift together; `E.INT.NO_VOLTAGE_REFERENCE` then names the floating
 group (`detail["scope"] = "conductor_group"`), although the island as a whole
 has a reference.
 
 !!! note "When an IBR counts as a connection"
-    An IBR coil ties its two terminals unless its constraints force both
-    its active and its reactive power to zero at every voltage. The profiler
-    reads those constraints from the same rules the solver builds them from:
-    the P and Q bounds, a constant or minimum power factor, a Volt-var or
-    Volt-watt law whose base or curve is zero, a zero rating, and the balance
-    of an isolated DC link across the coils. A zero rating is not used beside
-    a live Volt-var law or a shared DC bus: the power flow enforces no ratings,
-    and could still carry current there. A limit that depends on voltage
-    (a real droop curve, the apparent-power circle) is not used: a coil is
-    never dropped on a guess.
+    An IBR coil ties its two terminals unless the constraints the solver
+    stamps on it (P and Q bounds, power-factor rules, zero-base Volt-var or
+    Volt-watt laws, DC-link balance) force its active and reactive power to
+    zero at every voltage; voltage-dependent limits are never used to drop a
+    coil. See `E.INT.NO_VOLTAGE_REFERENCE` in the
+    [finding-code reference](findings.md#INT-—-structural-integrity).
 
 ## A floating neutral
 
@@ -252,21 +267,29 @@ level: three-wire MV is common in some regions (much of Europe and Australia)
 and four-wire multigrounded MV in others (North America), so a missing MV
 neutral is no evidence of a reduction.
 
-**The explicit neutral that adds nothing.**
+### [The explicit neutral that adds nothing](@id kron-reducible-men)
+
+The MEN fixture earths its neutral through finite electrodes, and raises no
+reduction finding. Replace each electrode by a perfect ground, a common
+idealization of MEN bonds:
 
 ```@example grounding
-net = case("eu_tn_four_wire")
-for b in ("lv1", "lv2")
-    net["bus"][b]["perfectly_grounded_terminals"] = ["n"]
+println(codes(analyze(case("au_men_four_wire")), "KRON"))
+net = case("au_men_four_wire")
+for s in values(net["shunt"])
+    net["bus"][s["bus"]]["perfectly_grounded_terminals"] = ["n"]
 end
+delete!(net, "shunt")
 println(codes(analyze(net), "KRON"))
 ```
 
 With every neutral pinned to zero volts, the neutral conductor carries no
-voltage information: `I.PROV.KRON_REDUCIBLE`. That is correct for a network
-that really is solidly earthed at every bus, and a warning sign if the perfect
-grounds were added only to make a case solve. See
-[Network reduction](network_reduction.md) for removing such a neutral exactly.
+voltage information: `I.PROV.KRON_REDUCIBLE`. For an MEN network that is a
+consequence of the modeling choice, not a defect; it says the four-wire model
+can be reduced to three wires exactly. It is a warning sign only where the
+perfect grounds were added to make a case solve. Finite electrodes keep the
+neutral voltage rise the perfect grounds remove. See
+[Network reduction](@ref network-reduction) for removing such a neutral exactly.
 
 ## Reading order for a grounding problem
 
@@ -284,3 +307,16 @@ grounds were added only to make a case solve. See
 
 A worked example of the whole loop is in
 [Profile your first messy case](tutorial_profile_messy_case.md).
+
+## Related codes
+
+These codes also concern neutrals and earth returns; the
+[finding-code reference](findings.md) has the full triggers.
+
+| Code | What it says |
+|---|---|
+| [`I.PROV.SWER_ZONE`](findings.md#Zone-phase-topology) | A transformer-isolated zone carries one phase conductor and no neutral on its branches: a single-wire earth return (SWER) section. |
+| [`W.INT.WYE_WITHOUT_NEUTRAL`](findings.md#INT-—-structural-integrity) | A wye load or generator sits at a bus with no identifiable neutral, which implies an undeclared earth return. |
+| [`W.INT.IMAX_NO_NEUTRAL`](findings.md#INT-—-structural-integrity) | A star generator or IBR with two or more phases rates only its phase conductors; the neutral, which can carry more current under unbalance compensation, needs its own `i_max` entry. |
+| [`W.CONV.MULTIPLE_NEUTRALS`](findings.md#CONV-—-terminal-role-conventions) | One bus carries more than one terminal classified as neutral. |
+| [`I.SOL.NEUTRAL_SHIFT`](findings.md#SOL-—-solution-profiling) | After a solve, the largest neutral terminal voltage and its bus. Unbalance or an earthing impedance makes it nonzero. |

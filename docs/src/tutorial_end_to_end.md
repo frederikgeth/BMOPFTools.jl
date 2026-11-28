@@ -1,4 +1,4 @@
-# End-to-end tutorial: from OpenDSS to a solved OPF benchmark
+# From OpenDSS to a solved OPF benchmark
 
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
@@ -7,16 +7,33 @@
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
-New to the package? Start with [First case: inspect, solve and verify](first_case.md)
-for a bundled example. Return here when you want to follow the OpenDSS conversion
-and preparation steps with the external utility dataset.
-
-This is the **primary use case** of BMOPFTools, start to finish, on one real
-feeder. We take a utility-style OpenDSS model and walk the whole pipeline:
+This page is the overview of case preparation: one real feeder taken from a
+utility-style OpenDSS model to a solved, exported OPF benchmark, through every
+stage of the pipeline:
 
 ```
 load → analyze → fix → place DERs → augment → re-validate → solve → export
 ```
+
+Each stage gets one short section here; the focused pages go deeper:
+
+- [Reading augmentation provenance](tutorial_nameplate.md) — what the manifest
+  says was derived, assumed, or left unknown.
+- [From test report to transformer model](tutorial_transformer_tests.md) —
+  building transformer parameters from test data instead of defaults.
+- [Placing DERs](tutorial_ders.md) — placement strategies and how the binding
+  constraint moves; the [VVWO tutorial](tutorial_vvwo.md) adds smart-IBR
+  Volt-var/Volt-watt control inside the OPF.
+- [Case augmentation](augmentation.md) (guide) and the
+  [Augmentation reference](augmentation_reference.md) — every pass, flag and
+  default of `fix_case`, `add_generators`/`add_ibrs` and `augment_case`.
+- [Simplifying a network](tutorial_simplify.md) and
+  [Network reduction: which tool?](network_reduction.md) — shrinking the
+  prepared case.
+
+New to the package? Start with [First case: inspect, solve and verify](first_case.md)
+for a bundled example, and return here for the OpenDSS conversion and
+preparation steps on the external utility dataset.
 
 Run the code blocks in order in one Julia session with the external dataset
 available. These blocks are not executed by the documentation build; inventory
@@ -38,12 +55,6 @@ three neutral grounding reactors.
     already has everything: `julia --project=docs`. First time with Julia, or
     unsure what any of that means? Start with
     [Installation & first steps](installation.md).
-
-!!! note "Two deep-dive tutorials branch off this one"
-    Once the pipeline makes sense, [DER placement](tutorial_ders.md) explores the
-    placement *strategies* and how the binding constraint flips, and the
-    [VVWO tutorial](tutorial_vvwo.md) adds smart-IBR Volt-var/Volt-watt
-    control inside the OPF.
 
 ## 1. Load — OpenDSS → BMOPF
 
@@ -118,14 +129,11 @@ render(report, stdout)
 
 [`fix_case`](@ref) applies idempotent structural repairs and returns the
 repaired network plus a [`TransformationManifest`](@ref) recording every change.
-The default [`FixRecipe`](@ref) keeps the largest connected component, merges
-trivial series lines and removes dangling stubs, drops electrically-inert zero
-loads, strips satisfied voltage bounds off source buses, and removes ideal
-conductors whose two ends are both perfectly grounded. Five passes are opt-in
-because they idealize impedances or change topology inference, representation,
-or OPF physics: `apply_low_impedance_to_switch`,
-`apply_adjacent_current_bounds`, `apply_perfect_grounding`,
-`apply_shunt_to_capacitor`, and `apply_snap_transformer_impedance`.
+The default [`FixRecipe`](@ref) runs the exact and scope-reducing repairs
+(largest connected component, series-line merging, zero-load removal, satisfied
+source-bus bounds, earthed ideal conductors); the passes that idealize
+impedances or change OPF physics are opt-in. The
+[`fix_case` pass table](@ref fix) lists all ten.
 
 ```julia
 net_fixed, fix_mf = fix_case(net; recipe = FixRecipe())
@@ -140,14 +148,12 @@ branch. The readback in Step 5 follows those references without deleting records
 
 ## 4. Place DERs
 
-A faithful import is usually a passive load feeder — there is nothing for an OPF
-to optimize. [`add_ibrs`](@ref) (and its sibling [`add_generators`](@ref))
-**declare** a DER fleet with a recipe and let the library choose buses from the
-network's own semantics, recording every field it writes. Here a
-`:load_following` recipe drops one PV IBR on each load bus.
-
-See the [DER placement tutorial](tutorial_ders.md) for the full menu of
-placement strategies, sizing bases, and cost knobs.
+The feeder is passive, so there is nothing for an OPF to optimize yet.
+[`add_ibrs`](@ref) (and its sibling [`add_generators`](@ref)) **declare** a DER
+fleet with a recipe and let the library choose buses from the network's own
+semantics, recording every field it writes. Here a `:load_following` recipe
+drops one PV IBR on each load bus; the
+[DER placement tutorial](tutorial_ders.md) compares strategies.
 
 ```julia
 ibr_recipe = IBRRecipe(
@@ -165,14 +171,11 @@ render_manifest(der_mf)
 ## 5. Augment — standards-grounded gap-filling
 
 [`augment_case`](@ref) fills missing bounds and costs, **without overwriting
-any value already present**. The manifest records each change's rule and
-confidence, including `:standard` for standard-derived fills and `:synthetic`
-for study choices. The voltage and reactive-capability passes draw on
-EN 50160 and EN 50549-1, respectively (the default cos φ = 0.90 rule is P-based
-and does not reproduce IEEE 1547-2018's kVA-based reactive capability; see
-[Case augmentation](augmentation.md#Pass-3-—-Generation)). Synthetic thermal estimation
-is a separate opt-in pass: `AugmentationRecipe()` has `apply_thermal=false`.
-See [Case augmentation](augmentation.md) for the full pass-by-pass rationale.
+any value already present**, and records each fill's rule and confidence tag in
+the manifest. The voltage and reactive-capability passes draw on EN 50160 and
+EN 50549-1 (the P-based cos φ = 0.90 rule does not reproduce IEEE 1547-2018;
+see [Pass 3](@ref "Pass 3 — Generation")). Synthetic thermal estimation is
+opt-in: `AugmentationRecipe()` has `apply_thermal = false`.
 
 ```julia
 net_ready, aug_mf = augment_case(net_der; recipe = AugmentationRecipe())
@@ -220,12 +223,10 @@ before augmentation.
     have that value too. Zero is a binding limit, not a marker for an absent one.
 
 If your study explicitly calls for synthetic ampacity estimates, select
-`AugmentationRecipe(apply_thermal=true)`. That pass fills only eligible linecodes
-that lack `i_max`, subject to impedance-classification and lookup checks, and
-labels successful estimates `:heuristic`. It does not replace existing line
-overrides; inspect the manifest for skipped linecodes and the assumptions behind
-each estimate. See [Case augmentation](augmentation.md) for the R₁₁ lookup,
-its applicability limits, and the equal phase/neutral rating assumption.
+`AugmentationRecipe(apply_thermal = true)`; it fills only eligible linecodes
+that lack `i_max` and tags each estimate `:heuristic`. Read the
+[thermal pass](@ref "Pass 2 — Thermal limits") reference for its R₁₁ lookup and
+applicability limits before relying on the numbers.
 
 A **transformer's** thermal limit is a different mechanism: its nameplate
 `s_rating` is stored in **VA**, and the OPF enforces its winding power limits.

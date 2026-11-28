@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "b511650e30334eb715710f453ead8f348fa935fc329799123dad304a431b1645"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "e0d56645c3292d641c65051723cd003ce9699387c847e6540a6d06df293243ad"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -756,7 +756,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="DOM",
         catalogue_section="DOM",
         section_title="domain plausibility",
-        meaning="A zero-length line — degenerate impedance; the spec's lossless switch object is the right model for such sections ([ref. 2](methodology.md#refs)).",
+        meaning="A zero-length line — degenerate impedance; the spec's lossless switch object is the right model for such sections ([ref. 2](references.md#refs)).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1224,7 +1224,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="RED",
         catalogue_section="RED",
         section_title="redundancy",
-        meaning="Chains of series lines whose interior buses have line-degree 2 and **no** other attachment (loads, generators, shunts, switches, transformers all counted as blockers). Merging removes superfluous buses that slow solvers ([ref. 2](methodology.md#refs)).",
+        meaning="Chains of series lines whose interior buses have line-degree 2 and **no** other attachment (loads, generators, shunts, switches, transformers all counted as blockers). Merging removes superfluous buses that slow solvers ([ref. 2](references.md#refs)).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1341,7 +1341,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="A `shunt` is purely capacitive — no conductance (G ≈ 0) and a strictly positive diagonal susceptance (`B = ωC > 0`; a reactor would be negative). It looks like a fixed capacitor bank carried as a generic admittance. Consider modeling it as a first-class `capacitor` (nameplate `q_rated`/`v_nom`); the [fix recipe](augmentation.md#fix) can convert phase-to-ground banks automatically with `FixRecipe(apply_shunt_to_capacitor = true)`. See [object identity](semantic_modeling.md#object-identity).",
+        meaning="A `shunt` is purely capacitive — no conductance (G ≈ 0) and a strictly positive diagonal susceptance (`B = ωC > 0`; a reactor would be negative). It looks like a fixed capacitor bank carried as a generic admittance. Consider modeling it as a first-class `capacitor` (nameplate `q_rated`/`v_nom`); the [fix recipe](@ref fix) can convert phase-to-ground banks automatically with `FixRecipe(apply_shunt_to_capacitor = true)`. See [object identity](semantic_modeling.md#object-identity).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1944,7 +1944,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="INT",
         catalogue_section="INT",
         section_title="structural integrity",
-        meaning="All-zero row/column pairs in linecode impedances — padded conductors demonstrably wreck NLP performance (22 → 590 Ipopt iterations in ([ref. 2](methodology.md#refs)) Table 3); shrink the matrix and use terminal maps.",
+        meaning="All-zero row/column pairs in linecode impedances — padded conductors demonstrably wreck NLP performance (22 → 590 Ipopt iterations in ([ref. 2](references.md#refs)) Table 3); shrink the matrix and use terminal maps.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1953,7 +1953,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="INT",
         catalogue_section="INT",
         section_title="structural integrity",
-        meaning="A galvanic island (transformer windings are separations) with no source, perfect grounding, grounding shunt, line shunt admittance to earth as the admittance builders stamp it (modeled line capacitance: an unearthed delta or IT island is referenced through it; one impedance source per line — inline totals, else the linecode scaled by length — and only the block over the mapped conductors, with omitted entries of a sparsely declared matrix read as zero, so a shunt entry the engine never stamps is not a reference), or transformer neutral impedance (`r/x_neutral_from`/`to` on a side that has a neutral terminal — impedance and resonant earthing), or a coil written against earth (WYE or one-terminal SINGLE_PHASE with no neutral in its map) whose power is given: a load coil with nonzero demand, or a generator coil with fixed, nonzero output — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](methodology.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island. A second form (`detail[\"scope\"] = \"conductor_group\"`; the first has `\"island\"`) is raised when the island has a reference that does not reach every conductor: a group of terminals joined to each other by lines, windings and devices, but to no earthed conductor, can shift together. An earth shunt on a separately carried neutral does not reference delta-connected phases that nothing connects to that neutral.",
+        meaning="A galvanic island (transformer windings are separations) with no source, perfect grounding, grounding shunt, line shunt admittance to earth as the admittance builders stamp it (modeled line capacitance: an unearthed delta or IT island is referenced through it; one impedance source per line — inline totals, else the linecode scaled by length — and only the block over the mapped conductors, with omitted entries of a sparsely declared matrix read as zero, so a shunt entry the engine never stamps is not a reference), or transformer neutral impedance (`r/x_neutral_from`/`to` on a side that has a neutral terminal — impedance and resonant earthing), or a coil written against earth (WYE or one-terminal SINGLE_PHASE with no neutral in its map) whose power is given: a load coil with nonzero demand, or a generator coil with fixed, nonzero output — voltages there are defined only up to a shift (the IEEE-123 \"bus 610\" rank deficiency ([ref. 2](references.md#refs))). A shunt counts only if its admittance has nonzero row sums, so a pure delta capacitor bank correctly does not anchor an island. A second form (`detail[\"scope\"] = \"conductor_group\"`; the first has `\"island\"`) is raised when the island has a reference that does not reach every conductor: a group of terminals joined to each other by lines, windings and devices, but to no earthed conductor, can shift together. An earth shunt on a separately carried neutral does not reference delta-connected phases that nothing connects to that neutral.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -1998,7 +1998,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="INT",
         catalogue_section="INT",
         section_title="structural integrity",
-        meaning="Lines whose total series impedance is below 10⁻³× the network median — they degrade conditioning; the spec's lossless switch object is the intended model ([ref. 2](methodology.md#refs)).",
+        meaning="Lines whose total series impedance is below 10⁻³× the network median — they degrade conditioning; the spec's lossless switch object is the intended model ([ref. 2](references.md#refs)).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),
@@ -2682,7 +2682,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="BENCH",
         catalogue_section="BENCH",
         section_title="benchmark readiness",
-        meaning="The case is not yet a non-trivial OPF benchmark; the message lists the concrete augmentation steps: no costed generation (degenerate objective), slack-only generation (trivial dispatch), absent voltage bounds, absent vpn/vpos bounds (which also aid solver robustness ([ref. 3](methodology.md#refs))), missing thermal limits. The absent-voltage-bounds step is suggested only when no bus has a voltage-magnitude bound of any kind (`v_*`, `vpn_*`, `vpp_*` or `vpos_*`).",
+        meaning="The case is not yet a non-trivial OPF benchmark; the message lists the concrete augmentation steps: no costed generation (degenerate objective), slack-only generation (trivial dispatch), absent voltage bounds, absent vpn/vpos bounds (which also aid solver robustness ([ref. 3](references.md#refs))), missing thermal limits. The absent-voltage-bounds step is suggested only when no bus has a voltage-magnitude bound of any kind (`v_*`, `vpn_*`, `vpp_*` or `vpos_*`).",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

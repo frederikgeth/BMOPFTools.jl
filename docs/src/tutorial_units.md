@@ -224,7 +224,7 @@ conclude:
     Whether per-unit scaling helps convergence is **instance- and
     formulation-dependent** — a documented open question for this engine
     ([Units and scaling](opf.md#Units-and-scaling), refs 18–20 in the
-    [methodology notes](methodology.md#refs)). The iteration counts above are
+    [Bibliography](references.md#refs)). The iteration counts above are
     one data point on one small feeder, printed at build time so you can watch
     them change across solver versions. The two modes exist so the question can
     be *benchmarked*; per-unit became the default because DC-network cases are

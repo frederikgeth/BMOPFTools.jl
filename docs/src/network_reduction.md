@@ -1,13 +1,10 @@
 # [Network reduction: which tool, and what it preserves](@id network-reduction)
 
-*A smaller network solves faster, but every reduction answers a different
-question about what may be forgotten.*
-
 BMOPFTools offers three reductions. They remove different things, they are
 exact under different conditions, and they lose different information. This
 page explains what each one does, when it is exact, and how they combine. The
-numbers come from AC power flows on three feeders (the reproduction scripts are
-listed at the end).
+numbers come from AC power flows on three feeders (the reproduction script is
+named at the end).
 
 ## Two meanings of "Kron reduction"
 
@@ -46,9 +43,9 @@ conductor version.
 | Loses | voltages of merged buses; ratings of collapsed switches | neutral voltages and currents; finite earthing (forced to ideal) | current limits of eliminated lines; per-bus voltages (recoverable with [`lift_solution`](@ref)) |
 | Records | `_simplification_log` | `_meta.kron_reduction` | `_kron_reduction` |
 
-All three return a new BMOPF case and keep the original unchanged. Treat each
-result as a solve-time compile target and keep the source case as the
-exchanged artifact (see [Simplifying a network](@ref tutorial-simplify)).
+All three return a new BMOPF case and leave the original unchanged. The
+result is a [solve-time compile target](@ref object-identity), not the case of
+record.
 
 ## How they compare on real feeders
 
@@ -59,7 +56,7 @@ voltage-magnitude error over all covered bus-phases (kept and eliminated) and
 test loadings, relative to Ē. Opti-KRON uses the convex hull of the training
 samples. On the European LV feeder the 48 test loadings are the half-hour
 points of the 1,440 training minutes (minutes 15, 45, …); the
-[Opti-KRON validation](@ref opti-kron) measures eliminated buses only on a
+[Opti-KRON validation](@ref opti-kron-validation) measures eliminated buses only on a
 different sample set, so its numbers differ.
 
 | Feeder | Strategy | Buses | Ybus nodes | Coverage | AC error / Ē | after lift |
@@ -79,30 +76,25 @@ different sample set, so its numbers differ.
 | | neutral | 253 | 759 | 100% | 0 | – |
 | | Opti-KRON | **32** | **119** | 100% | 0.78 | 0.004 |
 
-What the table shows:
+What the table adds to the comparison above:
 
-- **Simplification is exact on these feeders but only removes buses without
-  loads.** The
-  European LV feeder is mostly long unloaded chains, so simplification alone
-  removes 87% of its buses, but the merged buses no longer have voltages (13%
-  coverage). On a load-dense feeder (B) it removes almost nothing.
-- **Neutral elimination is exact only where the model earths neutrals
-  perfectly** (feeder B, 994 → 759 nodes with zero error). The European LV
-  model is already three-wire (no line carries a neutral conductor), so the
-  step changes nothing there. Where neutrals are earthed through finite
-  MEN shunts (feeder A), forcing them to ideal earth shifts phase-to-neutral
-  voltages by about Ē, and no lift can undo that, because the information is
-  gone. It never removes buses; it reduces the matrix size by 0–25%.
-- **Opti-KRON is the only tool that shrinks load-dense feeders**, by 85–87%
-  of buses on feeders A and B, while keeping a voltage estimate at every bus
-  within about Ē. Its certificate is for the linear model; in AC, Opti-KRON
-  alone reached up to 1.04 Ē (European LV feeder), and 1.44 Ē after neutral
-  elimination on feeder A, where the neutral step's own error adds. A margin
-  on Ē covers the linear-versus-AC gap. The linear lift reduces the remaining
-  Opti-KRON error to 0.4–11% of Ē.
-- **The tools compose.** Simplify first when the voltages of unloaded
-  pass-through buses do not matter, then let Opti-KRON cluster the loaded
-  buses: 907 → 70 buses on the European LV feeder.
+- **Coverage.** Simplification is exact on these feeders, but merged buses no
+  longer have a voltage. The European LV feeder is mostly long unloaded
+  chains: simplification removes 87% of its buses and keeps a voltage for
+  only 13% of bus-phases. On the load-dense feeder B it removes almost
+  nothing. Opti-KRON keeps an estimate at every bus.
+- **Finite MEN earthing.** Neutral elimination is exact where the model earths
+  every neutral perfectly (feeder B: 994 → 759 nodes, zero error). Feeder A
+  earths its neutral through finite MEN electrodes; forcing it to ideal earth
+  shifts phase-to-neutral voltages by about Ē, and no lift can undo that,
+  because the neutral voltages are gone. (The European LV model is already
+  three-wire, so the step changes nothing there.)
+- **Composition.** Simplifying first and letting Opti-KRON cluster the loaded
+  buses gives 907 → 70 buses on the European LV feeder. Errors also compose:
+  after neutral elimination on feeder A, Opti-KRON reaches 1.44 Ē in AC and
+  the lift recovers only the Opti-KRON part. Opti-KRON alone reaches up to
+  1.04 Ē, because its certificate is for the linear model; leave a margin on
+  Ē for the linear-versus-AC gap.
 
 ## A recommended pipeline
 
@@ -122,10 +114,11 @@ What the table shows:
 4. Solve the reduced case, then use [`lift_solution`](@ref) and an AC power flow
    on the original network to check the answer.
 
-Walk through this pipeline on a generated feeder in
-[Reducing a four-wire feeder, step by step](@ref tutorial-network-reduction).
-Details: [Error-bounded bus reduction (Opti-KRON)](@ref opti-kron), and the
-[Opti-KRON tutorial](@ref tutorial-opti-kron).
+[Reducing a feeder with a voltage guarantee](@ref tutorial-opti-kron)
+introduces Opti-KRON on a six-bus feeder;
+[Reducing a four-wire feeder, step by step](@ref tutorial-network-reduction)
+walks through this pipeline on a generated feeder; and
+[Error-bounded bus reduction](@ref opti-kron) has the mathematics.
 
 ## Reproduction
 

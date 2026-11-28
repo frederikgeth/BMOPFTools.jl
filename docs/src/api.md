@@ -162,8 +162,10 @@ render_ascii_tree
 
 ## Spatial cleanup review
 
-See the [illustrated spatial guide](spatial_diagnostics.md) for evidence interpretation,
-applicability, review-ledger semantics and export examples.
+See the [illustrated spatial guide](spatial_diagnostics.md) for evidence interpretation
+and applicability, and the [spatial reference](@ref spatial-reference) for
+[review-ledger semantics](@ref Sidecar-dispositions) and the
+[export bundle](@ref spatial-review-export).
 
 ```@docs
 spatial_review_decision
@@ -388,7 +390,7 @@ benchmark_readiness_check
 
 ## Case preparation
 
-See [Case augmentation](augmentation.md) for the full reference and worked
+See [Augmentation reference](augmentation_reference.md) for the full reference and worked
 examples.  The main entry points are `fix_case` / `FixRecipe` (structural
 repairs) and `augment_case` / `AugmentationRecipe` / `default_recipe`
 (standards-grounded gap-filling), together with the shared

@@ -1,4 +1,4 @@
-# From nameplate data to a defensible network model
+# Reading augmentation provenance: derived, assumed, unknown
 
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
@@ -7,23 +7,22 @@
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
-*What you can derive, what you must assume, and what has to stay unknown.*
-
 Real network data arrives incomplete. A cable has an impedance but no current
 rating; a bus has a nominal voltage but no operating envelope; a feeder has loads
 but nothing dispatchable to optimize. Turning that into a model an OPF can
-respect means *writing numbers the source never gave you* — and the integrity of
+respect means *writing numbers the source never gave you*, and the integrity of
 the study depends on being honest about where each one came from.
 
-BMOPFTools makes that honesty mechanical. Every value a preparation pass writes
-is recorded in a **manifest** with the rule that produced it and a **confidence
-tag**, so the finished case is self-documenting: you can see at a glance which
-numbers are standards-derived, which are heuristic inferences to double-check,
-and which are design choices you own. This tutorial walks one incomplete feeder
-through that process and reads the provenance back out.
+BMOPFTools records every value a preparation pass writes in a **manifest**,
+together with the rule that produced it and a **confidence tag**. This tutorial
+takes one incomplete feeder through [`augment_case`](@ref) and reads that
+provenance back out, sorting the written values into three groups: what can be
+derived from a standard, what has to be assumed, and what must stay unknown.
 
 *Prerequisites: a Julia environment with `BMOPFTools` — the augmentation passes
-need no solver. See [Case augmentation](augmentation.md) for the reference.*
+need no solver. The [Case augmentation](augmentation.md) guide explains the
+workflow; the [Augmentation reference](augmentation_reference.md) lists every
+pass and rule.*
 
 ## 1. An incomplete case
 
@@ -103,7 +102,7 @@ Reading those tiers back as engineering judgment:
   This is **not** a standards-conformant rating: R₁₁ is the series resistance
   (conductor AC resistance **plus** the Carson earth-return term), so it does not
   identify the conductor's material, class, or installation — see the
-  [thermal pass](augmentation.md#Pass-2-—-Thermal-limits). On this feeder the
+  [thermal pass](@ref "Pass 2 — Thermal limits"). On this feeder the
   effect is visible in the notes: a 185 mm² copper linecode matches the 95 mm²
   row. Only linecodes whose impedance classification meets
   `thermal_min_confidence` (default `:medium`) are rated; the `:high` /
@@ -116,7 +115,7 @@ Reading those tiers back as engineering judgment:
   place dispatchable generation, which is a *scenario*, not a fact. Placement
   goes before `augment_case`, so the generation pass gives the new generators
   their reactive bounds (see
-  [Why this sequence](augmentation.md#Why-this-sequence)):
+  [Why this sequence](@ref "Why this sequence")):
 
 ```julia
 raw_der, der_mf = add_generators(raw)
@@ -155,8 +154,8 @@ its least-documented default, and the tag on every number tells the next reader 
 or the reviewer — exactly which ones to trust and which to challenge.
 
 !!! tip "Where to go next"
-    [Case augmentation](augmentation.md) is the full pass-by-pass reference;
-    the [conversion guide](conversion.md) covers getting faithful data *in* from
-    OpenDSS in the first place. Once the model is built and solved, the companion
+    The [Augmentation reference](augmentation_reference.md) documents every
+    pass and rule; the [conversion guide](conversion.md) covers getting
+    faithful data *in* from OpenDSS in the first place. Once the model is built and solved, the companion
     discipline is [Trust but verify](tutorial_trust_but_verify.md) — checking the
     *solution* as rigorously as you documented the *inputs*.

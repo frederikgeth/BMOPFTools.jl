@@ -3,7 +3,8 @@
 !!! warning "Status"
     Not yet linked to a scientific-knowledge (`PSK-*`) claim or exposed
     through the JSON execution interface. Its behavior is tested and compared
-    against the paper's published results (see the validation section below).
+    against the paper's published results
+    ([validation evidence](@ref opti-kron-validation)).
 
 Robust Opti-KRON [1] chooses which buses of a distribution network to keep so
 that the reduced network has as few buses as possible, while every original
@@ -176,80 +177,35 @@ error remains; in the Opti-KRON rows of the comparison on
 
 ## Validation against the paper
 
-The IEEE European LV test feeder (907 nodes, 1,440 one-minute samples, H = 5,
-ε = 0.01, 95% quantile radii, `K = 3` buses added per iteration), from
-`scripts/opti_kron_eulv.jl` (Gurobi, 1 h time limit per cell).
-
-**Structure.** The candidate set has 11,227 pairs and the structural maximum
-(no error bound) is 88.6% (103 super-nodes), both exactly as in the paper.
-The maximum is reproduced only when the reduced network must stay radial;
-the paper does not state this constraint, and without it the maximum is 91.1%.
-
-**Reduction (% of buses removed) by set and threshold.** Unmarked cells are
-certified for their set and minimal. Cells marked † hit the time limit before
-the adversary certified an assignment; the value shown is a proven upper bound
-on the reduction, the tighter of the master's lower bound and the certified
-result at the next threshold (a larger Ē never needs more super-nodes).
-
-| Set | Ē = 0.001 | 0.002 | 0.003 | 0.004 | 0.005 | Paper, Ē = 0.001 |
-|---|---|---|---|---|---|---|
-| scenario baseline | 86.7 | 88.2 | 88.3 | 88.5 | 88.6 | 86.7 |
-| convex hull | 83.7 | 87.4 | 87.9 | 88.2 | 88.5 | 83.0 |
-| box | 79.4 | 85.2 | 86.7 | 87.5 | 88.0 | ≈ 79.5 |
-| ellipsoid | ≤ 68.8 † | 68.8 | 76.2 | 79.3 | 81.6 | ≈ 76 |
-| Wasserstein ℓ1 | ≤ 83.1 † | 87.1 | 87.7 | 88.4 | 88.6 | 75.0 |
-| Wasserstein ℓ2 | ≤ 84.9 † | 87.4 | 88.2 | 88.3 | 88.5 | ≈ 81 |
-| Wasserstein ℓ∞ | 69.1 | 78.1 | 84.6 | 86.4 | 87.4 | ≈ 80 |
-
-Paper values marked ≈ are read from its Fig. 2(a); the others are stated in
-its text. Screening keeps 64–89% of the candidate pairs at Ē = 0.001 and
-90–100% at Ē = 0.005 (paper: 54–70% and 89–98%).
-
-How to read the comparison:
-
-- **The scenario baseline, convex hull and box agree with the paper** to
-  within 0.7 percentage points. These sets have no tuning: they are fixed by
-  the samples.
-- **The ellipsoid and Wasserstein sets depend on calibration choices the paper
-  does not fully specify** (the POET covariance tuning and the Wasserstein
-  radius). Ours come out more conservative for the ellipsoid and ℓ∞ and less
-  conservative for ℓ1 and ℓ2. All of them approach the structural maximum as
-  Ē grows, as in the paper.
-- **A Wasserstein certificate is a CVaR bound.** With N = 1,440 and ε = 0.01
-  it bounds the average error over the worst 1% of the distribution, not
-  every individual sample, so single training samples can exceed Ē
-  (by up to 1.9 Ē in this sweep).
-
-**AC validation.** On the same feeder (convex hull, Ē = 0.001), the largest
-AC error at the eliminated buses is 0.96 Ē, against 0.92 Ē for the linear
-model, and 0.07 Ē after the linear lift. The metric compares each eliminated
-bus's super-node voltage in the reduced case with its voltage in an AC power
-flow of the full network, over 48 training samples (every 30th minute,
-starting at minute 1) (`scripts/opti_kron_ac_validation.jl`). The comparison
-on [Network reduction](@ref network-reduction) uses a different metric and
-sample set, so its numbers differ.
+On the IEEE European LV test feeder, the implementation reproduces the paper's
+candidate count (11,227 pairs) and structural maximum (88.6% of buses
+removed). For the scenario baseline, convex hull and box, the reductions at
+Ē = 0.001 agree with the paper to within 0.7 percentage points; the ellipsoid
+and Wasserstein results depend on calibration choices the paper leaves open.
+The full table, the AC check and the reproduction scripts are in
+[Opti-KRON against the published results](@ref opti-kron-validation).
 
 ## Differences from the paper
 
-- **Linear model.** Ybus-based sensitivities instead of phase-coupled
-  LinDistFlow; identical for single-phase radial feeders, and more general
-  otherwise.
+- **Linear model.** Ybus-based sensitivities of the full multiconductor
+  network instead of phase-coupled LinDistFlow; the two coincide for
+  single-phase radial feeders.
 - **Clusters do not cross transformers,** except that the slack may represent
-  buses within H hops across one (its voltage is fixed). This reproduces the
-  paper's candidate count.
+  buses within H hops across one, since its voltage is fixed.
+- **Radiality.** With `preserve_radial=true` (the default) the reduced network
+  stays radial. The paper does not state this constraint, but its structural
+  maximum is reproduced only with it.
 - **Meshed networks** use the breadth-first spanning tree from the source for
   hops, paths and radiality; the sensitivities come from the meshed Ybus.
-- **Ellipsoid.** POET covariance [5], as in the paper, with an
-  eigenvalue-ratio factor choice (at most five factors) and soft
-  thresholding; these tuning choices are BMOPFTools' own, because the paper
-  does not state its tuning.
-- **Wasserstein radius.** The paper calibrates ρ/ε from distances of the
-  training samples to the d = 0 part of 𝒰_W, which is zero for every training
-  sample whenever 1/(Nε) ≥ 1. BMOPFTools uses leave-one-out distances to the
-  hull of the nearest other samples instead (`radius=:hull`).
-- **Only Algorithm 1** is implemented. Passing all samples as `initial` with
-  the convex hull reproduces the direct model.
-- **Screening test 2** covers the box and the convex hull only.
+- **Set calibration.** The ellipsoid uses POET covariance [5] with an
+  eigenvalue-ratio factor choice (at most five factors) and soft thresholding.
+  The Wasserstein radius uses leave-one-out distances to the hull of the
+  nearest other samples (`radius=:hull`): the paper's calibration, distances
+  to the d = 0 part of 𝒰_W, is zero for every training sample whenever
+  1/(Nε) ≥ 1.
+- **Only Algorithm 1** is implemented; passing all samples as `initial` with
+  the convex hull reproduces the direct model. Screening test 2 covers the box
+  and the convex hull only.
 
 ## References
 

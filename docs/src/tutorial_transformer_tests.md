@@ -22,7 +22,7 @@ no longer exists. Every block runs at build time.
     A Julia environment with `BMOPFTools`, `JuMP` and `Ipopt`. The
     [units tutorial](tutorial_units.md) covers the base arithmetic
     (``Z_B = V^2/S``) used constantly here; the
-    [nameplate tutorial](tutorial_nameplate.md) covers the provenance
+    [augmentation provenance tutorial](tutorial_nameplate.md) covers the
     discipline for what may *not* be derived; and
     [Transformer models](transformer_models.md) is the normative contract
     behind everything on this page.
@@ -471,7 +471,7 @@ units — do not "fix" it. Two `n_winding` specifics worth pinning:
 
 Everything above was *derived* from measurements. The remaining fields are
 not derivable, and the provenance discipline of the
-[nameplate tutorial](tutorial_nameplate.md) applies in full:
+[augmentation provenance tutorial](tutorial_nameplate.md) applies in full:
 
 - **No OC test → no core branch.** Omit `g_no_load`/`b_no_load` rather than
   inventing them; a lossless core is an honest, documented approximation.

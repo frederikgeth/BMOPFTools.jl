@@ -76,7 +76,7 @@ network is not necessarily convertible to BMOPFTools.
 !!! note "This is one instance of a model-wide principle"
     Reconstructing the named real-world asset rather than a solver-convenient
     encoding is a stance that governs the whole data model — validation findings
-    and [fix recipes](augmentation.md#fix) as much as ingest. The general
+    and [fix recipes](@ref fix) as much as ingest. The general
     statement, and the catalog of representational collisions it resolves
     (capacitor-vs-shunt, load-vs-generator, line-vs-transformer, …), live on the
     [Object identity & semantic projection](@ref object-identity) page. This
@@ -130,35 +130,35 @@ This is a principled stance with a clear lineage, in power systems and beyond.
 - **In this project's own design goals.** The Task Force benchmark architecture
   argues for *maintaining semantics in the data model* precisely to make data
   debugging tractable and to avoid benchmarking pitfalls
-  ([ref. 2](methodology.md#refs)), building on a survey of the data-quality
+  ([ref. 2](references.md#refs)), building on a survey of the data-quality
   problems that pervade existing distribution datasets
-  ([ref. 14](methodology.md#refs)).
+  ([ref. 14](references.md#refs)).
 - **A two-layer model is established practice.** PowerModelsDistribution
   deliberately separates a human-facing *engineering* model from a solver-facing
   *mathematical* model, connected by an explicit lowering step
-  ([ref. 15](methodology.md#refs)); BMOPFTools pushes the same idea one stage
+  ([ref. 15](references.md#refs)); BMOPFTools pushes the same idea one stage
   upstream, from "engineering vs math" to "raw export vs benchmark-grade model."
 - **Model the entities, not the coordinate transform.** The IEC Common
   Information Model represents a network through explicit terminals and
-  connectivity nodes ([ref. 23](methodology.md#refs)) — the very structure
+  connectivity nodes ([ref. 23](references.md#refs)) — the very structure
   OpenDSS leaves implicit and `from_dss` reconstructs. This runs against a
   long-standing reflex in power engineering to reason in *coordinate-transformed*
   models (symmetrical components, Kron reduction) that discard the
   conductor-level data a four-wire model — and a non-expert collecting it —
-  actually needs ([ref. 10](methodology.md#refs), [ref. 17](methodology.md#refs));
+  actually needs ([ref. 10](references.md#refs), [ref. 17](references.md#refs));
   see the [buses & terminals primer](terminals_primer.md).
 - **Good data modeling is a discipline in its own right.** Outside power systems
   the same lesson recurs: *tidy data* observes that data is usually organized for
   ease of entry rather than analysis, and that standardizing the mapping from
   semantics to representation is what makes reliable, composable tooling possible
-  ([ref. 22](methodology.md#refs)); the **FAIR** principles make *provenance and
+  ([ref. 22](references.md#refs)); the **FAIR** principles make *provenance and
   shared vocabularies* — not raw dumps — the basis of reusable data
-  ([ref. 21](methodology.md#refs)); **Open Power System Data** brings the same
+  ([ref. 21](references.md#refs)); **Open Power System Data** brings the same
   validated, reproducible raw-to-results discipline to energy-system modeling
-  ([ref. 24](methodology.md#refs)); and **W3C PROV** formalizes provenance as the
+  ([ref. 24](references.md#refs)); and **W3C PROV** formalizes provenance as the
   mechanism that makes a non-identity transformation trustworthy — notably
   defining validity itself through a normalization process
-  ([ref. 25](methodology.md#refs)).
+  ([ref. 25](references.md#refs)).
 
 What is distinctive about BMOPFTools is not any one of these ideas but their
 **synthesis**: semantic canonicalization, a stable and code-addressable
