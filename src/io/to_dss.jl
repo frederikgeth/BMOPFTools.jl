@@ -233,7 +233,9 @@ function _dss_rating_signature(net)
         x isa AbstractVector && return project.(x)
         x isa AbstractDict || return x
         Dict{String,Any}(k => project(v) for (k,v) in x if
-            k in correspondence || occursin(r"(^|_)(min|max|rating|limits)($|_)", k))
+            (k in correspondence || occursin(r"(^|_)(min|max|rating|limits)($|_)", k)) &&
+            # A materialized "no neutral" marker is not a declaration.
+            !(k == "neutral_terminal" && v === nothing))
     end
     for kind in (COMPONENT_COLLECTIONS..., "transformer")
         collection = get(net, kind, Dict())

@@ -439,6 +439,7 @@ Appends `Finding` objects to `findings` and returns a summary dict.
 function solution_check(net::Dict{String,Any},
                         result::Dict{String,Any},
                         findings::Vector{Finding})::Dict{String,Any}
+    net = _with_materialized_roles(net)
     out = Dict{String,Any}("controller_compliance"=>Dict{String,Any}[])
     # The case's declared neutral labels, resolved once: device checks below
     # identify phase and neutral terminals exactly as the engine does, never by

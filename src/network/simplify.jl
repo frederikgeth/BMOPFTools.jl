@@ -654,8 +654,7 @@ function _collapse_closed_switches!(net)
             # differently.
             _phases(bus) = begin
                 tn = String.(get(bus, "terminal_names", String[]))
-                nt = get(bus, "neutral_terminal", nothing)
-                nt === nothing && (nt = _neutral_terminal(tn))
+                nt = bus isa Dict{String,Any} ? _neutral_terminal(bus) : _neutral_terminal(tn)
                 [t for t in tn if t != nt]
             end
             ph_f = _phases(bus_f)
@@ -950,6 +949,7 @@ function simplify_network(net::Dict{String,Any};
                           series_merge_policy = :allow_approximate,
                           allow_drop_bus_constraints = false)::Dict{String,Any}
     net′ = deepcopy(net)
+    _materialize_roles_if_valid!(net′)
     get!(net′, "_simplification_log", Any[])
     closed_switches && _collapse_closed_switches!(net′)
     open_switches   && _remove_open_switches!(net′)

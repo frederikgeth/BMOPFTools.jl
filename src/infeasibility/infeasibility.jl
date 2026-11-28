@@ -64,6 +64,7 @@ function diagnose_infeasibility(fopf_result::Dict{String,Any},
                                  net::Dict{String,Any};
                                  top_n::Int            = 10,
                                  slack_threshold::Float64 = 1e-3)
+    net = _with_materialized_roles(net)
 
     get(fopf_result, "is_feasibility_opf", false) ||
         error("fopf_result must come from solve_feasibility_opf " *

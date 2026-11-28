@@ -12,6 +12,7 @@ Covers:
 """
 function infeasibility_preflight(net::Dict{String,Any},
                                   findings::Vector{Finding})::Dict{String,Any}
+    net = _with_materialized_roles(net)
     result = Dict{String,Any}()
 
     result["transformer_coil_headroom"] = _transformer_headroom_preflight(net, findings)

@@ -208,6 +208,9 @@ function _check_terminal_conventions(net, findings, n_checks)
         end
         haskey(b,"neutral_terminal") || continue
         nt = b["neutral_terminal"]
+        # `nothing` is the materialized "no neutral" for a bus that carries no
+        # declared neutral label (see `_materialize_terminal_roles!`).
+        nt === nothing && isempty(neuts) && continue
         matched = nt isa AbstractString ? [_CONVENTION_ROLES[i] for i in 1:3 if nt in sets[i]] : String[]
         # Role-overlap Findings own ambiguity; do not duplicate that root error.
         nt isa AbstractString && nt in names && ("neutral" in matched) && continue

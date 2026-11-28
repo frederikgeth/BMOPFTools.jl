@@ -4,6 +4,15 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Terminal roles: with declared `terminal_conventions`, a conductor declared as
+  a phase is no longer treated as a bus neutral because it is named `n` (#494).
+  Ingest now stamps every bus with its declared neutral, or with an explicit
+  "no neutral", and the bus-level lookup honors it everywhere: OPF voltage and
+  sequence limits, objective terms, start values, the post-solve validator,
+  analysis, case preparation and infeasibility diagnostics. Entry points that
+  accept a network not read through `parse_bmopf` resolve it the same way on a
+  copy. Previously such a conductor lost its phase-to-ground bound, gained a
+  phase-to-neutral reference, and could be grounded at a source bus.
 - Infeasibility diagnosis:
   - `solve_feasibility_opf` in per-unit (the default) penalized per-unit slack
     variables weighted by `(I_base/I_ref)²`, which made a milliampere residual

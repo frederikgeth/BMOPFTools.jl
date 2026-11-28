@@ -66,6 +66,7 @@ function augment_case(net::Dict{String,Any};
     analysis = _normalize_analysis(analysis, ("voltage_levels", "provenance"),
                                    "augment_case")
     net′   = deepcopy(net)
+    _materialize_roles_if_valid!(net′)
     entries = TransformEntry[]
 
     # ── Snapshot findings_before ─────────────────────────────────────────────
