@@ -45,6 +45,52 @@ against its primitive admittance; the per-subtype placement is tabulated in
 [Magnetizing-shunt placement](@ref Magnetising-shunt-placement). The two
 regulator subtypes place it across the from-side winding instead.
 
+## [Current ratings per subtype](@id opf-transformer-current-ratings)
+
+The table describes native OPF current ratings, including legacy
+`g_no_load`/`b_no_load`. A direct box is added only for a finite positive cap on
+the represented variable. The magnitude row remains in place. Existing tighter
+component bounds are preserved; absent/+Inf caps add neither row nor box, zero
+caps use component equalities without fixed-variable bounds, and negative, NaN,
+or -Inf caps are rejected. Ratings are converted into the side's working current
+units before either constraint is stamped.
+
+| Subtype / side | Rated quantity and index | Direct box |
+|:--|:--|:--|
+| `single_phase`, from | `i_max_from[k]`: bare series current for winding pair `k` | Yes |
+| `single_phase`, to | `i_max_to[k]`: winding-pair current plus legacy excitation | Only without legacy excitation; otherwise the cap is on an expression |
+| `center_tap`, from | `i_max_from[1:2]`: HV phase and mirrored neutral return, respectively | Yes, for each supplied entry |
+| `center_tap`, to | `i_max_to[1:3]`: LV leg 1, center-tap neutral, LV leg 2; total winding-terminal currents including legacy excitation | Yes, in fixed-primitive and T-model paths |
+| `wye_delta` / `delta_wye`, wye side | Side rating indexed by terminal-map position: bare phase winding current and, when present, summed neutral return | Yes |
+| `wye_delta` / `delta_wye`, delta side | Side rating indexed by terminal-map position: bare delta **line** current, not individual delta-coil current | Yes |
+| `single_phase_autotransformer`, from | `i_max_from[1]`: regulator input current plus legacy excitation | Only without legacy excitation |
+| `single_phase_autotransformer`, to | `i_max_to[1]`: regulator output winding current | Yes |
+| `open_delta_regulator`, both | `i_max_from[j]` / `i_max_to[j]`, `j=1,2`: bare currents of the two regulator pairs selected by `connection` | Yes |
+| `n_winding`, each winding | Scalar `windings[k].i_max` caps each `cr_nw`/`ci_nw` coil current; WYE phase coil or DELTA pair coil | Yes |
+
+For `single_phase`, the index enumerates winding pairs rather than every map
+terminal. A return terminal does not acquire a separate rating from a trailing
+array entry. Autotransformer and open-delta shared-bond currents
+likewise have no independent cap from trailing entries. N-winding neutral return
+is a sum, without an independently rated neutral variable. Center-tap HV return
+is constrained to minus the phase current: either provided cap restricts that
+physical current, but a missing entry does not create a second row or box.
+
+Yd/Dy and open-delta legacy excitation is added separately in KCL and is outside
+their bare-current ratings. Separate neutral-to-earth branches are outside the
+winding-current ratings. Normalized `no_load_shunt` records become explicit shunt
+objects, also outside these variables and caps, even when their reporting ledger
+associates them with a transformer. Equivalent bus voltages and source powers
+therefore do not imply identical rated currents for legacy and explicit shunts.
+
+**Center-tap:** the T-model (free tap or either zero leakage arm) uses the same
+total winding-terminal current boundary as the fixed primitive path. With legacy
+excitation, its LV leg-1 and neutral native variables and serialized currents are
+total terminal currents; the internal equations subtract excitation to recover the
+series current, and model hooks requiring that current must do the same. Both HV
+ratings are enforced in both paths. No ratings are inferred from nameplates,
+voltages or turns ratios.
+
 ## [Continuous tap optimization](@id Continuous-tap-optimisation)
 
 The tap can be a **free continuous decision variable** instead of a constant, so the
@@ -422,7 +468,7 @@ is a separate island; provenance reports it as `E.PROV.FLOATING_NEUTRAL`, and a
 phase-to-neutral load there has no return path unless that neutral is earthed.
 Two OpenDSS cases pin the behavior, one with an ideal and one with a 0.5 Ω
 neutral jumper (`pf_open_delta_neutral`, `pf_open_delta_neutral_jumper`; see
-[Validating the OPF engine](validation.md)).
+[Engine validation evidence](validation.md)).
 
 ## `n_winding` — general n-winding (ZB model, WYE and/or DELTA)
 

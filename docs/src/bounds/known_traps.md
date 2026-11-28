@@ -48,7 +48,7 @@ return $V_+$; a flat-but-low or adversarially started Newton solve can land on $
 **Look for:** different solutions from different starts ⇒ multiplicity. The low-voltage
 cluster is the tell ([Diagnostics §4](diagnostics.md)).
 
-*In BMOPFTools:* OPF test **T1** ([Validating the OPF](../validation.md)) solves the
+*In BMOPFTools:* OPF test **T1** ([Engine validation evidence](../validation.md)) solves the
 high-voltage root `V = (V_s + √(V_s² − 4RP))/2` of the resistive analog of this
 quadratic; a low-`R/X`
 reactive variant loaded toward the nose exposes the second root.

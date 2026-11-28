@@ -54,7 +54,7 @@ optimizer dispatching a controllable device per operating point can.
     OpenDSS short-circuit set carried by PowerIO's BMOPF export, so
     its two legs track OpenDSS even under heavy, unbalanced loading. See the
     [end-to-end tutorial](tutorial_end_to_end.md) for the general pipeline and
-    [Validating the OPF](validation.md) for the OpenDSS cross-checks.
+    [Engine validation evidence](validation.md) for the OpenDSS cross-checks.
 
 ## 1. Load and diagnose
 

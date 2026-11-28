@@ -45,7 +45,7 @@ needs them; they are not prerequisites for the first walkthrough.
   Begin with [Trust but verify](tutorial_trust_but_verify.md).
 - **Engine validation evidence** documents how the implementation is tested,
   including external comparisons and their limits. See
-  [Validating the OPF engine](validation.md).
+  [Engine validation evidence](validation.md).
 
 These answer different questions. Passing one does not substitute for the others.
 

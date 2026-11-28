@@ -42,7 +42,7 @@ start of that page; its dataset examples are not executed by the docs build.
 | **Choose numerical coordinates or inspect initialization** | [Scaling, initialization and diagnostics](numerical_workflows.md) | [Solver guide](solvers.md), [Trusting the solver](bounds/solver_trust.md) |
 | **Update coefficients and re-solve safely** | [Repeated solves](repeated_solves.md) | [Case families](tutorial_case_development.md), [Extending the OPF model](differentiable_extensions.md) |
 | **Build a differentiable or bilevel research extension** | [Extending the OPF model](differentiable_extensions.md), then [Sensitivities with DiffOpt](diffopt_sensitivities.md) | [Custom formulations](tutorial_custom_formulations.md), [OPF engine](dev/opf_engine.md) |
-| **Extend or debug the solver** | [OPF engine: scope & status](dev/opf_engine.md) | [OPF model](opf.md), [Contributing](dev/contributing.md) |
+| **Extend or debug the solver** | [OPF engine: design & runtime contracts](dev/opf_engine.md) | [OPF model](opf.md), [Contributing](dev/contributing.md) |
 
 ## Route by system type
 

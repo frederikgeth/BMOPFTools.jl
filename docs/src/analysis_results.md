@@ -472,8 +472,8 @@ in `detail["interpretation"]`; how to read each pattern is in
 
 Converter-generated source equivalents (linecodes whose `source` names a
 Thevenin or source impedance, e.g. from `from_dss`) are classified but never
-flagged; the report counts them. Compatibility details are in
-[Provenance report compatibility](dev/versioning.md#Provenance-report-compatibility).
+flagged; the report counts them. The interpretation fields are described in
+[Provenance interpretation fields](#Provenance-interpretation-fields) below.
 
 ## Pre-flight
 
@@ -686,3 +686,49 @@ Passes without a complete coverage ledger appear only in JSON, as
 | `subsumed` | Vector | One entry per dropped code: `code`, the covering code `by`, `n`, and `components` for per-component subsumption |
 | `rollup_threshold` | Int | The threshold in effect |
 | `n_findings_before`, `n_findings_after` | Int | Finding counts before and after consolidation |
+
+## Provenance interpretation fields
+
+`provenance.impedance_transform.classification_version = "2"` separates
+PN/MPN/Kron heuristic candidates from declared, unverified history. The
+`by_linecode` and `by_type` projections retain the candidate names, including
+`kron_reduced`; missing/invalid matrices and a zero series matrix remain
+`unknown`. Use `evidence_by_linecode` for observations, history status and
+actual linecode-use context. A candidate name is a hypothesis, even when its
+history status remains `unknown`.
+
+`I.PROV.IMPEDANCE_TRANSFORM_KR` is an exploratory candidate. `I.PROV.SEQ_DERIVED`
+carries a sequence/transposition interpretation, with physical symmetry as an
+alternative.
+The six sequence, decoupling, PN/MPN and Kron hints add structured interpretation
+in Finding detail. `explain_finding(finding::Finding)` returns the catalog
+fields plus `instance` and `interpretation`; the latter is `nothing` when no
+interpretation was recorded. The string-code lookup and its CLI/MCP envelope
+return the catalog entry only.
+
+Interpretation lists (`possible_explanations`, `implications`, `alternatives`,
+`suggested_checks`) are ordered arrays of `{"id", "text"}` records. Linecodes marked as source (Thevenin)
+equivalents keep their classification but carry `finding_suppressed` instead of
+producing provenance Findings. Feeder-length transformer ports add `port_role`
+and zones add `n_ports_by_role`.
+
+Interpretation implications can depend on the instance: balance signatures record
+retained conductors and phase-block scope; feeder hints record the declared
+impedance-source counts. Match the returned guidance IDs rather than assuming
+every instance of a code has the same implication list. Cap observations retain
+explicit unbounded declarations separately from absent fields.
+
+Three-wire matrices with negligible phase coupling use the per-phase
+simplification hint and retain an unknown transformation candidate. Evidence
+records `reason = "negligible_phase_coupling_origin_unresolved"`: a Schur
+correction can cancel original mutuals, so this is no proof against Kron history.
+`I.PROV.DECOUPLED_PHASES` also covers unequal self terms; `phase_self_uniform`
+scopes the sequence implications.
+
+Linecode-use context adds positive MV/HV, LV-with-neutral and unassessed counts
+and bounded line IDs, alongside the aggregate counts. `known_mv_hv_context`,
+`unused_linecode_context` and `unassessed_use_context` distinguish these cases;
+missing voltage/map evidence does not select MV/HV-only guidance.
+Interpretations carry `learn_more` documentation links, and the declaration
+basis counts include `inline_overrides_linecode` for inline matrices that take
+precedence over a linecode reference.

@@ -536,3 +536,17 @@ verification tolerance, not an increase in the equipment rating.
 
 Switch current limits are checked on `cm`, line limits on `cm_fr` and `cm_to`; a
 missing switch `cm` is reported as unassessed.
+
+### Exact and modeled Volt-watt compliance
+
+`profile_solution` reports `controller_compliance` separately for each assessed
+IBR phase. `exact_profile_compliance` uses the network's declared piecewise-linear
+cap and retains `E.SOL.IBR_VIOLATION` for excess output. It is not relaxed to
+accommodate smoothing. `modeled_cap_feasibility` reconstructs the supplied
+`modeled_volt_watt` curve in SI using its live hinge coefficients, fixed smoothing
+width, and softplus/Swish encoding. Native solves export those coefficients.
+
+The report includes both caps and excesses, the signed approximation error,
+and `epsilon_V`. Missing or unsupported curve evidence is indeterminate. A
+modeled-cap pass concerns that declared curve only; it does not authenticate
+solver stamping or establish complete network feasibility.

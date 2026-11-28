@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "aff3f1578bcfcadabfcbb91ad7a2c2bb072e7b65547a22004112c970f7e95d62",
+  "corpus_sha256": "a7a1a6c32bdbfd0d0b7e1ae4b19c0dda1e7a5c4fbdb3a08067702260042fedae",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -82,7 +82,7 @@
     },
     {
       "path": "docs/src/api.md",
-      "sha256": "c46b505f4180de8863947e3dd5c85143854be5f5ef7856247a5b5fc5daf4400b"
+      "sha256": "c65ce500701d259af28b84aa9d22894c4b3048c5d69822df8424a3679973baec"
     },
     {
       "path": "docs/src/assets/spatial/direct-series.svg",
@@ -114,11 +114,11 @@
     },
     {
       "path": "docs/src/dev/opf_engine.md",
-      "sha256": "c5cbce4b6eedd89de72d713d349c0c1a5b271006a98954b52361a66a9421cd4e"
+      "sha256": "6c381e592e41d47ae9354e7266176b77cd03e52e2d2373afb31ea11773ecfd1d"
     },
     {
       "path": "docs/src/dev/versioning.md",
-      "sha256": "28edc430d18e7daea419fbcbde923a635baba3194ef5242bd23c5201d297f45a"
+      "sha256": "6968505a4e557b5830b056d951e9380e7fb93d123d26f69749ab5db4793dc72d"
     },
     {
       "path": "docs/src/device_indexing.md",
@@ -134,7 +134,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "7dfaf9339b89216c1e704328ce8fe8aec5d63785a7d3e3b13dbbe9fd86697d17"
+      "sha256": "fc858a6d4fa99af1866fbd13e14174e69e90bd1f07efcc537c67eeffa5f995c6"
     },
     {
       "path": "docs/src/first_case.md",
@@ -158,7 +158,7 @@
     },
     {
       "path": "docs/src/opf_transformers.md",
-      "sha256": "2467d5468e8da499fa957d33499d20ec21d401fb23f3a3746294800f3c1318f5"
+      "sha256": "4e2ce7c19c46d020d29807e59a0e4503c9b60874a0437da02779ed4b2c156b20"
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
@@ -170,15 +170,15 @@
     },
     {
       "path": "docs/src/results.md",
-      "sha256": "a5e7bed18872c7f6ea0b80c08cdcbd9520f1a3e901bd4886564a07a3f903f023"
+      "sha256": "f3870eaf245bd1f7b7e155c3507d56cb3a5c45435358f539d0509d7caaf5869d"
     },
     {
       "path": "docs/src/solution_projection.md",
-      "sha256": "fc7dd79f941ece05772a7ca7120e53b77d5aac87715852c580319ca0f69159aa"
+      "sha256": "2df2e9b6faee6d3e583e26fa4f08583166e3aac78797dc348b771ca44be79c9b"
     },
     {
       "path": "docs/src/solvers.md",
-      "sha256": "c1cfda8efac68e885aabf9f72c19b44502ab6020c714b175316dfb209642a814"
+      "sha256": "2fefe9e0309ce6e9176bca56e1006a6fc3fd5cd9eb7e75b005bdb21668d1924a"
     },
     {
       "path": "docs/src/spatial_diagnostics.md",
@@ -190,7 +190,7 @@
     },
     {
       "path": "docs/src/spec/nodal-admittance.md",
-      "sha256": "6e548619966c64aceb69da64cd047dd3acbfc49c360873cbf13df3bd6a79b4fb"
+      "sha256": "c0657be8654274a3ea1ca262d228dec760f14e8f6f306ef48579cbdfb4550c78"
     },
     {
       "path": "docs/src/spec/transformer-admittance.md",
@@ -198,7 +198,7 @@
     },
     {
       "path": "docs/src/transformer_models.md",
-      "sha256": "50dc03a1e749c1294dd0649decd5e6b1a5b1865ffb7dbf1a52b58b03740c5abf"
+      "sha256": "9806f2c80c838f1e6d91ed3521fea6232924ffd132d62bcca75544ee617d2544"
     },
     {
       "path": "docs/src/transformer_phase.md",
@@ -230,7 +230,7 @@
     },
     {
       "path": "docs/src/tutorial_trust_but_verify.md",
-      "sha256": "0558776f5dd48be0d7ffce4dc7a091d1fa39dc7301bad621561d8f5d8601afce"
+      "sha256": "64cca1f1011aa82c2ca1cda82950ef12a0bb04da9295465b737eaa04838a59c0"
     },
     {
       "path": "docs/src/tutorial_units.md",
@@ -238,7 +238,7 @@
     },
     {
       "path": "docs/src/validation.md",
-      "sha256": "a5e51db229a02f25a3478fa72275116bb08e90297f042ae47b2b9f9ff1a7b440"
+      "sha256": "80997b2ae4804bc97db27c5cd3237db7d9fe57fe4e859f97a208b069b0dc15b0"
     },
     {
       "path": "examples/case_development.jl",
@@ -322,7 +322,7 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "1a381e4cac5f37872e1efa35a991dba829d2600ca4a8af6c13a07a03509afefb"
+      "sha256": "3fb5dc2dd6c600770a8f8f2ba22ca7346f6bb9ced87e0702bd5eccd10adc364d"
     },
     {
       "path": "knowledge/executable.toml",
@@ -674,7 +674,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "16808ee7ef4d80ded8cb13b09e81e1acea2426518349a92d4fb92f15c1d0ab7d"
+      "sha256": "e4088561ce16a395cc0f17235a96b894ad69d84b874c74301249fc9a2371de80"
     },
     {
       "path": "src/report/formatting.jl",
@@ -1602,7 +1602,7 @@
     },
     {
       "path": "test/powerflow_comparison_tests.jl",
-      "sha256": "8de960d995467250d59d314b5ac2505040b7be7734e87931915dad40efc6b062"
+      "sha256": "2b0b2c225035b44f2416e93b3a90fb75d3edd957337a184935a7cd3af5e9b3ed"
     },
     {
       "path": "test/powerio_findings_tests.jl",

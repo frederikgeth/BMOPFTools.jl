@@ -156,7 +156,7 @@ makedocs(
                 "Contributing & workflow" => "dev/contributing.md",
                 "Style guide" => "dev/style_guide.md",
                 "Versioning & the data model" => "dev/versioning.md",
-                "OPF engine: scope & status" => "dev/opf_engine.md",
+                "OPF engine: design & runtime contracts" => "dev/opf_engine.md",
                 "Profiling pipeline" => "dev/profiling.md",
             ],
         ],

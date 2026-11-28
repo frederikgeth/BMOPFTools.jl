@@ -275,7 +275,7 @@ The OpenDSS documentation describes the related compensation-current approach
 - **Screening and initialization.** Combine a matrix, source boundaries and
   compensation currents in an external power-flow or initialization algorithm.
 - **Cross-validation.** Both matrices are checked against OpenDSS — see
-  [Validating the OPF engine](@ref) → *System nodal admittance gates*.
+  [Engine validation evidence](@ref) → *System nodal admittance gates*.
 
 ## Validation summary
 

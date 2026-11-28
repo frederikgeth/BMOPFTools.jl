@@ -1,4 +1,4 @@
-# OPF engine: scope & status
+# OPF engine: design and runtime contracts
 
 BMOPFTools ships **one reference optimizer**: a nonconvex **four-wire rectangular
 current–voltage** optimal power flow engine (see its
@@ -23,11 +23,11 @@ established, not exploratory:
 
 - The formulation is fully derived in `docs/math-model.tex`.
 - Feasibility / correctness is checked, not assumed: see
-  [`solve_feasibility_opf`](../validation.md) and the relaxed power-flow
+  [`solve_feasibility_opf`](@ref) and the relaxed power-flow
   cross-check against OpenDSSDirect in the test suite.
 - The [bounds & feasibility](../bounds/index.md) series documents *why* a given
   bound/objective combination is well-posed (or not), and
-  [Validating the OPF](../validation.md) is the practical checklist.
+  [Engine validation evidence](../validation.md) is the practical checklist.
 
 The expectation for a new formulation, constraint, or element is therefore:
 
@@ -40,7 +40,7 @@ The expectation for a new formulation, constraint, or element is therefore:
    Prefer the **external** reference where one can express the case:
    agreement between the per-unit and SI builds of this engine is a useful
    supplement, but it cannot detect an error both builds share (see the
-   review oracles in [Validating the OPF](../validation.md)).
+   review oracles in [Engine validation evidence](../validation.md)).
 
 !!! warning "Not a model zoo"
     It is **not in scope** to accumulate every state-of-the-art formulation here
@@ -133,7 +133,7 @@ remain in the model unless an explicit, justified transformation changes it.
   including a nonzero source on a perfectly grounded terminal, raise
   `ArgumentError`. Identical colocated sources can still have an undetermined
   current allocation unless other constraints or costs resolve it.
-- **Voltage-dependent loads:** the artificial `0.5–1.5 × v_nom` band is removed.
+- **Voltage-dependent loads:** no implicit voltage band is added.
   Pure-P equivalents and pure-Z laws keep their direct formulations. Remaining
   laws use W/s lifts when fixed references or enforced bounds certify positive
   coil voltage, and a dimensionless logarithmic magnitude otherwise. See the
@@ -215,57 +215,9 @@ box is skipped because the component equalities already enforce it.
 
 ### Transformer current-rating coverage
 
-The table describes native OPF current ratings, including legacy
-`g_no_load`/`b_no_load`. A direct box is added only for a finite positive cap on
-the represented variable. The magnitude row remains in place. Existing tighter
-component bounds are preserved; absent/+Inf caps add neither row nor box, zero
-caps use component equalities without fixed-variable bounds, and negative, NaN,
-or -Inf caps are rejected. Ratings are converted into the side's working current
-units before either constraint is stamped.
-
-| Subtype / side | Rated quantity and index | Direct box |
-|:--|:--|:--|
-| `single_phase`, from | `i_max_from[k]`: bare series current for winding pair `k` | Yes |
-| `single_phase`, to | `i_max_to[k]`: winding-pair current plus legacy excitation | Only without legacy excitation; otherwise the cap is on an expression |
-| `center_tap`, from | `i_max_from[1:2]`: HV phase and mirrored neutral return, respectively | Yes, for each supplied entry |
-| `center_tap`, to | `i_max_to[1:3]`: LV leg 1, center-tap neutral, LV leg 2; total winding-terminal currents including legacy excitation | Yes, in fixed-primitive and T-model paths |
-| `wye_delta` / `delta_wye`, wye side | Side rating indexed by terminal-map position: bare phase winding current and, when present, summed neutral return | Yes |
-| `wye_delta` / `delta_wye`, delta side | Side rating indexed by terminal-map position: bare delta **line** current, not individual delta-coil current | Yes |
-| `single_phase_autotransformer`, from | `i_max_from[1]`: regulator input current plus legacy excitation | Only without legacy excitation |
-| `single_phase_autotransformer`, to | `i_max_to[1]`: regulator output winding current | Yes |
-| `open_delta_regulator`, both | `i_max_from[j]` / `i_max_to[j]`, `j=1,2`: bare currents of the two regulator pairs selected by `connection` | Yes |
-| `n_winding`, each winding | Scalar `windings[k].i_max` caps each `cr_nw`/`ci_nw` coil current; WYE phase coil or DELTA pair coil | Yes |
-
-For `single_phase`, the index enumerates winding pairs rather than every map
-terminal. A return terminal does not acquire a separate rating from a trailing
-array entry. Autotransformer and open-delta shared-bond currents
-likewise have no independent cap from trailing entries. N-winding neutral return
-is a sum, without an independently rated neutral variable. Center-tap HV return
-is constrained to minus the phase current: either provided cap restricts that
-physical current, but a missing entry does not create a second row or box.
-
-Yd/Dy and open-delta legacy excitation is added separately in KCL and is outside
-their bare-current ratings. Separate neutral-to-earth branches are outside the
-winding-current ratings. Normalized `no_load_shunt` records become explicit shunt
-objects, also outside these variables and caps, even when their reporting ledger
-associates them with a transformer. Equivalent bus voltages and source powers
-therefore do not imply identical rated currents for legacy and explicit shunts.
-
-**Center-tap compatibility:** the T-model (free tap or either zero leakage arm)
-now uses the same total winding-terminal current boundary as the fixed primitive
-path. With legacy excitation, its LV leg-1 and neutral native variables and
-serialized currents change meaning from bare series/return currents to total
-terminal currents. The internal equations subtract excitation to recover the
-series current; model hooks requiring that current must do the same. The second
-HV rating is now enforced in both paths. The previously missing fixed-path boxes
-were redundant bounds; magnitude protection already existed for the other four
-entries. No ratings are inferred from nameplates, voltages or turns ratios.
-
-`test/transformer_current_rating_tests.jl` checks this matrix, same-tap physical
-solutions, zero arms, SI/classic/side-local scaling, exact cap rows, and a
-minimized excitation-cancellation witness. Its package evidence is linked to
-PSK-000013 through `knowledge/executable.toml`; it does not establish solver
-speedup or global infeasibility from a local solver failure.
+The per-subtype table of which current each `i_max_from`/`i_max_to` entry caps,
+and where a direct variable box is added, is in
+[Transformer equations in the OPF](@ref opf-transformer-current-ratings).
 
 `_neutral_current_limit!` applies the cap to the sum of phase currents of a
 supported star-connected device. It represents that device's neutral return,
@@ -470,7 +422,7 @@ settings. The correctness tests are not a performance benchmark.
 compatibility requirement is added to the main package project. Run
 `julia --project=test --startup-file=no test/runtests.jl` for the full suite.
 `test/opf_domain_tests.jl` checks both solvers on floating-neutral loads in SI
-and per-unit coordinates, inside and outside the former engineering band, and
+and per-unit coordinates, at small and large voltages, and
 checks the zero-radius vector-equality bridge.
 `test/opf_final_hardening_tests.jl` adds magnitude/transformer rejection witnesses,
 finite-difference Jacobian/Hessian checks, and parameter updates through zero
@@ -502,7 +454,7 @@ reach (full detail under
   constraints, or objective terms to a single solve, then read their solved
   values. A hook device stamps its current with `add_terminal_injection!` and may
   register its net injection as `result["custom_injection"]` so the power-balance
-  check in [`profile_solution`](../validation.md) stays honest. This is how a
+  check in [`profile_solution`](@ref) stays honest. This is how a
   battery, EV charger, or bespoke limit is added **without touching the JSON
   spec**.
 - **The staged API** ([`build_opf_model`](@ref) → [`optimize_opf!`](@ref) →
@@ -550,7 +502,7 @@ two ways to make an element's parameter a decision variable:
   per-unit, limits, and native loss/flow bookkeeping.
 
 - **Use a coefficient provider, or omit-and-re-stamp when no native location
-  exists.** Native scalar line `R_series`/`X_series` matrix entries can now be
+  exists.** Native scalar line `R_series`/`X_series` matrix entries can be
   supplied by typed coefficient providers without replacing the branch. If the
   quantity has no provider-aware native location (for example a line's length),
   **omit that element from the net** and re-stamp its constraint in the hook with
@@ -608,5 +560,5 @@ be scaled by the matching `opf_bases(ctx)` base.
   and known limitations.
 - [OPF result dictionary](../results.md) — the result-dict shape (part of the
   public API; see [Versioning](versioning.md)).
-- [Validating the OPF](../validation.md) and
+- [Engine validation evidence](../validation.md) and
   [Bounds & feasibility](../bounds/index.md) — the correctness machinery.

@@ -99,6 +99,6 @@ export_warnings = to_dss(deck, "snap.dss"; allow_unverified_ratings=true)  # ins
 # before comparing its voltages with result and res_B.
 ```
 
-[Validating the OPF](validation.md#Feasibility-—-agreement-with-OpenDSS) describes
+[Engine validation evidence](validation.md#Feasibility-—-agreement-with-OpenDSS) describes
 how terminal names are matched and which near-zero nodes are skipped when the
 package compares voltages with OpenDSS; use the same rules for your own comparison.
