@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "2a69145977aa715109a41d344b647ef6f398a63a19441e3833f91a9545742272",
+  "corpus_sha256": "62bad25024c0ccf45cda6697287995a38abe6b6ee59e2725ccece0bea5266386",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -410,7 +410,7 @@
     },
     {
       "path": "schemas/bundled-schema.toml",
-      "sha256": "c71e12044593173235d0279a1b0af75c33ec570c8506e31183e9f810e411f84c"
+      "sha256": "0dceeef04abb23a8a071534421ebddcb0003bbde461ed5f9c57fe02230aed4fa"
     },
     {
       "path": "schemas/executable-knowledge.schema.json",
