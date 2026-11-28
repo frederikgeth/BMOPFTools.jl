@@ -69,12 +69,12 @@ So: contribute drafts freely; don't assume a draft becomes official.
    `augment_case`), which records every change in a `TransformationManifest`.
 5. **Open a PR**, and confirm the license in the case header.
 
-!!! note "Official benchmark data is the Task Force's, and will live elsewhere"
-    The Task Force owns the official benchmark releases. The accepted cases under
-    `/output` and the source decks under `/test/data` are expected to be carved
-    out into a separate, versioned, Task-Force-governed repository so they can be
-    released and cited independently of the tooling. Draft cases can be hosted
-    here in the meantime.
+!!! note "Benchmark data lives outside this repository"
+    The Task Force owns the official benchmark releases. Source networks,
+    converted benchmark cases and their generation pipeline are kept in
+    [BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData), so they can
+    be versioned, licensed and cited independently of the tooling. This
+    repository bundles only small test fixtures under `test/data/`.
 
 ## Contributing tooling or analysis
 
@@ -116,19 +116,12 @@ julia --project=test --startup-file=no test/runtests.jl
 julia --project=test/diffopt    test/diffopt/runtests.jl
 julia --project=test/examodels  test/examodels/runtests.jl
 julia --project=test/downstream test/downstream/runtests.jl
-
-# generate analysis reports and simplified variants for all output/ networks
-julia --project=. scripts/generate_output.jl
 ```
 
-The OPF / benchmark scripts carry `JuMP` + `Ipopt` in their own environment;
-instantiate it once:
-
-```sh
-julia --project=scripts -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
-julia --project=scripts scripts/run_benchmark.jl            # all stages
-julia --project=scripts scripts/run_benchmark.jl opf        # or: outputs / solutions
-```
+The benchmark networks, their analysis reports and the generation pipeline
+(`generate_output.jl`, `run_benchmark.jl`) live in
+[BMOPFDraftData](https://github.com/frederikgeth/BMOPFDraftData); run them from
+that repository.
 
 Build the documentation locally:
 
