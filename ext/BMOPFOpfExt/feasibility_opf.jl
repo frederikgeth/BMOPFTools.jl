@@ -1,8 +1,8 @@
 # Feasibility OPF — elastic slack-current formulation.
 #
 # Identical to solve_opf except:
-#   1. A free slack current (cs_r, cs_i) is added at every ungrounded,
-#      non-source bus terminal and injected directly into KCL.
+#   1. A free slack current (cs_r, cs_i) is added at every ungrounded bus
+#      terminal (source-bus phases included) and injected directly into KCL.
 #      This lets those KCL equations absorb residual current; it does not relax
 #      the remaining hard constraints or guarantee NLP feasibility/convergence.
 #   2. The objective minimizes the L2² norm of all slack injections rather
@@ -23,8 +23,9 @@ perfectly grounded and uses ∑ |sₖ|² (L2² over all slack terminals) as its
 primary objective, plus the documented transformer degeneracy tie-break.
 
 The penalty is measured on the physical slack current in amperes in either unit
-system (per-unit slacks are weighted by their bus current base), so where the
-slack lands does not depend on `per_unit`.
+system (the slack variables are amperes; a per-unit KCL row receives
+`cs / I_base`), so where the slack lands, and how far it converges, does not
+depend on `per_unit`.
 
 The model retains [`solve_opf`](@ref)'s **non-KCL hard constraints** — voltage
 bounds, bus/line angle limits, and device limits — while the nodal-current
@@ -35,8 +36,7 @@ hard constraints or guarantee convergence of the nonconvex NLP.
 For a converged solve, non-zero residuals localize and quantify where that local
 relaxed point pays to violate KCL. They do not certify that the original problem
 has no zero-residual solution elsewhere. The raw `"objective"` is the squared
-slack norm in the model's working coordinates (plus the documented transformer
-tie-break); use the SI-valued `"slack_injections"` and
+slack norm in A² (plus the documented transformer tie-break); use the SI-valued `"slack_injections"` and
 `"total_slack_magnitude_A"` fields for physical interpretation. Pass the result
 to [`BMOPFTools.diagnose_infeasibility`](@ref) for a ranked breakdown.
 `build_spec` follows the same ownership contract as `solve_opf`; custom terminal
@@ -131,19 +131,32 @@ function build_feasibility!(ctx::OpfContext, slack::Dict{Symbol,Any})
     # (vr=vi=0 already fixed). Source-bus phase terminals DO receive a slack
     # variable; the voltage source's own free current already balances KCL
     # there, so the penalty drives that slack to zero.
+    #
+    # The slack variables are PHYSICAL currents in amperes in either unit system,
+    # entering a per-unit KCL row as cs / I_base[b]. The objective is then the
+    # same Σ|cs|² (A²) in SI and per-unit, so both localize alike, and the
+    # variables keep their SI conditioning. Weighting per-unit slack variables
+    # instead failed both ways: (I_base/I_ref)² left a milliampere residual far
+    # below the solver tolerance (feasible cases stopped with ~mA of slack),
+    # and I_base² made the Hessian entries ~1e7 on LV buses, so restoration
+    # failed on cases that SI solves.
+    bases = ctx.bases
+    amp_scale(bus) = bases === nothing ? 1.0 :
+        Float64(get(bases.i_base, String(bus), 1.0))
 
     cs_r = Dict{Tuple{String,String}, JuMP.VariableRef}()
     cs_i = Dict{Tuple{String,String}, JuMP.VariableRef}()
 
     for (bid, terminals) in bus_terminals
+        inv_ib = 1.0 / amp_scale(bid)
         for t in terminals
             key = (bid, t)
             key in grounded && continue
             haskey(kcl_r, key) || continue
             cs_r[key] = @variable(model, base_name = "cs_r_$(bid)_$(t)")
             cs_i[key] = @variable(model, base_name = "cs_i_$(bid)_$(t)")
-            JuMP.add_to_expression!(kcl_r[key], cs_r[key])
-            JuMP.add_to_expression!(kcl_i[key], cs_i[key])
+            JuMP.add_to_expression!(kcl_r[key], inv_ib, cs_r[key])
+            JuMP.add_to_expression!(kcl_i[key], inv_ib, cs_i[key])
         end
     end
 
@@ -158,23 +171,11 @@ function build_feasibility!(ctx::OpfContext, slack::Dict{Symbol,Any})
     # compete with the slack L2² term or reward circulating current — it merely
     # selects the physical branch when both are equally feasible.
     #
-    # The penalty is defined on the PHYSICAL slack current (amperes), whatever
-    # coordinates the model is built in. A per-unit slack at bus b is worth
-    # I_base[b] amperes, so an unweighted per-unit sum would price one ampere
-    # at 1/I_base[b]² — cheap on low-voltage buses, dear on medium-voltage
-    # ones — and the diagnostic would point at a different location than the
-    # SI model does. Weighting by (I_base[b]/I_ref)² restores the SI objective
-    # up to the constant 1/I_ref², so both unit systems localize alike.
-    bases = ctx.bases
-    i_ref = bases === nothing || isempty(bases.i_base) ? 1.0 :
-        maximum(values(bases.i_base))
-    amp_scale(bus) = bases === nothing ? 1.0 :
-        Float64(get(bases.i_base, String(bus), i_ref)) / i_ref
+    # The penalty is on the slack variables, which are already in amperes.
     slack_obj = JuMP.QuadExpr()
     for key in keys(cs_r)
-        weight = amp_scale(key[1])^2
-        JuMP.add_to_expression!(slack_obj, weight, cs_r[key], cs_r[key])
-        JuMP.add_to_expression!(slack_obj, weight, cs_i[key], cs_i[key])
+        JuMP.add_to_expression!(slack_obj, 1.0, cs_r[key], cs_r[key])
+        JuMP.add_to_expression!(slack_obj, 1.0, cs_i[key], cs_i[key])
     end
     xfmr_dict = get(working, "transformer", Dict())
     cr_xf = vars[:cr_xf]
@@ -191,9 +192,9 @@ function build_feasibility!(ctx::OpfContext, slack::Dict{Symbol,Any})
                 get(xfmr, "terminal_map_to",   String[]) :
                 get(xfmr, "terminal_map_from", String[]))
             # Same physical tie-break in either unit system: −1e-6 per ampere
-            # of the SI objective, carried through the 1/I_ref² normalization.
+            # of the SI objective.
             b_del = String(get(xfmr, wye_is_from ? "bus_to" : "bus_from", ""))
-            tie = -1e-6 * amp_scale(b_del) / i_ref
+            tie = -1e-6 * amp_scale(b_del)
             for k in 1:length(tm_del)
                 JuMP.add_to_expression!(slack_obj, tie, cr_xf[(tid, side_del, k)])
             end
@@ -231,8 +232,13 @@ function extract_feasibility!(ctx::OpfContext, result::Dict{String,Any},
         for t in terminals
             key = (bid, t)
             haskey(cs_r, key) || continue
-            csr = val(cs_r[key])
-            csi = val(cs_i[key])
+            # The variables are in amperes; report them in working units so the
+            # per-unit unwrapping (× I_base) restores amperes, as for every
+            # other current.
+            ib  = ctx.bases === nothing ? 1.0 :
+                Float64(get(ctx.bases.i_base, String(bid), 1.0))
+            csr = val(cs_r[key]) / ib
+            csi = val(cs_i[key]) / ib
             t_slacks[t] = Dict{String,Any}(
                 "cs_r"   => csr,
                 "cs_i"   => csi,

@@ -59,9 +59,9 @@ function _pin_dispatch!(comp_type::Symbol, dev::Dict{String,Any}, res)
         (p isa Number && q isa Number && isfinite(p) && isfinite(q)) || return false
         pg[idx] = p; qg[idx] = q
     end
-    # An IBR under a control_profile carries no q box (the profile couples Q to P
-    # internally); freezing at the solved point means dropping the profile and
-    # writing explicit fixed bounds, turning it into a determined PQ injection.
+    # Freezing an IBR at its solved point drops its control_profile (power factor,
+    # Volt-var, or Volt-watt) and writes fixed P/Q bounds instead, turning it into
+    # a determined PQ injection.
     if comp_type === :ibr
         delete!(dev, "control_profile")
     end
@@ -80,7 +80,7 @@ so the projected net is a fully *determined* snapshot.
 Pinned devices:
 - **Generators** and **IBRs** — per-phase active/reactive dispatch fixed to the
   solved `pg`/`qg` (`p_min == p_max == pg`, `q_min == q_max == qg`). An IBR under a
-  `control_profile` (Volt-var / power-factor) has the profile reference removed and
+  `control_profile` (power factor, Volt-var, or Volt-watt) has the profile reference removed and
   explicit fixed bounds written, freezing the smart-inverter control at its solved
   operating point.
 - **Free transformer taps** — a tap that was an OPF decision variable (reported as
@@ -96,7 +96,7 @@ unchanged. The input `net` is never mutated.
 The projected net is a legal input to `solve_pf` (every generator satisfies
 `p_min == p_max`, `q_min == q_max`) and, via `to_dss`, to OpenDSS.
 
-`result["_meta"]["projection"]` on the returned net records what was pinned
+`projected["_meta"]["projection"]` on the returned net records what was pinned
 (`generators`, `ibrs`, `free_taps`) and which IBR control profiles were frozen, so
 downstream diagnostics can attribute any oracle mismatch.
 
@@ -235,10 +235,9 @@ a `voltage_source` bus are **dropped, not converted** — the slack source is th
 reference and unbounded injector in a power flow, so its dispatch must not be
 re-imposed as a load.
 
-This is the bridge that makes an OPF snapshot exportable to OpenDSS **today**:
-[`to_dss`](@ref) (via PowerIO) cannot yet emit a BMOPF `ibr`/`generator`, but it
-exports loads faithfully, and a fixed PQ injection is exactly a negative constant-
-power load. Intended to be applied to the output of [`project_solution`](@ref) (so
+[`to_dss`](@ref) exports pinned generators and IBRs as OpenDSS `Generator`
+objects; this function offers a load-only alternative, since a fixed PQ injection
+is exactly a negative constant-power load. Intended to be applied to the output of [`project_solution`](@ref) (so
 every generator/IBR already has `p_min == p_max`); a device without fixed bounds is
 skipped and recorded under `_meta`.
 
@@ -249,9 +248,6 @@ in OpenDSS.
 
 `_meta["dispatch_as_loads"]` records the ids converted, the ids dropped as slack,
 and any skipped (unpinned) devices.
-
-Direct `generator`/`ibr` OpenDSS mappings can replace this bridge once PowerIO
-supports them.
 """
 function dispatch_as_loads(net::Dict{String,Any})::Dict{String,Any}
     projected = deepcopy(net)

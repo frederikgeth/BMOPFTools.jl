@@ -1587,20 +1587,18 @@ The cost objective is replaced by the sum of squared slack currents **in
 amperes**:
 
 ```math
-\min \sum_{(b,t)} w_b\Bigl[\bigl(c^{r,\varepsilon}_{b,t}\bigr)^2
-                       + \bigl(c^{i,\varepsilon}_{b,t}\bigr)^2\Bigr],
-\qquad
-w_b = \begin{cases} 1 & \text{SI model}\\
-\bigl(I_{\text{base},b}/I_\text{ref}\bigr)^2 & \text{per-unit model}\end{cases}
+\min \sum_{(b,t)} \Bigl[\bigl(c^{r,\varepsilon}_{b,t}\bigr)^2
+                       + \bigl(c^{i,\varepsilon}_{b,t}\bigr)^2\Bigr].
 ```
 
-with $I_\text{ref}$ the largest bus current base. The weight matters on a
-multi-voltage network. One per-unit of slack is worth $I_{\text{base},b}$
-amperes, which is large on a low-voltage bus and small on a medium-voltage
-one; an unweighted per-unit sum would therefore price an ampere differently at
-each voltage level and move the slack to a different location than the SI
-model does. With the weight, both unit systems minimize the same physical
-quantity and localize the infeasibility alike.
+The slack variables are physical currents in amperes in either unit mode; in a
+per-unit model they enter KCL as $c^{\varepsilon}_{b,t}/I_{\text{base},b}$. This
+matters on a multi-voltage network: one per-unit of current is a large current on
+a low-voltage bus and a small one on a medium-voltage bus, so an objective on
+per-unit slacks would price an ampere differently at each voltage level and move
+the slack to a different location than the SI model does. With the slack in
+amperes, both unit systems minimize the same physical quantity, localize the
+infeasibility alike, and converge to the same slack.
 
 The implementation adds a tiny linear transformer-current tie-break to select a
 numerical representative when Yd/Dy delta circulation is unobservable. Therefore

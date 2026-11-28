@@ -52,7 +52,12 @@ cause and location of network infeasibility.
 - `"is_feasible"`            — `true` if total slack < `slack_threshold`
 - `"total_infeasibility_A"`  — L2 norm of all slack injections (A)
 - `"n_infeasible_buses"`     — number of buses with per-bus slack > threshold
-- `"top_buses"`              — list of up to `top_n` dicts, ranked by slack
+- `"top_buses"`              — list of up to `top_n` dicts, ranked by slack. Each
+  holds `slack_A` (the bus's L2 slack), `fraction_of_total` (its share of the
+  squared total slack; the shares of all buses sum to one), `failure_mode`
+  (`voltage_bound` when a phase voltage is within 0.5 % of a bound, else
+  `power_balance`), and `voltage_violations`, the near-bound phases as strings
+  such as `"at_lower_bound:1 222.01 V (v_min 222.0 V)"`
 - `"failure_mode_summary"`   — count of `voltage_bound` vs `power_balance` buses
 """
 function diagnose_infeasibility(fopf_result::Dict{String,Any},
@@ -114,7 +119,7 @@ function diagnose_infeasibility(fopf_result::Dict{String,Any},
     power_driven   = 0
 
     for (bid, mag) in first(sorted_buses, top_n)
-        bus     = get(bus_net, bid, Dict())
+        bus     = get(bus_net, bid, Dict{String,Any}())
         bus_res = get(bus_result, bid, Dict())
         v_nom   = get(v_nom_by_bus, bid, nothing)
         phase_ts, lb_of, ub_of = _phase_vbounds(bus, v_nom; earth=earth)
@@ -127,13 +132,14 @@ function diagnose_infeasibility(fopf_result::Dict{String,Any},
             vm = get(tv, "vm", NaN)
             isnan(vm) && continue
             lb = lb_of(k); ub = ub_of(k)
+            # Within 0.5 % of (or beyond) a bound: the voltage is held there.
             if lb !== nothing && vm < Float64(lb) * 1.005
-                push!(viol, "undervoltage:$t " *
-                            "$(round(vm, digits=1))V < $(round(Float64(lb), digits=1))V")
+                push!(viol, "at_lower_bound:$t " *
+                            "$(round(vm, digits=2)) V (v_min $(round(Float64(lb), digits=2)) V)")
             end
             if ub !== nothing && vm > Float64(ub) * 0.995
-                push!(viol, "overvoltage:$t " *
-                            "$(round(vm, digits=1))V > $(round(Float64(ub), digits=1))V")
+                push!(viol, "at_upper_bound:$t " *
+                            "$(round(vm, digits=2)) V (v_max $(round(Float64(ub), digits=2)) V)")
             end
         end
 
@@ -151,8 +157,10 @@ function diagnose_infeasibility(fopf_result::Dict{String,Any},
         push!(top_buses, Dict{String,Any}(
             "bus"               => bid,
             "slack_A"           => round(mag, sigdigits=4),
+            # Share of the squared slack (the minimized objective), so the
+            # shares of all buses sum to one; `total_mag` is an L2 norm.
             "fraction_of_total" => total_mag > 0.0 ?
-                                   round(mag / total_mag, digits=4) : 0.0,
+                                   round((mag / total_mag)^2, digits=4) : 0.0,
             "failure_mode"      => mode,
             "voltage_violations"=> viol,
             "n_loads"           => length(bus_loads),

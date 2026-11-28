@@ -15,8 +15,8 @@ an **elastic KCL relaxation** — [`solve_feasibility_opf`](@ref) — and, when 
 converges, read *where* and *by how much* that local relaxed point uses its slack
 variables. [`infeasibility_preflight`](@ref) catches the statically detectable
 mistakes before any solver runs, and [`diagnose_infeasibility`](@ref) turns the raw
-slack pattern into a ranked, classified diagnosis. Every code block below executes
-when the docs are built, so the numbers are real.
+slack pattern into a ranked, classified diagnosis. Every code block below runs
+when the docs are built.
 
 *Prerequisites: a Julia environment with `BMOPFTools`, `JuMP` and `Ipopt` installed,
 and familiarity with the JSON input format — see the
@@ -130,8 +130,10 @@ constraints.
 [`solve_feasibility_opf`](@ref) builds the *same* model as `solve_opf` — identical
 hard voltage bounds, angle limits, and device current limits — with one surgical
 relaxation: an elastic slack current ``(c^s_r, c^s_i)`` is injected into KCL at
-every non-source bus terminal, and the objective minimizes ``\sum_k |c^s_k|^2``
-instead of generation cost. At every terminal carrying a slack variable, KCL can
+every bus terminal that is not perfectly grounded, and the objective minimizes
+``\sum_k |c^s_k|^2`` (in A², in either unit mode) instead of generation cost. At the
+source bus the source's own free current already balances KCL, so its slack stays
+at zero. At every terminal carrying a slack variable, KCL can
 balance by paying a residual-current penalty. If the remaining hard constraints
 are consistent and the relaxed solve converges, a terminal using slack identifies
 where that local relaxed solution could not close KCL without intervention. It is
@@ -195,9 +197,9 @@ println("load served there      : ", top["total_load_kW"], " kW from ",
         top["n_loads"], " load(s)")
 ```
 
-The report names `b2` as the dominant offender (≈ 89 % of the total residual),
-classifies it as `voltage_bound`, and points at the specific violation: terminal 1
-pinned at its 222 V lower limit. The upstream bus `b1` is classified
+The report names `b2` as the dominant offender (≈ 80 % of the squared residual, the
+quantity the relaxation minimizes), classifies it as `voltage_bound`, and lists the
+phase that is held there: terminal 1, at its 222 V lower bound. The upstream bus `b1` is classified
 `power_balance` — its voltage is comfortable; its smaller slack is collateral from
 propagating `b2`'s deficit. So the fix lives at `b2`'s voltage bound, not at `b1`.
 
@@ -240,7 +242,7 @@ numerically feasible point satisfying the represented KCL, KVL, and device equat
 ([Diagnostics & validation](bounds/diagnostics.md)). The loop is closed: claim,
 localization, quantified fix, confirmation.
 
-## When to trust `INFEASIBLE`
+## When to trust `LOCALLY_INFEASIBLE`
 
 - **The verdict is calibrated trust, not proof.** With sane bounds, a
   loss/cost-minimizing objective, and the numerical traps excluded,

@@ -25,10 +25,10 @@ controls. Missing or nonfinite dispatch records can leave a device unpinned.
 deep copy of `net` (the input is never mutated):
 
 - **Generators and IBRs** — per-phase active/reactive dispatch is frozen to the
-  solved values (`p_min == p_max == pg`, `q_min == q_max == qg`). An IBR running a
-  Volt-var / power-factor `control_profile` has the profile dropped and explicit
-  fixed bounds written, freezing the smart-inverter control at its solved operating
-  point (the profile couples `Q` to `P` internally, so pinning both fixes it).
+  solved values (`p_min == p_max == pg`, `q_min == q_max == qg`). An IBR with a
+  `control_profile` (power factor, Volt-var, or Volt-watt) has the profile
+  reference removed and the fixed bounds written instead, freezing the control at
+  its solved operating point.
 - **Free transformer taps** — a tap that was an OPF decision variable (reported as
   `tap` / `tap_ratio` in the result) is written back onto the winding. Fixed-tap
   transformers are left untouched.
@@ -68,13 +68,15 @@ the intended controls, references and devices before comparing voltages.
 
 ## Exporting the dispatch to OpenDSS — `dispatch_as_loads`
 
-When exporting a pinned dispatch as fixed PQ loads is appropriate,
-[`dispatch_as_loads`](@ref) provides that representation: it rewrites every **pinned**
+[`to_dss`](@ref) exports pinned generators and IBRs as OpenDSS `Generator`
+objects, so the projected snapshot can be exported directly. [`dispatch_as_loads`](@ref)
+gives an alternative, load-only deck, for when you want the comparison to rest
+on OpenDSS's load model alone: it rewrites every **pinned**
 generator/IBR as an equivalent constant-power **negative load**
 (`p_nom = -p_min`, `q_nom = -q_min`) — carrying
 the device's terminal map and connection. A fixed PQ injection *is* a negative
-constant-power load, so under the determined power flow the two forms are
-equivalent (`solve_pf` agrees to ``\sim\!10^{-6}`` V). Generation sitting on a
+constant-power load, so under the determined power flow the two forms give the
+same voltages. Generation sitting on a
 `voltage_source` bus is **dropped, not converted** — the slack source is the
 reference injector in a power flow and its dispatch must not be re-imposed as a
 load. This representation checks the pinned injection; it does not preserve the
@@ -89,16 +91,14 @@ result = solve_opf(net)                    # your OPF solution
 snap   = project_solution(net, result)     # pin every setpoint → determined snapshot
 res_B  = solve_pf(snap)                     # B: BMOPF self-check  (expect A ≈ B)
 
-deck   = dispatch_as_loads(snap)            # generators/IBRs → negative loads
+deck   = dispatch_as_loads(snap)            # optional: generators/IBRs → negative loads
+# The deck is for a power-flow comparison, so ratings need not survive export;
+# allow_unverified_ratings=true accepts that (OPF studies keep the BMOPF JSON).
 export_warnings = to_dss(deck, "snap.dss"; allow_unverified_ratings=true)  # inspect before running OpenDSS
 # Run the exported deck in OpenDSS and align terminal names, units and references
 # before comparing its voltages with result and res_B.
 ```
 
-The comparators used in the test suite (`test/roundtrip_helpers.jl`) apply the
-same node-name bridge and skip tolerance (`|V| < 1e-4` earth/neutral nodes) as the
-[engine feasibility harness](validation.md#Feasibility-—-agreement-with-OpenDSS), so the projection cross-check reuses the OpenDSS
-comparison method verbatim — the only new machinery is the pinning.
-[`test/projection_tests.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/test/projection_tests.jl)
-runs this on DER-augmented feeders and free-tap fixtures (the raw `pf_comparison`
-cases have no decision variables, so projection is a no-op there).
+[Validating the OPF](validation.md#Feasibility-—-agreement-with-OpenDSS) describes
+how terminal names are matched and which near-zero nodes are skipped when the
+package compares voltages with OpenDSS; use the same rules for your own comparison.
