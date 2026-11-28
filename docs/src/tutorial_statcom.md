@@ -143,7 +143,11 @@ Give the device its full reactive freedom and let [`solve_opf`](@ref) choose the
 per-phase vars optimally, but keep it **reactive-only**. To make the limit concrete
 we now impose a lower voltage bound on the load bus and ask whether reactive support
 can hold it. The AS IEC 60038:2022 supply floor is ``0.90 \times 230 = 207\,V``; we
-require 209 V — the floor plus a small operating margin.
+require 209 V — the floor plus a small operating margin. Besides filling the
+STATCOM's dispatch box, [`augment_case`](@ref) prices the grid connection, so the
+OPF minimizes imported power; with the load fixed and the converter drawing no net
+power, that is the same as minimizing feeder losses. `s_max` is the rating **per
+phase**.
 
 ```@example statcom
 bounded() = (n = feeder();
@@ -157,8 +161,8 @@ end
 ```
 
 The reactive-only STATCOM cannot hold the heavy phase above its limit even at
-60 kVA — twice the nameplate that will balance the feeder outright in §4, and more
-than twice the feeder's total load. More vars cannot substitute for the active
+60 kVA per phase — twice the per-phase rating that balances the feeder in §4, and
+180 kVA in total against a feeder load of about 24 kVA. More vars cannot substitute for the active
 power the phase is short of.
 
 ## 4. Active power circulation balances the feeder
@@ -180,7 +184,7 @@ ract = solve_opf(n; optimizer = OPT)
 report("active circulation, 30 kVA", ract)
 ```
 
-The same nameplate that was *infeasible* with reactive-only control now holds every
+The same 30 kVA-per-phase rating that was *infeasible* with reactive-only control now holds every
 phase inside the window. Looking at what the converter does makes the mechanism
 explicit: it **sources** real power on the heavy phase and **sinks** it on the light
 phases, summing to zero — a pure inter-phase transfer drawing no net energy.
@@ -235,7 +239,7 @@ end
 println("neutral   : |I| = ", round(abs(-sum(I)), digits=1), " A")
 ```
 
-## [Why optimization matters](@id Why-optimisation-matters)
+## [Why optimization matters](@id statcom-why-optimization)
 
 | Control of the same converter | Voltage unbalance | Heavy phase held? |
 |---|---|---|
@@ -254,11 +258,12 @@ the OPF does, and it is the difference between a compensator that does almost no
 and one that balances the feeder outright.
 
 !!! tip "Where to go next"
-    The [OPF model](opf.md#IBRs) gives the full IBR/STATCOM formulation, including the
+    The [OPF model](@ref IBRs) gives the full IBR/STATCOM formulation, including the
     DC-link coupling and the `i_max` rolloff; [STATCOMs and active power circulation](@ref "STATCOMs and active power circulation")
     documents how [`add_statcom!`](@ref) and `augment_case` fill the dispatch box. The
-    [SWER case study](tutorial_swer.md) makes the complementary point on a
-    *single-phase* high-R/X feeder, where reactive support is likewise a limited lever.
+    [SWER case study](tutorial_swer.md) shows the other side: on a single-phase SWER
+    line, where there is no phase imbalance to correct, an optimally dispatched
+    reactive compensator does hold the voltage window.
 
 ## [References](@id refs-statcom)
 

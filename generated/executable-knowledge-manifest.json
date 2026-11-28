@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "00ad62c6ec9dbd1f67e726ca28eae9f1d7fd071ae51150938a4d9d4badc49f5f",
+  "corpus_sha256": "17079df090f5c9b9c20f27f2bfc54af383a5248983c7dae7e28cf51f7d5a9237",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -146,15 +146,15 @@
     },
     {
       "path": "docs/src/objectives.md",
-      "sha256": "ed112a3a099159a8ad773deebdc8528998fb879376d9a16771606cd499b4ecd2"
+      "sha256": "6d05d0941f10f863ef4ddc4990afa47cfa672da1c51dfb0bfb1cbc0502844ed7"
     },
     {
       "path": "docs/src/opf.md",
-      "sha256": "d7df1d6ff6d4e62a3d2ba23c1278e260f9aef9b2c6afbedc94d24989bf23f479"
+      "sha256": "d1f42d1f4210661ac62a093bc9f6940688ca35ba149b60b22152a100ce17b254"
     },
     {
       "path": "docs/src/opf_transformers.md",
-      "sha256": "d6b3baaeddd5115bdb49cea1cb00f13baafbc370b892c5cb43380e81a297f6d7"
+      "sha256": "2467d5468e8da499fa957d33499d20ec21d401fb23f3a3746294800f3c1318f5"
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
@@ -174,7 +174,7 @@
     },
     {
       "path": "docs/src/solvers.md",
-      "sha256": "e86988aba1fd4d15e68ff7d299136208d871707b44295c2973b9c3332adcbfe5"
+      "sha256": "f23e2b6a1e8ab3b9d7ef60ae3233067376615ece2de1a6af01d507ade99b5875"
     },
     {
       "path": "docs/src/spatial_diagnostics.md",
@@ -194,7 +194,7 @@
     },
     {
       "path": "docs/src/transformer_models.md",
-      "sha256": "9d760df7bb811961c25f8c2ae28768aed0bdc16b055228ebf417f54eafc18345"
+      "sha256": "50dc03a1e749c1294dd0649decd5e6b1a5b1865ffb7dbf1a52b58b03740c5abf"
     },
     {
       "path": "docs/src/transformer_phase.md",
@@ -202,7 +202,7 @@
     },
     {
       "path": "docs/src/tutorial_case_development.md",
-      "sha256": "7406ec1c75cd639df6c6115701768bce4e1b24b5d85f0102c4a34dd3abd30c5d"
+      "sha256": "05a5944a418289a8e46d9d4f5888fe39e1c489368d4e415bd3baebca96c53b3a"
     },
     {
       "path": "docs/src/tutorial_custom_formulations.md",
@@ -214,7 +214,7 @@
     },
     {
       "path": "docs/src/tutorial_objectives.md",
-      "sha256": "a61e30d51f35df81eeb936401a62786fcd42ef045535b9a71eab54d7a9ac9a08"
+      "sha256": "464c1b0afb5b0e553840a6392ff9e549a4692ef942ba197599ad8dbb467a0689"
     },
     {
       "path": "docs/src/tutorial_simplify.md",

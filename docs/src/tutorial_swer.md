@@ -101,8 +101,7 @@ rating) — plain edits to the network dictionary, which doubles as a tour of th
 data model.
 
 ```@example swer
-# Select the two authored SWER spans; imported source equivalents are not
-# feeder spans. Follow each line's effective linecode reference.
+# The SWER backbone is lines l1 and l2 (they share the linecode `swer`).
 backbone = [net["line"][id] for id in ("l1", "l2")]
 for line in backbone
     line["length"] *= 8.0                              # 12 km → 96 km
@@ -200,10 +199,13 @@ shunt (no decision variable), at **120 kVAr** sized by trial so the light-load P
 overvoltage comes back inside 253 V. The **controllable compensator** is an IBR with
 `p = 0` and reactive power free in a band, which the OPF dispatches
 (STATCOM-like); its **180 kVAr** band gives headroom in *both* directions so the
-voltage limits, not the device rating, are what bind. Both sit at the SWER end,
-`swer_2` — the classic location for a SWER line reactor. `Vpf` solves a power
-flow; `Vopf` solves an OPF and returns the voltage plus the compensator dispatch,
-erroring readably if the solve fails.
+device rating does not bind. Both sit at the SWER end, `swer_2` — the classic
+location for a SWER line reactor. `Vpf` solves a power flow. `Vopf` solves an OPF
+in which imported power at the source is priced: with the loads and PV fixed,
+that objective minimizes network losses, so the compensator is dispatched to the
+least-loss setting that keeps every customer inside the voltage window. It returns
+the `lv_1` voltage, the compensator dispatch, and the full result, and errors
+readably if the solve fails.
 
 ```@example swer
 add_reactor!(n, kvar) = (n["shunt"] = get(n, "shunt", Dict{String,Any}());
@@ -215,12 +217,16 @@ add_comp!(n, kvar) = (n["ibr"] = get(n, "ibr", Dict{String,Any}());
         "p_max"=>[0.0], "q_min"=>[-kvar*1000.0], "q_max"=>[kvar*1000.0],
         "p_avail"=>[0.0]); n)
 
-Vpf(n)  = vpn(solve_pf(n; optimizer=OPT, per_unit=true), "lv_1", "a")
+# Price imported power at the source (one entry per source phase).
+price!(n) = (for (_, vs) in n["voltage_source"]
+    vs["cost"] = fill(1.0, length(vs["v_magnitude"])); end; n)
+
+Vpf(n)  = vpn(solve_pf(n; optimizer=OPT), "lv_1", "a")
 function Vopf(n)
-    r = solve_opf(set_limits!(n); optimizer=OPT, per_unit=true)
+    r = solve_opf(price!(set_limits!(n)); optimizer=OPT)
     st = r["termination_status"]
     st in ("LOCALLY_SOLVED", "OPTIMAL") || error("OPF did not solve: status = ", st)
-    vpn(r, "lv_1", "a"), r["ibr"]["comp"]["a"]["qg"]/1000
+    vpn(r, "lv_1", "a"), r["ibr"]["comp"]["a"]["qg"]/1000, r
 end
 nothing # hide
 ```
@@ -259,24 +265,33 @@ println("PV    + fixed 120 kVAr reactor  lv_1 = ", round(v_pv_fr, digits=1), " V
 ## 5. One controllable compensator, optimally dispatched
 
 Replace the fixed reactor with a **controllable** compensator and let
-[`solve_opf`](@ref) choose its reactive output subject to the voltage limits. The
-*same device* now **injects** vars at peak and **absorbs** vars under PV — the degree
-of freedom that a fixed setting lacks.
+[`solve_opf`](@ref) choose its reactive output: least losses, subject to the
+voltage window and the transformer ratings. The *same device* now **injects** vars
+at peak and **absorbs** vars under PV — the degree of freedom that a fixed setting
+lacks. The last column lists every customer terminal's phase-to-neutral voltage,
+so you can see which limit the dispatch stops at.
 
 ```@example swer
-vp, qp = Vopf(add_comp!(scale(16.0), 180.0))
-vl, ql = Vopf(add_comp!(add_pv!(scale(2.0), 55.0), 180.0))
+vp, qp, rp = Vopf(add_comp!(scale(16.0), 180.0))
+vl, ql, rl = Vopf(add_comp!(add_pv!(scale(2.0), 55.0), 180.0))
 
-println("PEAK  + compensator  lv_1 = ", round(vp, digits=1),
-        " V   (OPF injects ", round(qp, digits=0), " kVAr)")
-println("PV    + compensator  lv_1 = ", round(vl, digits=1),
-        " V   (OPF absorbs ", round(ql, digits=0), " kVAr)")
+customer_v(r) = join(["$b.$t = $(round(vpn(r, b, t), digits=1)) V"
+                      for b in ("lv_1", "lv_2")
+                      for t in sort(collect(keys(r["bus"][b]))) if t != "n"], ",  ")
+@printf("PEAK  + compensator: Q = %+5.1f kVAr, losses = %4.1f kW | %s\n",
+        qp, rp["losses"]["p_loss"]/1e3, customer_v(rp))
+@printf("PV    + compensator: Q = %+5.1f kVAr, losses = %4.1f kW | %s\n",
+        ql, rl["losses"]["p_loss"]/1e3, customer_v(rl))
 ```
 
-Both operating points are now inside the AS IEC 60038:2022 window, served by one device, only
-because the OPF dispatches it per operating point.
+Both operating points are now inside the AS IEC 60038:2022 window, served by one
+device. Each dispatch stops exactly where a voltage limit binds: at peak, the
+lowest split-phase leg on `lv_2` sits on the 207 V floor (more injection would
+only raise losses); under PV, `lv_1` sits on the 253 V ceiling (more absorption
+would draw extra reactive current down the line). The compensator never reaches
+its 180 kVAr rating.
 
-## [Why optimization matters](@id Why-optimisation-matters)
+## [Why optimization matters](@id swer-why-optimization)
 
 The table is computed from the results above — the same live numbers, side by side:
 
@@ -293,14 +308,13 @@ println("-"^85)
 Voltage regulation is the SWER capacity limit, and no single static setting spans
 the operating range — the optimizer's per-operating-point reactive dispatch is what
 unlocks capacity (the controllable-reactor capacity gains of the North Jericho
-study). On a high R/X SWER feeder reactive support is a *limited* lever, which is
-itself worth seeing in the numbers; where it runs out, the same OPF machinery sizes
-and dispatches real-power DERs and smart-IBR Volt-var.
+study). Where reactive support runs out, the same OPF machinery sizes and
+dispatches real-power DERs and smart-inverter Volt-var.
 
 !!! tip "Where to go next"
     The [DER placement tutorial](tutorial_ders.md) sites and sizes DERs and shows
     how the binding constraint flips; the [VVWO tutorial](tutorial_vvwo.md) puts
     **distributed** smart-IBR Volt-var/Volt-watt control *inside* the OPF, so
-    every rooftop PV does autonomously what the lumped compensator did here. The
-    runnable version of this page is
-    [`examples/swer_tutorial.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/swer_tutorial.jl).
+    every rooftop PV does autonomously what the lumped compensator did here.
+    [`examples/swer_tutorial.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/swer_tutorial.jl)
+    is a standalone script of the same study.

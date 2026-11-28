@@ -4,6 +4,11 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Objectives: the smoothing scale of a `:magnitude` voltage or current term at
+  a bus with no `v_max`/`v_min` was 1 V in an SI model (`per_unit=false`) but
+  the bus voltage base in per-unit, so one `eps_rel` smoothed differently in
+  the two unit modes. SI models now fall back to the bus's classic per-unit
+  voltage base, matching per-unit and the documented contract.
 - Line constants: `line_geometry` gains `capacitance_model` (`"thin_wire"`
   default, `"charge_simulation"`), also a keyword of `overhead_line_constants`
   and recorded in the compiled linecode's `derivation`. The thin-wire kernel

@@ -36,9 +36,8 @@ result = extract_result(ctx)
     reaches exactly zero with every compensator idle, which reads as a great
     result.
 
-    This used to fail silently — `LOCALLY_SOLVED`, plausible numbers, no
-    warning. It is now an error: `JuMP.optimize!` refuses a model holding any
-    unstamped context, and [`extract_result`](@ref) refuses an unstamped
+    The engine therefore refuses: `JuMP.optimize!` rejects a model holding any
+    unstamped context, and [`extract_result`](@ref) rejects an unstamped
     context. Pass `kcl_guard=false` to `build_opf_model` if you deliberately
     want the optimize-time check off.
 
@@ -55,7 +54,7 @@ result = extract_result(ctx)
 
 | Term | Physical unit | Smooth? | Convex? | What it does |
 |---|---|---|---|---|
-| [`opf_generation_cost_term`](@ref) | currency/hour | exact | quadratic | The `solve_opf` default. Cheapest dispatch. |
+| [`opf_generation_cost_term`](@ref) | currency/hour | exact | linear in P; bilinear in (v, c), non-convex | The `solve_opf` default. Cheapest dispatch. |
 | [`opf_loss_term`](@ref) | W | exact | bilinear, non-convex | Least-loss dispatch over AC lines, transformers, and DC branches. |
 | [`opf_sequence_term`](@ref) `norm=:squared` | V² | exact | quadratic | Reduces unbalance everywhere a little. |
 | [`opf_sequence_term`](@ref) `norm=:magnitude` | V | to ε | group-lasso | Drives a few buses to balanced. |
@@ -110,18 +109,14 @@ squared voltage penalty, per V for a magnitude one. Term expressions are
 converted to physical units before weighting.
 
 The consequence worth relying on: **the same specification gives the same
-answer in `per_unit = true` and `per_unit = false`**, and keeps doing so under a
-future nondimensionalization. This mirrors what the engine already does for
-generation cost, where the per-unit working net pre-scales every cost
-coefficient by `s_base` so the factors cancel.
+answer in `per_unit = true` and `per_unit = false`**, as generation cost already
+does.
 
 !!! warning "That invariance is over unit modes, not over target sets"
     Reductions **sum** over their targets, so a term's magnitude grows with how
     many buses or devices you list. A weight tuned against three buses does not
     mean the same thing against thirty. Re-tune when the target set changes, or
-    compare only across studies with the same one. ([#373](https://github.com/frederikgeth/BMOPFTools.jl/issues/373)
-    tracks adding a `:mean` aggregation, which would make weights portable
-    across target-set sizes.)
+    compare only across studies with the same one.
 
 What is *not* handled, and cannot be: **commensurability**. Summing
 currency/hour with V² is only meaningful once your weight states the exchange
@@ -286,14 +281,14 @@ That is a result for one case family on one solver at its default tolerance —
 enough to choose between the alternatives tried, not a general claim. The
 benchmark records its own Julia/Ipopt/platform versions and tolerance.
 
-The exception is `:max`, where the epigraph is **linear** rather than conic —
-there it is exact, cheap and reliable, and it is what `:max` uses.
+The exception is `:max`. Its epigraph bounds **squared** magnitudes, so each
+row is a smooth convex quadratic with no square root; there it is exact, cheap,
+and reliable, and it is what `:max` uses.
 
 ## [Pitfalls](@id objective-pitfalls)
 
-Every entry here is a mistake that was actually made while building these terms,
-kept so it is not made again. The first four change your *answer* without
-changing anything that looks wrong.
+The first four entries change your *answer* without changing anything that
+looks wrong.
 
 ### Do not put a smoothed norm inside a ratio
 
@@ -338,8 +333,8 @@ the exact ratio bound.
 
 ### A dimensionless bound is enforced to different precision in the two unit modes
 
-`vuf_max` is a ratio, so it is deliberately **not** rescaled by
-`_pu_scale_buses!` — the same number means the same limit in per-unit and in SI.
+`vuf_max` is a ratio, so per-unit conversion deliberately leaves it unscaled:
+the same number means the same limit in per-unit and in SI.
 The *semantics* are unit-mode independent. The *numerical enforcement* is not.
 
 The constraint residual `|V₂|² − u²|V₁|²` is dimensionful (volts²) while `u` is
@@ -435,12 +430,6 @@ Two floating-point consequences worth knowing before you assert on them:
 - **Voltage unbalance and current unbalance.** Minimizing neutral current can
   make `|V₂|` *worse than doing nothing about unbalance at all*. If someone says
   "we minimize unbalance", ask which one.
-
-### A weight is unit-mode invariant, not target-set invariant
-
-Reductions sum over targets, so adding buses to a penalty scales it up. "Tuned
-once" means across `per_unit` modes, not across different target lists. See
-[#373](https://github.com/frederikgeth/BMOPFTools.jl/issues/373).
 
 ### `:magnitude` only differs from `:squared` when targets compete
 

@@ -190,7 +190,6 @@ try Ipopt's adaptive barrier strategy through the existing options interface:
 ```julia
 result = solve_opf(net;
     optimizer = Ipopt.Optimizer,
-    s_base = 1e6,
     solver_options = ["mu_strategy" => "adaptive"],
 )
 validation = profile_solution(net, result)
@@ -201,27 +200,14 @@ This is opt-in: BMOPFTools does not change its solver defaults or automatically
 retry with another strategy. The [Ipopt options reference](https://coin-or.github.io/Ipopt/OPTIONS.html)
 defines `mu_strategy`; the option is specific to Ipopt.
 
-[Issue #429](https://github.com/frederikgeth/BMOPFTools.jl/issues/429) reports
-fewer iterations and lower solve times for adaptive μ across 16 priced-DER
-French MV/LV feeder instances with 110–1,583 buses at revision `a8b52e06`, using
-Ipopt 3.14/MUMPS on an Apple M-series machine. Objectives were close; one case
-reached a slightly different objective. This is reported case-specific evidence,
-not a general speed guarantee or an independently reproduced result in this guide.
-Unmodified feeders without dispatch freedom showed a smaller benefit.
-
-Difficult cases were mixed: the reported 995-bus, 1.25× load case increased from
-36.5 s to 288 s. Retain the current default as the initial baseline for feasibility
-screening. For bounded experiments, apply the same `max_iter` and
-`max_wall_time` to both strategies and retain failures and time-limited outcomes.
-Ipopt checks its wall-time budget during convergence checks; it is not a hard
-process deadline. `LOCALLY_INFEASIBLE` does not prove global physical infeasibility,
-and `LOCALLY_SOLVED` must still be read alongside independent solution checks.
-
-The repository-local [barrier benchmark instructions](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/bench/ipopt_barrier.md)
-provide deterministic DER augmentation, warmed repeated comparisons, provenance,
-and serialized verification evidence. They include the 498-bus reproduction
-command and instructions for retaining the slow-case comparison. No new preset
-API is required. See also [power-base sensitivity](numerical_workflows.md#Power-base-sensitivity).
+On priced-DER MV/LV feeders with dispatch freedom, adaptive μ has reduced
+iteration counts and solve times; on hard, heavily loaded cases it can be much
+slower. Keep the default for feasibility screening, and when comparing the two
+strategies give both the same `max_iter` and `max_wall_time` and keep failures
+and time-outs in the record. The
+[barrier benchmark](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/bench/ipopt_barrier.md)
+gives a reproducible comparison. See also
+[power-base sensitivity](numerical_workflows.md#Power-base-sensitivity).
 
 ### Ipopt settings worth experimenting with
 
@@ -345,7 +331,7 @@ ExaModels 0.12 does not support MOI's `Silent` attribute. BMOPFTools leaves
 the optimizer's output setting alone when that attribute is unavailable, so
 `verbose=false` may still produce Ipopt output through this path.
 
-## Gurobi: the quadratic-compatible local-NLP path
+## Gurobi: the nonconvex-quadratic (global) path
 
 [Gurobi](https://www.gurobi.com/) is a commercial optimizer exposed to JuMP by
 [Gurobi.jl](https://github.com/jump-dev/Gurobi.jl). In BMOPFTools it is
@@ -415,8 +401,9 @@ result = solve_opf(net;
 
 `NonConvex=2` tells Gurobi to accept and solve nonconvex quadratic structure;
 without it, a model containing the engine's nonconvex quadratic constraints
-may be rejected. Gurobi's treatment of a nonconvex quadratic model is not the
-same algorithm as Ipopt or MadNLP, so compare the returned point and
+may be rejected. Gurobi then runs spatial branch-and-bound, which seeks a
+globally optimal point within its optimality gap rather than a local
+stationary point, so it is a different algorithm from Ipopt or MadNLP; compare the returned point and
 independent residuals as well as the objective.
 
 ### Gurobi settings worth experimenting with
@@ -440,7 +427,7 @@ a new license token for every model, but Gurobi environments are not
 thread-safe. Do not solve models concurrently through the same environment;
 see the [Gurobi.jl environment guidance](https://github.com/jump-dev/Gurobi.jl#reusing-the-same-gurobi-environment-for-multiple-solves).
 
-## Settings that apply to all three solvers
+## Settings that apply to all solver paths
 
 ### Start with the model coordinates
 

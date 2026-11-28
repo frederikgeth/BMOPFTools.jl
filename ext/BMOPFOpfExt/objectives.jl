@@ -616,7 +616,9 @@ ONE rule for every unit, so voltage and current smoothing stay commensurate:
 
   * voltage — the bus's own declared bound in the WORKING net, converted with
     the same factor, so both modes reach the same volts (`v_max_pu * v_base` in
-    per-unit, `v_max_V * 1.0` in SI);
+    per-unit, `v_max_V * 1.0` in SI). A bus with no bound falls back to its
+    voltage base: `1.0 * v_base` in per-unit, and the classic per-unit base
+    computed from the SI network in SI mode;
   * current — `s_base / v_scale`, mirroring the engine's own
     `i_base = s_base / v_base` (per_unit.jl). `ctx.manifest.s_base` is populated
     in both modes, so this is mode-independent too;
@@ -626,6 +628,15 @@ The consequence that matters: the RELATIVE smoothing `eps / scale` is then the
 same number for a voltage penalty and a current penalty, at the same `eps_rel`,
 in either unit mode. A single `eps_rel` therefore means one thing everywhere.
 """
+# Classic per-unit voltage base of `bus` for an SI-coordinate model, computed once
+# per context from its (SI) working network and cached.
+function _si_fallback_voltage_base(ctx::OpfContext, bus::String)
+    v_base = get!(ctx.extension_state, :BMOPFToolsObjectiveSIVoltageBases) do
+        _compute_classic_bases(ctx.net, Float64(ctx.manifest.s_base)).v_base
+    end
+    return get(v_base, bus, 1.0)
+end
+
 function _quantity_scale(ctx::OpfContext, unit::Symbol;
                          bus::Union{AbstractString,Nothing}=nothing)
     s_base = Float64(ctx.manifest.s_base)
@@ -636,6 +647,7 @@ function _quantity_scale(ctx::OpfContext, unit::Symbol;
     factor = BMOPFTools.opf_physical_scale(ctx, :V; bus=bus)
     b = get(get(ctx.net, "bus", Dict{String,Any}()), String(bus), nothing)
     working = 1.0
+    found = false
     if b isa AbstractDict
         for field in ("v_max", "v_min")
             v = get(b, field, nothing)
@@ -643,11 +655,18 @@ function _quantity_scale(ctx::OpfContext, unit::Symbol;
             cand = maximum(abs(Float64(x)) for x in v if x isa Real; init=0.0)
             if cand > 0
                 working = cand
+                found = true
                 break
             end
         end
     end
     v_scale = working * factor
+    if !found && ctx.bases === nothing
+        # No declared bound and an SI model: `factor` is 1.0, so `working * factor`
+        # would be 1 V. Use the bus's classic voltage base instead, which is what
+        # the same bus gets in a classic per-unit model (`1.0 * v_base`).
+        v_scale = _si_fallback_voltage_base(ctx, String(bus))
+    end
     unit in (:V, :V2) && return unit === :V2 ? v_scale^2 : v_scale
     unit in (:A, :A2) && begin
         i_scale = v_scale > 0 ? s_base / v_scale : 1.0
