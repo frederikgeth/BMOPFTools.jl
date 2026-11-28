@@ -38,7 +38,11 @@ frequency, implausible earth resistivity) warn here and surface as
 
 Shunt susceptance: overhead conductors get the Maxwell potential-coefficient
 capacitance (perfect-earth images, electrostatic radius); cables their
-coaxial phase-to-shield capacitance (diagonal). Bare conductors at or below
+coaxial phase-to-shield capacitance (diagonal). The geometry's
+`capacitance_model` selects the overhead kernel: `"thin_wire"` (default,
+OpenDSS parity; warned when (r_i + r_j)/d > 0.5 for some pair, see
+`W.DOM.GEOM_THIN_WIRE`) or `"charge_simulation"` (accurate for tightly bundled
+conductors). See [`overhead_line_constants`](@ref). Bare conductors at or below
 ground level contribute zero shunt (warned).
 
 Provenance is stamped on the linecode: `source="geometry"`, a
@@ -65,6 +69,10 @@ function compile_linecode(net::Dict{String,Any}, geometry_id::String;
     model in _EARTH_MODELS ||
         error("line_geometry '$geometry_id': unknown earth_model '$model' " *
               "(expected one of $(_EARTH_MODELS)).")
+    cmodel = string(get(geo, "capacitance_model", "thin_wire"))
+    cmodel in _CAPACITANCE_MODELS ||
+        error("line_geometry '$geometry_id': unknown capacitance_model " *
+              "'$cmodel' (expected one of $(_CAPACITANCE_MODELS)).")
     rho  = Float64(get(geo, "earth_resistivity", 100.0))
     haskey(geo, "frequency") ||
         error("line_geometry '$geometry_id': `frequency` [Hz] is required — " *
@@ -125,7 +133,8 @@ function compile_linecode(net::Dict{String,Any}, geometry_id::String;
                   "sum of radii $(round(rsum, sigdigits=4)) m.")
     end
 
-    _warn_geometry_assumptions(geometry_id, wires, xs, ys, model, f, rho)
+    _warn_geometry_assumptions(geometry_id, wires, xs, ys, model, f, rho;
+                               capacitance_model = cmodel)
 
     # -- primitive system: circuit conductors, then cable shields -----------
     prims = [_PrimitiveConductor(w.r_ac, w.gmr, xs[i], ys[i], nothing, 0.0)
@@ -150,7 +159,7 @@ function compile_linecode(net::Dict{String,Any}, geometry_id::String;
         error("compile_linecode('$geometry_id'): non-positive self " *
               "reactance in the compiled matrix — check GMR values.")
 
-    C = _shunt_c(wires, xs, ys)
+    C = _shunt_c(wires, xs, ys; capacitance_model = cmodel)
     omega = 2pi * f
 
     # -- stamp the linecode ---------------------------------------------------
@@ -175,6 +184,7 @@ function compile_linecode(net::Dict{String,Any}, geometry_id::String;
     lc["line_geometry"] = geometry_id
     derivation = Dict{String,Any}(
         "method"            => model,
+        "capacitance_model" => cmodel,
         "earth_resistivity" => rho,
         "frequency"         => f,
         "tool"              => "BMOPFTools.jl",
@@ -195,8 +205,21 @@ end
 function _warn_geometry_assumptions(geometry_id::String,
                                     wires::Vector{_ResolvedWire},
                                     xs::Vector{Float64}, ys::Vector{Float64},
-                                    model::String, f::Float64, rho::Float64)
+                                    model::String, f::Float64, rho::Float64;
+                                    capacitance_model::String = "thin_wire")
     n = length(wires)
+    if capacitance_model == "thin_wire"
+        oh = [i for i in 1:n if wires[i].kind == "overhead" && ys[i] > 0]
+        ratio, (i, j) = _thin_wire_ratio([wires[k].cap_radius for k in oh],
+                                         xs[oh], ys[oh])
+        ratio > _THIN_WIRE_RATIO_MAX &&
+            @warn "line_geometry '$geometry_id': conductors $(oh[i]) and " *
+                  "$(oh[j]) are close for their size ((r_i + r_j)/d = " *
+                  "$(round(ratio, sigdigits=3)) > $(_THIN_WIRE_RATIO_MAX)); the " *
+                  "thin-wire capacitance is inaccurate there and can give a " *
+                  "positive mutual. Consider capacitance_model = " *
+                  "\"charge_simulation\"."
+    end
     if !(_EARTH_RHO_RANGE[1] <= rho <= _EARTH_RHO_RANGE[2])
         @warn "line_geometry '$geometry_id': earth_resistivity = $rho Ω·m is " *
               "outside the practical soil range $(_EARTH_RHO_RANGE)."

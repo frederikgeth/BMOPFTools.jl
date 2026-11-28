@@ -563,6 +563,112 @@ end
     end
 end
 
+@testset "Line constants — thin-wire validity and charge-simulation capacitance (#503)" begin
+    eps0 = 8.854187817e-12
+    abc(model; s = 7e-3, r = 5.5e-3) = overhead_line_constants(
+        fill(0.32e-3, 4), fill(0.78r, 4), fill(r, 4),
+        [-s, s, s, -s], 6 .+ [-s, -s, s, s]; frequency = 50,
+        capacitance_model = model).C
+    offdiag_max(C) = maximum(C[i, j] for i in 1:4, j in 1:4 if i != j)
+
+    @testset "accuracy and sign pattern" begin
+        # single conductor over ground: exact 2πε/acosh(h/r)
+        c1 = overhead_line_constants([3e-4], [0.78 * 5e-3], [5e-3], [0.0], [6.0];
+                frequency = 50, capacitance_model = "charge_simulation").C[1]
+        @test c1 ≈ 2pi * eps0 / acosh(6.0 / 5e-3) rtol = 1e-8
+        # touching insulated cores (ABC, (r_i + r_j)/d ≈ 0.79): thin wire flips
+        # the opposite-core mutual positive; charge simulation keeps every
+        # mutual negative and C symmetric positive definite
+        tw = abc("thin_wire"); cs = abc("charge_simulation")
+        @test tw[1, 3] > 0
+        @test offdiag_max(cs) < 0
+        @test issymmetric(cs) && isposdef(Symmetric(cs))
+        @test 1e12 * cs[1, 2] ≈ -28.454 atol = 0.01   # converged reference
+        @test 1e12 * cs[1, 3] ≈ -3.394 atol = 0.01
+        # wide spacing: the two kernels agree
+        wide = (m) -> overhead_line_constants(fill(3e-4, 3), fill(0.78 * 5e-3, 3),
+                fill(5e-3, 3), [-1.0, 0.0, 1.0], fill(10.0, 3); frequency = 50,
+                capacitance_model = m).C
+        @test maximum(abs.(wide("thin_wire") - wide("charge_simulation"))) /
+              maximum(abs.(wide("thin_wire"))) < 1e-4
+        # bare conductors in contact are refused; unknown models error
+        @test_throws ArgumentError overhead_line_constants(fill(3e-4, 2),
+                fill(0.78 * 5e-3, 2), fill(5e-3, 2), [0.0, 0.01], [6.0, 6.0];
+                frequency = 50, capacitance_model = "charge_simulation")
+        @test_throws ArgumentError abc("method_of_moments")
+        # generic scalar type
+        big = overhead_line_constants(BigFloat.(fill(3e-4, 2)),
+                BigFloat.(fill(0.78 * 5e-3, 2)), BigFloat.(fill(5e-3, 2)),
+                BigFloat[-0.5, 0.5], BigFloat[8, 8]; frequency = 50,
+                capacitance_model = "charge_simulation")
+        @test eltype(big.C) == BigFloat
+    end
+
+    wd = Dict{String,Any}("abc" => Dict{String,Any}(
+        "kind" => "overhead", "r_ac" => 3.2e-4, "radius" => 5.5e-3))
+    geo(s; model = nothing) = begin
+        g = Dict{String,Any}("frequency" => 50.0, "conductors" => Any[
+            Dict{String,Any}("wire_data" => "abc", "x" => x, "y" => 6.0 + y,
+                             "terminal" => t)
+            for (t, x, y) in (("a", -s, -s), ("b", s, -s), ("c", s, s), ("n", -s, s))])
+        model === nothing || (g["capacitance_model"] = model)
+        g
+    end
+    mini(g) = Dict{String,Any}(
+        "bus" => Dict{String,Any}("src" => Dict{String,Any}(
+            "terminal_names" => ["a", "b", "c", "n"],
+            "perfectly_grounded_terminals" => ["n"])),
+        "voltage_source" => Dict{String,Any}("vs" => Dict{String,Any}(
+            "bus" => "src", "terminal_map" => ["a", "b", "c"],
+            "v_magnitude" => fill(230.0, 3), "v_angle" => [0.0, -2.0944, 2.0944])),
+        "wire_data" => deepcopy(wd), "line_geometry" => Dict{String,Any}("g" => g))
+    codes(net) = [f.code for f in analyze(net).findings]
+
+    @testset "finding and compile-time warning: positive, negative, boundary" begin
+        # positive: touching insulated cores (ratio 2r/(2s) = 0.79)
+        net = mini(geo(7e-3))
+        @test "W.DOM.GEOM_THIN_WIRE" in codes(net)
+        f = only(x for x in analyze(net).findings if x.code == "W.DOM.GEOM_THIN_WIRE")
+        @test f.detail["ratio"] ≈ 5.5e-3 / 7e-3 rtol = 1e-9
+        @test f.detail["threshold"] == 0.5
+        @test_logs (:warn, r"capacitance_model") match_mode = :any compile_linecode(net, "g")
+        # the thin-wire matrix it compiles carries the positive mutual
+        @test "I.PROV.B_OFFDIAG" in codes(net)
+        # negative: wide spacing, and the charge-simulation model at any spacing
+        @test !("W.DOM.GEOM_THIN_WIRE" in codes(mini(geo(0.3))))
+        net_cs = mini(geo(7e-3; model = "charge_simulation"))
+        @test !("W.DOM.GEOM_THIN_WIRE" in codes(net_cs))
+        compile_linecode(net_cs, "g")
+        @test !("I.PROV.B_OFFDIAG" in codes(net_cs))
+        @test net_cs["linecode"]["g"]["derivation"]["capacitance_model"] ==
+              "charge_simulation"
+        # boundary: adjacent ratio exactly 0.5 (s = 2r) is not flagged; just above is
+        r = 5.5e-3
+        @test !("W.DOM.GEOM_THIN_WIRE" in codes(mini(geo(2r))))
+        @test "W.DOM.GEOM_THIN_WIRE" in codes(mini(geo(2r * 0.999)))
+        # unknown model: compile error
+        @test_throws ErrorException compile_linecode(mini(geo(0.3; model = "exact")), "g")
+    end
+
+    @testset "serialization and re-derivation" begin
+        net = mini(geo(7e-3; model = "charge_simulation"))
+        compile_linecode(net, "g")
+        path = joinpath(mktempdir(), "abc.json")
+        write_bmopf(net, path)
+        net2 = parse_bmopf(path)
+        @test net2["line_geometry"]["g"]["capacitance_model"] == "charge_simulation"
+        @test net2["linecode"]["g"]["B_from_1_3"] ≈ net["linecode"]["g"]["B_from_1_3"]
+        report = analyze(net2)
+        cs = [f.code for f in report.findings]
+        @test !("I.SCHEMA.UNKNOWN_FIELDS" in cs)
+        @test !("W.PROV.GEOMETRY_MISMATCH" in cs)   # re-derived with the same kernel
+        @test report.results[:provenance]["geometry_crosscheck"]["n_checked"] == 1
+        # switching the geometry to thin_wire makes the stored matrices stale
+        net2["line_geometry"]["g"]["capacitance_model"] = "thin_wire"
+        @test "W.PROV.GEOMETRY_MISMATCH" in codes(net2)
+    end
+end
+
 @testset "Line constants — temperature correction of resistance" begin
     # r_ac(T) = r_ac(t_ref)·(1 + α₂₀(T − 20)) / (1 + α₂₀(t_ref − 20))  [IEC 60287].
     # The earth-return real part (ωμ₀/8) is temperature-independent, so the

@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "e0d56645c3292d641c65051723cd003ce9699387c847e6540a6d06df293243ad"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "7dfaf9339b89216c1e704328ce8fe8aec5d63785a7d3e3b13dbbe9fd86697d17"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -1009,6 +1009,15 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         catalogue_section="DOM",
         section_title="domain plausibility",
         meaning="Buried conductors combined with `full_carson` (evaluated at the surface — the rigorous buried theory is Pollaczek 1926 / Saad et al. 1996; negligible at power frequency since burial depth ≪ earth skin depth, but the approximation is made explicit), or with `deri` when burial depth exceeds 10 % of the complex-depth magnitude p = √(ρ/jωμ₀) (Deri et al. 1981 assume \\|y\\| ≪ \\|p\\|).",
+        contract_id=nothing,
+        knowledge_ids=String[],
+    ),
+    "W.DOM.GEOM_THIN_WIRE" => (
+        severity="WARNING",
+        namespace="DOM",
+        catalogue_section="DOM",
+        section_title="domain plausibility",
+        meaning="Two overhead conductors of a `line_geometry` are close for their size: (r_i + r_j)/d > 0.5 with the electrostatic radius, and `capacitance_model` is `thin_wire` (the default). The thin-wire kernel puts each conductor's charge at its center; at this ratio its mutual capacitance is off by about 5 %, and for touching insulated cores (about 0.7 and above, as in aerial bundled cable) it gives a small positive mutual between diagonally opposite cores, which then also raises `I.PROV.B_OFFDIAG`. Set `capacitance_model = \"charge_simulation\"` on the geometry.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

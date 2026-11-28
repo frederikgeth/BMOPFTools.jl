@@ -38,6 +38,7 @@ terminal.
 | `frequency` | number | Hz | ✔ | Frequency the linecode is compiled at (recorded in the derivation; no rescaling) |
 | `earth_model` | string | – | | `modified_carson` (default), `full_carson`, or `deri` |
 | `earth_resistivity` | number | Ω·m | | Homogeneous earth resistivity (default 100) |
+| `capacitance_model` | string | – | | `thin_wire` (default; a line charge at each conductor center) or `charge_simulation` (resolves each conductor's surface charge; accurate for tightly bundled conductors) |
 | `temperature` | number | °C | | Conductor operating temperature (resistances corrected via `alpha_20`) |
 
 The `conductors` **order defines the matrix row order** of the compiled linecode, and
@@ -53,7 +54,8 @@ each conductor maps to exactly one circuit terminal.
   temperature-corrected to `temperature`.
 - **Shunt admittance** $\textcolor{brown}{\mathbf{Y}^{\text{sh}}_c}$ (S/m) from the
   Maxwell potential coefficients (using `cap_radius`), split into the from/to
-  half-sections.
+  half-sections. `capacitance_model` selects how the overhead capacitance is
+  computed; `thin_wire` loses accuracy once (r_i + r_j)/d exceeds about 0.5.
 - **Ratings** carried from `wire_data.i_max` into the linecode's `i_max`.
 
 Every conductor maps to a terminal, so the compiled matrix is the **full primitive

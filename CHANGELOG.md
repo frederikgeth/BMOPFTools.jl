@@ -4,6 +4,15 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Line constants: `line_geometry` gains `capacitance_model` (`"thin_wire"`
+  default, `"charge_simulation"`), also a keyword of `overhead_line_constants`
+  and recorded in the compiled linecode's `derivation`. The thin-wire kernel
+  (OpenDSS LineConstants parity) is inaccurate for thick, closely spaced
+  conductors and gives a positive opposite-core mutual for touching insulated
+  cores; `compile_linecode` now warns and `analyze` reports
+  `W.DOM.GEOM_THIN_WIRE` when (r_i + r_j)/d > 0.5 for a pair under
+  `thin_wire`. The charge-simulation kernel resolves each conductor's surface
+  charge and keeps the Maxwell sign pattern (#503).
 - Augmentation and DER placement:
   - `augment_case`, `add_generators` and `add_ibrs` accept the `SummaryReport`
     returned by `analyze` (or its Symbol-keyed `results`) as `analysis`. An

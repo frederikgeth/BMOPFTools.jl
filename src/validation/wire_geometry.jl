@@ -243,6 +243,32 @@ function _check_line_geometry(net, findings, n_checks)
             end
         end
 
+        # thin-wire capacitance validity: (r_i + r_j)/d over overhead pairs,
+        # with the electrostatic radius (cap_radius, else radius)
+        if string(get(geo, "capacitance_model", "thin_wire")) == "thin_wire"
+            oh = [i for i in 1:n if kinds[i] == "overhead" && ys[i] > 0 &&
+                                    radii[i] !== nothing]
+            caps = Float64[haskey(wire_lib[wids[i]], "cap_radius") ?
+                           Float64(wire_lib[wids[i]]["cap_radius"]) : radii[i]
+                           for i in oh]
+            ratio, (a, b) = _thin_wire_ratio(caps, xs[oh], ys[oh])
+            if ratio > _THIN_WIRE_RATIO_MAX
+                push!(findings, Finding(WARNING, "W.DOM.GEOM_THIN_WIRE",
+                    :domain_rules, :line_geometry, id,
+                    "line_geometry '$id': conductors $(oh[a]) and $(oh[b]) " *
+                    "are close for their size ((r_i + r_j)/d = " *
+                    "$(round(ratio, sigdigits=3)) > $(_THIN_WIRE_RATIO_MAX)) — " *
+                    "the thin-wire capacitance model is inaccurate there " *
+                    "(about 5 % error in the mutual capacitance at 0.5, more " *
+                    "beyond) and, for touching insulated cores, gives a " *
+                    "positive mutual between opposite cores. Set " *
+                    "capacitance_model = \"charge_simulation\".",
+                    Dict{String,Any}("ratio" => ratio,
+                                     "conductors" => [oh[a], oh[b]],
+                                     "threshold" => _THIN_WIRE_RATIO_MAX)))
+            end
+        end
+
         f === nothing && continue   # remaining checks need the frequency
 
         # Carson truncation validity: k = √(ωμ₀/ρ)·S must stay ≪ 1

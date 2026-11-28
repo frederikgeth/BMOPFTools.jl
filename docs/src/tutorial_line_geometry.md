@@ -73,12 +73,19 @@ construction (as below) rather than carrying unit fields around.
   higher-frequency code path.) `cap_radius` (default `radius`) enters the
   electrostatic terms; mixing GMR into capacitance is the classic implementation
   bug. The electrostatic terms treat each conductor as a line charge at its
-  center (the thin-wire approximation), which is accurate while conductor
-  radii are small against their spacing. For touching insulated cores, as in an
-  aerial bundled cable, the mutual capacitance between diagonally opposite
-  cores comes out small and positive rather than small and negative, and the
-  profiler reports `I.PROV.B_OFFDIAG` (see
-  [the Maxwell sign pattern](@ref Methodology-notes)).
+  center (the thin-wire approximation, the geometry's default
+  `capacitance_model = "thin_wire"`), which is accurate while conductor radii
+  are small against their spacing: the mutual capacitance is off by about 5 %
+  at (r_i + r_j)/d = 0.5. For touching insulated cores, as in an aerial
+  bundled cable, the mutual between diagonally opposite cores comes out small
+  and positive rather than small and negative. The compiler warns and the
+  profiler reports `W.DOM.GEOM_THIN_WIRE` above 0.5 (and `I.PROV.B_OFFDIAG`
+  when the sign flips; see [the Maxwell sign pattern](@ref Methodology-notes)).
+  Set `capacitance_model = "charge_simulation"` on such a geometry: it places a
+  ring of line charges inside each conductor and matches equal potential on
+  its surface, which keeps the sign pattern and agrees with `thin_wire` to
+  about 10⁻⁵ at wide spacing. The default stays `thin_wire` for parity with
+  OpenDSS.
 
 ## Overhead example: original synthetic four-wire line
 
