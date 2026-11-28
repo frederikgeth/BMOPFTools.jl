@@ -403,6 +403,8 @@ function _declared_bus_neutral(roles::TerminalRoles, bus)
     bus isa Dict{String,Any} || return nothing
     explicit = get(bus, "neutral_terminal", nothing)
     explicit isa String && return explicit
+    # An explicit `nothing` is the materialized "this bus has no neutral".
+    haskey(bus, "neutral_terminal") && explicit === nothing && return nothing
     # A malformed terminal list (not a list of strings) is another check's
     # finding; here it simply yields no neutral.
     names = get(bus, "terminal_names", String[])
@@ -539,10 +541,13 @@ via `terminal_conventions`. This is an in-memory convenience only — the field 
 stripped on write (see `write_bmopf`) since it is re-derivable from the exported
 `terminal_conventions`.
 
-A bus that resolves to no neutral is left untouched; a bus that resolves to more
-than one neutral terminal keeps only the first (the redundancy is reported as
-`W.CONV.MULTIPLE_NEUTRALS` during validation). Buses that already carry an
-explicit `neutral_terminal` are left as-is.
+Under declared roles every bus is stamped: with its declared neutral terminal,
+or with `nothing` when it has none, so the naming fallback (`"n"`) can never
+turn a conductor the case declares a phase into the neutral. A bus that
+resolves to more than one neutral terminal keeps only the first (the redundancy
+is reported as `W.CONV.MULTIPLE_NEUTRALS` during validation). Buses that already
+carry a string `neutral_terminal` are left as-is; a `nothing` marker is derived,
+so it is recomputed (a bus edited to gain a neutral after parsing gets it).
 """
 function _materialize_terminal_roles!(net::Dict{String,Any})
     roles = _terminal_roles(net)
@@ -550,16 +555,57 @@ function _materialize_terminal_roles!(net::Dict{String,Any})
     # neutral label is the `"n"` naming convention, which `_neutral_terminal`
     # already resolves per-bus, so stamping would only pollute bus dicts.
     roles.inferred && return net
-    isempty(roles.neutral) && return net
     for (_, bus) in get(net, "bus", Dict())
         bus isa Dict || continue
-        haskey(bus, "neutral_terminal") && continue
+        get(bus, "neutral_terminal", nothing) isa String && continue
         names = get(bus, "terminal_names", nothing)
         names isa AbstractVector || continue
-        nt = _neutral_terminal(names, roles.neutral)
-        nt === nothing || (bus["neutral_terminal"] = nt)
+        bus["neutral_terminal"] = _neutral_terminal(names, roles.neutral)
     end
     net
+end
+
+"""
+    _materialize_roles_if_valid!(net) -> net
+
+[`_materialize_terminal_roles!`](@ref) on a network the caller owns (a working
+copy), leaving it unchanged when the declaration is malformed, which validation
+reports instead of throwing.
+"""
+function _materialize_roles_if_valid!(net::Dict{String,Any})
+    try
+        _materialize_terminal_roles!(net)
+    catch err
+        err isa ArgumentError || rethrow()
+    end
+    net
+end
+
+"""
+    _with_materialized_roles(net) -> Dict{String,Any}
+
+`net` itself when its per-bus neutrals need no stamping (roles inferred, every
+bus already carrying a string neutral, or a malformed declaration that validation
+reports); otherwise a copy whose bus records are stamped (or re-derived) by
+[`_materialize_terminal_roles!`](@ref). The input is never mutated. Used by entry
+points that accept a network that did not pass through `parse_bmopf`.
+"""
+function _with_materialized_roles(net::Dict{String,Any})::Dict{String,Any}
+    haskey(net, "terminal_conventions") || return net
+    buses = get(net, "bus", nothing)
+    buses isa AbstractDict || return net
+    all(b -> !(b isa AbstractDict) || get(b, "neutral_terminal", nothing) isa String,
+        values(buses)) && return net
+    view = copy(net)
+    view["bus"] = Dict{String,Any}(k => (b isa Dict ? copy(b) : b) for (k, b) in buses)
+    try
+        _materialize_terminal_roles!(view)
+    catch err
+        # A malformed declaration is reported by validation
+        # (`E.CONV.DECLARATION_INVALID`) on the original input.
+        err isa ArgumentError || rethrow()
+        return net
+    end
 end
 
 """
@@ -580,6 +626,9 @@ The OpenDSS numeric convention `["1","2","3","4"]` is resolved at import time by
 function _neutral_terminal(bus::Dict{String,Any})::Union{String,Nothing}
     nt = get(bus, "neutral_terminal", nothing)
     nt isa String && return nt
+    # An explicit `nothing` is the materialized "this bus has no neutral" under
+    # declared terminal roles; do not fall back to the naming convention.
+    haskey(bus, "neutral_terminal") && return nothing
     _neutral_terminal(get(bus, "terminal_names", String[]))
 end
 
@@ -987,7 +1036,7 @@ For snapshot networks, `t_index` is ignored. For networks with a
 `"time_series"` key, the snapshot at `t_index` is materialized first.
 """
 function analyze(net::Dict{String,Any}; t_index::Int=1, config::Dict=_DEFAULT_CONFIG)
-    working = is_timeseries(net) ? get_snapshot(net, t_index) : net
+    working = _with_materialized_roles(is_timeseries(net) ? get_snapshot(net, t_index) : net)
     findings = Finding[]
     results  = Dict{Symbol,Dict{String,Any}}()
 
@@ -1088,7 +1137,7 @@ Returns a [`SolutionReport`](@ref) which can be rendered to Markdown with
 """
 function profile_solution(net::Dict{String,Any}, result::Dict{String,Any};
                            t_index::Int=1)
-    working  = is_timeseries(net) ? get_snapshot(net, t_index) : net
+    working  = _with_materialized_roles(is_timeseries(net) ? get_snapshot(net, t_index) : net)
     findings = Finding[]
     results  = Dict{Symbol,Dict{String,Any}}()
     results[:solution] = solution_check(working, result, findings)

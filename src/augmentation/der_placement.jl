@@ -146,6 +146,7 @@ function add_generators(net::Dict{String,Any};
     analysis = _normalize_analysis(analysis, ("voltage_levels", "connectivity"),
                                    "add_generators")
     net′    = deepcopy(net)
+    _materialize_roles_if_valid!(net′)
     entries = TransformEntry[]
 
     fb = Finding[]; benchmark_readiness_check(net,  fb)

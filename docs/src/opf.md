@@ -189,6 +189,15 @@ import label `"n_ref"`, is treated as neutral.
 **Phase terminals** $\mathcal{T}_b^\phi \subseteq \mathcal{T}_b$ are all
 terminals that are not the neutral.
 
+When the case declares terminal roles, a bus that carries no declared neutral
+label has **no neutral**, whatever its terminals are called. On such a bus every
+listed terminal (other than a declared earth conductor) is a phase and indexes
+the per-phase bound arrays; `vn_max` and the phase-to-neutral limits `vpn_*` are
+skipped; sequence and unbalance quantities use the phase-to-earth phasors; and a
+voltage source on the bus has no neutral for the engine to ground. The analysis,
+case-preparation and solution-checking functions resolve the neutral the same
+way, including for a network that was not read through `parse_bmopf`.
+
 #### [Earth, grounded terminals, and return paths](@id opf-earth-reference)
 
 Every voltage in the model is measured against one common reference, **earth**

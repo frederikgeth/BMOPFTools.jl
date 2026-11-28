@@ -89,6 +89,7 @@ function fix_case(net::Dict{String,Any};
                   recipe::FixRecipe = FixRecipe())::Tuple{Dict{String,Any},
                                                           TransformationManifest}
     net′   = deepcopy(net)
+    _materialize_roles_if_valid!(net′)
     entries = TransformEntry[]
 
     fb = Finding[]
