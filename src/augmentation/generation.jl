@@ -14,10 +14,14 @@
 #   Q_max = P_max × tan(arccos(pf))
 # Default: pf = 0.90 (EN 50549-1:2019, LV grid-connected DERs).
 
-function _q_rule(pf::Float64)::String
-    pf ≈ 0.90 && return "EN50549-1:2019_cos_phi_0.90"
-    pf ≈ 0.95 && return "IEEE1547-2018_cos_phi_0.95"
-    return "cos_phi=$(round(pf, digits=3))"
+# Rule label and confidence of the P-based reactive capability
+# |Q| ≤ P_max·tan(arccos pf). Only pf = 0.90 is a published requirement
+# (EN 50549-1:2019, cos φ 0.90 for LV DERs). Any other pf, 0.95 included, is a
+# study choice: IEEE 1547-2018 sets reactive capability as a fraction of
+# nameplate kVA (Category B 44 % both ways), which this rule does not encode.
+function _q_rule(pf::Float64)
+    pf ≈ 0.90 && return ("EN50549-1:2019_cos_phi_0.90", :standard)
+    return ("cos_phi_$(round(pf, digits=3))_P_based", :heuristic)
 end
 
 function _apply_generation!(net′::Dict{String,Any},
@@ -51,7 +55,7 @@ function _apply_generation!(net′::Dict{String,Any},
     # ── Reactive capability bounds ────────────────────────────────────────────
     if r.apply_q_bounds
         pf   = r.q_capability_pf
-        rule = _q_rule(pf)
+        rule, conf = _q_rule(pf)
         tan_phi = tan(acos(pf))
 
         for (gid, g) in gens
@@ -69,11 +73,11 @@ function _apply_generation!(net′::Dict{String,Any},
 
             push!(entries, TransformEntry(
                 :generator, gid, "q_min", nothing, q_min_vec,
-                rule, :standard,
+                rule, conf,
                 "Q_min = -P_max × tan(arccos($(pf)))"))
             push!(entries, TransformEntry(
                 :generator, gid, "q_max", nothing, q_max_vec,
-                rule, :standard,
+                rule, conf,
                 "Q_max = P_max × tan(arccos($(pf))) ≈ $(round(tan_phi, digits=3)) × P_max"))
         end
     end

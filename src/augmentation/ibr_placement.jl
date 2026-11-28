@@ -65,7 +65,9 @@ Sizing (targets apparent power `s_max`)
 
 IBR model
 --------------
-- `prime_mover` — `:PV` by default. Drives `p_min = 0` in the augment pass.
+- `prime_mover` — `:PV` by default; one of `:PV`, `:BATTERY`, `:GENERIC`,
+  `:STATCOM`, `:DSTATCOM` (other values are an `ArgumentError` in `add_ibrs`).
+  In the augment pass `PV` gets `p_min = 0` and `BATTERY` `p_min = -p_max`.
 - `inverter_topology` — `:infer` (FOUR_LEG when the host load has a neutral
   terminal, else SINGLE_PHASE), or a forced `:FOUR_LEG` / `:THREE_LEG` /
   `:SINGLE_PHASE`.
@@ -140,9 +142,11 @@ reactive dispatch box (`p_max`/`p_min`/`q_min`/`q_max`) is intentionally left to
 Every IBR field written is recorded in the returned
 [`TransformationManifest`](@ref) with confidence `:synthetic`.
 
-`analysis` may be the output of [`analyze`](@ref) (or a dict carrying
-`"voltage_levels"` / `"connectivity"`); if `nothing`, the needed sub-analyses are
-run internally.
+`analysis` may be the [`SummaryReport`](@ref) returned by [`analyze`](@ref) on
+this `net`, its `results`, or a dict carrying `"voltage_levels"` and/or
+`"connectivity"`; a missing entry is computed internally, and an `analysis`
+holding neither is an `ArgumentError`. If `nothing`, both are computed
+internally.
 
 The placed IBRs are dispatched by [`solve_opf`](@ref) once
 [`augment_case`](@ref) has filled their P/Q box. The OPF engine supports IBRs,
@@ -160,6 +164,11 @@ function add_ibrs(net::Dict{String,Any};
                        recipe::IBRRecipe = default_ibr_recipe(),
                        analysis = nothing)::Tuple{Dict{String,Any}, TransformationManifest}
 
+    string(recipe.prime_mover) in _PRIME_MOVER_VALUES || throw(ArgumentError(
+        "add_ibrs: prime_mover :$(recipe.prime_mover) is not a data-model " *
+        "value; use one of $(join(_PRIME_MOVER_VALUES, ", "))."))
+    analysis = _normalize_analysis(analysis, ("voltage_levels", "connectivity"),
+                                   "add_ibrs")
     net′    = deepcopy(net)
     entries = TransformEntry[]
 

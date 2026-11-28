@@ -308,10 +308,11 @@ Q_max = P_max × tan(arccos(pf))
 
 Default `pf = 0.90` (EN 50549-1:2019, LV grid-connected DERs):
 Q_max ≈ 0.484 × P_max. The bound scales with `P_max`, not with an apparent-power
-nameplate, and is symmetric. `q_capability_pf = 0.95` gives
-Q_max ≈ 0.329 × P_max; the manifest labels that value
-`IEEE1547-2018_cos_phi_0.95`, but it is not the IEEE 1547-2018 requirement.
-IEEE 1547-2018 specifies reactive capability as a fraction of nameplate
+nameplate, and is symmetric. Only `pf = 0.90` is recorded as a standard (rule
+`EN50549-1:2019_cos_phi_0.90`, `:standard`). Any other value is a study choice,
+recorded as `cos_phi_<pf>_P_based` with confidence `:heuristic`:
+`q_capability_pf = 0.95`, for example, gives Q_max ≈ 0.329 × P_max, which is not
+the IEEE 1547-2018 requirement. IEEE 1547-2018 specifies reactive capability as a fraction of nameplate
 apparent power: 44 % injecting and 44 % absorbing for Category B (Q/S = 0.44,
 about cos φ = 0.90 at rated kVA), 44 % injecting and 25 % absorbing for
 Category A. To model either category, write `q_min`/`q_max` from the kVA
@@ -328,15 +329,17 @@ untouched. Controlled by the recipe's `apply_ibr` flag.
 **Active power.** If `p_max` is absent it is derived per phase — from `p_avail`
 (split in proportion to the per-phase `s_max` when those ratings are present,
 equally across phases otherwise) or, without `p_avail`, from the per-phase
-`s_max` ratings. For `PV` prime movers `p_min = 0` is also injected when absent,
-since PV cannot absorb active power.
+`s_max` ratings. When `p_min` is absent, `PV` gets `p_min = 0` (PV cannot absorb
+active power) and `BATTERY` gets `p_min = -p_max` (charge limit assumed equal to
+the discharge limit, `:heuristic`).
 
 **Reactive power.** If the IBR references a `control_profile` carrying a
 `power_factor` sub-object, `q_min`/`q_max` are *left absent* — the OPF enforces
 the exact PF coupling `Q = f(P)` as an equality constraint instead. Otherwise,
 for IBRs lacking explicit `q_min`/`q_max`, symmetric bounds are derived from
 `p_max` using the recipe's `ibr_default_pf` (EN 50549-1:2019 default
-cos φ = 0.90), exactly as for generators:
+cos φ = 0.90), exactly as for generators; a value other than 0.90 is recorded as
+`cos_phi_<pf>_P_based_ibr_default` with confidence `:heuristic`:
 
 ```
 Q_max = P_max × tan(arccos(pf)),   Q_min = -Q_max
@@ -462,9 +465,10 @@ Placement is controlled by an [`IBRRecipe`](@ref). The strategy, filter and
 cost fields mean the same as in [`GeneratorRecipe`](@ref), with these
 IBR-specific additions:
 
-- **`prime_mover`** — default `:PV`, which drives `p_min = 0` in the augment
-  pass. The value is written to each placed IBR as given; `augment_case` treats
-  only `PV` (`p_min = 0`) and `STATCOM`/`DSTATCOM` specially.
+- **`prime_mover`** — default `:PV`; one of `:PV`, `:BATTERY`, `:GENERIC`,
+  `:STATCOM`, `:DSTATCOM` (other values are an `ArgumentError`). In the augment
+  pass `PV` gets `p_min = 0`, `BATTERY` `p_min = -p_max`, and
+  `STATCOM`/`DSTATCOM` the reactive-only treatment.
 - **`inverter_topology`** — `:infer` (FOUR_LEG when the host load has a neutral
   terminal, else SINGLE_PHASE), or a forced `:FOUR_LEG` / `:THREE_LEG` /
   `:SINGLE_PHASE`.
@@ -519,12 +523,14 @@ manifest's `findings_after`.
     `prime_mover = "BATTERY"` only for a vehicle-to-grid (V2G) study where it
     *injects*. `EV` is therefore not a `prime_mover` value.
 
-    `add_ibrs` writes the recipe's `prime_mover` without validating it or
-    adapting the sizing to it, and the augment pass leaves `p_min` absent for
-    anything other than `PV` and `STATCOM`. A battery placed this way therefore
-    has no lower active-power bound until you write one: for non-PV
-    technologies, set `p_min` (and, where needed, `p_max`) explicitly, or author
-    the `ibr` directly.
+    `add_ibrs` accepts only the data-model values (`:PV`, `:BATTERY`,
+    `:GENERIC`, `:STATCOM`, `:DSTATCOM`); anything else is an `ArgumentError`.
+    Sizing does not depend on `prime_mover`. When `p_min` is absent, the augment
+    pass writes `p_min = 0` for `PV` and `p_min = -p_max` for `BATTERY` (rule
+    `BATTERY_symmetric_charge`, `:heuristic`: the charge limit is assumed equal
+    to the discharge limit). `GENERIC` gets no `p_min`, so its active power is
+    bounded only by the apparent-power circle; set `p_min` explicitly for an
+    asymmetric converter or a state-of-charge window.
 
 !!! note "I/O converter support"
     `solve_opf` dispatches placed IBRs once `augment_case` has filled their

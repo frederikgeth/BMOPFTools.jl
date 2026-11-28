@@ -105,17 +105,18 @@ net2, ibr_mf = add_ibrs(net1; recipe = IBRRecipe(strategy = :load_following))
 net3, aug_mf = augment_case(net2)
 ```
 
-Passing pre-computed voltage-level and provenance results to `augment_case`
-avoids re-running those analyses internally. The `analysis` keyword takes a
-dict with `"voltage_levels"` and `"provenance"` entries, which an `analyze`
-report holds in its `results`:
+Passing the report of an earlier [`analyze`](@ref) call on the same network
+avoids re-running the voltage-level and provenance analyses inside
+`augment_case` (and the voltage-level and connectivity analyses inside
+`add_generators` and `add_ibrs`):
 
 ```julia
 report  = analyze(net2)
-net3, aug_mf = augment_case(net2;
-                 analysis = Dict("voltage_levels" => report.results[:voltage_levels],
-                                 "provenance"     => report.results[:provenance]))
+net3, aug_mf = augment_case(net2; analysis = report)
 ```
+
+The report must come from the network being transformed: after `fix_case` or a
+placement, analyze the new network before passing a report on.
 
 The [end-to-end tutorial](tutorial_end_to_end.md) walks this pipeline on a real
 feeder (external dataset; the docs build does not execute it). The

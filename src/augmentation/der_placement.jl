@@ -125,9 +125,11 @@ each new generator — reactive bounds are intentionally left to
 [`augment_case`](@ref). Every generator field written is recorded in the returned
 [`TransformationManifest`](@ref).
 
-`analysis` may be the output of [`analyze`](@ref) (or a dict carrying
-`"voltage_levels"` / `"connectivity"`); if `nothing`, the needed sub-analyses are
-run internally.
+`analysis` may be the [`SummaryReport`](@ref) returned by [`analyze`](@ref) on
+this `net`, its `results`, or a dict carrying `"voltage_levels"` and/or
+`"connectivity"`; a missing entry is computed internally, and an `analysis`
+holding neither is an `ArgumentError`. If `nothing`, both are computed
+internally.
 
 # Example
 ```julia
@@ -141,6 +143,8 @@ function add_generators(net::Dict{String,Any};
                         recipe::GeneratorRecipe = default_generator_recipe(),
                         analysis = nothing)::Tuple{Dict{String,Any}, TransformationManifest}
 
+    analysis = _normalize_analysis(analysis, ("voltage_levels", "connectivity"),
+                                   "add_generators")
     net′    = deepcopy(net)
     entries = TransformEntry[]
 
