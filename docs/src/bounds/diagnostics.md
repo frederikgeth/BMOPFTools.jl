@@ -1,4 +1,4 @@
-# Diagnostics & Validation
+# Diagnosing a formulation
 
 How to *detect* the failure modes from
 [Bounds, Branches, and Feasibility](index.md), rather than merely avoid them. This page
@@ -165,7 +165,7 @@ second eigenvalue $\to 0$) means exact
     ([Gan et al., 2015](https://arxiv.org/abs/1311.7170);
     [Bobo et al., 2020](https://arxiv.org/abs/2001.00898)). If your validation
     diverges from the benchmark, check whether you are in a loss-rewarding objective
-    ([list](loss_maximization.md)) or against an upper voltage bound first.
+    ([list](@ref loss-maximization)) or against an upper voltage bound first.
 
 ## Symptom 4 — I think I am on the wrong (low-voltage) branch
 
@@ -246,7 +246,7 @@ local diagnostic that should be checked across starts and formulations.
    if exact.
 3. If values differ, classify before debugging code: is the row in the
    [decision matrix](decision_matrix.md) a ✗ cell? Is the objective on the
-   [loss-maximization list](loss_maximization.md)? Are upper voltage bounds binding?
+   [loss-maximization list](@ref loss-maximization)? Are upper voltage bounds binding?
    Expected divergence is not a bug.
 4. For collapse/loadability instances, compare margins from a continuation sweep, not
    single-point objective values.
@@ -269,6 +269,6 @@ Model debugging is an established craft, not specific to this library:
 
 See also: [Bounds, Branches, and Feasibility](index.md) ·
 [Decision matrix](decision_matrix.md) ·
-[Objectives that imply loss maximization](loss_maximization.md) ·
+[Objectives that imply loss maximization](@ref loss-maximization) ·
 [Known traps](known_traps.md) · [Trusting the solver](solver_trust.md) ·
 [References](references.md)

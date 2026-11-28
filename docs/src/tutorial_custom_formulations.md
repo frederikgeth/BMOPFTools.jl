@@ -25,7 +25,7 @@ so they are not run by the docs build; the numbers quoted come from running them
 
 For replaceable device ownership, semantic object/parameter registries, and
 DiffOpt-compatible research models, continue with
-[Model extensions and sensitivities](differentiable_extensions.md).
+[Extending the OPF model](differentiable_extensions.md).
 Before choosing a lift, smoothing term, or redundant bound, consult the
 [formulation helper guide](@ref opf-formulation-helpers) for its domain and purpose.
 

@@ -40,8 +40,8 @@ start of that page; its dataset examples are not executed by the docs build.
 | **Change the formulation** (custom objectives, constraints, multi-period) | [Custom formulations](tutorial_custom_formulations.md) | [OPF model](opf.md), [Units, bases & economics](tutorial_units.md) |
 | **Assemble a network matrix or understand ideal-device boundaries** | [Nodal admittance builders](spec/nodal-admittance.md) | [Exact substitutions](formulation_substitutions.md), [Engine validation evidence](validation.md) |
 | **Choose numerical coordinates or inspect initialization** | [Scaling, initialization and diagnostics](numerical_workflows.md) | [Solver guide](solvers.md), [Trusting the solver](bounds/solver_trust.md) |
-| **Update coefficients and re-solve safely** | [Repeated solves](repeated_solves.md) | [Case families](tutorial_case_development.md), [Model extensions](differentiable_extensions.md) |
-| **Build a differentiable or bilevel research extension** | [Model extensions and sensitivities](differentiable_extensions.md) | [Custom formulations](tutorial_custom_formulations.md), [OPF engine](dev/opf_engine.md) |
+| **Update coefficients and re-solve safely** | [Repeated solves](repeated_solves.md) | [Case families](tutorial_case_development.md), [Extending the OPF model](differentiable_extensions.md) |
+| **Build a differentiable or bilevel research extension** | [Extending the OPF model](differentiable_extensions.md), then [Sensitivities with DiffOpt](diffopt_sensitivities.md) | [Custom formulations](tutorial_custom_formulations.md), [OPF engine](dev/opf_engine.md) |
 | **Extend or debug the solver** | [OPF engine: scope & status](dev/opf_engine.md) | [OPF model](opf.md), [Contributing](dev/contributing.md) |
 
 ## Route by system type
@@ -131,7 +131,7 @@ each demonstrating live how that choice *writes the answer*:
 | [First case](first_case.md), inspection steps | BMOPFTools and the bundled feeder; no solver or external dataset. |
 | [First case](first_case.md), solve and verify steps | BMOPFTools, JuMP and Ipopt; the same bundled feeder. |
 | [Nodal admittance builders](spec/nodal-admittance.md) | BMOPFTools and Julia standard libraries; synthetic examples run in the docs build. |
-| [DiffOpt worked example](differentiable_extensions.md#diffopt-worked-example) | Repository checkout and the optional `test/diffopt` environment (DiffOpt, JuMP, Ipopt); executed by the optional integration test job. |
+| [DiffOpt worked example](@ref diffopt-worked-example) | Repository checkout and the optional `test/diffopt` environment (DiffOpt, JuMP, Ipopt); executed by the optional integration test job. |
 | [Case families](tutorial_case_development.md) | BMOPFTools, JuMP and Ipopt; the bundled feeder and example script. |
 | Utility-data tutorials, including [end-to-end](tutorial_end_to_end.md), [DER placement](tutorial_ders.md) and [PV controls](tutorial_vvwo.md) | Follow each page's external-dataset notice and software prerequisites. Reading a page does not require acquiring its data. |
 

@@ -82,7 +82,7 @@ analytically predicted collapse, not by itself a global infeasibility certificat
 ## Trap 4 — Loss-maximizing objective breaks exactness
 
 **Shows:** [§5](index.md) and the
-[loss-maximization list](loss_maximization.md) — an objective that rewards current makes
+[loss-maximization list](@ref loss-maximization) — an objective that rewards current makes
 the relaxed $\ell_{ij}$ slack.
 
 **Construction:** a small radial feeder with DER; objective = **maximize PV injection**
@@ -239,6 +239,6 @@ For a formulation under validation, the minimal coverage is one instance per tra
 
 See also: [Bounds, Branches, and Feasibility](index.md) ·
 [Decision matrix](decision_matrix.md) ·
-[Objectives that imply loss maximization](loss_maximization.md) ·
-[Diagnostics & validation](diagnostics.md) ·
+[Objectives that imply loss maximization](@ref loss-maximization) ·
+[Diagnosing a formulation](diagnostics.md) ·
 [Trusting the solver](solver_trust.md) · [References](references.md)

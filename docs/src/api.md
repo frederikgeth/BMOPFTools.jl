@@ -24,7 +24,7 @@ adds conversion and preparation with an external dataset.
 | Fill bounds, limits, costs | [`augment_case`](@ref) ([`AugmentationRecipe`](@ref)) | [Case augmentation](augmentation.md) |
 | Audit every change | [`render_manifest`](@ref), [`manifest_to_dict`](@ref) | [Case augmentation](augmentation.md) |
 | Solve the OPF | [`solve_opf`](@ref), [`solve_pf`](@ref), [`solve_feasibility_opf`](@ref) | [Optimal power flow](opf.md) |
-| Extend a staged OPF model | [`build_opf_model`](@ref), [`OpfModelKey`](@ref), [`add_terminal_injection!`](@ref) | [Model extensions and sensitivities](differentiable_extensions.md) |
+| Extend a staged OPF model | [`build_opf_model`](@ref), [`OpfModelKey`](@ref), [`add_terminal_injection!`](@ref) | [Extending the OPF model](differentiable_extensions.md) |
 | Inspect / profile a result | [`profile_solution`](@ref), [`render_solution`](@ref), [`diagnose_infeasibility`](@ref) | [OPF result dictionary](results.md) |
 | Reduce a network | [`simplify_network`](@ref), [`kron_reduce_neutrals`](@ref), [`opti_kron_reduction`](@ref) + [`kron_reduce_buses`](@ref) | [Network reduction](network_reduction.md) |
 | Export | [`write_bmopf`](@ref), [`write_result`](@ref), [`to_pmd`](@ref), [`to_dss`](@ref) | [Conversion guide](conversion.md) |

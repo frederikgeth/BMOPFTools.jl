@@ -43,7 +43,7 @@ were produced by running them.
     rooftop PV units added.
 
 This tutorial solves snapshots independently. To reuse a parameterized model,
-follow [Repeated solves and parameter updates](repeated_solves.md). To impose
+follow [Repeated solves, parameters and coefficient providers](repeated_solves.md). To impose
 inter-temporal constraints, use the [staged API](@ref staged-api), which builds
 several snapshots into one JuMP model.
 

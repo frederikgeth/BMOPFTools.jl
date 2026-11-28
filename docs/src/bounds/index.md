@@ -9,10 +9,10 @@ for you, and where these choices quietly break down near voltage collapse.
     - **Building or curating a dataset?** Read the *Takeaway* box in each section and
       the [decision matrix](decision_matrix.md). Skip the collapsible
       *Derivation* blocks. Check your objective against the
-      [loss-maximization list](loss_maximization.md) before you ship.
+      [loss-maximization list](@ref loss-maximization) before you ship.
     - **Validating your own formulation against the benchmarks?** Read everything,
       expand the *Derivation* blocks, and then work through
-      [Diagnostics & validation](diagnostics.md), the
+      [Diagnosing a formulation](diagnostics.md), the
       [Known traps](known_traps.md) gallery, and — once you have cleared those — the
       [Trusting the solver](solver_trust.md) capstone on how far to trust an
       `INFEASIBLE` or `LOCALLY_SOLVED` verdict.
@@ -332,7 +332,7 @@ what the optimization prefers, and does not certify which branch a local solver
 returned.
 
 The objectives that violate the monotonicity test, and the reformulations that fix them,
-are cataloged in [Objectives that imply loss maximization](loss_maximization.md).
+are cataloged in [Objectives that imply loss maximization](@ref loss-maximization).
 
 ## 6. Practical recommendations by task
 
@@ -363,8 +363,8 @@ is right.
 ---
 
 See also: [Decision matrix](decision_matrix.md) ·
-[Objectives that imply loss maximization](loss_maximization.md) ·
-[Diagnostics & validation](diagnostics.md) ·
+[Objectives that imply loss maximization](@ref loss-maximization) ·
+[Diagnosing a formulation](diagnostics.md) ·
 [Known traps](known_traps.md) ·
 [Trusting the solver](solver_trust.md) ·
 [References](references.md)

@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "847a0c64f167df4db659e715de96b6d6ee2a232bc679a2826721d15095fabce1",
+  "corpus_sha256": "aff3f1578bcfcadabfcbb91ad7a2c2bb072e7b65547a22004112c970f7e95d62",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -82,7 +82,7 @@
     },
     {
       "path": "docs/src/api.md",
-      "sha256": "ec1a5dddbeca9b9922e780db46eba220a957597957d2713b9e6a55b434a9105e"
+      "sha256": "c46b505f4180de8863947e3dd5c85143854be5f5ef7856247a5b5fc5daf4400b"
     },
     {
       "path": "docs/src/assets/spatial/direct-series.svg",
@@ -126,7 +126,11 @@
     },
     {
       "path": "docs/src/differentiable_extensions.md",
-      "sha256": "7304bd3105f46eba29d701c456eab3d6ba88b25ef840dab23e8a472cc8fdf550"
+      "sha256": "bd326f7ef2d7c1549a6c4a5c3379b392c6a7d697079927972a090e65b98c4fe7"
+    },
+    {
+      "path": "docs/src/diffopt_sensitivities.md",
+      "sha256": "08e7fc6f264d2f2e1cbb29d6b25b62a3d16146f93f3a7b7dfbf7c0e3107704ca"
     },
     {
       "path": "docs/src/findings.md",
@@ -162,7 +166,7 @@
     },
     {
       "path": "docs/src/repeated_solves.md",
-      "sha256": "9d9a3cfd28feb566799dea61cc52a31c3b00b6bf4c5a1ff53f413de05d9a8db6"
+      "sha256": "e0627fffec126bc9e562e535008d3bf6c1dbad73156b3b71443662397677fc8a"
     },
     {
       "path": "docs/src/results.md",
@@ -186,7 +190,7 @@
     },
     {
       "path": "docs/src/spec/nodal-admittance.md",
-      "sha256": "400597fcff9f3dc9046dd70996a9856a5207ba6a113bb90375097fb8f9d3314f"
+      "sha256": "6e548619966c64aceb69da64cd047dd3acbfc49c360873cbf13df3bd6a79b4fb"
     },
     {
       "path": "docs/src/spec/transformer-admittance.md",
@@ -202,11 +206,11 @@
     },
     {
       "path": "docs/src/tutorial_case_development.md",
-      "sha256": "05a5944a418289a8e46d9d4f5888fe39e1c489368d4e415bd3baebca96c53b3a"
+      "sha256": "70ad26dc51a1cc60c58706fb484b214c58e194af53c14675a574640c67b9273c"
     },
     {
       "path": "docs/src/tutorial_custom_formulations.md",
-      "sha256": "b34b35c683e9e811eb9f14bfb883b33d71b96f2373bccb64f6a0dd7b6d89e3c2"
+      "sha256": "91a23d50b1d9b6abfaa80187675d29dbbfbc12aabf968058ade57131cb026c9f"
     },
     {
       "path": "docs/src/tutorial_nameplate.md",
@@ -322,7 +326,7 @@
     },
     {
       "path": "knowledge/executable.toml",
-      "sha256": "30a9877d4a91e951786d310ce08200e96abf92ce9d5e29403d028964e7c61b49"
+      "sha256": "3d2936d482944fa3bb3776d34f5392cc59b8761a02759bc492b17fe0f67233cb"
     },
     {
       "path": "recipes/README.md",

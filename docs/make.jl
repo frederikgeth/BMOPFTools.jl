@@ -119,6 +119,8 @@ makedocs(
             "Solution projection & power-flow comparison" => "solution_projection.md",
             "OPF result dictionary" => "results.md",
             "Infeasibility diagnosis tutorial" => "tutorial_infeasibility.md",
+            "Trusting the solver" => "bounds/solver_trust.md",
+            "Diagnosing a formulation" => "bounds/diagnostics.md",
         ],
         "Advanced formulations & numerics" => [
             "Choose an advanced route" => "advanced.md",
@@ -127,16 +129,16 @@ makedocs(
             "Exact substitutions & formulation boundaries" => "formulation_substitutions.md",
             "Smooth droop encoding" => "relu_softplus_encoding.md",
             "Custom formulations: CVR, envelopes & hooks" => "tutorial_custom_formulations.md",
-            "Model extensions & sensitivities" => "differentiable_extensions.md",
+            "Extending the OPF model" => "differentiable_extensions.md",
+            "Repeated solves, parameters & providers" => "repeated_solves.md",
+            "Sensitivities with DiffOpt" => "diffopt_sensitivities.md",
             "Scaling, initialization & diagnostics" => "numerical_workflows.md",
-            "Repeated solves & parameter updates" => "repeated_solves.md",
+            # Theory of bounds and solution branches. The practical pages
+            # (solver_trust, diagnostics) sit under Verify & diagnose results.
             "Bounds & feasibility" => [
                 "bounds/index.md",
                 "bounds/decision_matrix.md",
-                "bounds/loss_maximization.md",
-                "bounds/diagnostics.md",
                 "bounds/known_traps.md",
-                "bounds/solver_trust.md",
                 "bounds/references.md",
             ],
         ],

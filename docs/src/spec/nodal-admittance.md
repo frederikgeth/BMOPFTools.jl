@@ -357,5 +357,5 @@ For changing the JuMP formulation, continue to
 [exact substitutions](../formulation_substitutions.md) and
 [custom formulations](../tutorial_custom_formulations.md). To differentiate a
 solved model with respect to physical parameters, use the
-[DiffOpt worked example](../differentiable_extensions.md#diffopt-worked-example).
+[DiffOpt worked example](@ref diffopt-worked-example).
 These are different tasks from constructing `Y` or `K`.

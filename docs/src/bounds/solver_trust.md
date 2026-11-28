@@ -11,7 +11,7 @@ what Ipopt just told me?**
     - **Building or curating a dataset?** Read the *Takeaway* boxes and the
       [trust checklist](@ref "7. A trust checklist") at the end. The short version: once your
       bounds are sane, your objective is off the
-      [loss-maximization list](loss_maximization.md), and the benchmark flags are
+      [loss-maximization list](@ref loss-maximization), and the benchmark flags are
       clear, solver statuses become useful **hypotheses** to verify: multi-start
       and a feasibility relaxation strengthen an infeasibility diagnosis, while
       primal residual checks establish whether a locally solved point is a valid
@@ -424,7 +424,7 @@ Work top to bottom; each step removes one alternative explanation for the solver
        voltage floor ([§6](@ref "6. Residual trap C — zero voltage in power–voltage formulations")),
        and you are not deliberately on the loadability boundary ([§4](index.md)).
     4. **Objective off the loss-max list?** Loss/cost-minimizing, non-decreasing in
-       generation ([loss-maximization list](loss_maximization.md)).
+       generation ([loss-maximization list](@ref loss-maximization)).
     5. **Load models away from their singular point?** Voltage floor in place so fractional
        ZIP exponents stay smooth ([§5](@ref "5. Residual trap B — smoothness loss and the zero-voltage bifurcation")).
     6. **Compared models genuinely equivalent?** Same objective, bounds, angle
@@ -451,6 +451,6 @@ Work top to bottom; each step removes one alternative explanation for the solver
 
 See also: [Bounds, Branches, and Feasibility](index.md) ·
 [Decision matrix](decision_matrix.md) ·
-[Objectives that imply loss maximization](loss_maximization.md) ·
-[Diagnostics & validation](diagnostics.md) ·
+[Objectives that imply loss maximization](@ref loss-maximization) ·
+[Diagnosing a formulation](diagnostics.md) ·
 [Known traps](known_traps.md) · [References](references.md)
