@@ -1300,7 +1300,7 @@ redistribute its available power across phases.
 
 ##### Piecewise-linear droop encoding
 
-Each characteristic $f$ through non-decreasing breakpoints
+Each characteristic $f$ through strictly increasing breakpoints
 $(\bar x_i, \bar y_i)$, clamped flat outside the range, is written as a sum of
 shifted/scaled rectified-linear (ReLU) terms,
 

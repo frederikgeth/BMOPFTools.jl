@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "4911f1d5571ef6d94ca78c5492e8d9779ff9f6fd6e5adc1747827d8d7ecf8d51",
+  "corpus_sha256": "c902680c413bd44c6b47cf84c8b912382ce417f5693a83e1fed7521f987d9788",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -142,7 +142,7 @@
     },
     {
       "path": "docs/src/numerical_workflows.md",
-      "sha256": "c7fdcf1a00ee33d07a0a41f61b1295a1928b37a6bf2e4712c9e8adbb17596cb6"
+      "sha256": "721ce02ca1dcd14317e83bc351ded32e21cdb231d81bf60fc75ecd6e98060a73"
     },
     {
       "path": "docs/src/objectives.md",
@@ -150,7 +150,7 @@
     },
     {
       "path": "docs/src/opf.md",
-      "sha256": "cd69b65282cca928fb3f86b78cfe61b7563ce35d5179d512b41881051da8d255"
+      "sha256": "3313e2a5481cc84b54e302897b5cdf125b333ee1b67bcdde7a530786d921b14d"
     },
     {
       "path": "docs/src/opf_transformers.md",
@@ -158,7 +158,7 @@
     },
     {
       "path": "docs/src/relu_softplus_encoding.md",
-      "sha256": "403b0c05ab74d9c667b4d211170497f66f8acd6ddecdc9d81cbe71a0135c83b8"
+      "sha256": "a14aa1477401f046c424728e11072162c8b1a9fb48ee4690405b0dee67314937"
     },
     {
       "path": "docs/src/repeated_solves.md",
@@ -174,7 +174,7 @@
     },
     {
       "path": "docs/src/solvers.md",
-      "sha256": "f23e2b6a1e8ab3b9d7ef60ae3233067376615ece2de1a6af01d507ade99b5875"
+      "sha256": "c1cfda8efac68e885aabf9f72c19b44502ab6020c714b175316dfb209642a814"
     },
     {
       "path": "docs/src/spatial_diagnostics.md",

@@ -331,7 +331,7 @@ ExaModels 0.12 does not support MOI's `Silent` attribute. BMOPFTools leaves
 the optimizer's output setting alone when that attribute is unavailable, so
 `verbose=false` may still produce Ipopt output through this path.
 
-## Gurobi: the nonconvex-quadratic (global) path
+## [Gurobi: the nonconvex-quadratic (global) path](@id solvers-gurobi)
 
 [Gurobi](https://www.gurobi.com/) is a commercial optimizer exposed to JuMP by
 [Gurobi.jl](https://github.com/jump-dev/Gurobi.jl). In BMOPFTools it is
@@ -427,7 +427,7 @@ a new license token for every model, but Gurobi environments are not
 thread-safe. Do not solve models concurrently through the same environment;
 see the [Gurobi.jl environment guidance](https://github.com/jump-dev/Gurobi.jl#reusing-the-same-gurobi-environment-for-multiple-solves).
 
-## Settings that apply to all solver paths
+## [Settings that apply to all solver paths](@id solvers-common-settings)
 
 ### Start with the model coordinates
 

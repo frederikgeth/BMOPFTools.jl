@@ -249,7 +249,7 @@ supported.
 
 Follow that section for the construction and its scope, then
 [Trusting the solver](bounds/solver_trust.md) for solution branches and
-start-dependence. The [solver guide](solvers.md#Settings-that-apply-to-all-three-solvers)
+start-dependence. The [solver guide](@ref solvers-common-settings)
 connects model coordinates, tolerances and independent validation. Changing
 backends and changing a formulation are separate experiments.
 
