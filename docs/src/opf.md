@@ -260,7 +260,7 @@ load, and source currents (see the [MVDC tutorial](tutorial_mvdc.md)).
 
 Load, generator, IBR, and source current variables cover **phase
 conductors only**; neutral return current is implicit in KCL. IBRs add an
-analogous current variable per phase — see [IBRs](#ibrs) below.
+analogous current variable per phase — see [IBRs](@ref IBRs) below.
 
 ---
 
@@ -1082,7 +1082,7 @@ coil whose current flows through both of its conductors, so its one or two
 entries collapse to a single circle at the tighter limit, whichever terminal
 that limit is listed against.
 
-#### IBRs
+#### [IBRs](@id IBRs)
 
 IBRs use the same bilinear current/power model as generators, with the
 per-phase active and reactive powers

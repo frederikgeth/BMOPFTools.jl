@@ -40,8 +40,11 @@ println(length(errors(report)), " errors, ", length(warnings(report)), " warning
 ```
 
 Note the extra bus. The importer represents the OpenDSS source as an ideal
-source behind its impedance, which needs a bus of its own
-(`_pio_vsource_source_emf`).
+voltage behind its series impedance, which needs a bus of its own
+(`_pio_vsource_source_emf`) and a short line (`_pio_vsource_source_impedance`).
+The deck declares `model=ideal`, which in OpenDSS still keeps a very small
+series impedance (here about 1.6 mΩ of reactance per phase), so the line is
+nearly a short circuit rather than absent.
 
 ## 2. Layer one: what the import could not carry
 
@@ -166,7 +169,7 @@ end
 ```
 
 The line that models the source impedance has no current rating, which is
-expected for a Thevenin impedance. Real lines without a rating would be a gap
+expected: it stands for the source's internal impedance, not a conductor. Real lines without a rating would be a gap
 to fill before an OPF, since no thermal limit is enforced on them. The case
 also has no voltage limits and no priced generation yet:
 

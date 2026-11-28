@@ -5,8 +5,9 @@ sources — that AC/DC converters share. This is how converter stations, back-to
 soft open points (SOPs), and MVDC ties are formed. DC quantities have **no angle**:
 each DC terminal holds a single real, *signed* voltage to earth (positive pole $>0$,
 negative pole $<0$, metallic return $\approx 0$). This page groups the DC objects and
-the converter coupling; each follows the [foundational → implementation
-split](index.md#How-each-component-page-is-organized). Symbols are defined in
+the converter coupling; each follows the foundational → implementation split of
+the [BMOPF specification](https://distribution-system-opt.github.io/math-and-data-model-specifications/).
+Symbols are defined in
 [Notation](notation.md).
 
 The DC subsystem is a BMOPFTools extension with no counterpart in the Task Force PDF

@@ -281,7 +281,7 @@ IBRs are keyed by **phase terminal** name, following the IBR's
 `Δv` is the topology-appropriate voltage difference: phase-to-neutral for
 `FOUR_LEG`, phase-to-reference for `SINGLE_PHASE`, and across the conductor pair
 for `THREE_LEG`. Sign convention matches the generator: positive `pg`/`qg` is
-power injected into the network. See [IBRs](opf.md#ibrs) for the
+power injected into the network. See [IBRs](@ref IBRs) for the
 constraint model (box `q_min`/`q_max` bounds, constant-power-factor coupling, the
 `s_max` apparent-power circle, and the optional `i_max` current-magnitude limit
 `cri² + cii² ≤ i_max²`).

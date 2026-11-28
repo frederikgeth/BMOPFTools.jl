@@ -13,11 +13,12 @@ makedocs(
         # assets/logo.svg and assets/logo-dark.svg are picked up automatically as the
         # sidebar logo; see scripts/logo/README.md for every logo variant.
         assets     = ["assets/favicon.ico"],
-        # Both are exhaustive reference pages whose size is the point: findings.md
-        # is the full finding catalog, api.md the full docstring index. api.md
-        # was already over the WARN limit before the objective building blocks
-        # were added; splitting it would scatter the reference people search.
-        size_threshold_ignore = ["findings.md", "api.md"],
+        # Exhaustive reference pages whose size is the point: findings.md is the
+        # full finding catalog, api.md the full docstring index, and
+        # augmentation_reference.md every fix/augment pass with the docstrings
+        # of its functions. Splitting them would scatter the reference people
+        # search.
+        size_threshold_ignore = ["findings.md", "api.md", "augmentation_reference.md"],
     ),
     pages = [
         "Home" => "index.md",
