@@ -38,7 +38,9 @@ def main() -> int:
         errors.append("README.md does not link the canonical llms.txt")
 
     assistant_text = ASSISTANT_GUIDE.read_text()
-    public_url = "https://frederikgeth.github.io/BMOPFTools.jl/docs/llms.txt"
+    # Documenter deploys under gh-pages:/docs (dirname="docs"), which Pages serves
+    # as the site root, so the dev build — and its llms.txt — lives under /dev/.
+    public_url = "https://frederikgeth.github.io/BMOPFTools.jl/dev/llms.txt"
     if public_url not in assistant_text:
         errors.append("AI-assistant guide does not link the published llms.txt")
 
