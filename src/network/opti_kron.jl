@@ -519,8 +519,9 @@ end
 """
     OptiKronEllipsoid(U; quantile=0.95, covariance=:poet, max_factors=5)
 `{μ + L y : ‖y‖₂ ≤ Ω}` with `Σ = LLᵀ` estimated by POET (principal
-orthogonal complement thresholding, at most `max_factors` factors, as in the
-paper) or by linear shrinkage towards the diagonal (`covariance=:shrinkage`),
+orthogonal complement thresholding, as in the paper; the cap of at most
+`max_factors` factors and their selection are a BMOPFTools tuning choice) or by
+linear shrinkage toward the diagonal (`covariance=:shrinkage`),
 and `Ω` the `quantile` of the training samples' scaled distances
 `‖L⁻¹(u−μ)‖₂`.
 """
@@ -1117,11 +1118,12 @@ Base.show(io::IO, r::OptiKronResult) = print(io,
                         master_time_limit=Inf, preserve_radial=true,
                         keep=String[], silent=true) -> OptiKronResult
 
-Robust Opti-KRON (prototype) solved by adversarial constraint generation
+Robust Opti-KRON solved by adversarial constraint generation
 (paper Algorithm 1): a scenario-based MILP master over a growing finite set
 `𝒰ᵗ ⊂ S` alternates with the closed-form adversary (13), adding the
 worst-case injections of at most `K` violated buses per iteration, until the
-reduction is certified for every injection in `S` (Δ ≤ 0).
+reduction is certified for every injection in `S` (Δ ≤ `tol`, or ≤ 10·`tol`
+when every proposed worst case is already enforced).
 
 - `optimizer` — a MILP-capable JuMP optimizer (e.g. `HiGHS.Optimizer`).
 - `initial` — `2nrows × n` matrix of starting injections; by default the

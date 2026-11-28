@@ -7,12 +7,13 @@
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
-*A 3400-bus meshed import arrives with a hundred-plus findings. Learn to sort
+*A meshed MV/LV import with several thousand buses arrives with a hundred-plus
+findings. Learn to sort
 them into defects to fix, judgment calls to decide, and disclosures to keep —
 and to leave a paper trail for each.*
 
 Real network data is never clean. An OpenDSS feeder that has passed through
-utility GIS exports, student edits, and format conversions arrives carrying
+utility GIS exports, hand edits, and format conversions arrives carrying
 structural cruft, suspicious parameters, and modeling conventions that only
 made sense in the source tool. The reflex responses — ignore all warnings, or
 "fix" everything until the report is silent — are both wrong: the first ships
@@ -32,7 +33,7 @@ bundled case, start with
     the [end-to-end tutorial](tutorial_end_to_end.md) covers the
     pipeline this one prepares a case *for*.
 
-## 1. The patient: a meshed MV/LV network
+## 1. The case: a meshed MV/LV network
 
 The `MVLVmeshed` test case is a combined MV + LV network in which
 normally-open ties and switches were deliberately re-added — a stand-in for
@@ -130,7 +131,7 @@ the finding as part of the case's record).
 ```julia
 warns = warnings(report)
 for code in ("W.CONN.MESHED", "W.CONN.DANGLING", "W.DOM.XFMR_STEP_UP",
-             "W.OPS.XFMR_OVERLOADED")
+             "W.DOM.XFMR_REVERSED", "W.OPS.XFMR_OVERLOADED", "W.DIV.LOAD_SYMMETRIC")
     i = findfirst(f -> String(f.code) == code, warns)
     if isnothing(i)
         println(code, "\n   (not emitted for this network)\n")
@@ -145,7 +146,7 @@ end
   are the point). On a supposedly radial feeder the same finding would be a
   defect. The code cannot know which — that is exactly why it is a warning
   and not an error.
-- **`W.CONN.DANGLING` → fix.** Hundreds of degree-1 buses with nothing
+- **`W.CONN.DANGLING` → fix.** Degree-1 buses with nothing
   attached are conversion cruft (service points whose customers were
   modeled elsewhere). They bloat the model and can hide genuine islands;
   a mechanical repair exists (§5).
@@ -153,14 +154,14 @@ end
   oriented *away* from the source usually means swapped
   `v_nom_from`/`v_nom_to` in the source data — but it can be a genuine boost
   unit or, in a meshed network, an artifact of hop-counting through the
-  ties. Check these four against the source data; do not auto-"fix" what
+  ties. Check each one against the source data; do not auto-"fix" what
   might be real.
-- **`W.OPS.XFMR_OVERLOADED` → decide, urgently.** A transformer at thousands
-  of percent utilization at nominal load is not an operating condition — it
-  is a **units or rating smell** (a kVA nameplate parsed where MVA was
-  meant, or a lumped load on a service transformer). This warning is doing
-  its most valuable work here: pointing at data whose *solve* would
-  otherwise quietly hit the nameplate cap and report heavy curtailment.
+- **`W.OPS.XFMR_OVERLOADED` → decide, urgently.** A transformer loaded at
+  many times its rating by nominal demand alone is not an operating
+  condition — it is a **units or rating smell** (a kVA nameplate parsed where
+  MVA was meant, or a lumped load on a service transformer). This warning
+  points at data whose *solve* would otherwise run into the transformer
+  rating, which the OPF enforces, and fail or be bound by it.
 - **`W.DIV.LOAD_SYMMETRIC` → disclose.** Nearly all loads share identical
   nameplates — a benchmark-realism note straight out of the
   [benchmarking-gap](benchmarking_gap.md) argument. Anyone consuming this
@@ -172,14 +173,17 @@ code away from being the "data quality" section of your paper's appendix.
 
 ## 5. Mechanical repairs: `fix_case`
 
-The "fix" verdicts have a dedicated tool. [`fix_case`](@ref) applies
-**lossless, semantics-preserving** structural repairs — largest connected
-component, series-line merging and dangling-stub removal (via
-[`simplify_network`](@ref)), zero-load removal, near-zero-impedance lines to
-switches, redundant source-bus bounds — and returns a manifest recording
-every change. Physics-*changing* repairs (promoting grounding shunts to
-perfect groundings, snapping placeholder impedances) exist but are **opt-in**
-flags on [`FixRecipe`](@ref), off by default:
+The "fix" verdicts have a dedicated tool. By default [`fix_case`](@ref) runs
+structural repairs — keep only the components reachable from a source,
+series-line merging and dangling-stub removal (via
+[`simplify_network`](@ref)), zero-load removal, removal of satisfied bounds on
+fixed source terminals, and removal of ideal conductors between two earthed
+terminals — and returns a manifest recording every change. These defaults are
+not lossless: they can remove disconnected assets, and pruning a stub drops
+any shunt it carried. Approximations (low-impedance lines to switches,
+inferred current bounds, promoting grounding shunts to perfect groundings,
+re-representing capacitive shunts, snapping placeholder impedances) exist but
+are **opt-in** flags on [`FixRecipe`](@ref), off by default:
 
 ```julia
 fixed, manifest = fix_case(net)
@@ -202,8 +206,7 @@ Note what the manifest records besides the changes: the *blocked* merges
 part of the paper trail too, and one of them (`SWITCH_IN_CHAIN`) is itself a
 data smell worth a look. Also note the paired `SHUNT_DROPPED` entries: every
 removed stub that carried charging susceptance is called out, because
-dropping it perturbs the nodal balance — `fix_case` is honest about the
-edges of "lossless". Re-analyze to see the effect:
+dropping it perturbs the nodal balance. Re-analyze to see the effect:
 
 ```julia
 report2 = analyze(fixed)
@@ -215,10 +218,10 @@ for f in warnings(report2)
 end
 ```
 
-Two instructive things happened. First, the dangling population collapsed
-(534 → 55 buses) but did **not** vanish: the survivors hang off *switches*,
+Two instructive things happened. First, the dangling population shrank
+but did **not** vanish: the survivors hang off *switches*,
 and `fix_case` deliberately refuses to treat an operable device as cruft —
-those 55 need a human verdict (normally-open points? metering stubs?).
+those need a human verdict (normally-open points? metering stubs?).
 Second, compare the warning tables before and after: the transformer
 *orientation* warnings changed count. Findings are functions of the network
 — the orientation heuristic ranks source-distance in hops, and merging
@@ -233,8 +236,9 @@ silence those.
 A triaged case still is not an optimization case — this import carries no
 voltage bounds, no thermal limits, no costs (`I.PRE.NO_VOLT_BOUNDS` in the
 report). [`augment_case`](@ref) synthesizes the missing operating envelope,
-and its honesty mechanism is the point: *every* synthesized value is stamped
-with a provenance finding, so the info count explodes — by design:
+and its honesty mechanism is the point: *every* synthesized value is recorded
+as an entry in the returned [`TransformationManifest`](@ref), with the rule
+that produced it and a confidence level:
 
 ```julia
 ready, aug_manifest = augment_case(fixed; recipe = AugmentationRecipe())
@@ -242,10 +246,16 @@ report3 = analyze(ready)
 println("after augment: errors ", length(errors(report3)),
         " / warnings ", length(warnings(report3)),
         " / infos ", length(infos(report3)))
+
+byconf = Dict{String,Int}()
+for e in manifest_to_dict(aug_manifest)["entries"]
+    byconf[e["confidence"]] = get(byconf, e["confidence"], 0) + 1
+end
+println("augmentation entries by confidence: ", byconf)
 ```
 
-Thousands of infos now record which bounds are standards-derived and which
-are synthetic — the [nameplate tutorial](tutorial_nameplate.md)'s confidence
+The manifest entries record which values are standards-derived and which are
+synthetic — the [nameplate tutorial](tutorial_nameplate.md)'s confidence
 tiers, applied at scale. Two gates then say whether the result is ready for
 its intended use:
 
@@ -276,16 +286,16 @@ still not a benchmark until it carries decisions worth optimizing (the
 
 The end state of triage is *not* a silent report. This case ships as: the
 repaired network, **plus** the residual warnings with their written verdicts
-(meshed by design; load symmetry synthetic; four transformer orientations
+(meshed by design; load symmetry synthetic; transformer orientations
 checked against source; the overload smell resolved or documented), **plus**
 the import ledger and both manifests. That bundle is what makes the case
 *reviewable* — the difference between "we cleaned the data" and a benchmark
 someone can trust. It is deliberately the same discipline the engine applies
-to itself: derived values are stamped, approximations are listed, and
+to itself: derived values are recorded, approximations are listed, and
 refusals are recorded.
 
-This tutorial stopped at the gates on purpose — solving a 2700-bus meshed
-case is a topic of its own. Take the triaged case onward: the
+This tutorial stopped at the gates on purpose — solving a meshed case of
+several thousand buses is a topic of its own. Take the triaged case onward: the
 [simplification tutorial](tutorial_simplify.md) reduces it further where
 fidelity allows, and the [end-to-end tutorial](tutorial_end_to_end.md)'s
 solve-and-profile loop applies unchanged.

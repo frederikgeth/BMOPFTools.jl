@@ -70,17 +70,15 @@ Download the raw case and open it using the steps above. The large case is an
 external example; the small downloadable feeder below is sufficient to try the
 file workflow without obtaining utility-derived data.
 
-The diagram and operating-point overview were introduced in
-[Tellegen PR #185](https://github.com/eigenergy/tellegen/pull/185).
-The views here were captured afresh from the deployed viewer. The case file is
-unchanged throughout; zooming and changing layout change the drawing.
+The case file is unchanged throughout; zooming and changing layout change the
+drawing.
 
 ### 1. Establish the network context
 
 At the overview scale shown at the top of this page, the key identifies
 **11 kV MV** lines in blue and **400 V LV** lines in gray. Sources and transformers
 remain visible as landmarks while local detail fades. Locate the supply point,
-then zoom towards a transformer and the streets it supplies.
+then zoom toward a transformer and the streets it supplies.
 
 This first view answers where the study sits and how much of it you are looking
 at. Color in **Equipment and topology** identifies voltage level; it is not a
@@ -114,7 +112,7 @@ the shortened label in the drawing is only a reading aid.
 
 ### 3. Zoom in to inspect connections
 
-Zoom back towards the transformer, or select its issue again to bring it back
+Zoom back toward the transformer, or select its issue again to bring it back
 into view. Equipment symbols, phase and neutral conductor marks, attached loads,
 and neutral earths become visible. After a solve, the drawing also shows active
 power arrows and attachment P/Q values.
@@ -285,7 +283,7 @@ queue is not proof that the electrical model is correct.
 
 ## Try a small four-wire case
 
-This original synthetic feeder has four buses, three lines and two loads, with
+This synthetic feeder has four buses, three lines and two loads, with
 an explicit neutral. It has no geographic coordinates and needs only
 BMOPFTools to prepare. Its illustrative electrical parameters are not calibrated
 to a utility network.
@@ -317,11 +315,6 @@ for supported equipment. This uses prescribed loads and sources; viewing a
 BMOPF case does not imply support for multiconductor OPF or the transmission
 demo's LMP and sensitivity controls. Read the viewer's import diagnostics and
 calculation limitations for your case.
-
-The package integration and broader fixture validation are tracked in
-[issue #207](https://github.com/frederikgeth/BMOPFTools.jl/issues/207);
-coordinate spaces and preservation are tracked in
-[issue #254](https://github.com/frederikgeth/BMOPFTools.jl/issues/254).
 
 ## [Reference](@id tellegen-paper)
 

@@ -104,8 +104,8 @@ the data:
   sampled range in directions of real variation;
 - the **Wasserstein** set covers distributions close to the empirical one.
 
-Wider sets mean more super-nodes and safer reductions. That is the price of
-robustness.
+Wider sets can mean more super-nodes and safer reductions (here all three
+keep four). That is the price of robustness.
 
 ## 5. A solvable reduced case
 
@@ -145,9 +145,10 @@ The certificate is for the linear model and for loadings in the set. Before
 relying on a reduced case:
 
 - check `res.status == :optimal` (certified and minimal) or `:feasible`
-  (certified; a master hit its time limit);
-- leave a margin on Ē for the linear-versus-AC gap; it was a few percent of Ē
-  in every test so far;
+  (certified; the final master hit its time limit);
+- leave a margin on Ē for the linear-versus-AC gap; in the AC comparisons on
+  [Network reduction](@ref network-reduction), Opti-KRON alone reached up to
+  1.04 Ē, and 1.44 Ē when a neutral reduction preceded it;
 - for important studies, run an AC power flow on the original network at the
   reduced solution's set-points, as in
   [Simplifying a network](@ref tutorial-simplify).

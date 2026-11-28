@@ -40,7 +40,12 @@ end
 
 An INFO is context, not a defect. `I.PRE.NO_VOLT_BOUNDS` says the case has no
 voltage limits yet, which is true and expected before
-[augmentation](augmentation.md). Nothing here asks you to change the data.
+[augmentation](augmentation.md). `I.SCHEMA.VERSION_UNKNOWN` appears because the
+fixture carries no `meta["$schema"]` URI, so the JSON Schema layer is skipped
+and only the field catalog runs; `I.PRE.XFMR_COIL_UNASSESSED` appears because
+the coil-headroom screen estimates only single-phase transformer banks, and
+this substation is a three-phase `delta_wye` unit. Nothing here asks you to
+change the data.
 
 ## 2. The messy case
 
@@ -118,12 +123,17 @@ println(floating.detail["buses"])
 ```
 
 Why does a floating neutral matter? The neutral conductor connects the four LV
-buses to each other, but nothing connects it to earth. Its potential is then
-whatever makes the currents sum to zero: there is one equation too few, and the
-voltages of the whole LV island are defined only up to a common shift. That is
-the second error, `E.INT.NO_VOLTAGE_REFERENCE`, and it is the *same root cause*
-seen by a different check. The profiler even points at where the earth should
-have been:
+buses to each other, but nothing connects it to earth, and the delta-wye
+transformer gives the LV side no galvanic path to the earthed source. The load
+return currents then have no defined path to earth: the zero-sequence path is
+undefined, and a four-wire analysis of the LV island is ill-posed. On its own,
+the lost earth would also leave the LV island without any voltage reference
+(`E.INT.NO_VOLTAGE_REFERENCE`: voltages defined only up to a common shift).
+That error is absent here only by accident: because `m` is not a neutral, the
+profiler reads the `shop` load as connected from each phase to earth, and that
+typo is the island's only tie to earth. Two defects mask each other, which is
+another reason to fix by cause. The profiler even points at where the earth
+should have been:
 
 ```@example messy
 hint = only(f for f in report.findings if f.code == "I.PROV.WYE_NEUTRAL_UNGROUNDED")
@@ -138,18 +148,19 @@ finding, with a case where it is right and a case where it is harmless, is in
 
 ## 5. Decide
 
-Sort every warning and error into one of three piles.
+Sort every warning and error into one of three piles: **fix**, **decide**,
+**disclose**.
 
 | Finding | Pile | Why |
 |---|---|---|
-| `E.PROV.FLOATING_NEUTRAL`, `E.INT.NO_VOLTAGE_REFERENCE` | **fix** | one defect: the lost star-point earth |
+| `E.PROV.FLOATING_NEUTRAL` | **fix** | one defect: the lost star-point earth |
 | `E.INT.UNKNOWN_TERMINAL`, `W.INT.FLOATING_LOAD_TERMINAL`, `W.INT.DEVICE_INDEXING_UNASSESSED` on `shop` | **fix** | one defect: the terminal typo |
 | `W.DOM.LOAD_PF_LOW` on `h3` | **fix** | a power factor of 0.4 on a household is a unit error |
-| `W.PROV.I_MAX_ABSENT` | **fix or disclose** | ratings are missing; restore them from the source, or state that thermal limits are not enforced |
+| `W.PROV.I_MAX_ABSENT` | **fix**, or **disclose** | ratings are missing; restore them from the source, or state that thermal limits are not enforced |
 | `W.CONN.DANGLING` | **decide** | the spur carries nothing; remove it, or keep it and say so |
 
-Eight warnings and errors, four defects to repair and one judgment call. That
-ratio is typical, and it is why you sort by cause before touching the data.
+Seven warnings and errors, four defects to repair and one judgment call. Several
+findings share a cause, which is why you sort by cause before touching the data.
 
 One defect produced **no warning at all**: the line length typed in
 kilometers. It is in the infos:
@@ -194,7 +205,8 @@ println("introduced: ", sort(collect(setdiff(after_codes, before_codes))))
 ```
 
 Nothing was introduced, and every code that came from a planted defect is
-gone. The repaired case is the clean case again.
+gone, including `I.TMAP.PERMUTED_ORDER`, which the terminal typo on `shop`
+produced. The repaired case is the clean case again.
 
 ## 7. Keep the report
 
@@ -217,4 +229,4 @@ println(first(readlines("messy-case-after.md"), 6) |> x -> join(x, "\n"))
 Next: [System types and regional practice](tutorial_system_types.md) shows what
 the profiler reports for split-phase, high-leg delta, SWER and other systems;
 [Findings triage at scale](tutorial_triage.md) applies the same loop to a
-3400-bus import.
+meshed MV/LV import with several thousand buses.

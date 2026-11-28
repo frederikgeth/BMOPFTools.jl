@@ -3,8 +3,9 @@
 Reference for the structured results in `analyze(net).results`. For what the
 passes are and how to read the report, start with
 [Analysis & reports](analysis.md); for the meaning of a finding code, use the
-[finding-code reference](findings.md). Keys documented here are stable across
-versions.
+[finding-code reference](findings.md). This page documents selected keys, not
+every key a pass emits; keys not documented here may change in any release.
+See [Versioning](dev/versioning.md) for the package's compatibility policy.
 
 ## Connectivity
 
@@ -22,7 +23,8 @@ connect zones.
 For each graph, `cycle_rank = n_physical_edges - n_buses + n_components` and
 `cycle_rank = simple_cycle_rank + parallel_excess`. The simple graph retains
 one edge per bus pair. `transformer_mediated_cycle_rank` is the whole-network
-cycle rank less the sum of within-zone cycle ranks. A tier contains only edges
+cycle rank without DC links, less the sum of within-zone cycle ranks;
+`dc_mediated_cycle_rank` counts the cycles that DC links add. A tier contains only edges
 whose endpoints have the same source-propagated voltage-level label;
 `n_cross_tier_edges` counts the excluded branches. Unassigned buses form an
 explicit `unassigned` tier.
@@ -109,8 +111,8 @@ the transformer.
 Source-path counts use only declared voltage-source and load bus incidence.
 A graph path does not prove energization, switch operability, protection
 compatibility, phase or voltage compatibility, capacity, or synchronization.
-The existing `W.CONN.MESHED` and `E.CONN.DISCONNECTED` Findings still
-describe only the declared snapshot; switch scenarios introduce no Findings.
+The `W.CONN.MESHED` and `E.CONN.DISCONNECTED` Findings describe only the
+declared snapshot; switch scenarios introduce no Findings.
 
 
 ### Transformer banks and DC links
@@ -248,22 +250,22 @@ clock zero. Use `transformer_phase_relation` for a directed winding pair or pass
 **nominal-demand estimate**, separate from the supplied-result
 `profile_solution(net, result).results[:transformer_loading]` report.
 The same block is carried by `execute_analysis`, JSON analysis reports and the
-existing `analyze_case` recipe. Markdown includes the coil table and unassessed
+`analyze_case` recipe. Markdown includes the coil table and unassessed
 reasons; terminal reports show the stable preflight Findings.
 
-The initial domain is one `single_phase` transformer bank in a connected radial
+The supported domain is one `single_phase` transformer bank in a connected radial
 network with exactly one upstream voltage source, explicit ordered branch maps,
 and phase-neutral `SINGLE_PHASE` or `WYE` loads. A case may use its documented
 `n`/`N` neutral naming convention or declared terminal roles; the report records
 which was used. Endpoint labels are never matched as a substitute for an absent
 map. Lines may be oriented either way and may explicitly permute phase labels.
 Fixed open switches are omitted from the supply graph; isolated buses make this
-initial whole-network screen inapplicable. Reverse-fed transformers, multiple
+whole-network screen inapplicable. Reverse-fed transformers, multiple
 banks or supplies, meshes (including parallel paths), phase-to-phase/delta loads,
 ZIP/exponential models, local generation, IBRs, separate shunts/capacitors,
 DC devices, control profiles and authored tap bounds/decisions are unassessed.
-This deliberately bounded first domain does not allocate the unsupported cases
-by phase count or bank totals.
+The screen does not allocate the unsupported cases by phase count or bank
+totals.
 
 For each mapped downstream coil, sum signed `p_nom` and `q_nom` and calculate
 `S_nom = hypot(sum(P_nom), sum(Q_nom))`. P must be nonnegative; signed Q permits
@@ -286,12 +288,13 @@ cap, utilization, headroom and individual load contributions with ordered
 source paths. The bank summary sums coil apparent magnitudes. Missing or
 ambiguous data yield no partial numeric allocation and a stable reason.
 
-For the 100 kVA, three-coil / 40 kW single-coil witness, nominal bank utilization
-is 40%, but coil 1 is 120% with headroom −6.667 kVA.
+For example, a 100 kVA three-coil bank has a 33.3 kVA cap per coil. With 40 kW
+on coil 1 alone, nominal bank utilization is 40 %, but coil 1 is at 120 % with
+headroom −6.667 kVA.
 `W.PRE.XFMR_COIL_HEADROOM` flags negative nominal headroom;
 `I.PRE.XFMR_COIL_UNASSESSED` explains unsupported or incomplete cases.
-`W.OPS.XFMR_OVERLOADED` remains the existing aggregate nominal-load warning
-above 90%; its threshold and meaning are unchanged.
+`W.OPS.XFMR_OVERLOADED` is the separate aggregate nominal-load warning above
+90 %.
 
 Positive headroom **does not prove feasibility** and negative headroom **does
 not prove infeasibility**. The result records both limitations, its assumptions
@@ -320,8 +323,8 @@ built or solved model. Other subtypes are reported as not applicable.
 `operational.feeder_length` reports, per galvanic zone, how far (by declared
 line length) the farthest bus is from the nearest *supply boundary*: a voltage
 source, or a transformer port with a source beyond it. For a chain of four
-100 m lines fed from both ends this is 200 m (`boundary_reach_m`), while the
-legacy `reach_m` / `anchor_extent_m` measures 400 m from one end.
+100 m lines fed from both ends this is 200 m (`boundary_reach_m`), while
+`reach_m` / `anchor_extent_m` measures 400 m from one end.
 `I.OPS.FEEDER_LONG` and `I.OPS.FEEDER_SHORT` compare it with per-band
 thresholds. Review genuine feeder size, unit conversions and the OpenDSS default
 `length=1`: copying 1 km as 1 m makes a line 1000 times too short; interpreting
@@ -367,18 +370,23 @@ local resources with negligible capacity; a passive feeder imports by constructi
 
 ### Assessment coverage
 
-`results.assessment` lists which tracked checks were assessed, skipped, not
-applicable or indeterminate, with reasons. It is separate from severity and is
-not a validation score. Reports show a one-line summary plus the checks you can
-act on; legacy passes without a coverage ledger appear only in JSON.
+`results[:assessment]["checks"]` lists one record per tracked check, with
+`check`, `entity_unit`, `n_entities`, `status`, `status_counts`,
+`reason_counts` and `reason`. A status is one of `assessed`, `skipped`,
+`inapplicable`, `indeterminate` or `unknown`; `check_status_counts` totals the
+checks by status. It is separate from severity and is not a validation score
+(`comprehensive_validation = false`). Reports show a one-line summary plus the
+checks you can act on. Passes without a complete coverage ledger appear only in
+JSON, as `<pass>_remaining_coverage` checks with status `unknown`.
 
 
 ### Consolidation
 
 `results[:consolidation]` records what the report consolidation changed:
-`rolled_up` (code and count per roll-up), `subsumed` (dropped code, the code that
-covers it, and the components), `rollup_threshold`, and the finding counts before
-and after. See [Report consolidation](analysis.md#Report-consolidation).
+`rolled_up` (one entry per roll-up, with `code` and `n`), `subsumed` (one entry
+per dropped code, with `code`, the covering code `by`, `n`, and `components` for
+per-component subsumption), `rollup_threshold`, `n_findings_before` and
+`n_findings_after`. See [Report consolidation](analysis.md#Report-consolidation).
 
 ### Repetition and parallel declarations
 

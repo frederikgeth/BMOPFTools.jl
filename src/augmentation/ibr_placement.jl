@@ -65,7 +65,7 @@ Sizing (targets apparent power `s_max`)
 
 IBR model
 --------------
-- `prime_mover` — `:PV` (MVP). Drives `p_min = 0` in the augment pass.
+- `prime_mover` — `:PV` by default. Drives `p_min = 0` in the augment pass.
 - `inverter_topology` — `:infer` (FOUR_LEG when the host load has a neutral
   terminal, else SINGLE_PHASE), or a forced `:FOUR_LEG` / `:THREE_LEG` /
   `:SINGLE_PHASE`.

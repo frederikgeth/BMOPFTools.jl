@@ -57,7 +57,7 @@ elements that fix voltage differences between them: a line conductor end to
 end, the terminals of one winding, the two ends of an active load, generator or
 IBR coil (a zero-power load coil, or a generator coil whose bounds or ratings
 force zero current, carries no current at any voltage and ties nothing; an
-inverter coil is left out only when the constraints the solver stamps on it
+IBR coil is left out only when the constraints the solver stamps on it
 prove the same, see below), two shunt
 terminals with a nonzero admittance entry between them (listing a terminal in a
 shunt's map connects it to nothing), the terminal pairs a capacitor bank
@@ -68,8 +68,8 @@ free to shift together; `E.INT.NO_VOLTAGE_REFERENCE` then names the floating
 group (`detail["scope"] = "conductor_group"`), although the island as a whole
 has a reference.
 
-!!! note "When an inverter counts as a connection"
-    An inverter coil ties its two terminals unless its constraints force both
+!!! note "When an IBR counts as a connection"
+    An IBR coil ties its two terminals unless its constraints force both
     its active and its reactive power to zero at every voltage. The profiler
     reads those constraints from the same rules the solver builds them from:
     the P and Q bounds, a constant or minimum power factor, a Volt-var or
@@ -110,10 +110,17 @@ println(codes(report, "FLOATING", "NO_VOLTAGE", "WYE_NEUTRAL"))
 println(report.results[:provenance]["grounding"]["n_grounding_points"], " earthing point")
 ```
 
-A 10 Ω electrode clears all three. The neutral will now rise above earth under
-unbalanced load, which is what happens physically; a perfect ground would hide
-that. Use `perfectly_grounded_terminals` only where zero neutral voltage is a
-fair statement, such as a substation earth mat.
+A 10 Ω electrode clears all three. In this case it is the only earth, so no
+current can return through it: the star-point neutral sits at earth potential
+and the neutral rises along the feeder by the drop of the neutral current, the
+same solution as with a perfect ground. The choice matters once there is a
+second earth path, such as customer multiple-earthed-neutral (MEN) bonds,
+distributed electrodes, or a fault: a perfect ground then diverts return
+current from the neutral conductor into earth that a real electrode would not
+(see
+[Ground, neutral and earth return](tutorial_grounding.md)). Use
+`perfectly_grounded_terminals` only where zero neutral voltage is a fair
+statement, such as a substation earth mat.
 
 ### The unused neutral
 
@@ -123,10 +130,10 @@ depends on its potential, and the severity drops:
 ```@example grounding
 net = case("eu_tn_four_wire")
 delete!(net["bus"]["lv0"], "perfectly_grounded_terminals")
-for l in values(net["load"])           # make every load phase-to-phase
+for l in values(net["load"])           # single-phase loads go phase-to-phase
     l["configuration"] == "SINGLE_PHASE" && (l["terminal_map"] = ["a", "b"])
 end
-delete!(net["load"], "shop")
+delete!(net["load"], "shop")           # the wye shop uses the neutral: remove it
 println(codes(analyze(net), "FLOATING", "NO_VOLTAGE"))
 ```
 
@@ -164,8 +171,9 @@ counted there.
 
 ## An island with no reference
 
-An unearthed delta secondary, or an industrial IT system, has no intentional
-tie to earth at all.
+An unearthed delta secondary, or an isolated (unearthed) industrial IT system,
+has no intentional tie to earth at all. (An IT system may instead be earthed
+through a high impedance; model that impedance as a shunt.)
 
 ```@example grounding
 bare = analyze(case("it_delta_island_unreferenced"))
@@ -239,7 +247,10 @@ println(report.results[:provenance]["wires_by_level"]["LV_231V"]["delta_fed"])
 ```
 
 A level supplied by a delta secondary is recognized as three-wire and not
-flagged. An MV level is not flagged either: three-wire MV is the norm.
+flagged. The check considers only levels below 1 kV and never flags an MV
+level: three-wire MV is common in some regions (much of Europe and Australia)
+and four-wire multigrounded MV in others (North America), so a missing MV
+neutral is no evidence of a reduction.
 
 **The explicit neutral that adds nothing.**
 
@@ -259,8 +270,10 @@ grounds were added only to make a case solve. See
 
 ## Reading order for a grounding problem
 
-1. Look at `results[:provenance]["grounding"]`: neutral sections, earthing
-   points, floating sections.
+1. Look at `results[:provenance]["grounding"]`: `n_neutral_components`,
+   `n_grounding_points`, `n_floating`, and, when neutral conductors are
+   present on branches, `floating_components` (the bus lists of the floating
+   neutral sections).
 2. If there is an `E.` finding, find the island or neutral section it names and
    ask what should tie it to earth. The `I.PROV.WYE_NEUTRAL_UNGROUNDED` finding
    usually points at the place.

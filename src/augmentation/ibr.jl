@@ -4,8 +4,8 @@
 #
 # P bounds
 # ────────
-# If p_max is absent, it is derived per phase from p_avail (split equally) or
-# from the per-phase s_max ratings.  For PV prime movers p_min = 0 is also
+# If p_max is absent, it is derived per phase from p_avail (split in proportion to
+# the per-phase s_max ratings when present, else equally) or from s_max.  For PV prime movers p_min = 0 is also
 # injected when absent (no active-power absorption).
 #
 # Q bounds

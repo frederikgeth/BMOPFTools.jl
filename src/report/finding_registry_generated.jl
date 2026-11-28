@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "72550e62371093bffad25b17417e7eaa16b9ae427feee17b04947ca4fdcb163a"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "5b9959c2c35a7f6fccc5650449327e158289afdec08fdd4de406023c88d58eb9"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -1746,7 +1746,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="A transformer that looks like a voltage-regulator/autotransformer encoding: either both windings on one bus (the explicit EPRI autotransformer form) or a near-1:1 wye unit with same-level endpoints / very low impedance / non-unity tap. The data model has no regulator object — a control device has been frozen into a fixed branch.",
+        meaning="A transformer that looks like a voltage-regulator/autotransformer encoding: either both windings on one bus (the explicit EPRI autotransformer form) or a near-1:1 wye unit with same-level endpoints / very low impedance / non-unity tap. `from_dss` does not convert either form into a regulator subtype (`single_phase_autotransformer`, `open_delta_regulator`), so a control device has been frozen into a fixed-tap branch.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

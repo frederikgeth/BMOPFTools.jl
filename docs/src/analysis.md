@@ -43,17 +43,17 @@ trying to do:
 | `:spec` | [`spec_conformance_check`](@ref) | TF-spec rules the JSON Schema cannot express: single source, configuration/arity, transformer map arities, terminal types, matrix storage |
 | `:benchmark` | [`benchmark_readiness_check`](@ref) | objective well-posedness, slack-only detection, bound/limit coverage, **augmentation suggestions** |
 
-Two further result blocks are produced inside these passes rather than by a
-pass of their own:
+The connectivity pass also produces `results[:connectivity]["spatial"]`, the
+geospatial analysis, when buses carry coordinate fields
+([Spatial diagnostics](spatial_diagnostics.md)).
 
-- `results[:connectivity]["spatial"]` — the geospatial analysis, run by the
-  connectivity pass when buses carry coordinate fields
-  ([Spatial diagnostics](spatial_diagnostics.md));
-- `results[:assessment]` — which tracked checks were assessed, skipped, not
-  applicable or indeterminate ([Assessment coverage](analysis_results.md#Assessment-coverage)).
+After the passes, `analyze` builds two further result blocks:
 
-After the passes, `analyze` consolidates the finding log
-(`results[:consolidation]`, [below](#Report-consolidation)).
+- `results[:assessment]` — the status of each tracked check (assessed, skipped,
+  inapplicable, indeterminate or unknown;
+  [Assessment coverage](analysis_results.md#Assessment-coverage));
+- `results[:consolidation]` — what report consolidation dropped or rolled up
+  ([below](#Report-consolidation)).
 
 Note on transformer utilization: the downstream-load estimate excludes the
 transformer under analysis. If its from side remains reachable from its to
@@ -193,7 +193,7 @@ implications depend on which conductors and couplings the model retains:
 `observations.by_linecode` records `n_conductors`, `phase_block_only` and the
 relative coupling to conductors outside the inspected block. An extra conductor
 can coexist with a sequence-built phase block: OpenDSS can materialize a coupled
-four-conductor matrix from sequence values, or a modeller can supply neutral
+four-conductor matrix from sequence values, or a modeler can supply neutral
 parameters separately. Shape alone does not select transposition over sequence
 parameterization. A balanced phase block can still have an explicit neutral
 that introduces phase-to-neutral unbalance.
@@ -219,7 +219,7 @@ The Kron hint is matrix-only, so its context distinguishes known LV use without
 a represented neutral, known MV/HV-only use, unused templates, and unassessed or
 mixed use. Missing nominal-voltage or terminal-map evidence does not establish
 MV/HV use. Context counts retain `n_mv_hv_lines`, `n_lv_with_neutral_lines` and
-`n_unassessed_lines`, with bounded line-ID examples; their sum is the legacy
+`n_unassessed_lines`, with bounded line-ID examples; their sum is
 `n_other_or_unassessed_lines`. Only positively identified MV/HV-only uses receive
 `known_mv_hv_context`; unused templates receive `unused_linecode_context`.
 Unassessed uses keep conditional neutral implications and an

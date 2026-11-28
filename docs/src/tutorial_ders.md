@@ -23,8 +23,9 @@ three scenarios on the *same* feeder and DER fleet that each make a **different
 constraint bind**. The throughline:
 
 > B and C share a feeder, a DER fleet, an operating point, and a limit set. They
-> differ by a single knob — the service-cable ampacity — yet the active constraint
-> flips from **voltage** to **thermal**, and the optimal dispatch flips with it.
+> differ in the service-cable linecode — its ampacity, plus zeroed charging
+> shunts — yet the active constraint moves from **voltage** to **thermal**, and
+> the optimal dispatch moves with it.
 
 The framing follows the network-aware curtailment / dynamic-hosting-capacity view
 of Badmus & Pandey [[1]](@ref refs-ders), on the four-wire IVR-EN model of Deakin,
@@ -92,10 +93,11 @@ GEN_RECIPE = GeneratorRecipe(
 
 The scenarios need a little network surgery before placement, so we wrap the
 whole preparation in one function: load the JSON, strip the pre-existing DERs
-(we place every DER from the recipes), tap the 11 kV source so the LV head sits
-at `head_pu` on a 230 V base, stretch the two service drops to a realistic 30 m
+(we place every DER from the recipes), scale the source voltage so the LV head
+sits at `head_pu` on a 230 V base, stretch the two service drops to a realistic 30 m
 (the raw ~6 m drops are too short to develop an LV voltage rise), and — for
-scenario C — swap the drops onto a derated 16 mm² linecode:
+scenario C — swap the drops onto a derated 16 mm² linecode with its charging
+shunts zeroed:
 
 ```julia
 const LV_LN_V    = 230.0                        # phase-to-neutral base we report in
@@ -106,7 +108,7 @@ function base_net(; head_pu = 1.0, drop_m = 30.0, derate = false, imax = 90.0)
     net = parse_bmopf(joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "lv1_14bus.json"))
     delete!(net, "ibr"); delete!(net, "generator")   # clean slate: recipes place all DERs
 
-    # Strip any source cost so augment_case prices the slack itself, and retap the head.
+    # Strip any source cost so augment_case prices the slack itself, and scale the head.
     for (_, vs) in net["voltage_source"]
         delete!(vs, "cost")
         vs["v_magnitude"] = [HEAD_SCALE * head_pu * v for v in vs["v_magnitude"]]
@@ -145,12 +147,17 @@ function set_vpn_limits!(net)
 end
 ```
 
-`augment_case` then fills the standards-grounded gaps: the IBR `P²+Q²≤s_max²`
-circle and its EN 50549-1 reactive box, the generator reactive limits, a
-heuristic conductor-ampacity thermal limit, and a per-phase slack price. Two
-[`AugmentationRecipe`](@ref) presets implement "no network limit" (scenario A)
-versus "network limits on" (B and C) — A skips the voltage *and* thermal
-passes, while B/C keep the thermal pass and get their voltage ceiling from
+`augment_case` then fills the gaps: the IBR active-power bounds and EN 50549-1
+reactive box, the generator reactive limits, and a per-phase slack price. The
+IBR's `P²+Q²≤s_max²` circle is part of the IBR model in the OPF, not something
+augmentation writes. Neither preset below runs the thermal pass
+(`apply_thermal` is off by default), so the current limits are the ratings
+already stored on the linecodes: `lv1_14bus.json` carries `i_max = 600` A on
+every linecode (the OpenDSS default, not a conductor rating), and scenario C
+replaces it on the two drops with `imax`. Two [`AugmentationRecipe`](@ref)
+presets separate scenario A from B and C. Both skip the EN 50160 phase-to-neutral,
+phase-to-phase and unbalance passes; A keeps the loose `v_min`/`v_max` guard
+bounds (0.85/1.15 pu), while B/C drop them and get their voltage ceiling from
 `set_vpn_limits!` above:
 
 ```julia
@@ -236,12 +243,15 @@ end
 ```
 
 The metric helpers (worst phase-to-neutral voltage, worst `cm_fr/i_max` thermal
-utilization, a classifier that names the headline active constraint, and a
-`run_scenario` wrapper around `augment_case → solve_opf`) are defined in
-[`examples/place_and_solve_ders.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/place_and_solve_ders.jl)
-(functions `vpn_pu`, `max_thermal`, `classify`, `run_scenario`); the doc build
-loads the same definitions behind the scenes. With everything in place, the
-recipes drop one PV IBR and one thinner generator on each load bus:
+utilization, a classifier that names the headline active constraint within 1 %
+of its bound, and a `run_scenario` wrapper around `augment_case → solve_opf`)
+sit in a hidden setup block on this page, which the blocks below call. Because
+those blocks are not executed by the docs build, run the scenarios from
+[`examples/place_and_solve_ders.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/place_and_solve_ders.jl),
+which contains the same helpers (`vpn_pu`, `max_thermal`, `classify`,
+`run_scenario`; its `run_scenario` also takes a label). The numbers quoted below
+come from that script. With everything in place, the recipes drop one PV IBR
+and one thinner generator on each load bus:
 
 ```julia
 demo = base_net()
@@ -265,22 +275,23 @@ expensive slack import.
 
 ### A — cheap DERs, no network limit
 
-The economic baseline: head at nominal, no voltage ceiling, no thermal limit
-(the `RECIPE_NOLIMITS` preset). The OPF is then a pure cost sort:
+The economic baseline: head at nominal, no EN 50160 ceiling (only the 0.85/1.15 pu
+guard bounds), and only the stored 600 A linecode ratings (the
+`RECIPE_NOLIMITS` preset). The OPF is then a pure cost sort:
 
 ```julia
 A = run_scenario(base_net(), RECIPE_NOLIMITS)
 show_outcome(A)
 ```
 
-Every DER runs to its active-power bound and the surplus (≈ 71 kW) is exported —
+Every DER runs to its active-power bound and the surplus (≈ 66 kW) is exported —
 the slack simply absorbs negative power. The only active constraints are the
 imposed generation limits; the network is not yet in the way. This is the merit
 order working exactly as priced.
 
 ### B — head run high, healthy cable → voltage binds
 
-Now tap the feeder head to 1.05 pu (utilities run the LV head high to cover
+Now raise the feeder head to 1.05 pu (utilities run the LV head high to cover
 downstream drop — precisely when midday PV export over-voltages the far end) and
 impose the EN 50160 ceiling via `set_vpn_limits!`, which writes on every LV bus:
 
@@ -297,28 +308,29 @@ show_outcome(B)
 The voltage is held at **exactly 1.10 pu** and the dispatch changes completely.
 Two things happen, co-optimized in a single solve:
 
-- **The IBRs absorb reactive power for voltage support — and both hit the same
-  −21.79 kvar, but against *different* constraints.** `augment_case` sized the
-  EN 50549-1 reactive box from the apparent-power circle at rated active power:
+- **The IBRs absorb reactive power for voltage support** (≈ −11 kvar each), and
+  that Q sits inside both of their limits. `augment_case` filled the reactive box
+  from the rated active power with the default power factor
+  `ibr_default_pf = 0.90`:
 
   ```math
-  q_{\min} = -\sqrt{s_{\max}^2 - p_{\text{avail}}^2} = -\sqrt{50^2 - 45^2}
+  q_{\min} = -p_{\max}\tan(\arccos 0.90) = -45 \times 0.484
            \approx -21.79\ \text{kvar}.
   ```
 
-  For the *uncurtailed* unit (`pv_b2656`, ``P = 45`` kW) that box edge lies
-  exactly on the `P²+Q²≤s_max²` circle — both are active at once, and reactive
-  support genuinely trades against active headroom. For the *curtailed* unit
-  (`pv_b3230`, ``P ≈ 37.1`` kW) the circle has opened up
-  (``\sqrt{50^2-37.1^2} ≈ 33.5`` kvar of circle headroom) and is **slack**; what
-  pins its ``Q`` at −21.79 kvar is the fixed rectangular ``q_{\min}`` box the
-  augmentation filled. Same number, two different binding constraints — you can
-  only tell them apart by reading the active set, which is this tutorial's whole
-  point.
+  This happens to equal ``\sqrt{s_{\max}^2 - p_{\text{avail}}^2} =
+  \sqrt{50^2 - 45^2}`` only because the recipe's `s_to_p_ratio = 0.90` matches
+  `ibr_default_pf`; with another ratio the box edge and the
+  `P²+Q²≤s_max²` circle part ways. At ≈ 40 kW and ≈ −11 kvar neither the box
+  nor the circle is active: the voltage ceiling is held by curtailment and
+  reactive absorption together, and only reading the active set tells you which
+  constraints bind.
 - **The merit order is respected on the way down.** The OPF sheds the dearer
-  generator (`der_*` → ~0) before curtailing the cheaper PV, and curtails the PV
-  only on the worst phase (`pv_b3230`, 45 → ≈ 37 kW) — the unbalanced curtailment
-  a three-wire model could not represent.
+  generator (`der_*` → ~0) before curtailing the cheaper PV, which drops from
+  45 kW to ≈ 40 kW per unit. The two units sit on different phases, and the
+  neutral current their unbalanced export drives shifts the neutral-point
+  voltage at the load buses — part of the phase-to-neutral rise a three-wire
+  (Kron-reduced) model grounds away.
 
 A simulation-only tool would report the over-voltage of scenario A and stop; here
 the limit *reshapes* the optimal dispatch.
@@ -326,8 +338,8 @@ the limit *reshapes* the optimal dispatch.
 ### C — same case, a thin cable → thermal binds instead
 
 Keep everything — head, feeder, DER fleet, the 1.10 pu ceiling — and change only
-*one* thing: give the two service drops a realistically derated 16 mm² ampacity
-(`i_max = 90 A`) instead of their healthy rating:
+the service drops' linecode: a realistically derated 16 mm² ampacity
+(`i_max = 90 A`) instead of the stored 600 A, with its charging shunts zeroed:
 
 ```julia
 C = run_scenario(set_vpn_limits!(base_net(head_pu = 1.05, derate = true)),
@@ -335,13 +347,13 @@ C = run_scenario(set_vpn_limits!(base_net(head_pu = 1.05, derate = true)),
 show_outcome(C)
 ```
 
-The voltage is now **slack** (≈ 1.084 pu, below the ceiling) and the **thermal
-limit binds** at 100 % of `i_max`. The OPF curtails the PV to hold the conductor
-current at its rating — a *different* binding constraint, curtailing a
-*different* amount on a *different* basis than the voltage case, even though
-nothing else about the problem changed. Note the reactive dispatch flipped too:
-with no over-voltage to fight, each PV now *injects* a small ≈ +5 kvar instead
-of absorbing 21.79 kvar.
+The **thermal limit binds** at 100 % of `i_max` and the voltage stays below the
+ceiling (≈ 1.090 pu; the classifier's 1 % tolerance still labels the outcome
+"voltage + thermal"). The OPF curtails the PV to ≈ 32.6 kW per unit to hold the
+conductor current at its rating — a *different* binding constraint, curtailing a
+*different* amount on a *different* basis than the voltage case. Note the
+reactive dispatch flipped too: with no over-voltage to fight, each PV now
+*injects* a small ≈ +5 kvar instead of absorbing ≈ 11 kvar.
 
 ### Summary
 
@@ -355,9 +367,9 @@ for (name, o) in (("A — no limits", A), ("B — voltage", B), ("C — thermal"
 end
 ```
 
-B and C differ by a single knob — the service-cable ampacity — yet the **active
-constraint** flips from voltage to thermal, and with it which DER is curtailed and
-how much exports. Adding or tightening a binding constraint cannot lower the
+B and C differ only in the service-drop linecode — its ampacity, plus zeroed
+charging shunts — yet the **active constraint** moves from voltage to thermal,
+and with it how far the PV is curtailed and how much the feeder exports. Adding or tightening a binding constraint cannot lower the
 objective — it weakly raises cost (less export revenue); *which* constraint binds
 is the signature of an optimization that respects the network physics and the
 operating envelope at once.
@@ -379,7 +391,7 @@ end
 While the cable is thin the **thermal** limit binds and every extra amp of rating
 buys more export. Around 120–160 A both constraints are active at once — the
 crossover. Past it the **voltage** ceiling takes over: the voltage pins at 1.10 pu,
-export plateaus at ≈ 68 kW, and uprating the copper no longer buys hosting
+export plateaus at ≈ 57 kW, and uprating the copper no longer buys hosting
 capacity, because the limit is now a voltage problem, not a thermal one.
 
 That crossover is exactly the network-aware hosting-capacity question of

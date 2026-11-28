@@ -33,7 +33,7 @@ no longer exists. Every block runs at build time.
 |---|---|---|
 | Nameplate | — | `s_rating` (VA), `v_nom_from`/`v_nom_to` (V), vector group → subtype |
 | Short-circuit (LV shorted, reduced HV voltage, rated current) | impedance voltage %Z, load loss ``P_{cu}`` | series leakage `r/x_series_*` (Ω) |
-| Open-circuit (rated voltage, LV open) | no-load loss ``P_0``, magnetizing current ``I_0`` (%) | core branch `g_no_load`/`b_no_load` (S) |
+| Open-circuit (one winding at rated voltage, the other open; commonly the LV side is energized, this page energizes HV) | no-load loss ``P_0``, magnetizing current ``I_0`` (%) | core branch `g_no_load`/`b_no_load` (S) |
 
 Two facts drive every formula below. First, the percentages are **per-unit on
 the machine's own base**: ``Z_B^{\text{wdg}} = V_{\text{wdg}}^2/S`` with the
@@ -100,8 +100,9 @@ for k in ("r_series_from", "x_series_from", "r_series_to", "x_series_to",
 end
 ```
 
-Note the four orders of magnitude between `x_series_from` (≈ 40 Ω) and
-`x_series_to` (≈ 0.019 Ω) — the *same* 1.67 % on two different voltage bases.
+Note the factor of about 2100 (``N^2``, three orders of magnitude) between
+`x_series_from` (≈ 40 Ω) and `x_series_to` (≈ 0.019 Ω) — the *same* 1.67 % on
+two different voltage bases.
 Typing an HV-base ohm into an LV field is the classic silent transformer bug,
 which is why the validations below exist.
 
@@ -187,15 +188,17 @@ println("short-circuit:  I = ", round(i_sc; digits = 3), " A at ", pctZ,
         " % voltage  (rated = ", round(S/Vhv; digits = 3), " A)")
 println("               P = ", round(p_sc; digits = 1), " W  (datasheet Pcu = ", Pcu, ")")
 
-@assert isapprox(p_oc, P0; rtol = 5e-3)          # tiny series loss from I0 flowing
+@assert isapprox(p_oc, P0; rtol = 5e-3)          # core sees slightly below rated voltage
 @assert isapprox(i_sc, S/Vhv; rtol = 1e-3)
 @assert isapprox(p_sc, Pcu; rtol = 1e-3)
 ```
 
-The loop closes: report → fields → model → report. The small residual in the
-OC power (the magnetizing current does traverse half the series resistance)
-is exactly the approximation the factory test itself makes — the model
-reproduces the *test*, not an idealization of it.
+The loop closes: report → fields → model → report. The OC power comes out at
+149.97 W, slightly *below* 150 W. In this Γ model the core branch sits across
+the LV terminals, behind the whole series impedance, so the no-load current
+drops a little voltage across that impedance: the core sees about 239.95 V
+instead of 240 V and dissipates about 149.94 W. The series loss of the
+no-load current adds only about 0.03 W.
 
 ## 5. Three-phase: the Dyn11 and its vector group
 
@@ -245,7 +248,7 @@ end
 println("winding-2 core shunt (S per coil): ", dyn11["no_load_shunt"])
 ```
 
-The proposed `no_load_shunt` records its physical winding explicitly. Its
+The explicit `no_load_shunt` field records its physical winding. Its
 conductance and susceptance are siemens per coil, so three identical coils
 each carry one third of the total no-load power.
 
@@ -288,18 +291,21 @@ for k in ("g", "b")
 end
 ```
 
-The resistances and core branch match term-for-term. The *reactance split*
-does not have to: the import happens to distribute X differently between the
-windings — and the **HV-referred series sum agrees exactly**, which is the
+The core branch matches term-for-term. The *split* of the series impedance
+does not have to: the import splits it differently between the windings —
+here `r_series_from` is zero and `r_series_to` carries the whole resistance —
+and the **HV-referred series sum agrees**, which is the
 only thing the short-circuit test ever measured (§2). Two honest conventions,
 one physical quantity. (At an off-nominal *optimized* tap the split briefly
 matters — the tapped winding's share scales as tap² — which is why the engine
 pins the referral convention explicitly;
 [transformer models](transformer_models.md).)
 
-**Re-run the tests.** Parse the authored proposal data before solving so the
-explicit winding shunt enters the computational model. The open-circuit and
-short-circuit tests then check the three-phase datasheet values:
+**Re-run the tests.** [`parse_bmopf`](@ref) turns the explicit `no_load_shunt`
+into a winding-connected shunt; [`solve_pf`](@ref) applies the same
+normalization to its own copy, so parsing first is optional and is shown here
+to mirror a JSON workflow. The open-circuit and short-circuit tests then check
+the three-phase datasheet values:
 
 ```@example xfmr
 vph = Vhv3 / sqrt(3)
@@ -367,10 +373,11 @@ separate `shunt` — a transformer's model never absorbs external grounding
 ## 7. Three windings and beyond: the `x_sc` matrix
 
 For three or more windings there is **no single %Z** — the factory report
-gives *pairwise* short-circuit tests (HL, HT, LT), all expressed on
-**winding 1's** base (the OpenDSS convention, kept by the engine so
-round-trips stay exact). The `n_winding` subtype stores exactly that: a
-`windings` list plus `x_sc["i_j"]` in ohms **on winding 1's coil base**. Note
+gives *pairwise* short-circuit tests (HL, HT, LT). Factory reports may quote
+each pair on its own base (for example the smaller winding's rating); rebase
+every pair to **winding 1's** base before use (the OpenDSS convention, kept by
+the engine so round-trips stay exact; see the unequal-kVA warning below). The
+`n_winding` subtype stores exactly that: a `windings` list plus `x_sc["i_j"]` in ohms **on winding 1's coil base**. Note
 the per-winding `v_nom` convention differs from the 2-bus subtypes: it is the
 **coil** voltage — line-to-neutral for a wye winding, line-to-line for a
 delta.
@@ -454,10 +461,11 @@ units — do not "fix" it. Two `n_winding` specifics worth pinning:
     OpenDSS input must be checked separately from a factory report's convention.
     Its [transformer implementation](https://github.com/dss-extensions/dss_capi/blob/f5728aec36becd20c19ad2dfc98fa8cf181f8835/src/PDElements/Transformer.pas#L168)
     places `Rpu` on winding 1's power base and uses that base in its primitive
-    admittance calculation. PowerIO 0.11 instead converts resistance using
-    each winding's own rating. `pf_3wdg_unequal_kva.dss` exposes the difference
-    against OpenDSS's `Yprim`; `from_dss` now restores the source winding-1 power base (#356). Equal-rating fixtures and
-    successful solves do not validate that conversion.
+    admittance calculation. `from_dss` reproduces that convention when it sets
+    `n_winding` resistances. The unequal-rating fixture
+    `pf_3wdg_unequal_kva.dss` exposes the difference between the two bases
+    against OpenDSS's `Yprim`; equal-rating fixtures and successful solves do
+    not validate that conversion.
 
 ## 8. What you may *not* derive
 

@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "727054c23b625a61a045d2e884f3f156a12b2159538e2e0f6b75f2d4f10c980f",
+  "corpus_sha256": "25cbb7bb65509fe16b24b1899032fc5bb256225098a5a8cf064649fb93a35c98",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -74,11 +74,11 @@
     },
     {
       "path": "config/default.toml",
-      "sha256": "4e79b8cc90a4b958fcd22136e581e01c328c8a88fb1a9ad8a6c2249c192139c1"
+      "sha256": "25cb8d2df9228a674f733fbfbcb124991c7ff29eea9c2e6c61377b9406e4728c"
     },
     {
       "path": "docs/src/analysis.md",
-      "sha256": "89b20c6451bf33bef371be85cab30f4465a479699540ebf8831546597226223c"
+      "sha256": "709998f7eaade9f82aa8dbe9d12c82d1166cced10dcbf87be84bd3167206d4a7"
     },
     {
       "path": "docs/src/api.md",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "72550e62371093bffad25b17417e7eaa16b9ae427feee17b04947ca4fdcb163a"
+      "sha256": "5b9959c2c35a7f6fccc5650449327e158289afdec08fdd4de406023c88d58eb9"
     },
     {
       "path": "docs/src/first_case.md",
@@ -178,7 +178,7 @@
     },
     {
       "path": "docs/src/spatial_diagnostics.md",
-      "sha256": "8830a4faf4e9787f9f7d718c0db2791b6a0d7bebf7c9440bbbcbcb7dbf2423d8"
+      "sha256": "4c0cabe2a28dc1d88b447c1491b05066a55f7aaf607773efd2e93449a98eabef"
     },
     {
       "path": "docs/src/spec/control-profile.md",
@@ -210,7 +210,7 @@
     },
     {
       "path": "docs/src/tutorial_nameplate.md",
-      "sha256": "6417e17587df99ef1955086e760ff9a2f49a940ca70061de366c1eecf7cdb3de"
+      "sha256": "552f2cc5a203aba14b0d8292ad059d29e2ba9abfe18b8d0f0df9ad15e33ee657"
     },
     {
       "path": "docs/src/tutorial_objectives.md",
@@ -218,11 +218,11 @@
     },
     {
       "path": "docs/src/tutorial_simplify.md",
-      "sha256": "abf09dbabb0b7dabdfd40887423cb8b1a9e88751aea611a1b3ecd0f9129b7abf"
+      "sha256": "e3ef690a4aeccb79e22176a203de6a510924a579aee8a3975001b1d3dd0846e5"
     },
     {
       "path": "docs/src/tutorial_triage.md",
-      "sha256": "604f9f322b8bbd83615414167d8299dcd0d642fd3edc37fc5413e62cd29308f2"
+      "sha256": "941d51be63ddd21fe53dd2aa048dbd589fd419fa8bf8dae9794076c61d3f315d"
     },
     {
       "path": "docs/src/tutorial_trust_but_verify.md",
@@ -318,7 +318,7 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "a19ce05593aee3a7dc1074b94486536c2c6fba75a843d46f73fd2efca4dcb437"
+      "sha256": "1b3db661eb0f0457af7c4d431724dfb5a109693c04e0a0ea0519bc8151b6df9b"
     },
     {
       "path": "knowledge/executable.toml",
@@ -474,7 +474,7 @@
     },
     {
       "path": "src/analysis/provenance/data_quality.jl",
-      "sha256": "05352bbcc2c9a3fbb303eea39c80183348afa3b7ae57d71ddffb92c4864d22fa"
+      "sha256": "a19b78a4d6e6d657f48536f7b71df98a616e1e7f9aaa86fd8cfd17765cfe67de"
     },
     {
       "path": "src/analysis/provenance/interpretation.jl",
@@ -542,7 +542,7 @@
     },
     {
       "path": "src/augmentation/augment.jl",
-      "sha256": "2a792546b327fcea6e64ebf64d8abaac17febca114376c245f009a8b92c8965b"
+      "sha256": "d4f64f95face0e986b6d5edcf773a19b082b4e40e5f0b1a98fdbc2384335e359"
     },
     {
       "path": "src/augmentation/der_placement.jl",
@@ -554,7 +554,7 @@
     },
     {
       "path": "src/augmentation/ibr_placement.jl",
-      "sha256": "9486dd2c4f8a0af1d3b6bfd191aa46f60dab6276f31c348a3b1d6d33163f5c46"
+      "sha256": "f71ea00eca4b3fcb9c2a32df8250be24a09c3cd4a00e065dea796245ddef9837"
     },
     {
       "path": "src/augmentation/manifest.jl",
@@ -562,7 +562,7 @@
     },
     {
       "path": "src/augmentation/recipe.jl",
-      "sha256": "a291357668b28c42669728ed7b226e9dc0e94db684aa440dceeea566906c2727"
+      "sha256": "ac418385d061f956e8ce54128bc3c4e1598d9fe2377c7a39908272419d597bfa"
     },
     {
       "path": "src/augmentation/scenarios.jl",
@@ -670,7 +670,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "2d083e5996b8ef44450e53c93264d70b233e40340ba40a69652045dc7e7445c0"
+      "sha256": "4078719ee0d43d652927de2a5c67be693151675a2cf348d0d250127441355ed2"
     },
     {
       "path": "src/report/formatting.jl",

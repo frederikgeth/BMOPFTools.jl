@@ -425,6 +425,14 @@ Initial General release candidate. Registration has not yet been requested.
   and dimension counts; retain legacy profile keys as descriptive aliases.
 - Change low-impedance switch replacement to opt-in; retain shunts/additional
   branch limits and inconsistent or unassessed source-voltage bounds.
+- Synthetic thermal inference in `augment_case` defaults to off; request
+  `AugmentationRecipe(apply_thermal=true)` to reproduce the earlier synthetic
+  rating policy and retain its provenance. `apply_vneg_bounds`/`vneg_max_pu`
+  control injection of the `vuf_max` ratio on three-phase buses; existing
+  absolute `vneg_max` values are preserved, so remove an old synthetic absolute
+  cap explicitly if the ratio is the intended policy. Augmentation never
+  overwrites previously generated bounds: rebuild split-phase bounds from the
+  source case.
 
 - Replace the IEEE-inspired inline analysis fixture with an original CC BY 4.0
   synthetic workshop feeder and migrate its diagnostic and serialization tests.

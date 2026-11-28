@@ -14,8 +14,8 @@ BMOPFTools supports this in the
 four-wire distribution setting with three composable, audited operations:
 
 - **`fix_case`** — *structural repairs*. Remove inert elements, drop
-  disconnected islands, collapse near-zero-impedance lines to switches, strip
-  redundant bounds. Make the graph sound before anything is written onto it.
+  disconnected islands, optionally collapse near-zero-impedance lines to
+  switches, strip redundant bounds. Make the graph sound before anything is written onto it.
 - **`add_generators`** / **`add_ibrs`** — *deliberate DER placement*. Create
   dispatchable `generator` elements (or richer inverter-interfaced `ibr`
   elements) at semantically/topologically chosen buses so the OPF has something
@@ -26,8 +26,8 @@ four-wire distribution setting with three composable, audited operations:
 
 Each returns a `(net′, TransformationManifest)` pair and **never mutates its
 input**. The manifest is the heart of the contract: every value written is
-recorded with the rule that produced it and a confidence tag (standards-derived
-vs `:heuristic`), so the resulting case is self-documenting and the modeler can
+recorded with the rule that produced it and a confidence tag (`:standard`,
+`:heuristic`, `:synthetic`, …), so the resulting case is self-documenting and the modeler can
 see at a glance exactly which numbers are defensible defaults and which are
 design choices worth revisiting (see [A starting point for fine-tuning](#starting-point)).
 
@@ -48,7 +48,7 @@ is deliberate, and each edge exists for a reason:
 1. **`fix_case` first** — bounds and generators placed on a broken topology are
    wasted or actively wrong. A DER stranded on an islanded bus injects into
    nothing; a thermal limit on a zero-impedance loop is meaningless. Repair the
-   graph — drop the islands, collapse the switch-like lines, remove inert loads
+   graph — drop the islands, optionally collapse the switch-like lines, remove inert loads
    — *before* annotating it, so every later pass operates on the network that
    will actually be solved.
 2. **`add_generators` before the final `augment_case`** — placement writes only
@@ -86,28 +86,39 @@ render_manifest(fix_mf)                      # inspect what was repaired
 render_manifest(der_mf)                      # inspect every placement
 render_manifest(aug_mf)                      # inspect what was added
 
-write_bmopf("my_feeder_ready.json", net3)
+write_bmopf(net3, "my_feeder_ready.json")
 
 result  = solve_opf(net3)
 report′ = profile_solution(net3, result)
 ```
 
-Passing the pre-computed `analyze` result to `augment_case` avoids
-re-running voltage-level and provenance analyses internally:
+Passing pre-computed voltage-level and provenance results to `augment_case`
+avoids re-running those analyses internally. The `analysis` keyword takes a
+dict with `"voltage_levels"` and `"provenance"` entries, which an `analyze`
+report holds in its `results`:
 
 ```julia
 report  = analyze(net2)
-net3, aug_mf = augment_case(net2; analysis=report.analysis)
+net3, aug_mf = augment_case(net2;
+                 analysis = Dict("voltage_levels" => report.results[:voltage_levels],
+                                 "provenance"     => report.results[:provenance]))
 ```
 
-For a runnable, build-executed walk through this exact pipeline on a real
-feeder, see the [end-to-end tutorial](tutorial_end_to_end.md); the
+For a walk through this pipeline on a real feeder (external dataset; the docs
+build does not execute it), see the [end-to-end tutorial](tutorial_end_to_end.md); the
 [DER placement tutorial](tutorial_ders.md) and [VVWO tutorial](tutorial_vvwo.md)
 then drill into placement strategies and smart-IBR control.
 
-The four `augment_case` passes below run in order. Each can be disabled
-independently via the [`AugmentationRecipe`](@ref) `apply_*` flags.  **No pass
-ever overwrites an existing value** — augmentation only fills gaps.
+The `augment_case` passes below run in order: voltage snapping (pass 0,
+optional), voltage bounds (pass 1, with opt-in angle-difference bounds), thermal
+limits (pass 2), generation (pass 3), IBR dispatch bounds (pass 4), smart-IBR
+Volt-var/Volt-watt defaults (pass 5, optional) and DC network defaults (pass 6).
+Passes 1–4 and 6 can be disabled via the [`AugmentationRecipe`](@ref) `apply_*`
+flags; passes 0 and 5 are enabled through the TOML `config`. **No pass
+overwrites an existing value** — augmentation only fills gaps. The one rewrite
+is a shape change: after pass 3, a single-phase generator or IBR whose `i_max`
+has length 1 gets that value duplicated to the per-conductor `[phase, neutral]`
+form (rule `per_conductor_imax_single_phase`), which leaves the limit unchanged.
 
 ### Pass 1 — Voltage bounds
 
@@ -163,9 +174,10 @@ the manifest as a `v_declared` entry with rule
 #### [Solver regularization bounds (`v_min` / `v_max`)](@id Solver-regularisation-bounds-(v_min-/-v_max))
 
 `v_min` and `v_max` are **hyperparameters**, not power-quality guarantees.
-They widen the feasible set so the solver can find a feasible point even when
-the operating point sits at the edge of the physical window.  The same values
-are applied to all buses regardless of voltage level.
+They are loose guard bounds, deliberately wider than the power-quality window,
+that keep the solver away from non-physical voltage solutions without binding
+at realistic operating points. The same values are applied to all buses
+regardless of voltage level.
 
 | Field | Default (pu of `v_declared`) | Purpose |
 |---|---|---|
@@ -268,16 +280,29 @@ covers LV installation ampacity, not an overhead-AAC catalog). The table as a
 whole is a heuristic default, not a standards-derived rating, and is
 deliberately *not* tagged as an IEC-conformant result.
 
+Two caveats on the R₁₁ match. The R₁₁ column holds copper values (close to the
+IEC 60228 class 5 flexible-copper maxima), so an aluminum conductor, whose
+resistance is about 1.6 times that of copper of the same section, matches a row
+one or two standard sizes smaller and receives that copper size's rating. And
+when a linecode's R₁₁ includes Carson's earth-return term (about 0.05 mΩ/m at
+50 Hz), large sections shift by more than the tolerance: a 240 mm² conductor
+then reads about 60 % above its table value and is skipped or matched to a
+smaller row.
+
 The match uses a 15 % relative tolerance on R₁₁.  If no table row falls
 within tolerance the linecode is skipped and the manifest records
 `"R₁₁ outside lookup range"`.
 
-**Opt-in synthetic policy.** Use `AugmentationRecipe(apply_thermal=true)` to
-request estimates. Existing ratings are never overwritten. The legacy
-`thermal_min_confidence` keyword gates impedance classifications (`distinct`:
-`:high`, `near_balanced`: `:medium`, others: `:low`); it does **not** measure
-ampacity confidence. Even a distinct matrix does not establish material,
-conductor size, or installation. Every inferred rating is marked `:heuristic`.
+**Opt-in synthetic policy.** The thermal pass is off by default
+(`apply_thermal = false`); use `AugmentationRecipe(apply_thermal=true)` to
+request estimates. Existing ratings are never overwritten. The
+`thermal_min_confidence` keyword (default `:medium`) gates linecodes by their
+impedance classification (`distinct`: `:high`, `near_balanced`: `:medium`,
+others: `:low`); it does **not** measure ampacity confidence. Even a distinct
+matrix does not establish material, conductor size, or installation. Every
+written rating is tagged `:heuristic` (rule `heuristic_ampacity_estimate`); the
+`:high`/`:medium`/`:low` tags appear only on manifest entries that record a
+skipped linecode, where they report its impedance classification.
 `meta.provenance.thermal_estimates[linecode_id]` records the impedance classification,
 assumed construction category, equal-conductor-rating assumption, and lack of
 material/installation verification; it survives `write_bmopf`/`parse_bmopf`.
@@ -306,7 +331,8 @@ transformation manifest.
 
 **Slack cost.**  The voltage source is itself the network's current slack, so no
 slack *generator* is created. If a source has no `cost`, a per-phase cost is
-written onto the `voltage_source` (default 1.0 \$/kWh) so imported power is
+written onto the `voltage_source` (default 1.0 \$/kWh, rule
+`TFspec_Eq135_slack_generation`, tagged `:standard`) so imported power is
 priced in the objective. No flow bounds are added, so the source can absorb the
 network's net active/reactive imbalance. This removes one common cause of
 infeasibility, but does not override voltage, thermal, device, or other hard
@@ -322,8 +348,15 @@ Q_max = P_max × tan(arccos(pf))
 ```
 
 Default `pf = 0.90` (EN 50549-1:2019, LV grid-connected DERs):
-Q_max ≈ 0.484 × P_max.  Set `q_capability_pf = 0.95` for IEEE 1547-2018
-(ANSI) deployments: Q_max ≈ 0.329 × P_max.
+Q_max ≈ 0.484 × P_max. The bound scales with `P_max`, not with an apparent-power
+nameplate, and is symmetric. `q_capability_pf = 0.95` gives
+Q_max ≈ 0.329 × P_max; the manifest labels that value
+`IEEE1547-2018_cos_phi_0.95`, but it is not the IEEE 1547-2018 requirement.
+IEEE 1547-2018 specifies reactive capability as a fraction of nameplate
+apparent power: 44 % injecting and 44 % absorbing for Category B (Q/S = 0.44,
+about cos φ = 0.90 at rated kVA), 44 % injecting and 25 % absorbing for
+Category A. To model either category, write `q_min`/`q_max` from the kVA
+rating directly.
 
 ### [Pass 4 — IBR dispatch bounds](@id pass-4-IBR-dispatch-bounds)
 
@@ -334,7 +367,9 @@ from the nameplate, leaving the nameplate itself untouched. Controlled by the
 recipe's `apply_ibr` flag; disabled with `apply_ibr = false`.
 
 **Active power.** If `p_max` is absent it is derived per phase — from `p_avail`
-(split equally across phases) or from the per-phase `s_max` ratings. For `PV`
+(split in proportion to the per-phase `s_max` when those ratings are present,
+equally across phases otherwise) or, without `p_avail`, from the per-phase
+`s_max` ratings. For `PV`
 prime movers `p_min = 0` is also injected when absent, since PV cannot absorb
 active power.
 
@@ -354,9 +389,26 @@ IBRs in the first place, see [Adding IBRs](#adding-IBRs-der-placement)
 below; the intended order is `add_ibrs → augment_case`, so this pass turns
 each placed nameplate into a full dispatch box.
 
+### Pass 5 — Smart-IBR Volt-var/Volt-watt defaults (optional)
+
+Off by default; enabled in the TOML `config` under `[augment.smart_ibr]`
+(`enabled = true`, `region = "Aus_A" | "Aus_B" | "Aus_C" | "NZ"`). For every
+`control_profile` that declares a `volt_var` or `volt_watt` sub-object, missing
+fields (breakpoints, limits, units, references) are filled from the selected
+AS/NZS 4777.2:2020 regional preset. A profile without the sub-object gets none,
+and fields already present are kept, so a study can pin individual breakpoints.
+Each fill is recorded with rule `AS_NZS_4777.2:2020_<region>_<law>_default`.
+
+### Pass 6 — DC network defaults
+
+Controlled by `apply_dc`. A `dc_bus` with `v_dc_nom` and neither `v_dc_min` nor
+`v_dc_max` gets signed line-to-ground bounds `v_dc_nom ∓ dc_v_band_frac·|v_dc_nom|`
+(default ±10 %). A `dc_source` with a rated injection `p` gets `p_min = 0` and
+`p_max = p` (curtailable) where absent.
+
 ## [`fix_case` — structural repairs](@id fix)
 
-Nine passes run in order.  Each is independently controlled by the
+Ten passes run in order.  Each is independently controlled by the
 corresponding `apply_*` flag in [`FixRecipe`](@ref). Review the manifest against
 your study: removing disconnected assets changes its scope. Finite-impedance
 idealization and grounding changes are opt-in approximations.
@@ -529,8 +581,9 @@ cost knobs are identical in meaning to [`GeneratorRecipe`](@ref) (so the
 [strategy-diversity guidance](#why-diverse-strategies-matter) applies unchanged),
 with these IBR-specific additions:
 
-- **`prime_mover`** — `:PV` (the MVP default; drives `p_min = 0` in the augment
-  pass). Battery and grid-forming IBRs are planned but not yet placed.
+- **`prime_mover`** — default `:PV`, which drives `p_min = 0` in the augment
+  pass. The value is written to each placed IBR as given; `augment_case` treats
+  only `PV` (`p_min = 0`) and `STATCOM`/`DSTATCOM` specially.
 - **`inverter_topology`** — `:infer` (FOUR_LEG when the host load has a neutral
   terminal, else SINGLE_PHASE), or a forced `:FOUR_LEG` / `:THREE_LEG` /
   `:SINGLE_PHASE`.
@@ -545,8 +598,7 @@ with these IBR-specific additions:
 
 !!! tip "Sizing in absolute kVA, and placing at zero-load buses"
     The default `:fraction_of_local_load` basis is convenient for scaling the
-    fleet to a feeder, but it has two awkward edges the reviewer-style questions
-    keep hitting:
+    fleet to a feeder, but it has two awkward edges:
 
     - **You want to think in kVA, not "× local load."** Use
       `size_basis = :fixed_tiers` and set the absolute nameplate directly:
@@ -569,10 +621,10 @@ with these IBR-specific additions:
 
     - **`strategy`** decides *where and how many* DERs are placed
       (`:load_following` = one per load bus, `:topology_targeted`,
-      `:hosting_capacity`). The comment "one PV IBR per load bus" describes the
-      `:load_following` *strategy* — it is not a statement that IBRs are only PV.
+      `:hosting_capacity`). "One IBR per load bus" describes the
+      `:load_following` *strategy*, not the technology.
     - **`prime_mover`** decides *what technology* the converter is (`:PV`,
-      `:BATTERY`, `:GENERIC`, `:STATCOM`). `:PV` is the current placement default
+      `:BATTERY`, `:GENERIC`, `:STATCOM`). `:PV` is the placement default
       (and the reason `p_min = 0` is injected — PV cannot absorb active power).
 
     Mapping technologies onto objects: **PV, battery, or any converter-interfaced
@@ -584,11 +636,12 @@ with these IBR-specific additions:
     *injects*. `EV` is therefore not a `prime_mover` value — it is either a load
     or a bidirectional battery, depending on the physics you mean.
 
-    One caveat on *automatic* placement: `add_ibrs` currently emits `:PV`
-    nameplates (the augment pass's `p_min = 0` is PV-specific; battery and
-    grid-forming placement is planned). To study other technologies today, author
-    the `ibr` with the intended `prime_mover` directly — the OPF engine models it
-    once the P/Q box is set — rather than relying on the placement recipe.
+    One caveat on *automatic* placement: `add_ibrs` writes the recipe's
+    `prime_mover` without validating it or adapting the sizing to it. The augment
+    pass then leaves `p_min` absent for anything other than `PV` and
+    `STATCOM`, so a battery placed this way has no lower active-power bound until
+    you write one. For non-PV technologies, set `p_min` (and, where needed,
+    `p_max`) explicitly, or author the `ibr` directly.
 
 Every field written is recorded as a `:synthetic` `TransformEntry` with rule
 `IBR_PLACEMENT/<strategy>`, and the run emits
@@ -598,9 +651,9 @@ manifest's `findings_after`.
 !!! note "I/O converter support"
     `solve_opf` dispatches placed IBRs once `augment_case` has filled their
     P/Q box — the OPF engine fully models IBRs (apparent-power circle,
-    topology-dependent voltage reference, constant-PF coupling). PowerIO v0.9
-    can import IBR/control data where the source carries it. BMOPFTools still
-    treats `to_pmd` and `to_dss` IBR export as an explicit follow up.
+    topology-dependent voltage reference, constant-PF coupling). PowerIO can
+    import IBR/control data where the source carries it. `to_pmd` and `to_dss`
+    do not export IBRs.
 
 ```@docs
 add_ibrs
@@ -637,17 +690,21 @@ add_statcom!
 
 The three passes do **not** claim to produce the one true benchmark. They
 produce a *defensible default* — every value is either copied from a published
-standard or flagged as a deliberate synthetic choice — and the manifest is the
+standard or flagged as a heuristic estimate or a deliberate synthetic choice — and the manifest is the
 map of which is which. That distinction is the whole point: it tells a modeler
 exactly where to spend their fine-tuning effort.
 
 Read the manifest back by confidence tag:
 
-- **Standards-derived entries** (EN 50160 voltage windows, IEC 60364 ampacities,
-  EN 50549-1 reactive capability) are safe to keep unless the case targets a
-  jurisdiction with different rules — in which case override the relevant
-  recipe field (`v_declared_lv`, `q_capability_pf`, …) and re-run.
-- **`:synthetic` entries** (every DER placement, the slack price) are design
+- **`:standard` entries** (EN 50160 voltage windows, EN 50549-1 reactive
+  capability) are safe to keep unless the case targets a jurisdiction with
+  different rules — in which case override the relevant recipe field
+  (`v_declared_lv`, `q_capability_pf`, …) and re-run. The slack price is also
+  tagged `:standard` because the specification fixes the form of the slack cost
+  term; its 1.0 \$/kWh value is a recipe default (`slack_cost`) worth revisiting.
+- **`:heuristic` entries** (synthetic thermal ratings, solver guard bounds) are
+  estimates to check against real data before relying on them.
+- **`:synthetic` entries** (every DER placement) are design
   choices. These are the first things to revisit: the placement strategy, the
   `der_p_fraction` sizing, the `cost_basis`. Change them and you change *what
   the OPF decides*.
@@ -691,9 +748,11 @@ explicit to be reproducible ([ref. 4](#augrefs)).
 **Standards as the source of defaults.** Where a value *can* be grounded in a
 published standard, it should be — so the default is auditable rather than
 arbitrary. Voltage windows follow EN 50160:2010 and DER reactive capability
-follows EN 50549-1:2019 (with IEEE 1547-2018 as the ANSI alternative, whose
-minimum 44 % injecting / 44 % absorbing reactive capability motivates the
-`q_capability_pf = 0.95` preset) ([ref. 5](#augrefs)). This is why
+follows EN 50549-1:2019. IEEE 1547-2018 ([ref. 5](#augrefs)) specifies
+reactive capability as a fraction of nameplate kVA (Category B: 44 % injecting
+and absorbing; Category A: 44 % injecting, 25 % absorbing); the P-based
+`q_capability_pf` rule does not reproduce it, so ANSI-region studies write those
+bounds from the kVA rating. This is why
 `augment_case` separates standards-derived fills from synthetic ones in the
 manifest. Conductor ampacities are the deliberate exception: the thermal pass is
 a **heuristic estimate** loosely calibrated to IEC 60364-5-52:2009 / IEC 60228:2004
@@ -756,16 +815,6 @@ are cited inline at their point of use in the tables above.
 5. IEEE Std 1547-2018, *IEEE Standard for Interconnection and Interoperability
    of Distributed Energy Resources with Associated Electric Power Systems
    Interfaces*, IEEE, 2018.
-
-## Migrating existing augmentation recipes
-
-Synthetic thermal inference now defaults to off. To reproduce the old synthetic
-rating policy, request `apply_thermal=true` and retain the generated provenance.
-The legacy keywords `apply_vneg_bounds` and `vneg_max_pu` now control injection
-of the actual `vuf_max` ratio on three-phase buses. Existing absolute `vneg_max`
-values are preserved; inspect and remove an old synthetic absolute cap explicitly
-if the ratio is the intended policy. Rebuild split-phase bounds from the source
-case: augmentation never overwrites previously generated bounds.
 
 ## Explicit placement and comparable scenarios
 

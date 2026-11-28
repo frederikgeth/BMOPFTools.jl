@@ -593,7 +593,7 @@ function _check_opendss_defaults(net::Dict{String,Any},
     end
     res["default_z_linecodes"] = sort(dz)
 
-    # --- default ampacities (normamps 400 / emergamps 600) ---
+    # --- default ampacity (normamps, 400 A unless configured) ---
     amp_hits = String[]
     for ct in ("linecode", "line", "switch")
         for (id, c) in get(net, ct, Dict())
@@ -610,9 +610,10 @@ function _check_opendss_defaults(net::Dict{String,Any},
         n_hits += length(amp_hits)
         push!(findings, Finding(INFO, "I.PROV.DSS_DEFAULT_AMPS", :provenance,
             :linecode, nothing,
-            "$(length(amp_hits)) component(s) have i_max exactly 400 A or " *
-            "600 A — the OpenDSS normamps/emergamps defaults; ratings were " *
-            "likely never engineered.",
+            "$(length(amp_hits)) component(s) have i_max exactly " *
+            "$(isinteger(dss_normamps) ? Int(dss_normamps) : dss_normamps) A " *
+            "— the OpenDSS normamps default; ratings were likely never " *
+            "engineered.",
             Dict{String,Any}("components" => sort(amp_hits))))
     end
 
@@ -863,9 +864,11 @@ end
 # OpenDSS has no first-class regulator branch: modelers encode them either as
 # a near-1:1 wye transformer (+RegControl), or — per the EPRI autotransformer
 # guidance — as two windings on the SAME bus (common + ~10% series winding,
-# kVA rated at the series winding) with a negligible-impedance jumper. The
-# BMOPF data model has no regulator object, so these patterns deserve a flag:
-# a controllable device has been frozen into (or hidden inside) a transformer.
+# kVA rated at the series winding) with a negligible-impedance jumper.
+# from_dss does not convert either form into the data model's regulator
+# subtypes (single_phase_autotransformer, open_delta_regulator), so these
+# patterns deserve a flag: a controllable device has been frozen into (or
+# hidden inside) an ordinary fixed-tap transformer.
 
 function _check_regulator_patterns(net::Dict{String,Any},
                                     findings::Vector{Finding},
@@ -921,9 +924,10 @@ function _check_regulator_patterns(net::Dict{String,Any},
                     :provenance, :transformer, id,
                     "transformer ($subtype) '$id' looks like a voltage " *
                     "regulator/autotransformer encoding: $(join(evidence, "; ")). " *
-                    "The data model has no regulator object — verify whether a " *
-                    "fixed-tap snapshot is intended; the control capability is " *
-                    "otherwise silently lost.",
+                    "It is modeled as an ordinary fixed-tap transformer, not as " *
+                    "a regulator subtype (single_phase_autotransformer, " *
+                    "open_delta_regulator) — verify whether a fixed-tap snapshot " *
+                    "is intended; the control capability is otherwise silently lost.",
                     Dict{String,Any}("evidence" => evidence)))
             end
         end

@@ -18,8 +18,9 @@ end
 The Markdown report starts with a coordinate-coverage banner: eligible and excluded
 bus counts, the resolved frame and reported-accuracy coverage. Queue completeness
 never implies complete geometry coverage. A linked candidate index lists the
-attention items shown below it; both respect `item_limit`, with explicit shown/total
-counts. Full IDs remain in each detail entry and JSON; row numbers are navigation
+attention items shown below it; `render` shows up to 20 of each, with explicit
+shown/total counts (`render_spatial_review` and `export_spatial_review` take
+`item_limit` to change the cap). Full IDs remain in each detail entry and JSON; row numbers are navigation
 aids and can change after regeneration. Context-only items stay in their separate
 inventory rather than entering the attention index.
 
@@ -54,7 +55,7 @@ intermediate attachments, circuit identifiers, operating state and source record
 A grounding shunt or load at J can make removal consequential even when the
 endpoint geometry looks identical. The diagram is illustrative, not a reduction rule.
 
-Each direct/series item now includes `interpretation_evidence`:
+Each direct/series item includes `interpretation_evidence`:
 
 - Direct and series line maps oriented along the candidate path, plus comparisons
   of declared terminal **sets at the same bus**. Equal sets do not compose conductor
@@ -66,13 +67,13 @@ Each direct/series item now includes `interpretation_evidence`:
 - Literal source declarations with metadata paths. The supported scalar keys are
   `origin`, `evidence_status`, `claim`, `attachment_mode`, `method`, `source_ref` and
   `placeholder`, read directly under `meta` or one dictionary level below it.
-  Historical nested models are not searched. Missing fields mean unavailable
+  Deeper levels are not searched. Missing fields mean unavailable
   provenance, not observed construction. Claims such as `inferred_not_observed`
   or “placeholder” remain statements made by the producer, not verified facts.
 
-This enrichment does not alter candidate identities, classifications or priorities.
-It is included in evidence fingerprints, so earlier decisions on enriched items
-require renewed review rather than silently applying to changed evidence.
+This evidence does not alter candidate identities, classifications or priorities.
+It is included in evidence fingerprints, so a decision recorded against different
+evidence requires renewed review rather than silently applying.
 
 ### Keep the different lengths separate
 
@@ -95,7 +96,7 @@ specifies which value participates in each comparison.
 ![Evidence categories, P3-to-P1 inspection order and human dispositions are separate axes; incomplete coverage remains visible.](assets/spatial/review-workflow.svg)
 
 `W.GEO.*` codes are registered Findings, documented in the
-[GEO reference](findings.md#GEO-—-declared-geographic-coordinates).
+[GEO reference](findings.md#GEO-—-declared-coordinate-frames).
 `S.*` codes label spatial candidates and `R.LINE_LENGTH_CONTEXT` labels reviewable
 length context; these are **not additional Finding codes**. An automated
 `data_inconsistency` can identify conflicting declarations without determining
@@ -164,13 +165,13 @@ report = analyze(net)
 
 [`sideload_geolayer!`](@ref) applies only a geographic WGS84 layer: bus
 `Point` features become `longitude`/`latitude`, line `LineString` features become
-`WGS84_geodesic_polyline` route geometry with a recomputed geodesic `length_m`,
+`WGS84_geodesic_polyline` route geometry with a recomputed great-circle `length_m`,
 and `meta.crs` is declared when the network has none. Projected, diagram and
 unknown spaces, other CRSs, and conflicting network declarations are reported
 and left unapplied; coordinates are never transformed or relabeled. Existing
 positions and routes are kept unless `overwrite=true`.
 
-The existing `proximity_enabled`, `discrepancy_enabled` and `review_enabled`
+The `proximity_enabled`, `discrepancy_enabled` and `review_enabled`
 settings control individual parts when the whole pass is enabled. The standalone
 cleanup bundle requires an available cleanup report and reports an error when the
 entire spatial pass is disabled.
@@ -188,7 +189,7 @@ is explicitly labeled as route evidence and applies only to bus endpoints
 matched to a fully valid route; it does not establish the frame of other buses.
 `n_metric_eligible_buses` and `distance_scope` expose this coverage.
 Out-of-range and incomplete coordinate pairs are counted but excluded from
-geodesic calculations.
+great-circle calculations.
 
 By default [`sideload_coordinates!`](@ref) copies OpenDSS `x,y` into fields named
 `longitude,latitude` without transforming or verifying them. Plausible numeric
@@ -197,7 +198,7 @@ plane in feet or meters, load them as a local Cartesian frame instead:
 `sideload_coordinates!(net, csv; frame=:cartesian, units="ft")` writes `x`/`y`
 and the matching frame declaration. When the frame remains
 unspecified, spatial distances remain indeterminate; a declared unsupported CRS
-makes bus geodesic comparisons inapplicable. Line-length statistics remain available. The result makes no
+makes bus great-circle comparisons inapplicable. Line-length statistics remain available. The result makes no
 automatic asset-error claim when the CRS is unspecified. With a network-level
 geographic or local Cartesian declaration, sufficiently large contradictions
 between line lengths and bus positions raise `W.GEO.*` Findings, in both
@@ -221,7 +222,7 @@ The spatial result groups fields as follows:
 
 | Key | Contents |
 |---|---|
-| `coordinate_reference` | `status`, declared CRS if any, caution text, matching WGS84 route count, and whether geodesic distances apply. Status is `declared_wgs84` (any accepted geographic frame; `coordinate_semantics.datum` names it), `declared_cartesian`, `wgs84_route_evidence`, `declared_other`, `ambiguous`, or `unspecified`. |
+| `coordinate_reference` | `status`, declared CRS if any, caution text, matching WGS84 route count, and whether great-circle distances apply (`geodesic_distances_applicable`). Status is `declared_wgs84` (any accepted geographic frame; `coordinate_semantics.datum` names it), `declared_cartesian`, `wgs84_route_evidence`, `declared_other`, `ambiguous`, or `unspecified`. |
 | `coordinate_coverage` | Counts of complete longitude/latitude pairs, x/y fields, partial and invalid pairs, and pairs outside WGS84 numeric ranges. |
 | `routes` | Route and basis coverage, numbers of endpoint and length comparisons, mismatch counts, and bounded endpoint-gap witnesses. |
 | `lines` | Length quantiles by voltage tier, chord comparison count, shorter-than-chord count, and bounded absolute and tier-relative length witnesses. |
@@ -273,8 +274,8 @@ one-sided and the other comparisons are symmetric. Witnesses preserve the basis,
 threshold, regularization flag, source references, and whether declared length
 scales impedance. Invalid route vertices or lengths never enter a calculation.
 Five examples per context admission limit keep output bounded while retaining
-exact counts. No new Finding codes are emitted by these contextual comparisons.
-The older `lines` and `routes` counters still compare **declared** lengths; they
+exact counts. These contextual comparisons emit no Findings.
+The `lines` and `routes` counters compare **declared** lengths; they
 are descriptive and may differ from the physically qualified Finding count.
 For example, splitting a line may leave parent-level `physical_length_m` on
 each child section. The declared/physical comparison exposes that discrepancy
@@ -313,8 +314,8 @@ length Findings as a geographic frame; route checks remain geographic-only.
 
 | Your coordinates | Declare | Result |
 |---|---|---|
-| Longitude/latitude in WGS84 | `"crs": "EPSG:4326"` | geodesic distances |
-| Longitude/latitude in a national datum: GDA94/GDA2020 (Australia), JGD2000/JGD2011 (Japan), NAD83 (North America), ETRS89 (Europe), NZGD2000 | its EPSG code or name, e.g. `"crs": "EPSG:7844"` | geodesic distances; `datum` records the frame |
+| Longitude/latitude in WGS84 | `"crs": "EPSG:4326"` | great-circle distances |
+| Longitude/latitude in a national datum: GDA94/GDA2020 (Australia), JGD2000/JGD2011 (Japan), NAD83 (North America), ETRS89 (Europe), NZGD2000 | its EPSG code or name, e.g. `"crs": "EPSG:7844"` | great-circle distances; `datum` records the frame |
 | Easting/northing on a projected grid (MGA, Japan plane rectangular, State Plane, British National Grid, UTM) | either the EPSG code, which is recorded but not interpreted (`declared_other`, metric checks inapplicable), **or** a local Cartesian frame with the grid's length unit if you accept the plane as locally Euclidean | Cartesian: Euclidean distances |
 | OpenDSS `Buscoords` in feet or meters | `sideload_coordinates!(net, csv; frame=:cartesian, units="ft")` | Euclidean distances |
 | A schematic drawing | nothing, or `coordinate_provenance = "schematic"` | no metric checks |
@@ -324,8 +325,8 @@ great-circle lengths against tolerances of `max(5 m, 10 %)`: the difference
 between those datum realizations is at most a couple of meters and common to
 both ends of a line. Coordinates are used as declared; nothing is transformed
 between datums, and a case that mixes declarations is reported as a conflict.
-Treating a projected grid as a local plane ignores its scale factor, well under
-0.1 % inside a zone and far below the tolerances; you make that choice by
+Treating a projected grid as a local plane ignores its scale factor, at most
+about 0.1 % inside a zone of the grids listed above and far below the tolerances; you make that choice by
 declaring the Cartesian frame, the package does not make it for you.
 
 Bus-level CRS, axis, or unit declarations must agree with the network frame
@@ -365,8 +366,8 @@ threshold. Coordinate accuracy never expands it implicitly.
 
 A spatial hash indexes unique locations, avoiding all-pairs searches for sparse
 networks. Cartesian points are indexed in meters; WGS84 points are indexed on
-the sphere in three dimensions and then filtered by the same spherical
-geodesic used elsewhere in this report. This handles the antimeridian and
+the sphere in three dimensions and then filtered by the same great-circle
+distance used elsewhere in this report. This handles the antimeridian and
 poles without assuming a local projection. Equivalent positions at ±180° and
 the poles are canonicalized for metric-location counting. Raw exact-coordinate
 groups remain a separate observation.
@@ -396,9 +397,12 @@ Endpoint gaps are counted with a 5 m descriptive threshold; the route-endpoint
 Finding threshold is `max(20 m, 10% of endpoint chord)`. Route/declaration length
 differences use `max(5 m, 10% of declared length)`; the line/chord lower-bound
 check uses `max(5 m, 10% of chord)`. A mismatch count is JSON `null` when no
-eligible comparison was made, rather than zero. Geographic Findings require
-an explicit WGS84 declaration; matching route evidence alone supports
-measurements but does not assert the CRS of every bus.
+eligible comparison was made, rather than zero. `W.GEO.WGS84_RANGE` and
+`W.GEO.ROUTE_ENDPOINT_GAP` require a declared geographic frame (WGS84 or one of
+the accepted national datums); the length, length-scale and outlier Findings
+also accept a declared local Cartesian frame. Matching route evidence alone
+supports measurements but emits no `W.GEO.*` Finding, because it does not
+assert the CRS of every bus.
 
 
 ## Geometry and topology review candidates
@@ -479,7 +483,7 @@ circuit-deletion decisions.
 ## Cleanup review workflow
 
 `results[:connectivity]["spatial"]["cleanup_review"]` is a review queue over the
-spatial candidate categories and earlier line-length context. A line with
+spatial candidate categories and line-length context. A line with
 only `regularized_electrical_length` context is not queued. Coordinate coverage,
 exact-coincidence inventories and transformer extents remain separate context;
 this queue is not a complete inventory of all model defects.
@@ -509,9 +513,9 @@ component references, geometry basis, direct-subject impact counts, and a record
 or unreviewed disposition. IDs distinguish shared segments and transformer types;
 a moved segment may have a new identity. Direct/series candidate IDs preserve
 the direct branch role and ordered series path, independent of traversal direction.
-Separate candidates on the same cycle therefore have distinct IDs. Regenerate
-older queues with duplicate IDs before replay; old direct/series IDs remain
-unmatched rather than being assigned to a new candidate. Records bind to canonical SHA-256
+Separate candidates on the same cycle therefore have distinct IDs. A record
+whose ID matches no current candidate stays unmatched; it is never assigned to
+another candidate. Records bind to canonical SHA-256
 fingerprints of the entire network snapshot, spatial configuration, workflow and
 ranking-policy versions, and item evidence. Only ingestion bookkeeping timestamps
 `_meta.parsed_at` and `meta.provenance.parsed_at` are excluded from the case hash;
@@ -553,7 +557,7 @@ by decisions. Location groups also retain category counts.
 
 Shared-route and source-interval groups carry each captured line's endpoint
 voltage labels and an aggregate `voltage_context` evaluated over **all members**,
-including members omitted by the witness cap. Labels come from the existing
+including members omitted by the witness cap. Labels come from the
 source-propagated voltage analysis, never from coordinates. Different known
 voltage systems with matching labels at both ends of each line are compatible
 with shared infrastructure. This does not verify shared poles, independent
@@ -583,18 +587,16 @@ can be lower bounds when member lists are truncated, and never estimate downstre
 load, electrical severity, independent evidence strength or error probability.
 `assessment.error_probability` is null; no probability has been calibrated.
 The policy version is bound into the analysis fingerprint, and assessments and
-coordinate evidence into item fingerprints. Decisions from older classification policies do not
-silently apply to newly classified reports. Existing v1 report payloads remain
-readable, but regeneration is required for the new classifications.
+coordinate evidence into item fingerprints, so a decision recorded under a
+different policy version does not apply to a report classified under this one.
 
 Synthetic expectations are executable in `test/data/spatial_review_calibration.json`
-and `test/data/spatial_shared_infrastructure.json` with its companion tests;
-supplied SAPN and Springfield cases provide structural calibration only. No field
-precision/recall is claimed.
+and `test/data/spatial_shared_infrastructure.json` with their companion tests.
+No field precision/recall is claimed.
 
 ### Sidecar dispositions
 
-Use the existing `analyze` report, and keep decisions outside the electrical model:
+Use the `analyze` report, and keep decisions outside the electrical model:
 
 ```julia
 report = analyze(net)
@@ -676,7 +678,6 @@ julia --project=. examples/spatial_cleanup_review.jl CASE.json OUTDIR DECISIONS.
 The sidecar envelope is `{"schema_version":"spatial-cleanup-review/v1",
 "decisions":[...]}`. Keep the full records returned by `spatial_review_decision`,
 then append later decisions rather than editing history. Report bundles can be
-regenerated; save the ledger separately. The JSON execution interface continues
-using the existing `analyze_case` adapter, which carries the unreviewed queue.
-Disposition replay and GeoJSON export are Julia APIs and do not introduce a new
-transport operation or scientific contract.
+regenerated; save the ledger separately. The JSON execution interface's
+`analyze_case` operation returns the unreviewed queue as part of the report.
+Disposition replay and GeoJSON export are available only as Julia APIs.

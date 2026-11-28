@@ -54,13 +54,12 @@ verifying — the passes yourself.*
 
 `LV10_223bus` is one of the Australian LV feeders stored in the external BMOPFDraftData repository:
 a 223-bus four-wire residential network whose data came from GIS, so it has
-exactly the artifacts described above — including ten closed switches modeled
-as explicit switch elements.
+exactly the artifacts described above — including ten closed switches, written
+in OpenDSS as `switch=y` lines.
 
 ```julia
 using BMOPFTools
 
-const DATA = joinpath(dirname(pathof(BMOPFTools)), "..", "test", "data")
 net = from_dss(joinpath(ENV["BMOPF_RESTRICTED_DATA"], "LV", "LV10_223bus", "Master.dss"))
 
 inventory(n) = (buses    = length(n["bus"]),
@@ -74,8 +73,10 @@ inventory(net)
 equivalent — nothing electrical; see the
 [end-to-end tutorial](tutorial_end_to_end.md) for how to read it.)
 
-224 buses and 212 lines, but only 94 loads: a third of the buses exist for
-purely geometric reasons. Each pass below returns a **deep copy** — the input
+225 buses (including the source's internal bus) and 223 lines, but only 94
+loads: more than half of the buses exist for purely geometric reasons. The ten
+OpenDSS switches arrive as ordinary `line` elements (`switch_329_closed`, …)
+with their 1 m linecode impedance, so the import has no `switch` elements. Each pass below returns a **deep copy** — the input
 network is never mutated — and appends its outcomes to
 `net["_simplification_log"]`.
 
@@ -90,11 +91,14 @@ n1 = collapse_closed_switches(net)
 inventory(n1)
 ```
 
-All ten switches are gone and the bus count dropped by ten — one absorbed bus
-per collapsed switch. The log records exactly which bus survived each merge:
+This import has no `switch` elements, so the pass is a no-op here and the
+inventory is unchanged. On a case with closed switch elements, each collapse
+absorbs one bus, and the log records which bus survived each merge:
 
 ```julia
-println(n1["_simplification_log"][1]["message"])
+log1 = get(n1, "_simplification_log", [])
+isempty(log1) ? println("no closed switch elements collapsed") :
+                println(log1[1]["message"])
 ```
 
 !!! warning "A rated switch loses its flow limit when collapsed"
@@ -134,9 +138,10 @@ n3 = remove_dangling_lines(n2)
 inventory(n3)
 ```
 
-The largest single reduction: 57 lines and their leaf buses served nothing.
+The largest single reduction: 58 lines and their leaf buses served nothing.
 These are typically service drops to premises that have no load attached in
-this dataset snapshot.
+this dataset snapshot. Every one of the 58 carries shunt admittance, so each
+removal also logs `SHUNT_DROPPED` (see the warning below).
 
 !!! warning "A stub with shunt admittance is *not* electrically nothing"
     "Serves nothing" means no load, generator, shunt, source, or transformer at
@@ -180,8 +185,8 @@ unquantified approximation risk. The tighter effective current rating is retaine
 but that does not establish equivalence of the original segment current limits.
 
 Use `merge_series_lines(net; series_merge_policy=:exact)` to refuse these merges,
-or `:off` to disable series merging. Both keywords below also work with
-`simplify_network`. Intermediate bus bounds block merging unless explicitly
+or `:off` to disable series merging. `series_merge_policy` and
+`allow_drop_bus_constraints` (next sentence) also work with `simplify_network`. Intermediate bus bounds block merging unless explicitly
 permitted with `allow_drop_bus_constraints=true` in approximate mode; their values
 are recorded in the warning. Segment apparent-power and angle limits still block
 merging, as do grounding, attached devices, and incompatible terminal maps.
@@ -196,8 +201,11 @@ codes = [e["code"] for e in n4["_simplification_log"]]
 foreach(c -> println(rpad(c, 18), count(==(c), codes), "×"), unique(codes))
 ```
 
-Every outcome is accounted for — the log is the provenance record of the whole
-transformation, suitable for serializing alongside the case.
+On this import five corridors merge, each logged as `SERIES_MERGE_APPROXIMATE`
+next to its `LINES_MERGED` entry, and 21 candidate buses are refused with
+`LINECODE_MISMATCH` (their two lines use different linecodes). Every outcome is
+accounted for — the log is the provenance record of the whole transformation,
+suitable for serializing alongside the case.
 
 !!! note "Current-rating projection for a series-only chain"
     One current flows through both segments of a series corridor, so the binding
@@ -228,12 +236,16 @@ simp = simplify_network(net)
 inventory(simp)
 ```
 
-The inventory above reports the reductions actually supported for this import.
+The inventory above reports the reductions actually supported for this import:
+162 buses and 160 lines, the same as the four passes run one at a time.
 
 ## 4. The payoff: verify, don't trust
 
-If simplification preserves fidelity, a power flow on both networks must agree
-at every bus that survives in both. Let's check that instead of asserting it:
+An exact reduction would leave the power flow unchanged, up to solver tolerance,
+at every bus that survives in both networks. This one is not exact: the default
+`series_merge_policy = :allow_approximate` redistributes interior shunts, and
+pruning shunt-bearing stubs drops their injection. So measure the deviation
+instead of assuming it:
 
 ```julia
 using JuMP, Ipopt
@@ -250,13 +262,15 @@ dv = maximum(abs(v["vm"] - r_orig["bus"][b][t]["vm"])
 println("termination : ", r_orig["termination_status"], " / ",
         r_simp["termination_status"])
 println("shared buses: ", length(shared), " of ", length(r_orig["bus"]))
-println("max |ΔV|    : ", round(dv * 1e6, digits = 1), " μV")
+println("max |ΔV|    : ", round(dv, sigdigits = 3), " V")
 println("losses      : ", round(r_orig["losses"]["p_loss"] / 1e3, digits = 3),
         " kW vs ", round(r_simp["losses"]["p_loss"] / 1e3, digits = 3), " kW")
 ```
 
-Inspect the measured voltage and loss differences above together with the
-transformation warnings. Agreement at this operating point does not establish
+Compare the two solutions only when both terminations report a solved point.
+Read the measured voltage and loss differences together with the
+`SHUNT_DROPPED` and `SERIES_MERGE_APPROXIMATE` warnings: they bound nothing by
+themselves, and agreement at this operating point does not establish
 preservation of every constraint or operating point. Timing is reported for
 this machine and dependency stack:
 

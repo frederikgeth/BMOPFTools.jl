@@ -68,7 +68,7 @@ follow the `config` passed to `analyze`.
 |---|---|---|
 | `pf_min` | 0.70 | `W.DOM.LOAD_PF_LOW` below this load power factor |
 | `cost_max_per_kwh` | 10.0 | `W.DOM.GEN_COST_HIGH` above this generator cost |
-| `r_series_min` | 1e-9 Ω/m | near-zero linecode resistance diagonal |
+| `r_series_min` | 1e-9 Ω/m | `W.DOM.LC_ZERO_R` when a linecode resistance diagonal is below this |
 | `xfmr_ratio_max` | 1000 | `W.DOM.XFMR_RATIO_OOB` beyond this transformer step ratio |
 | `xfmr_z_min_ohm` | 1e-6 Ω | at or below this a winding is exactly ideal (`I.DOM.XFMR_IDEAL`) |
 | `xfmr_z_min_pu` | 1e-3 | tiny non-zero leakage, likely a placeholder (`W.DOM.XFMR_LOW_IMPEDANCE`) |
@@ -79,11 +79,14 @@ follow the `config` passed to `analyze`.
 ### `[operational.feeder_length.<band>]`
 
 One table per voltage band (`LV` below 1 kV, `MV` 1–35 kV, `HV` 35–100 kV,
-`EHV` above), applied to the per-conductor nominal voltage.
+`EHV` above). The band is chosen from the per-conductor (phase-to-neutral)
+nominal voltage, not the line-to-line rating: a 400 V feeder (230 V per
+conductor) is `LV`, 11 kV and 33 kV feeders (6.35 kV and 19.1 kV) are `MV`, and
+a 66 kV line (38.1 kV) is `HV`.
 
 | Key | Defaults (LV / MV / HV / EHV) | Finding |
 |---|---|---|
-| `reach_short_m` | 30 / 200 / 0 / 0 | `I.OPS.FEEDER_SHORT` when a zone's electrical reach is below this; `0` disables |
+| `reach_short_m` | 30 / 200 / 0 / 0 | `I.OPS.FEEDER_SHORT` when a zone's reach (the farthest bus's declared line length to its nearest supply boundary) is below this; `0` disables |
 | `reach_long_m` | 1000 / 20000 / 100000 / 300000 | `I.OPS.FEEDER_LONG` above this; `0` disables |
 
 These are the thresholds most worth adapting to a region. A North American
@@ -98,8 +101,19 @@ reach_long_m = 60000.0      # long rural feeders are normal here
 reach_short_m = 0.0         # do not report service drops
 ```
 
+These thresholds apply to zones with at most one qualified supply-boundary
+bus. A zone with more than one uses the `multi_boundary` subtable of its band
+instead. It is absent from the defaults, so `I.OPS.FEEDER_LONG` and `I.OPS.FEEDER_SHORT`
+are not raised for such zones unless you configure it:
+
+```toml
+[operational.feeder_length.LV.multi_boundary]
+reach_short_m = 0.0
+reach_long_m = 500.0
+```
+
 The [feeder-length reference](analysis_results.md#Feeder-length-and-supply-boundaries)
-explains how reach is measured and the separate `multi_boundary` policy.
+explains how reach is measured.
 
 ### `[provenance.dss_defaults]`
 
@@ -108,7 +122,7 @@ value probably came from the tool, not from data.
 
 | Key | Default | Finding |
 |---|---|---|
-| `normamps`, `emergamps` | 400, 600 A | `I.PROV.DSS_DEFAULT_AMPS` |
+| `normamps` | 400 A | `I.PROV.DSS_DEFAULT_AMPS` |
 | `xhl_pu`, `rw_pu` | 0.07, 0.004 | `I.PROV.DSS_DEFAULT_XFMR` |
 | `pf` | 0.88 | `I.PROV.DSS_DEFAULT_PF` |
 | `basekv_v`, `kv_v` | 115 kV, 12.47 kV | `I.PROV.DSS_DEFAULT_KV` |
@@ -128,10 +142,12 @@ feeder. Set `kv_v` to a value your network does not use to silence it there.
 | Key | Default | Effect |
 |---|---|---|
 | `enabled` | true | `false` skips the whole spatial pass |
+| `proximity_enabled`, `discrepancy_enabled`, `review_enabled` | true | `false` turns off the proximity inventory, the discrepancy checks, or the capture of review candidates |
 | `proximity_radius_m` | 1.0 | buses within this distance are proximity neighbors |
 | `long_span_threshold_m` | 10000 | review candidate `S.LONG_BRANCH_SPAN` above this |
 | `route_endpoint_tolerance_m` | 5.0 | route endpoint gaps above this are counted |
-| `max_candidate_pairs`, `max_topology_pairs`, `max_series_hops` | 1e6, 1e5, 8 | search budgets; exceeding one makes that check indeterminate |
+| `max_candidate_pairs`, `max_topology_pairs` | 1e6, 1e5 | search budgets; exceeding one makes that check indeterminate |
+| `max_series_hops` | 8 | longest line-only series path (in edges, 2–64) compared with a direct line |
 | `witness_limit`, `max_review_candidates` | 20, 5000 | how much evidence is kept |
 
 The length tolerances of the `W.GEO.*` Findings (`max(5 m, 10 %)` for a line
@@ -141,8 +157,8 @@ fixed. See [Spatial diagnostics](spatial_diagnostics.md).
 ### Not used by `analyze`
 
 `[thermal]` and `[augment.*]` configure [`augment_case`](@ref) and the IBR
-presets. `[provenance.grounding]` is kept so that old configuration files still
-load; its two keys no longer affect any report.
+presets. The two `[provenance.grounding]` keys are ignored by every report;
+[`load_config`](@ref) warns when a file sets them.
 
 ## Thresholds that are fixed in the code
 

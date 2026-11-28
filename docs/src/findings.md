@@ -417,7 +417,7 @@ the table).
 
 | Code | Sev | Trigger & rationale |
 |---|---|---|
-| `W.PROV.REGULATOR_PATTERN` | W | A transformer that looks like a voltage-regulator/autotransformer encoding: either both windings on one bus (the explicit EPRI autotransformer form) or a near-1:1 wye unit with same-level endpoints / very low impedance / non-unity tap. The data model has no regulator object — a control device has been frozen into a fixed branch. |
+| `W.PROV.REGULATOR_PATTERN` | W | A transformer that looks like a voltage-regulator/autotransformer encoding: either both windings on one bus (the explicit EPRI autotransformer form) or a near-1:1 wye unit with same-level endpoints / very low impedance / non-unity tap. `from_dss` does not convert either form into a regulator subtype (`single_phase_autotransformer`, `open_delta_regulator`), so a control device has been frozen into a fixed-tap branch. |
 
 ## INT — structural integrity
 

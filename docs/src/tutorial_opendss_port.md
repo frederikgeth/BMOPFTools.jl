@@ -59,17 +59,20 @@ end
 
 Each line is a difference between the two formats, not an error in your data:
 
-- `EMIT.BMOPF.FIELD_DROPPED` — a field with no place in the target, such as the
-  `kv` voltage base or the source short-circuit level.
+- `EMIT.BMOPF.FIELD_DROPPED` — a field with no place in the target: here the
+  load `kv` and `phases` fields and the source `basemva` and
+  `nominal_phase_kv`. The full list is in `net["_meta"]["powerio_warnings"]`.
 - `EMIT.BMOPF.VALUE_SUBSTITUTED` — OpenDSS loads switch model outside a voltage
   band (`Vminpu`/`Vmaxpu`); BMOPF has one load law, so the nominal law is kept.
+  This deck sets `Vminpu=0 Vmaxpu=2` on every load, so OpenDSS never leaves the
+  nominal law in practice and the substitution changes nothing here.
 - `EMIT.BMOPF.RETAINED_SOURCE_ONLY` — data kept under `extras` because the
-  target subtype has no slot for it (here the no-load shunt of the
-  center-tapped transformer).
+  target subtype has no slot for it: here the no-load shunt of both
+  transformers, the delta-wye `t3` and the center-tapped `tsp`.
 
 Read this layer once and decide whether anything dropped matters for your
-study. If the load model switch matters, for example, that is a modeling
-decision to make now, not something the solver will tell you later.
+study. On a deck with a real voltage band, the load model switch would be a
+modeling decision to make now, not something the solver will tell you later.
 
 ## 3. Layer two: what the profiler recognized
 
@@ -92,8 +95,9 @@ for f in report.findings
 end
 ```
 
-OpenDSS writes the earth as node `0` and the neutral as node `4`. After import
-they are separate named terminals, and you can see which is which:
+OpenDSS writes the earth as node `0`; this deck uses node `4` for the neutral,
+a common convention but not an OpenDSS rule. After import they are separate
+named terminals, and you can see which is which:
 
 ```@example port
 for id in ("src", "lv3", "lvsp")
@@ -103,7 +107,7 @@ for id in ("src", "lv3", "lvsp")
 end
 ```
 
-`n` is the neutral (OpenDSS node 4). On the source bus, `n_ref` is what OpenDSS
+`n` is the neutral (node 4 of the deck). On the source bus, `n_ref` is what OpenDSS
 node 0 became where a device was connected to it: a perfectly grounded
 terminal, the earth reference itself and not a conductor. The grounding
 reactors of the deck (`Reactor.grnd_*`) became finite shunts from each neutral
@@ -136,16 +140,22 @@ American primary voltage. The finding is a prompt to check, and the check takes
 a second. On a European or Australian case the same finding would be a strong
 sign that a `kv` was never set.
 
-If a whole project uses 12.47 kV, say so once in the
-[thresholds](howto_thresholds.md) rather than re-reading the finding on every
-case:
+Once you have checked it, record the decision rather than switching the
+fingerprint off, as in [Accept and track findings](howto_accept_findings.md).
+Record the evidence with it, so that a new component at 12.47 kV reopens the
+question:
 
 ```@example port
-cfg = load_config()
-cfg["provenance"]["dss_defaults"]["kv_v"] = 1.0        # no component is at 1 V
-quiet = analyze(net; config = cfg)
-println(any(f -> f.code == "I.PROV.DSS_DEFAULT_KV", quiet.findings) ? "still raised" : "not raised")
+kv = only(f for f in report.findings if f.code == "I.PROV.DSS_DEFAULT_KV")
+decision = (code = kv.code, components = kv.detail["components"],
+            reason = "12.47 kV is the design primary voltage of this feeder.")
+covered(f) = f.code == decision.code && f.detail["components"] == decision.components
+println(covered(kv) ? "covered by the recorded decision" : "new evidence: review again")
 ```
+
+The `kv_v` entry in the [thresholds](howto_thresholds.md) serves a different
+purpose: set it to the voltage your own tool chain fills in by default, so that
+value is the one fingerprinted.
 
 ## 5. What is left to do
 
@@ -175,11 +185,12 @@ Those are the job of [case augmentation](augmentation.md), not of the import.
   fingerprints (values that may never have been set).
 - **Check the zones and levels first.** If they match your picture of the
   feeder, the translation understood it.
-- **A default fingerprint is a question.** It is right as often as it is wrong;
-  it costs a look.
-- **Controls do not survive.** Regulator and capacitor controls have no
-  counterpart: a regulator arrives as a fixed-tap transformer and
-  `W.PROV.REGULATOR_PATTERN` reminds you.
+- **A default fingerprint is a question.** The value may be real data or a
+  default that was never set; the source tells you which, and it costs a look.
+- **Controls do not survive.** This deck has none, but in general regulator and
+  capacitor controls have no counterpart: a regulator arrives as a fixed-tap
+  transformer, and `W.PROV.REGULATOR_PATTERN` flags transformers that look like
+  one.
 
 Next: [System types and regional practice](tutorial_system_types.md) for the
 split-phase and bank arrangements, and the

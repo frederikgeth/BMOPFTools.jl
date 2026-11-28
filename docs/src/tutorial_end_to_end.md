@@ -26,10 +26,10 @@ counts and findings can change with the importer version. Companion scripts live
 [`examples/augment_and_solve.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/augment_and_solve.jl)
 (preparation and solve).
 
-The feeder is `LV1_14bus`: a real LV network — 14 LV buses plus the 11 kV
-source bus, 15 buses in total — with an 11 kV / 433 V delta–wye transformer,
-nine cables, four normally-closed switches, two single-phase loads and three
-neutral reactors.
+The feeder is `LV1_14bus`: a real LV network whose OpenDSS deck declares an
+11 kV / 433 V delta–wye transformer, nine cables, four normally-closed switches
+(a fifth, normally-open switch is commented out), two single-phase loads and
+three neutral grounding reactors.
 
 !!! note "Prerequisites"
     A Julia session with BMOPFTools plus **JuMP** and **Ipopt** for the solve
@@ -91,11 +91,11 @@ println("WARNINGs : ", length(warnings(report)))
 println("INFOs    : ", length(infos(report)))
 ```
 
-Findings are meant to be matched on their **code**, never on message text. This
-feeder imports with zero errors and a warning for a handful of degree-1 buses
-with nothing attached (`W.CONN.DANGLING` — switch and stub endpoints). The
-feeder has **no local generation at all**: `results[:operational]["passive_feeder"]`
-is true. A passive load feeder imports by construction, so that is recorded as a
+Findings are meant to be matched on their **code**, never on message text.
+Read the warnings by code: on a utility import they typically flag structural
+details such as degree-1 buses with nothing attached (`W.CONN.DANGLING`, for
+example switch and stub endpoints). The feeder has **no local generation at
+all**: `report.results[:operational]["passive_feeder"]` is true. A passive load feeder imports by construction, so that is recorded as a
 fact rather than raised as a warning, but it does mean there is nothing for an
 OPF to optimize yet, which is exactly what the DER-placement step below is for. The missing operating bounds show up as INFO
 findings such as `I.PRE.NO_VOLT_BOUNDS`, which the augmentation step fills.
@@ -119,12 +119,13 @@ render(report, stdout)
 [`fix_case`](@ref) applies idempotent structural repairs and returns the
 repaired network plus a [`TransformationManifest`](@ref) recording every change.
 The default [`FixRecipe`](@ref) keeps the largest connected component, merges
-trivial series lines, drops electrically-inert zero loads, turns
-near-zero-impedance lines into switches, and strips redundant voltage bounds off
-source buses. Four passes are opt-in because they change topology inference,
-representation, or OPF physics: `apply_adjacent_current_bounds`,
-`apply_perfect_grounding`, `apply_shunt_to_capacitor`, and
-`apply_snap_transformer_impedance`.
+trivial series lines and removes dangling stubs, drops electrically-inert zero
+loads, strips satisfied voltage bounds off source buses, and removes ideal
+conductors whose two ends are both perfectly grounded. Five passes are opt-in
+because they idealize impedances or change topology inference, representation,
+or OPF physics: `apply_low_impedance_to_switch`,
+`apply_adjacent_current_bounds`, `apply_perfect_grounding`,
+`apply_shunt_to_capacitor`, and `apply_snap_transformer_impedance`.
 
 ```julia
 net_fixed, fix_mf = fix_case(net; recipe = FixRecipe())
@@ -167,7 +168,9 @@ render_manifest(der_mf)
 any value already present**. The manifest records each change's rule and
 confidence, including `:standard` for standard-derived fills and `:synthetic`
 for study choices. The voltage and reactive-capability passes draw on
-EN 50160 and EN 50549-1 / IEEE 1547, respectively. Synthetic thermal estimation
+EN 50160 and EN 50549-1, respectively (the default cos φ = 0.90 rule is P-based
+and does not reproduce IEEE 1547-2018's kVA-based reactive capability; see
+[Case augmentation](augmentation.md#Pass-3-—-Generation)). Synthetic thermal estimation
 is a separate opt-in pass: `AugmentationRecipe()` has `apply_thermal=false`.
 See [Case augmentation](augmentation.md) for the full pass-by-pass rationale.
 
@@ -210,11 +213,9 @@ before augmentation.
 !!! warning "Absent ratings stay absent"
     The tutorial's source DSS files declare neither `normamps` nor `emergamps`,
     so its lines carry no `i_max` after `from_dss`, and the default augmentation
-    above adds none, so the OPF has no line `i_max` to enforce. PowerIO.jl
-    0.11.9 and earlier materialized the OpenDSS 600 A default as `i_max`
-    instead ([PowerIO #762](https://github.com/eigenergy/powerio/issues/762),
-    repaired in 0.11.10). Networks imported and saved with those versions can
-    still hold such arrays; re-import from the source DSS to remove them. Do
+    above adds none, so the OPF has no line `i_max` to enforce. Saved networks
+    from older imports can still hold `i_max` arrays that materialize the
+    OpenDSS 600 A default; re-import from the source DSS to remove them. Do
     not remove ratings merely because they equal 600 A: explicit ratings can
     have that value too. Zero is a binding limit, not a marker for an absent one.
 
@@ -248,16 +249,16 @@ println("Cleared  : ", join(sort(collect(setdiff(before, after))), ", "))
 println("New      : ", join(sort(collect(setdiff(after, before))), ", "))
 ```
 
-Augmentation cleared `I.PRE.NO_VOLT_BOUNDS` — every bus now has voltage bounds,
-so the OPF is well-posed — and the new INFO codes are consequences of the fills
-(e.g. `I.PROV.OVERLAPPING_VOLTAGE_BOUNDS` notes that the phase-to-ground and
+Augmentation clears `I.PRE.NO_VOLT_BOUNDS`: every bus now carries voltage
+bounds. Bounds being present does not make the OPF solvable; the solve in
+Step 7 checks that. New INFO codes are consequences of the fills (e.g.
+`I.PROV.OVERLAPPING_VOLTAGE_BOUNDS` notes that the phase-to-ground and
 phase-to-neutral envelopes now coexist). `passive_feeder` is now false:
 the DER-placement step gave the feeder local active capacity, and that pass
 counts both dispatchable `generator` units and the `ibr` fleet we placed (a PV
 IBR on each load bus, sized well above the local load), so the feeder is no
-longer a passive import. The lone surviving warning is `W.CONN.DANGLING`: a few
-degree-1 stub buses that are live switch endpoints (it dropped from 5 buses to
-3) — a **structural** finding that gap-filling does not (and should not) touch.
+longer a passive import. Structural warnings such as `W.CONN.DANGLING` on
+degree-1 switch endpoints are not touched by gap-filling, and should not be.
 Re-validation is a diff to be read, not a score to be zeroed.
 
 ## 7. Solve
@@ -303,14 +304,13 @@ println("\nGrid import : ", round(p_grid / 1e3; digits = 2), " kW")
 println("Network loss: ", round(result["losses"]["p_loss"] / 1e3; digits = 2), " kW")
 ```
 
-Note the fourth terminal: the neutral at `b2656` sits at ≈ 1.3 V above ground,
-not 0. The single-phase load and PV cluster on this bus load the phases
+Note the fourth terminal: the neutral at `b2656` sits above ground, not at 0 V. The single-phase load and PV cluster on this bus load the phases
 unevenly, the imbalance current returns through the neutral conductor, and the
 neutral point shifts — so the phase-to-*neutral* voltages the customer actually
 sees differ from the phase-to-ground magnitudes. This neutral-point shift is
 exactly what the four-wire model resolves and a Kron-reduced three-wire model
 would silently ground away. Grid import is negative, as anticipated above: the
-feeder exports ≈ 69 kW of PV surplus.
+feeder exports the PV surplus.
 
 ### Profiling the solution
 

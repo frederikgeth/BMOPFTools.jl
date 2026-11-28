@@ -9,9 +9,10 @@ Numbered citations refer to the [references](@ref refs) at the bottom.
 
 ## Impedance matrix invariants vs fingerprints
 
-The central design principle: enforce **invariants** — properties no
-legitimate transformation of the data can break — as hard checks, and treat
-**typical** properties as soft provenance fingerprints.
+The central design principle: report a violated **invariant** — a property
+no legitimate transformation of the data can break — as a data defect (an
+error or a warning), and treat **typical** properties as soft provenance
+fingerprints.
 
 For the series impedance Z = R + jX of a multiconductor line in wire
 coordinates [1, 5]:
@@ -33,6 +34,14 @@ coordinates [1, 5]:
   and nearly equal across conductor pairs — a useful fingerprint of
   geometry-derived data, but only *typical*: reductions and fitting can
   perturb it (`I.PROV.NEGATIVE_MUTUAL_R`, soft).
+
+Severity follows the consequence of a violated invariant. Asymmetry and a
+resistance matrix that is not PSD are errors: the first breaks reciprocity, the
+second lets the line deliver active power. The reactance and susceptance
+checks (`W.PROV.X_NOT_PSD`, `W.PROV.X_NONINDUCTIVE`, `W.PROV.B_SIGN` below) are
+warnings. For a symmetric Z the absorbed active power is Iᴴ R I whatever X is
+(likewise Vᴴ G V for a shunt, whatever B is), so a violation there makes the
+data physically unrealizable without creating an active-power source.
 
 ## Sequence-derived matrices and Z₁/Z₀ recovery
 
@@ -82,10 +91,8 @@ with the wrong sign. Severity calibration:
   warnings (`W.PROV.B_SIGN`).
 - A **positive mutual with PSD intact** cannot arise from a clean
   geometry → P⁻¹ → reduction pipeline; it marks fitted, averaged or
-  otherwise processed provenance (`I.PROV.B_OFFDIAG`, informational). This
-  calibration was validated empirically on the bundled-cable library, where
-  small positive mutuals (+0.0011 vs −0.0114 siblings) occur in PSD
-  matrices.
+  otherwise processed provenance (`I.PROV.B_OFFDIAG`, informational), since
+  grounded-screen elimination and bundling preserve the sign pattern.
 
 ## Kron reduction, grounding and earthing zones
 
@@ -166,10 +173,11 @@ fixed branch; the second bundles three benchmark pitfalls of [2] in one
 pattern (self-loop topology, deliberate tiny impedance, a rating that reads
 as 10× overload). Detection (`W.PROV.REGULATOR_PATTERN`): the self-loop is
 near-conclusive on its own; the 1:1 form requires corroboration
-(same-voltage-level endpoints, x_pu < 0.5 %, or a non-unity tap) and is
-restricted to wye-wye-derived subtypes, since regulators are never
-delta-coupled — which keeps genuine 1:1 phase-shifting interconnectors
-silent.
+(same-voltage-level endpoints, x_pu < 0.5 %, or a non-unity tap), a
+winding-voltage ratio `v_nom_to / v_nom_from` between 0.85 and 1.176, and the
+`single_phase` subtype. The delta-coupled `wye_delta` and `delta_wye` subtypes
+are never matched, since regulators are never delta-coupled, which keeps
+genuine 1:1 phase-shifting interconnectors silent.
 
 This heuristic concerns *imported* data where a regulator was hacked into a
 transformer + shunt. The data model itself has **dedicated** regulator objects —
@@ -179,8 +187,8 @@ open-delta with the galvanic straight-through of the shared phase) — so a
 regulator authored natively needs no such pattern-matching. See the
 [OPF reference](opf.md) for their constraints and the
 [conventions](conventions.md) for the field set. The `from_dss` converter does
-not yet emit these subtypes (regulators arriving from OpenDSS are still detected
-via the pattern above rather than converted).
+not emit these subtypes: regulators arriving from OpenDSS are detected via the
+pattern above rather than converted.
 
 ## Benchmark readiness
 

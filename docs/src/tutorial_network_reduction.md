@@ -8,10 +8,12 @@ BMOPFTools, in the order you would use them in practice, and at each step asks
 the same two questions: **what did it remove, and what did that cost?** By the
 end you will know when each tool is exact, when it is not, and how to check.
 
-The companion pages explain the theory: [Network reduction](@ref network-reduction)
-compares the tools on real feeders, and
-[Reducing a feeder with a voltage guarantee](@ref tutorial-opti-kron) explains
-how Opti-KRON's guarantee works, using a six-bus example.
+Two companion pages: [Network reduction](@ref network-reduction) explains
+what each tool preserves and compares them on real feeders, and
+[Reducing a feeder with a voltage guarantee](@ref tutorial-opti-kron) walks
+through Opti-KRON's linear error model and uncertainty sets on a six-bus
+example (the full mathematics is in
+[Error-bounded bus reduction](@ref opti-kron)).
 
 *Prerequisites: `BMOPFTools`, `JuMP`, `HiGHS` and `Ipopt`. The complete script is
 `examples/opti_kron/reduction_workflow.jl` (about 30 s); every number below is
@@ -65,7 +67,7 @@ the cost is plain:
 # neutral Kron: Ybus 86 → 66 nodes, worst voltage error 7.67 V
 ```
 
-A 25% smaller matrix bought an error of almost 8 V, over 3% of the voltage, and it
+A 23% smaller matrix bought an error of almost 8 V, over 3% of the voltage, and it
 cannot be undone, because the neutral voltages it threw away are exactly the
 information that was needed. The scientific contract
 [`check_kron_boundary_recovery`](@ref) refuses the same transformation for the
@@ -87,7 +89,7 @@ sp = simplify_network(net)
 ```
 
 The error is round-off: merging series impedances through an empty bus is
-exact. But four poles (p1, p2, p5, q1) no longer exist in the model, so their
+exact here because the cable has no shunt admittance. But four poles (p1, p2, p5, q1) no longer exist in the model, so their
 voltages are no longer computed. Pole p9 carries no customer either, yet it
 survives: its MEN electrode is a shunt that must stay attached somewhere.
 
@@ -113,9 +115,10 @@ res = opti_kron_reduction(m, OptiKronBox(U), 0.01; optimizer=HiGHS.Optimizer,
 ```
 
 The choice of set is a choice of how much to trust the training day. Each set
-was reduced at two thresholds, then checked on the test day:
+was reduced at two thresholds, then checked on the test day with the linear
+voltage model (the AC check follows in §5):
 
-| Set | Ē = 0.005 p.u. | test-day error | Ē = 0.010 p.u. | test-day error |
+| Set | Ē = 0.005 p.u. | test-day error (linear model) | Ē = 0.010 p.u. | test-day error (linear model) |
 |---|---|---|---|---|
 | scenarios (2 extreme hours) | 8 buses | **1.77 Ē** | 5 buses | **1.38 Ē** |
 | convex hull of day 1 | 13 buses | **1.18 Ē** | 6 buses | 0.91 Ē |
@@ -142,8 +145,9 @@ Read the table from top to bottom:
 ## 5. Build, solve, lift, verify
 
 The assignment is a decision; [`kron_reduce_buses`](@ref) turns it into a
-solvable case. Devices move to their super-nodes, and the buses left without
-devices are removed by exact Kron reduction of the multiconductor network.
+solvable case. Devices move to their super-nodes, and then every eliminated
+bus, now without devices, is removed by exact Kron reduction of the
+multiconductor network.
 
 ```julia
 red = kron_reduce_buses(net, m, res; Ebar=0.01)

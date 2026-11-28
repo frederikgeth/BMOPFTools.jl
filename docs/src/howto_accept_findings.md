@@ -4,8 +4,11 @@ Not every finding is a defect. A dangling bus can be a deliberate spare way; a
 uniform load allocation can be the study design. This page shows how to live
 with such a finding without losing track of it.
 
-BMOPFTools has **no suppression switch**. A finding you accept is still raised
-on the next run. That is intentional: a silenced finding is invisible to the
+BMOPFTools has **no switch that silences a code**. Report consolidation only
+drops a finding that a stronger one already states for the same component, or
+rolls many findings of one code into one, and records both in
+`results[:consolidation]`. A finding you accept is still raised on the next
+run. That is intentional: a silenced finding is invisible to the
 next person, and to you in six months. What you keep instead is a short record
 of the decision, and a check that tells you when something *new* appears.
 
@@ -75,9 +78,9 @@ by recording the evidence the decision was about, and comparing it:
 
 ```@example accept
 decided_buses = ["spare"]
-now = sort(later.results[:connectivity]["dangling_buses"])
-println(now == decided_buses ? "decision still applies" :
-        "evidence changed: review again (now $(now))")
+current_buses = sort(later.results[:connectivity]["dangling_buses"])
+println(current_buses == decided_buses ? "decision still applies" :
+        "evidence changed: review again (now $(current_buses))")
 ```
 
 ## Gate on what is new
