@@ -64,7 +64,7 @@ reciprocal $n_\text{eff}^{-1}$, pinned by the bilinear row
 $n_\text{eff}\,n_\text{eff}^{-1} = 1$ so that the leakage referral stays
 quadratic instead of rational. Using the ideal-core
 coupling $N\,I_\text{series} = -I_\text{to}$, the voltage drop stays **quadratic** in
-the tap (no cubic), so the existing Ipopt NLP solves it unchanged. For the YY family
+the tap (no cubic), so it stays within the same smooth NLP class. For the YY family
 the from-winding leakage of an OLTC scales with the winding turns ($\propto
 \texttt{tap}^2$); referred to the to side it is **constant**
 ($R' = r_\text{to} + r_\text{fr}/N_0^2$, $X' = x_\text{to} + x_\text{fr}/N_0^2$) and
@@ -85,7 +85,7 @@ admittance $Y = Z^{-1}$, **zero winding resistance and zero leakage reactance ar
 admissible**: the constraints degrade to the ideal-transformer relation
 $v_\text{fr} = N v_\text{to}$ (and, for `n_winding`, $V_1^r = V_{i+1}^r$ with
 $\sum_k N_k I_k = 0$) with no inversion and no singularity. This holds for *all*
-subtypes and is covered by the "ideal (zero-impedance) transformers" tests.
+subtypes.
 (The separate `transformer_yprim`/`nwinding_yprim` **admittance export** is the
 one place that genuinely inverts $Z$. An ideal coupling has no admittance form,
 so that export throws for leakage at or below its cutoff; use `ybus_augmented`
@@ -146,8 +146,8 @@ $U_{\text{fr},k} = N\,U_{\text{to},k}$.
 
 Terminal map: `terminal_map_from = [t_ph, t_n]` (HV phase, HV neutral),
 `terminal_map_to = [t₁, tₙ, t₂]` (leg-1, center-tap neutral, leg-2).
-$V^\text{ref}_\text{to}$ is the **per-leg** voltage (e.g. 120 V for a
-120-0-120 V unit), so $N = V^\text{ref}_\text{fr}/V^\text{ref}_\text{to} = 60$
+$V^\text{nom}_\text{to}$ is the **per-leg** voltage (e.g. 120 V for a
+120-0-120 V unit), so $N = V^\text{nom}_\text{fr}/V^\text{nom}_\text{to} = 60$
 for a 7.2 kV / 120 V unit.
 
 The split-phase unit is a genuine 3-winding transformer whose two LV
@@ -395,7 +395,7 @@ with its own current variable, enforcing
 v_{b^\text{fr},t_\text{shared}} = v_{b^\text{to},t_\text{shared}}
 ```
 
-This is the physically-correct "common neutral" model of Yan et al. (2018): the
+This is the "common neutral" model of Yan et al. (2018) ([ref. 29](references.md#refs)): the
 shared phase passes through unchanged while the two regulated line-to-line
 voltages are boosted by their taps. Without it the line-to-line voltages are
 still correct but the per-phase reference floats (the unphysical
@@ -440,7 +440,7 @@ $(n{-}1)\times(n{-}1)$ impedance, exact for any $n$; see
 [Conversion § n-winding](@ref n-winding)). With winding-local power bases, let
 $f_j=S_j/S_1$. The referred currents in winding-1 current coordinates are
 $I^r_{j} = N_j f_j\,c^{w}_{x,j,k}$
-($N_j = V^\text{ref}_j / V^\text{ref}_1$); every $f_j=1$ in SI and ordinary
+($N_j = V^\text{nom}_j / V^\text{nom}_1$); every $f_j=1$ in SI and ordinary
 system-base per-unit. With referred coil voltages $V^r_j = U_{j,k}/N_j$, per
 phase/leg $k$:
 
@@ -457,7 +457,7 @@ The per-leg leakage/ampere-turn structure is identical for `WYE` and `DELTA`
 windings — only the coil↔terminal incidence differs. The coil voltage $U_{j,k}$
 is **phase-to-neutral** for a `WYE` winding and **line-to-line** (phase $k$ minus
 its delta partner $k^{\pm}$, selected by the winding's `delta_roll`) for a
-`DELTA` winding, whose $V^\text{ref}$ is its line-to-line coil voltage — so the
+`DELTA` winding, whose $V^\text{nom}$ is its line-to-line coil voltage — so the
 $\sqrt{3}$ coil-base factor lives entirely in $N_j$, and $V^r_j$ stays consistent
 (per-unit needs no $\sqrt3$ correction, since the bus base is line-to-neutral).
 A `WYE` coil injects $-c^{w}_{x,j,k}$ at its phase and $+\sum_k c^{w}_{x,j,k}$ at

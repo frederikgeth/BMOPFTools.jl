@@ -1,8 +1,9 @@
 # Optimal power flow
 
-Despite the name, the ambition of this Task Force extends well beyond the
+The IEEE PES Task Force on Benchmarking Multiconductor OPF for Distribution
+Systems (BMOPF), whose data model this package implements, targets more than the
 classical OPF problem of minimizing generation cost subject to network
-constraints.  The unifying theme of the benchmark problems targeted here is
+constraints. The unifying theme of its benchmark problems is
 the need to **accurately represent distribution network physics** rather than
 any particular objective function. Generation cost minimization with explicit
 operational bounds is a convenient starting point: its objective and feasibility
@@ -37,19 +38,14 @@ net    = parse_bmopf("mynetwork.json")
 result = solve_opf(net)
 ```
 
-Dictionary input to `solve_opf`, `solve_pf`, `initialize_opf_model`, and
-`build_opf_model` is copied, snapshotted when needed, and normalized before
-per-unit conversion or model construction. The same ingest operations as
-`parse_bmopf` migrate legacy fields, honor terminal roles, assign combined
-Yd/Dy leakage to the wye winding, and materialize explicit `no_load_shunt`
-records. Reusing parsed input does not duplicate shunts or losses. The caller's
-network remains unchanged.
-
-For each of resistance and reactance, supply either a combined Yd/Dy field or
-split winding fields. Competing declarations raise `ArgumentError`, as do
-competing explicit and legacy excitation fields. Normalization is not schema
-validation or proof of electrical feasibility; use the validation APIs and
-independent solution checks for those purposes.
+`solve_opf`, `solve_pf`, `initialize_opf_model`, and `build_opf_model` work on
+a copy of their input, normalized with the same ingest steps as `parse_bmopf`
+(legacy-field migration, terminal roles, Yd/Dy leakage assignment, explicit
+`no_load_shunt` records). Passing an already-parsed case is therefore safe, and
+the caller's dictionary is never modified. A transformer that declares both a
+combined Yd/Dy impedance and split winding impedances raises `ArgumentError`.
+Normalization is not validation: use the validation APIs and independent
+solution checks for that.
 
 A full mathematical derivation is available in `docs/math-model.tex`.
 
@@ -183,8 +179,10 @@ well beyond that starting point.
 The network is a graph of **buses** $b \in \mathcal{B}$, each with a set of
 **terminals** $\mathcal{T}_b$.  Terminals are named strings (e.g. `"a"`, `"b"`,
 `"c"`, `"n"`).  The *neutral terminal* $n_b$ is identified, in order of
-precedence, by the case-level [`terminal_conventions`](conventions.md)
-labels, by the explicit `neutral_terminal` bus field, or by the naming
+precedence, by the explicit `neutral_terminal` bus field, by the case-level
+[`terminal_conventions`](conventions.md) labels (when the case declares them,
+they are authoritative: a conductor declared as a phase is never a neutral
+because of its name), or, for cases that declare no roles, by the naming
 convention: a terminal named `"n"`/`"N"` (case-insensitive), or the reserved
 import label `"n_ref"`, is treated as neutral.
 
@@ -328,6 +326,7 @@ keywords:
 ```julia
 classic = OpfScaling(:classic; power_base = 1e6)
 si = OpfScaling(:si)
+reference_bases = opf_bases(build_opf_model(net)).v_base  # bus => V, classic bases
 custom = OpfScaling(
     name = :voltage_half_power_200kva,
     power_base = 2e5,
@@ -339,31 +338,26 @@ schema = opf_diagnostic_schema(ctx)
 schema.scaling["kind"]  # => "consistent_per_unit"
 ```
 
-For an experimental power base that changes across an isolated transformer,
+For an experimental power base that changes across an isolating transformer,
 use `OpfScaling(voltage_bases=..., power_bases=...)`. Every bus must be
-declared and the power base must be constant within each galvanically continuous
-zone. Cross-zone `single_phase`, `center_tap`, `wye_delta`, `delta_wye`, and
-`n_winding` units are qualified. Native lossless AC/DC converters using `P`,
-`V`, or `droop` control are also qualified with an independent DC power base.
-The engine still rejects the remaining transformer families until their
-connection-specific stamping has passed physical-state, derivative, set,
-objective, and loss covariance; custom or lossy converter builders require
-their own covariance contracts.
-Galvanically continuous `single_phase_autotransformer` and
-`open_delta_regulator` devices are also qualified, but only with one voltage
-base and one power base across both sides. Their tap is dimensionless and does
-not turn a shared copper bushing or straight-through phase into a scaling
-boundary.
+declared, and the power base must be constant within each galvanically
+continuous zone. All isolating subtypes (`single_phase`, `center_tap`,
+`wye_delta`, `delta_wye`, `n_winding`) and native lossless AC/DC converters in
+`P`, `V`, or `droop` mode (with an independent DC power base) support a change
+of power base. The regulators `single_phase_autotransformer` and
+`open_delta_regulator` are galvanically continuous, so they need one voltage
+base and one power base across both sides: their tap is dimensionless and does
+not turn a shared bushing into a scaling boundary. Custom or lossy converter
+builders must handle the base change themselves.
 
 An explicit `scaling_policy` is authoritative over `per_unit` and `s_base`.
 The custom `OpfScaling` form requires every AC bus to be declared and validates
 that lines/switches preserve the voltage base and transformer bases preserve
 the turns ratio. It derives `I_base=S_base/V_base`,
-`Z_base=V_base^2/S_base`, and `Y_base=S_base/V_base^2`. Independently choosing
-all four bases is not currently supported because the IVR equations assume
-these identities; the constructor rejects incompatible declarations instead
-of silently changing the physical model. The effective policy is serialized
-by `opf_research_provenance`.
+`Z_base=V_base^2/S_base`, and `Y_base=S_base/V_base^2`. The four bases
+cannot be chosen independently, because the IVR equations assume these
+identities; the constructor rejects incompatible declarations. The effective
+policy is serialized by `opf_research_provenance`.
 
 ---
 
@@ -386,6 +380,11 @@ prices the voltage source and IBRs. To obtain currency over a time interval,
 multiply this rate by the interval duration in hours — the
 [units, bases & economics tutorial](tutorial_units.md) reconstructs this
 objective by hand from a solved result and prices a full day.
+
+Generation cost is only the default. To minimize losses, unbalance, voltage
+deviation, or a weighted combination, build the model with
+`add_objective = false` and compose an objective from the building blocks in
+[Choosing an objective](@ref objectives).
 
 ---
 
@@ -540,7 +539,7 @@ phase and coming back through earth) closes at the source.
     grounding resistor feeding a 3 kW phase-to-neutral load over 0.1 Ω
     conductors reproduces the series-circuit answer
     $I\,(230 - 0.7\,I) = 3000$, i.e. 13.61 A and 6.8 V neutral-to-earth at the
-    grounding point (a regression test pins it). A transformer whose wye
+    grounding point. A transformer whose wye
     neutral is grounded through `r/x_neutral_*` serves the same purpose.
 
     The passive admittance export ([`ybus_passive`](@ref)) deliberately does
@@ -554,14 +553,14 @@ phase and coming back through earth) closes at the source.
 Declared magnitude limits must be nonnegative real values. Negative values and
 NaN are rejected, including on inactive native devices. An omitted upper cap or
 in-memory Julia `+Inf` means unconstrained; use omission in JSON. Lower magnitude
-bounds must be finite. Zero remains an exact cap, including per-winding current
+bounds must be finite. Zero is an exact cap, including on per-winding current
 and apparent-power limits. Vector entries must be real; omit the whole field
 rather than inserting `nothing`. Positive magnitudes and nominal voltages whose
 squares or reciprocal squares cannot be represented in Float64 require rescaling.
 
 !!! note "Zero, absent, and unrated are different inputs"
-    Zero is an exact cap; it does not mean disabled or unrated. In particular,
-    zero n-winding current and apparent-power caps are now enforced. A supplied
+    Zero is an exact cap; it does not mean disabled or unrated. That includes
+    zero n-winding current and apparent-power caps. A supplied
     transformer `s_rating` must be finite and strictly positive because it may
     also define impedance bases; omit it for an unrated supported recipe.
 
@@ -729,9 +728,8 @@ $-(\tilde{c}^r_{\ell,k} + I^{\text{sh},r}_k(b^\text{to}))$ at the to-bus.
     `vpn_max` together with a neutral-to-ground bound `vn_max`. With only a
     `vpn_max` on a floating neutral (no `vn_max`) the to-ground voltage is
     unbounded, so the series variable is **left free** rather than risk an
-    unsound box. A transformer's winding with a no-load shunt is the
-    one remaining cone-on-an-expression case; it is left cone-only for now (the
-    same construction would apply).
+    unsound box. A transformer winding with a no-load shunt also has
+    its cone on an expression; it carries the cone only, with no box.
 
 **Apparent-power limit** (optional, from `s_max`) on the **total** current at each
 end, referenced **to ground per conductor** — the direct power analogue of the
@@ -923,8 +921,8 @@ terminal voltages, independently of nominal engineering bands.
     Only an applicable, actually stamped bound justifies the W/s guards.
     Phase-to-ground bounds do not certify phase-to-floating-neutral voltage,
     and a power-flow recipe may omit operational bounds. A positive start alone
-    cannot justify adding a positive physical lower limit. The former implicit
-    `0.5–1.5 × v_nom` band could exclude valid operating points; it is removed.
+    cannot justify adding a positive physical lower limit, and the engine adds
+    no implicit voltage band.
 
     Rebuild if you change the source references or loosen the physical bounds
     used for a certificate. Editing those JuMP objects does not update the
@@ -939,7 +937,7 @@ initialized coil magnitude (nominal voltage is the fallback at a zero start) and
 one at the start, including small positive voltages. ZIP factors become sums of `exp(2ell)`, `exp(ell)`
 and constants; exponential factors become `exp(gamma*ell)`. This represents the
 positive domain without an arbitrary epsilon and avoids negative-base fractional
-powers during solver trials. The new variable and definition keys are
+powers during solver trials. The variable and definition keys are
 `load_log_voltage_magnitude` and `load_log_voltage_definition`; W/s keys are absent
 on this path. `ell` and its defining residual are dimensionless. The definition
 is scaled by `1/V_start²`; account for this normalization when interpreting its dual.
@@ -958,12 +956,13 @@ pure-Z ZIP, or exponential load with both exponents 2 stamps the current law
 valid at zero voltage. It keeps the public current handles and result shape but
 removes W and replaces the power rows with `load_impedance_current_real/imag`
 constraints, whose semantic units are current. Nominal-power providers remain
-symbolic, including across parameter updates through zero. Mixed ZIP Z terms
-are not separately substituted yet.
+symbolic, including across parameter updates through zero. The Z term of a
+mixed ZIP load is not substituted separately; it stays on the W path.
 
 !!! warning "Changing a parameter does not certify a fresh solution"
-    Repeat-solve tests with both Ipopt and MadNLP found successful statuses with
-    stale currents after nominal powers changed through zero. See the
+    After a parameter update (for example, nominal powers changed through
+    zero), Ipopt and MadNLP can report a successful status with stale currents
+    if the optimizer cache is reused. See the
     [parameter-update workflow](@ref opf-parameter-resolves) for the tested
     optimizer-cache reset, its setup cost, and required residual checks.
 
@@ -1151,24 +1150,17 @@ pair, not to the three-pair aggregate. There is no neutral. With positive
 injection powers `S[k] = P[k] + im*Q[k]`,
 `J[k] = conj(S[k] / (V[k] - V[next]))`; the external conductor injection is
 `I[k] = J[k] - J[previous]`. Thus a conductor current can exceed a pair cap
-without violating this model. The earlier blanket description of IBR `i_max`
-as per-conductor was incorrect for THREE_LEG; the runtime meaning is unchanged.
+without violating this model.
 
 The `result["ibr"][id][terminal_map[k]]` fields `cri`/`cii` are the real/imaginary
 parts of **J[k]**, not I[k]; `pg`/`qg` are the same pair's injection powers.
-The first terminal identifies the oriented pair only in conjunction with the
-authored cyclic `terminal_map`. Result JSON retains this representation. These
-fields are returned in A, W and var after either SI or per-unit solves. Reconstruct
-I from adjacent pair records before comparing with source/branch conductor
-currents. No conductor-current rating is inferred from `i_max`.
-
-Independent regressions in `test/three_leg_physics_tests.jl` use balanced and
-unbalanced prescribed phasors, source-current KCL, complex power balance,
-unequal pair limits, zero/missing limits, source-angle/cyclic covariance,
-SI/classic/consistent/zone scaling with changed bases, and JSON round trips.
-Their domain is the lossless fundamental-frequency cyclic-pair model with
-nonzero pair voltages; they do not establish advanced inverter filter, DC-link,
-switching, controller or feasible-region equivalence with other packages.
+The first terminal identifies the oriented pair only together with the
+cyclic order of `terminal_map`. The fields are in A, W, and var whichever unit
+mode was solved. Reconstruct I from adjacent pair records before comparing with
+source or branch conductor currents. No conductor-current rating is inferred
+from `i_max`. The model is the lossless fundamental-frequency cyclic-pair
+model with nonzero pair voltages; it does not represent inverter filters,
+DC-link dynamics, or switching.
 
 Declared `q_min` and `q_max` are hard reactive-power bounds in every control mode.
 Within those bounds, reactive power is governed as follows:
@@ -1191,26 +1183,26 @@ Within those bounds, reactive power is governed as follows:
   $Q_{n,k} = Q^{\text{base}}_{n,k}\, f^{\mathrm{VV}}(U_{n,k})$ (an equality — the
   IBR follows the curve).
 
+Constant-PF rows use the bounded-coefficient form
+`pf*Q + sqrt((1-|pf|)*(1+|pf|))*P = 0`, equivalent to the equation above but
+without the unbounded `tan(acos(|pf|))` at small `|pf|`. A malformed, zero,
+out-of-range, or underflowing `pf` is rejected with `E.INT.CONSTANT_PF_INVALID`
+(stricter than the schema's numeric range); remove the `power_factor`
+sub-object to request freely dispatchable Q.
+
 The PF/Volt-var equality and all declared P/Q/S/current limits apply together.
 An incompatible control request can make the model infeasible; the engine does
-not clip the controller or discard a bound. Existing PF-versus-droop precedence
-and the unsupported THREE_LEG droop fallback remain unchanged.
-
-!!! warning "Reactive capability compatibility change (#89)"
-    Previously, the engine omitted Q-box constraints under PF or supported
-    Volt-var control. It now enforces both, so dispatch and feasibility can change
-    for cases containing those fields. If a Q restriction is not intended, remove
-    that field explicitly before building the model. Review bounds introduced by
-    augmentation as well as authored bounds: both constrain the resulting case.
-    PF augmentation still avoids synthesizing missing Q boxes and preserves
-    explicit ones. A local solver failure alone does not certify global infeasibility.
+not clip the controller or discard a bound. If a reactive restriction is not
+intended, remove the `q_min`/`q_max` field before building the model, and
+review bounds that augmentation added as well as authored ones. Power-factor
+augmentation does not synthesize missing Q boxes and preserves explicit ones.
 
 `solution_check` checks supplied Q values against the case's declared Q bounds
 using `E.SOL.IBR_Q_VIOLATION` and `W.SOL.IBR_Q_ACTIVE`. These use the existing
 power-bound tolerance with a 1 var absolute floor; they do not authenticate the
 supplied result or substitute live coefficient-provider values for case data.
-The existing P-only near-active Finding retains its meaning. The aggregate
-`n_inv_violations` and `n_inv_active` counts now include Q-bound Findings.
+The aggregate `n_inv_violations` and `n_inv_active` counts include both P- and
+Q-bound Findings.
 
 Active power always respects the box upper bound above. When the
 `control_profile` declares a `volt_watt` sub-object, a **Volt-watt** curtailment
@@ -1308,7 +1300,7 @@ redistribute its available power across phases.
 
 ##### Piecewise-linear droop encoding
 
-Each characteristic $f$ through non-decreasing breakpoints
+Each characteristic $f$ through strictly increasing breakpoints
 $(\bar x_i, \bar y_i)$, clamped flat outside the range, is written as a sum of
 shifted/scaled rectified-linear (ReLU) terms,
 
@@ -1431,7 +1423,7 @@ Sign conventions:
 
 The voltage source fixes its terminal voltages **and** closes KCL at the source
 bus through its own slack current $(c^{r,s}_{v,k},\, c^{i,s}_{v,k})$ — there is no
-separate slack generator and no `_auto_slack` injection. This mirrors the
+separate slack generator. This mirrors the
 OpenDSS/PMD `Vsource`, which is both a voltage reference and an (implicit)
 unbounded power injection.
 
@@ -1471,7 +1463,7 @@ source by default (see [Augmentation](augmentation.md)).
 
 ## [Warm-start initialization](@id Warm-start-initialisation)
 
-Both solvers seed the NLP with a voltage-level- and topology-aware phasor start
+`solve_opf`, `solve_pf`, and `solve_feasibility_opf` all seed the NLP with a voltage-level- and topology-aware phasor start
 without requiring a load-flow pre-solve. The engine assembles one sparse complex
 least-squares system from source phasors, grounds, galvanic conductor maps, and
 the same ideal zero-current winding equations used by the OPF. It solves that
@@ -1544,11 +1536,8 @@ nominal starts are kept; the schema below then reports `applied = false`.
 Use `opf_diagnostic_schema(ctx).initialization` to inspect the equation counts and maximum
 normalized transport residual by relation family. That evidence describes the
 generated zero-current phasor transport only. It is not an initial-feasibility,
-loaded-voltage, or convergence certificate. In particular, **zigzag is not yet
-a BMOPF transformer connection**: representing it correctly requires an
-explicit winding/terminal connection matrix, not inference from names. Such a
-component must be added to the schema and OPF equations before its phase shift
-can be claimed by initialization.
+loaded-voltage, or convergence certificate. Zigzag is not a BMOPF transformer
+connection, so initialization does not model a zigzag phase shift.
 
 Transformer-local power bases are a separate equation-scaling problem. Use
 `opf_diagnostic_schema(ctx; voltage_bases, power_bases).transformer_scaling` to
@@ -1598,20 +1587,18 @@ The cost objective is replaced by the sum of squared slack currents **in
 amperes**:
 
 ```math
-\min \sum_{(b,t)} w_b\Bigl[\bigl(c^{r,\varepsilon}_{b,t}\bigr)^2
-                       + \bigl(c^{i,\varepsilon}_{b,t}\bigr)^2\Bigr],
-\qquad
-w_b = \begin{cases} 1 & \text{SI model}\\
-\bigl(I_{\text{base},b}/I_\text{ref}\bigr)^2 & \text{per-unit model}\end{cases}
+\min \sum_{(b,t)} \Bigl[\bigl(c^{r,\varepsilon}_{b,t}\bigr)^2
+                       + \bigl(c^{i,\varepsilon}_{b,t}\bigr)^2\Bigr].
 ```
 
-with $I_\text{ref}$ the largest bus current base. The weight matters on a
-multi-voltage network. One per-unit of slack is worth $I_{\text{base},b}$
-amperes, which is large on a low-voltage bus and small on a medium-voltage
-one; an unweighted per-unit sum would therefore price an ampere differently at
-each voltage level and move the slack to a different location than the SI
-model does. With the weight, both unit systems minimize the same physical
-quantity and localize the infeasibility alike.
+The slack variables are physical currents in amperes in either unit mode; in a
+per-unit model they enter KCL as $c^{\varepsilon}_{b,t}/I_{\text{base},b}$. This
+matters on a multi-voltage network: one per-unit of current is a large current on
+a low-voltage bus and a small one on a medium-voltage bus, so an objective on
+per-unit slacks would price an ampere differently at each voltage level and move
+the slack to a different location than the SI model does. With the slack in
+amperes, both unit systems minimize the same physical quantity, localize the
+infeasibility alike, and converge to the same slack.
 
 The implementation adds a tiny linear transformer-current tie-break to select a
 numerical representative when Yd/Dy delta circulation is unobservable. Therefore
@@ -1725,6 +1712,101 @@ against a limit-free reference.
 For how tightly a determined solve satisfies its equations, see
 [Zero-degree-of-freedom solves](@ref solver-square-termination).
 
+## Minimum power factor for generation
+
+The native JuMP OPF builder accepts a versioned **BMOPFTools policy** under the
+schema's free-form `extras` field. This is a package extension,
+not a Task Force schema field:
+
+```julia
+net["extras"] = Dict("bmopftools" => Dict("minimum_power_factor" => Dict(
+    "schema" => "bmopftools.minimum_power_factor/v1",
+    "ibr" => Dict("pv" => Dict(
+        "pf_min" => 0.8, "direction" => "generation", "scope" => "per_coil")))))
+result = solve_opf(net)
+report = profile_solution(net, result)
+```
+
+When a case already has extras, insert this policy into its existing dictionaries
+to retain other metadata. Normal JSON parsing/serialization preserves the policy.
+Other engines/consumers must explicitly implement this package policy; do not
+assume they enforce it merely because they accept the case JSON. The unrelated
+`domain_rules.pf_min` setting is only a load-validation warning threshold.
+
+Each request needs exactly `pf_min`, `direction="generation"` and
+`scope="per_coil"`; PF must be finite and satisfy `0 < pf_min <= 1`. The request
+must reference an existing IBR with explicit nonnegative `p_min` for every coil;
+any declared `p_max` must also be finite, nonnegative and cover every coil.
+Consumption, bidirectional operation, aggregate PF and DC-coupled converters
+are outside the supported domain and rejected. There is no implicit conversion
+to an absolute-P envelope. Unknown policy versions/fields, unresolved profiles,
+ambiguous terminal maps and unsupported topologies are rejected too.
+
+For `m = pf_min` the native model enforces per coil:
+
+```math
+P \ge 0, \qquad m Q \le \sqrt{1-m^2}\,P, \qquad -m Q \le \sqrt{1-m^2}\,P.
+```
+
+These bounded-coefficient rows are equivalent to `-k*P <= Q <= k*P` with
+`k = tan(acos(m))`, but avoid forming a huge tangent near m=0. They use **actual
+dispatched P**, including after curtailment or live availability updates. At
+P=0 they force Q=0; PF itself remains undefined at zero apparent power.
+At m=1 they force Q=0 while retaining the explicit generation constraint.
+P and Q are positive injections. Both reactive directions are permitted;
+a one-sided `q_min`/`q_max` can restrict the direction further.
+
+For SINGLE_PHASE the requirement applies to its two-terminal coil; for FOUR_LEG
+it applies to each phase-neutral coil; for THREE_LEG it applies to each cyclic
+delta pair, not to conductor power or an aggregate ratio. An unbalanced device
+can satisfy aggregate PF while violating one of these per-coil requirements.
+The equations are affine in P/Q, but those powers contain V–I products in IVR,
+so the complete model remains nonlinear.
+
+P/Q boxes, apparent-power circles and conductor-current limits stay enforced.
+Compatible signed constant PF may be combined with the envelope when
+`abs(pf) >= pf_min`; a lower constant PF is rejected explicitly. The usual sign
+convention is retained: positive constant PF absorbs Q for P>0; negative injects
+Q. Constant PF plus droop is rejected when this minimum-PF policy is enabled;
+without the policy, constant PF takes precedence over droop with a warning.
+
+SINGLE_PHASE and FOUR_LEG may combine minimum PF with supported Volt-var and/or
+Volt-watt curves: `VA_FRACTION`, Volt-var `VAR_MAX`, and Volt-watt `S_MAX`, `P_MAX`
+or scalar `P_AVAILABLE`, with finite ordered breakpoints, valid limits and
+complete normalization bases. Optional control options that the native resolver
+would otherwise ignore (including Volt-var low-P thresholds) are rejected in
+this combined policy. THREE_LEG droop remains unsupported and is rejected here.
+A control equality is never clipped to fit the envelope. Conflicting Q bounds
+or droop targets can make the intersection infeasible.
+
+Constraint keys use families `ibr_minimum_pf_generation`,
+`ibr_minimum_pf_lower`, and `ibr_minimum_pf_upper`, indexed by `(ibr_id, coil)`.
+A limit of exactly one is the boundary case: the wedge
+$\lvert Q\rvert \le \tan\varphi\, P$ closes to the half-line $Q = 0$, $P \ge 0$.
+The two wedge rows would then read $Q \le 0$ and $-Q \le 0$, a pair with no
+interior and no unique multipliers, so the engine stamps the single equality
+`ibr_minimum_pf_equality` in their place (`ibr_minimum_pf_generation` is kept).
+That equality is omitted when another row already states $Q = 0$ for the coil —
+a reactive box pinned at zero (`ibr_q_equality`) or a unity constant power
+factor (`ibr_power_factor`) — since a second identical equality would leave the
+coil with more equalities than unknowns.
+The policy itself is fixed at model construction, not a live coefficient knob;
+rebuild to change it. Live P/Q/capability coefficients stay live.
+
+`profile_solution` and the `execute_solution_verification` operation
+report `results["solution"]["minimum_power_factor"]`, containing policy provenance,
+configuration errors and per-coil `passed`/`failed`/`indeterminate` evidence.
+The independent check uses supplied P/Q, not solver termination as an oracle:
+`max(-P, m*abs(Q)-sqrt(1-m^2)*P)` must be at most
+`max(1e-6, 1e-6*max(abs(P),abs(Q)))` VA. Missing/nonfinite dispatch or no candidate
+is unassessed. At exactly P=0, the checker uses `abs(Q)` directly so tiny PF
+coefficients cannot hide reactive-only dispatch. Diagnostic infeasible candidates
+can still expose violations.
+This checks the case-authored policy, not live coefficient overrides or solver
+stamping/provenance; passing it is not a complete feasibility certificate. The
+curated `verify_solution` recipe exercises the JSON path.
+
+
 ## [Solver control and extending the formulation](@id extending-the-formulation)
 
 All three entry points (`solve_opf`, `solve_pf`, `solve_feasibility_opf`)
@@ -1778,8 +1860,8 @@ unwrapping, with the model still live: read `JuMP.value` of the variables a
 `model_hook!` created and append your own keys to `result` (scale to SI via
 `opf_bases(ctx)`). A hook device that writes its net terminal power to
 `result["custom_injection"] = Dict("p"=>…, "q"=>…)` (SI, generator sign) is
-counted by `profile_solution`'s power-balance check, so a correct solve no
-longer trips a spurious `W.SOL.POWER_BALANCE`.
+counted by `profile_solution`'s power-balance check; without it, a correct
+solve reports a spurious `W.SOL.POWER_BALANCE`.
 
 ### [Multi-period and storage: the staged API](@id staged-api)
 
@@ -1877,111 +1959,3 @@ optimize_opf!
 generation_cost
 extract_result
 ```
-
-
-## Minimum power factor for generation
-
-The native JuMP OPF builder accepts a versioned **BMOPFTools policy** under the
-existing schema's free-form `extras` escape hatch. This is a package extension,
-not an official Task Force field or a change to the bundled schema:
-
-```julia
-net["extras"] = Dict("bmopftools" => Dict("minimum_power_factor" => Dict(
-    "schema" => "bmopftools.minimum_power_factor/v1",
-    "ibr" => Dict("pv" => Dict(
-        "pf_min" => 0.8, "direction" => "generation", "scope" => "per_coil")))))
-result = solve_opf(net)
-report = profile_solution(net, result)
-```
-
-When a case already has extras, insert this policy into its existing dictionaries
-to retain other metadata. Normal JSON parsing/serialization preserves the policy.
-Other engines/consumers must explicitly implement this package policy; do not
-assume they enforce it merely because they accept the case JSON. The existing
-`domain_rules.pf_min` setting remains only a load-validation warning threshold.
-
-Each request needs exactly `pf_min`, `direction="generation"` and
-`scope="per_coil"`; PF must be finite and satisfy `0 < pf_min <= 1`. The request
-must reference an existing IBR with explicit nonnegative `p_min` for every coil;
-any declared `p_max` must also be finite, nonnegative and cover every coil.
-Consumption, bidirectional operation, aggregate PF and DC-coupled converters
-are outside this initial domain and rejected. There is no implicit conversion
-to an absolute-P envelope. Unknown policy versions/fields, unresolved profiles,
-ambiguous terminal maps and unsupported topologies are rejected too.
-
-For `m = pf_min` the native model enforces per coil:
-
-```math
-P \ge 0, \qquad m Q \le \sqrt{1-m^2}\,P, \qquad -m Q \le \sqrt{1-m^2}\,P.
-```
-
-These bounded-coefficient rows are equivalent to `-k*P <= Q <= k*P` with
-`k = tan(acos(m))`, but avoid forming a huge tangent near m=0. They use **actual
-dispatched P**, including after curtailment or live availability updates. At
-P=0 they force Q=0; PF itself remains undefined at zero apparent power.
-At m=1 they force Q=0 while retaining the explicit generation constraint.
-P and Q are positive injections. Both reactive directions are permitted;
-a one-sided `q_min`/`q_max` can restrict the direction further.
-
-For SINGLE_PHASE the requirement applies to its two-terminal coil; for FOUR_LEG
-it applies to each phase-neutral coil; for THREE_LEG it applies to each cyclic
-delta pair, not to conductor power or an aggregate ratio. An unbalanced device
-can satisfy aggregate PF while violating one of these per-coil requirements.
-The equations are affine in P/Q, but those powers contain V–I products in IVR,
-so the complete model remains nonlinear.
-
-P/Q boxes, apparent-power circles and conductor-current limits stay enforced.
-Compatible signed constant PF may be combined with the envelope when
-`abs(pf) >= pf_min`; a lower constant PF is rejected explicitly. The usual sign
-convention is retained: positive constant PF absorbs Q for P>0; negative injects
-Q. Constant PF plus droop is rejected when this minimum-PF policy is enabled;
-without the policy the existing PF-over-droop warning/precedence is retained.
-
-SINGLE_PHASE and FOUR_LEG may combine minimum PF with supported Volt-var and/or
-Volt-watt curves: `VA_FRACTION`, Volt-var `VAR_MAX`, and Volt-watt `S_MAX`, `P_MAX`
-or scalar `P_AVAILABLE`, with finite ordered breakpoints, valid limits and
-complete normalization bases. Optional control options that the native resolver
-would otherwise ignore (including Volt-var low-P thresholds) are rejected in
-this combined policy. THREE_LEG droop remains unsupported and is rejected here.
-A control equality is never clipped to fit the envelope. Conflicting Q bounds
-or droop targets can make the intersection infeasible.
-
-Constraint keys use families `ibr_minimum_pf_generation`,
-`ibr_minimum_pf_lower`, and `ibr_minimum_pf_upper`, indexed by `(ibr_id, coil)`.
-A limit of exactly one is the boundary case: the wedge
-$\lvert Q\rvert \le \tan\varphi\, P$ closes to the half-line $Q = 0$, $P \ge 0$.
-The two wedge rows would then read $Q \le 0$ and $-Q \le 0$, a pair with no
-interior and no unique multipliers, so the engine stamps the single equality
-`ibr_minimum_pf_equality` in their place (`ibr_minimum_pf_generation` is kept).
-That equality is omitted when another row already states $Q = 0$ for the coil —
-a reactive box pinned at zero (`ibr_q_equality`) or a unity constant power
-factor (`ibr_power_factor`) — since a second identical equality would leave the
-coil with more equalities than unknowns.
-The policy itself is fixed at model construction, not a live coefficient knob;
-rebuild to change it. Existing live P/Q/capability coefficients remain live.
-
-`profile_solution` and the existing `execute_solution_verification` operation
-report `results["solution"]["minimum_power_factor"]`, containing policy provenance,
-configuration errors and per-coil `passed`/`failed`/`indeterminate` evidence.
-The independent check uses supplied P/Q, not solver termination as an oracle:
-`max(-P, m*abs(Q)-sqrt(1-m^2)*P)` must be at most
-`max(1e-6, 1e-6*max(abs(P),abs(Q)))` VA. Missing/nonfinite dispatch or no candidate
-is unassessed. At exactly P=0, the checker uses `abs(Q)` directly so tiny PF
-coefficients cannot hide reactive-only dispatch. Diagnostic infeasible candidates
-can still expose violations.
-This checks the case-authored policy, not live coefficient overrides or solver
-stamping/provenance; passing it is not a complete feasibility certificate. The curated `verify_solution` recipe exercises the JSON path.
-
-Compatibility change: malformed, zero or out-of-range constant PF is now
-rejected with `E.INT.CONSTANT_PF_INVALID`, rather than silently dropping PF or
-throwing later inside trigonometry. Remove the `power_factor` sub-object to
-request freely dispatchable Q. The accepted numeric range in the bundled
-Task Force schema is unchanged; this is stricter executable applicability.
-
-Constant-PF equations use bounded coefficients `pf*Q + sqrt((1-|pf|)*(1+|pf|))*P = 0`,
-including very small positive PF magnitudes where `tan(acos(|pf|))` loses the
-requested ratio. This avoids an unbounded model coefficient; it does not promise
-relative solver accuracy for dispatch below the solver's absolute tolerances.
-The supplied-result constant-PF diagnostic records its scaled residual definition
-and threshold explicitly, retaining the existing Q-equivalent relative tolerance.
-Values that underflow to zero in Float64 are rejected.

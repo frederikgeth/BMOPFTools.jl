@@ -532,6 +532,23 @@ end
           _OBJEXT._quantity_scale(ctx_pu, :A; bus="b1")^2
 end
 
+@testset "epsilon scale without a declared voltage bound is unit-mode independent" begin
+    # With no v_max/v_min the voltage scale falls back to the bus voltage base.
+    # In SI the working->physical factor is 1.0, so this must not degrade to 1 V.
+    unbounded() = (n = _obj_net(20_000.0);
+        for (_, b) in n["bus"]; delete!(b, "v_min"); delete!(b, "v_max"); end; n)
+    ctx_pu = BMOPFTools.build_opf_model(unbounded(); per_unit=true, add_objective=false)
+    ctx_si = BMOPFTools.build_opf_model(unbounded(); per_unit=false, add_objective=false)
+    for bus in ("b1", "src")
+        v_pu = _OBJEXT._quantity_scale(ctx_pu, :V; bus=bus)
+        v_si = _OBJEXT._quantity_scale(ctx_si, :V; bus=bus)
+        @test v_pu ≈ 230.0 rtol=1e-12              # the source phase voltage base
+        @test v_si ≈ v_pu rtol=1e-12
+        @test _OBJEXT._quantity_scale(ctx_si, :A; bus=bus) ≈
+              _OBJEXT._quantity_scale(ctx_pu, :A; bus=bus) rtol=1e-12
+    end
+end
+
 @testset "opf_neutral_current — is exactly three times the zero-sequence current" begin
     # Independent cross-check of two separately-derived quantities: for a 4-wire
     # element with no parallel earth path, I_n = -(Ia+Ib+Ic) = -3*I0. The

@@ -158,7 +158,7 @@ the five hand-checks above; they do not replace them — see the
 A clean status does not mean a *good* case. Take the same feeder with a line
 four times more resistive and a slacker voltage floor. The solver still returns
 `LOCALLY_SOLVED` — but the feeder now burns **38 % of the delivered power** in
-the line, which `profile_solution` flags:
+the line:
 
 ```@example trustverify
 badfeeder() = parse_bmopf("""
@@ -183,7 +183,11 @@ sbad = solution_check(badfeeder(), rbad, fbad)
 ```
 
 The status is identical to the healthy case; the reported loss fraction
-tells them apart. This is the general lesson. A `LOCALLY_SOLVED` verdict reports
+tells them apart. `solution_check` reports it as information
+(`I.SOL.LOSS_FRACTION`, losses above 20 % of generation), because a lossy feeder is
+unusual rather than wrong. The warning `W.SOL.INIT_LARGE_ERROR` is about the
+solver's path, not the answer: the start placed the load bus at the 1000 V source
+voltage, more than 20 % away from the 724 V solution. This is the general lesson. A `LOCALLY_SOLVED` verdict reports
 an approximate KKT point of the model you handed the solver; independent
 residual checks determine whether the returned point actually meets your
 acceptance tolerance. The verdict does **not** guarantee that:
@@ -196,7 +200,7 @@ acceptance tolerance. The verdict does **not** guarantee that:
   solution can be a perfectly valid KKT point;
 - the **model is the one you meant** — the solver validates the equations you
   wrote, not your modeling assumptions. That gap is the subject of
-  [From nameplate data to a defensible model](tutorial_nameplate.md).
+  [Reading augmentation provenance](tutorial_nameplate.md).
 
 !!! tip "The habit"
     After every solve, run `profile_solution` and read the findings — treat a

@@ -135,8 +135,8 @@ winding-2 magnetizing shunt, and the `rneut`/`xneut` grounding branch.
   network.
 - **Regulators** (`single_phase_autotransformer`, `open_delta_regulator`): the
   shared-bushing / shared-phase galvanic tie is an OPF **topological** constraint,
-  not part of the device primitive (the exported block is the Yan et al. (2018)
-  "unspecified neutral" matrix). The exported `Yprim` alone leaves the regulated
+  not part of the device primitive (the exported block is the "unspecified
+  neutral" matrix of Yan et al., [ref. 29](references.md#refs)). The exported `Yprim` alone leaves the regulated
   side's return floating.
 - **Ideal transformers** (`Z = 0`): no admittance form exists, so
   `transformer_yprim` throws an `ArgumentError` for leakage at or below its

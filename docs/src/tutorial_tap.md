@@ -41,12 +41,11 @@ its windings raises `ArgumentError` at native OPF-build time. Use a supported
 two-bus subtype when tap regulation is required.
 
 If `tap_min < tap_max` the tap becomes a decision variable; otherwise it is fixed
-(so existing data is unchanged). Internally the solved tap enters the winding
+Internally the solved tap enters the winding
 constraints as the effective ratio ``N = N_0\cdot t``. The from-referred leakage of
 an OLTC scales with the winding turns, i.e. with ``t^2``; written on the to side the
 leakage is *constant* and — using the ideal-core coupling ``N\,I_{\text{series}} =
--I_{\text{to}}`` — the voltage drop stays **quadratic** in the tap variable, so no
-solver change is needed (the OPF is already an Ipopt NLP). At ``t = 1`` the model is
+-I_{\text{to}}`` — the voltage drop stays **quadratic** in the tap variable. At ``t = 1`` the model is
 identical to the fixed-tap transformer, so the tap variable adds no error.
 
 ```@example tap
@@ -85,7 +84,7 @@ ploss(r) = round(r["losses"]["p_loss"], digits=1)
 nothing # hide
 ```
 
-At the **fixed** nominal tap the secondary sags well below a 236 V floor:
+At the **fixed** nominal tap the secondary sags well below 236 V:
 
 ```@example tap
 r0 = solve_opf(feeder("", ""); optimizer = OPT)
@@ -146,24 +145,32 @@ line-drop compensator approximates, here derived directly from the network optim
 ## 3. Continuous vs. a real discrete regulator
 
 A physical regulator moves in discrete steps (a 32-step ±10 % regulator has
-0.625 %/step). The continuous optimum is the relaxation; rounding to the nearest
-step recovers an implementable setting and shows how little is lost:
+0.625 %/step). The continuous optimum is a relaxation of that discrete choice, so
+its losses are a lower bound that a real step generally cannot reach. Fix the tap
+at the two neighboring steps and re-solve with the same voltage band:
 
 ```@example tap
 step = 0.10 / 16                      # ±10 % over 32 steps
-t_disc = 1 + round((t★ - 1) / step) * step
-rd = solve_opf(feeder(""","tap":$t_disc""", ""); optimizer = OPT)   # tap fixed at the step
-println("continuous tap = ", round(t★, digits=4), " (|V_lv| = ", vlv(rf), " V)")
-println("nearest step   = ", round(t_disc, digits=4), " (|V_lv| = ", vlv(rd), " V)")
+band = ""","v_min":[236.0],"v_max":[246.0]"""
+println("continuous     tap = ", round(t★, digits=5), "  |V_lv| = ", vlv(rf),
+        " V,  losses = ", ploss(rf), " W")
+for (label, t) in (("step below", 1 + floor((t★ - 1) / step) * step),
+                   ("step above", 1 + ceil((t★ - 1) / step) * step))
+    r = solve_opf(feeder(""","tap":$t""", band); optimizer = OPT)   # tap fixed
+    print(rpad(label, 15), "tap = ", round(t, digits=5), "  → ", r["termination_status"])
+    solved(r) ? println("  |V_lv| = ", vlv(r), " V,  losses = ", ploss(r), " W") : println()
+end
 ```
 
-Rounding to the nearest physical step lands a few tenths of a volt off the continuous
-optimum — the small, quantifiable cost of discretization. The continuous relaxation
-is both the achievable bound and an excellent guide to the step to dial in.
+The continuous optimum sits on the 246 V ceiling, so the step that boosts the
+secondary further (the lower tap) breaks the band, while the other step stays
+inside it at a small loss penalty. Rounding has to respect the binding
+constraint, not just pick the nearest step; the continuous solution tells you
+which constraint that is and how much discretization costs.
 
 ## 4. Three-phase Dy
 
-The same one-keyword change works for a three-phase delta-wye transformer. Here a
+The same three tap fields work for a three-phase delta-wye transformer. Here a
 500 kVA, 11 kV(Δ) / 415 V(Y) unit feeds a balanced load; freeing the tap holds the
 LV bus in a tight band. (The delta source is set per phase-to-ground, i.e.
 ``11\,\text{kV}/\sqrt3 = 6350.85`` V; the wye secondary is reported phase-to-neutral.)
@@ -199,7 +206,7 @@ end
 ```
 
 The load is balanced, so the optimizer boosts all three LV phases together into the
-tight 236–240 V band with a single tap — the three-phase analogue of Section 2's
+tight 236–240 V band with a single tap — the three-phase analogue of Section 1's
 rescue, with no per-phase code changes.
 
 !!! note "Dy/Yd leakage referral is exact under tap"
@@ -211,39 +218,15 @@ rescue, with no per-phase code changes.
     the exported `Yprim`, so they stay consistent at every tap — as do the YY,
     `center_tap`, and regulator models.
 
-## What single-phase and Dy tell us about the general picture
+## Scope
 
-*(A developer-oriented aside — skip to [Validation](#Validation) if you only want to
-use the feature.)*
-
-Working the two cases out side by side surfaces the design choice for extending taps
-to *every* transformer:
-
-- **The single-phase (YY) tap admits an exact, degree-2 OLTC model.** Scaling the
-  from-winding leakage by ``t^2`` and referring it to the to side gives a *constant*
-  leakage and a voltage drop that is linear-in-current and quadratic-in-tap — and it
-  matches the OpenDSS turns-scaled `Yprim` at the optimized tap to the usual ~0.3 V
-  validation floor.
-- **The split-phase (`center_tap`) tap also admits an exact, degree-2 model.** Its
-  free tap reuses the same coupled-coil `Yprim` as the fixed model, but with the HV
-  ratio promoted to a variable and the voltage drop written in the degree-2 T-model
-  form (``N\cdot v`` and ``N\cdot Z_2 I`` products only). It is algebraically
-  identical to the fixed `Yprim` — re-solving with the tap fixed to ``t^\star``
-  reproduces the free solution to **0.0 V** — so the leakage referral is exact, not
-  approximate, even under heavy drop and leg unbalance.
-- **The Dy/Yd coupled delta-arm model also carries the exact ``t^2`` referral.**
-  OpenDSS scales winding 1's self-impedance by ``t^2``, so the short-circuit
-  impedance referred to the tapped (from) side scales as ``t^2`` and the
-  non-tapped side is held at nominal (verified directly against OpenDSS's
-  short-circuit `Yprim`). The coefficients are degree-1 in the tap variables
-  (``n_\text{eff}`` and its reciprocal), so the coupled-arm drop stays degree-2
-  for a free tap, and the same referral is used in the exported `Yprim` — so the
-  two paths agree at every tap.
-
-The optimizer, the JSON schema and the result reporting are uniform across all the
-covered subtypes, and the leakage referral is now exact for every two-bus subtype.
-What remains to generalize is free taps for the `n_winding` subtype, to-side taps,
-and discrete steps.
+Free taps work on every two-bus subtype (`single_phase`, `center_tap`,
+`wye_delta`, `delta_wye`, and the regulators). Each carries the exact ``t^2``
+leakage referral, so the OPF and the exported `Yprim` agree with OpenDSS at
+every tap, and the voltage drop stays degree 2 in the tap variables. Free taps
+on `n_winding` transformers, taps on the to side, and discrete tap steps are not
+modeled; round the continuous tap as in Section 3. The per-subtype equations are
+in [Transformer equations in the OPF](@ref Continuous-tap-optimisation).
 
 ## Validation
 

@@ -1178,8 +1178,8 @@ function _from_per_unit(result_pu::Dict{String,Any}, bases, net::Dict{String,Any
     # Default OPF objective cost rate: (cost_kWh * s_base / 1000) * P_pu
     # = cost_kWh * P_si / 1000 ($/h). The s_base factors cancel, so this
     # objective is already in the same $/h units as the SI solve. A feasibility
-    # OPF's raw objective instead remains a working-coordinate slack metric; its
-    # physically interpretable slack fields are converted below.
+    # OPF's raw objective is likewise already in A² (its slack variables are
+    # amperes); its slack fields are reported in working units and converted below.
 
     # Feasibility OPF slack injections
     if haskey(result, "slack_injections")

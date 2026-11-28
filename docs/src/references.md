@@ -106,3 +106,7 @@ References cited by number across this documentation.
     Energy Magazine* 22 (2) (2024) 18–29 (IBR-based resources as a distinct
     asset class from synchronous generators — capability-limited, inertia-free,
     control-defined).
+29. R. Yan, Y. Li, T. K. Saha, L. Wang, M. I. Hossain, "Modeling and Analysis of
+    Open-Delta Step Voltage Regulators for Unbalanced Distribution Network With
+    Photovoltaic Power Generation," *IEEE Transactions on Smart Grid* 9 (3)
+    (2018) 2224–2234, doi:10.1109/TSG.2016.2609440.

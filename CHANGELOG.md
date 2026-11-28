@@ -4,6 +4,24 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Infeasibility diagnosis:
+  - `solve_feasibility_opf` in per-unit (the default) penalized per-unit slack
+    variables weighted by `(I_base/I_ref)²`, which made a milliampere residual
+    far smaller than the solver tolerance: feasible cases stopped with ~2 mA of
+    slack that an SI solve drives to ~1e-10 A, and `diagnose_infeasibility`
+    reported them as infeasible. The slack variables are now amperes in both
+    unit modes (entering per-unit KCL as `cs / I_base`), so the objective and
+    the converged slack match the SI solve.
+  - `diagnose_infeasibility`: `fraction_of_total` is each bus's share of the
+    squared total slack, so the shares sum to one (it divided by the L2 norm
+    before). Near-bound phases in a bus's `voltage_violations` are labeled
+    `at_lower_bound:`/`at_upper_bound:` with the bound, instead of
+    `undervoltage:`/`overvoltage:` with a `<`/`>` that held at equality.
+- Objectives: the smoothing scale of a `:magnitude` voltage or current term at
+  a bus with no `v_max`/`v_min` was 1 V in an SI model (`per_unit=false`) but
+  the bus voltage base in per-unit, so one `eps_rel` smoothed differently in
+  the two unit modes. SI models now fall back to the bus's classic per-unit
+  voltage base, matching per-unit and the documented contract.
 - Line constants: `line_geometry` gains `capacitance_model` (`"thin_wire"`
   default, `"charge_simulation"`), also a keyword of `overhead_line_constants`
   and recorded in the compiled linecode's `derivation`. The thin-wire kernel

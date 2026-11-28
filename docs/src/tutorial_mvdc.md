@@ -224,8 +224,7 @@ The back-to-back SOP above is a point device: both converters share **one**
 converters of this model, dissipates nothing at all. Pull the two converters apart onto **separate** DC buses (`dcA`, `dcB`)
 and join them with a `dc_branch` carrying a real pole resistance, and the tie
 becomes a *distributed* **MVDC feeder**: the pole conductor now has its own `I²R`
-loss and a pole-voltage drop `I·R`, exactly like an AC line. This is the same D2/D4
-physics the test-suite pins to Ohm's law.
+loss and a pole-voltage drop `I·R`, exactly like an AC line.
 
 The far feeder `b` now carries the whole 40 kW load; there is no AC path to it, so
 **all** of that power must cross the MVDC feeder. `vscA` is the DC-voltage master
@@ -285,7 +284,7 @@ println("DC feeder loss    : ", round(-pA - pB, digits=1), " W   vs  i²·R = ",
 ```
 
 `vscA` draws **44.4 kW** off feeder `a` to serve a **40 kW** load on feeder `b`: the
-`4.4 kW` gap is precisely the `i²·R = 29.6² × 5 ≈ 4376 W` dissipated in the pole
+`4.4 kW` gap is precisely the `i²·R = 29.6² × 5 ≈ 4381 W` dissipated in the pole
 conductor. The pole voltage sags from the master's `1500 V` at `dcA` to `1352 V`
 at `dcB`, a `148 V ≈ i·R` drop — the DC analogue of an AC feeder's voltage droop.
 Unlike the shared-bus SOP, whose DC link was lossless, this MVDC feeder carries
@@ -306,20 +305,17 @@ println("narrow far-bus bound → ", r_narrow["termination_status"])
 ```
 
 The lower `v_dc_min` on `dcB` is not a solver hint; it is the physical headroom the
-resistive feeder needs to *develop its drop*. (This is also why pinning both
-metallic returns to exactly 0 V while the return conductor has resistance would
-force the tie current to zero — grounding only `dcA`'s return leaves `dcB`'s free
-to float down by `i·R`.)
+resistive feeder needs to *develop its drop*. Only `dcA`'s metallic return is
+grounded, so `dcB`'s return floats by `i·R` and the return current stays in the
+conductor. Grounding both returns would hold both ends of the return conductor at
+0 V: it would then carry no current, and the return would flow through the ideal
+earth connection instead.
 
 ## Extending the story
 
 - **Loss vs hosting capacity.** Swap a load for DER on one feeder and the same
   formulation finds how much extra generation the feeders can host before a voltage
   or thermal limit binds — the SOP redistributing the surplus ([3](@ref refs-mvdc)).
-- **A real DC line.** Putting the two converters on separate `dc_bus` nodes joined
-  by a resistive `dc_branch` turns the tie into an **MVDC feeder** with its own
-  `I²R` loss and an `I·R` pole-voltage drop — worked end-to-end in
-  [MVDC feeder: a resistive DC tie](@ref mvdc-feeder) above.
 - **Bipolar / DC loads.** Use 3-wire `dc_bus`/`dc_branch` for bipolar feeders, and
   add `dc_load`/`dc_source` for DC-connected demand or DC-coupled PV/storage.
 

@@ -6,7 +6,7 @@ For studies that reuse a parameterized JuMP model, see
 Start with a question: **how does this feeder behave when demand, PV availability,
 or the location of installed PV changes?** This tutorial builds a few comparable
 operating points, checks the returned solutions, and optionally saves an author log.
-It does not define Task Force submission requirements.
+It does not define submission requirements for the BMOPF benchmark set.
 
 You need the package's `test` environment (JuMP and Ipopt). The example uses an
 original, small synthetic four-wire feeder shipped with the package. Its parameters
@@ -106,7 +106,8 @@ Read the output in this order:
    completed. An exception is retained as an `error` row with its stage.
 2. **Solver report:** inspect `termination_status`. Nonconvergence does not prove
    physical infeasibility. A returned unsolved result is still retained and profiled.
-3. **Independent checks:** inspect coded Findings and `verification_status`, including
+3. **Independent checks:** inspect coded Findings and the verification status
+   (`row["verification"]["results"]["solution"]["verification_status"]`), including
    unassessed dimensions. Zero ERROR Findings alone is not a global feasibility or
    optimality certificate. Warnings include both near-active limits and residual
    concerns; distinguish them by code.
@@ -134,7 +135,7 @@ Both `GeneratorRecipe` and `IBRRecipe` accept:
 | `capacity_budget` | Total **new** capacity after filtering: W for generators, VA for IBRs. Existing sizing rules supply relative weights. Existing devices are not counted toward this budget. |
 
 ```julia
-net, placements = add_ibrs(input; recipe=IBRRecipe(
+net, placements = add_ibrs(case_development_input(); recipe=IBRRecipe(
     bus_ids=["near", "far"],
     phase_by_bus=Dict("near"=>"1", "far"=>"2"),
     capacity_budget=18_000.0))
@@ -174,8 +175,8 @@ operating bounds. PF termination by itself does not check those bounds.
 
 For a different reduction, supply and review the appropriate mapping and recovery
 procedure. This small example does not establish arbitrary reduction fidelity or
-infer missing device identities. Start with the existing scientific contracts when
-neutral elimination, member limits or discarded controls are involved.
+infer missing device identities. Neutral elimination, member limits, and
+discarded controls each need their own review.
 
 ## 6. Save a log only if it is useful to you
 
@@ -185,22 +186,23 @@ write_case_log(base, "case-development.json";
     assumptions=["Synthetic teaching feeder; not utility calibrated",
                  "Illustrative Q capability: +/-40% of S rating"],
     settings=Dict("optimizer"=>"Ipopt", "per_unit"=>true, "max_iter"=>500),
-    source_paths=["original-feeder.json"])
+    source_paths=[joinpath(pkgdir(BMOPFTools), "test", "data",
+                           "case_development", "feeder.json")])
 ```
 
 Use `.md` for a readable log with the complete structured record embedded, or `.json`
 for downstream processing. Source-file hashes describe file bytes; the case hash
-describes sorted-key in-memory JSON, including array ordering. It is deliberately
-not presented as the hash of an exported BMOPF file. Record that file separately
-if its exact bytes matter. Transformation records now include resolved recipe
-parameters and full structured Findings.
+describes sorted-key in-memory JSON, including array ordering, so it is not the
+hash of an exported BMOPF file; record that file separately if its exact bytes
+matter. Transformation records include resolved recipe parameters and full
+structured Findings.
 
 For reproducibility, record solver/package environments and any external data
 versions you used. The helper records the package version but does not guess your
 solver settings or whether a local checkout has uncommitted edits.
 
-This log is optional. It explains how an author developed a case; it neither
-certifies the case nor adds a Task Force submission requirement.
+This log is optional. It explains how an author developed a case; it does not
+certify the case.
 
 ## 7. Move from teaching examples to useful cases
 

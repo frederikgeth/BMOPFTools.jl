@@ -98,8 +98,12 @@ add_comp!(n, kvar) = (n["ibr"] = get(n, "ibr", Dict{String,Any}());
         "p_avail"=>[0.0]); n)
 
 V(n) = vpn(solve_pf(n; optimizer=OPT, per_unit=true), "lv_1", "a")          # power flow
+# Price imported power at the source: with fixed loads and PV, the OPF then
+# minimizes losses, so the compensator dispatch is the least-loss one in the limits.
+price!(n) = (for (_, vs) in n["voltage_source"]
+    vs["cost"] = fill(1.0, length(vs["v_magnitude"])); end; n)
 function Vopf(n)                                                            # OPF dispatch
-    r = solve_opf(set_limits!(n); optimizer=OPT, per_unit=true)
+    r = solve_opf(price!(set_limits!(n)); optimizer=OPT, per_unit=true)
     vpn(r, "lv_1", "a"), r["ibr"]["comp"]["a"]["qg"]/1000
 end
 

@@ -1,4 +1,4 @@
-# Tutorial: PV smart IBRs as distributed control
+# PV volt-var / volt-watt droop inside the OPF
 
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
@@ -13,7 +13,7 @@ JuMP, Ipopt, and the external data noted above. For a bundled first solve, use
 explains the solver's curve encoding and derivatives; it is not needed to follow
 the study below.
 
-A fleet of rooftop PV IBRs is, whether we model it that way or not, a
+A fleet of rooftop PV inverters is, whether we model it that way or not, a
 **distributed control system**. Each IBR is a self-interested local agent:
 it wants to export as much of its own active power as possible, and it reacts to
 **only one signal it can measure locally** — the voltage at its own terminals —
@@ -61,16 +61,16 @@ exactly — see [Optimal power flow](opf.md) for the encoding details.
     `"1"`/`"2"`/`"3"`, whereas networks imported via `from_dss` use `"a"`/`"b"`/`"c"` —
     see the [terminals primer](terminals_primer.md).
 
-Every code block on this page runs when the documentation is built, so the
-voltages and dispatches below are live solver output. The complete, runnable
-script is
+The code blocks need the restricted dataset (see the note above) and are not
+run by the docs build; the voltages and dispatches quoted below were produced by
+running them. The complete, runnable script is
 [`examples/vvwo_tutorial.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/examples/vvwo_tutorial.jl):
 
 ```
 julia --project=test examples/vvwo_tutorial.jl
 ```
 
-## PV IBRs as distributed control
+## [PV inverters as distributed control](@id vvwo-distributed-control)
 
 Why does a fleet of *locally* controlled IBRs have anything to do with a
 *centralized* OPF? In this study PV is priced at zero while grid import is priced
@@ -141,8 +141,8 @@ hosting capacity:
   over-voltages the far end);
 - the **service drops are modeled at 30 m** (the raw dataset ships ~6 m drops,
   too short to develop a realistic rise); and
-- each PV cluster is **45 kVA**, free to run to nameplate (≈ eight of the study's
-  5.25 kVA rooftop IBRs behind one pole-top).
+- each PV cluster is **45 kVA**, free to run to nameplate (≈ eight
+  5.25 kVA rooftop inverters behind one pole-top).
 
 Because the loads — and therefore the PV — sit on different phases, the export is
 itself unbalanced, which is where four-wire modeling (explicit neutral, no Kron
@@ -315,7 +315,7 @@ matters.
 
 Keep the droop, and add the constraints that the distributed law provably cannot
 guarantee here: a 1.10 pu phase-to-neutral ceiling, a neutral-to-ground cap, and
-(via the recipe's thermal pass) thermal ratings on the LV buses:
+(via the recipe's thermal pass) current ratings on the LV lines:
 
 ```julia
 netC = attach_droop!(base_net())
@@ -376,21 +376,18 @@ curtailment.
 
 The voltage a droop law reacts to has two independent degrees of freedom, both
 set through the curve's `voltage_reference` (one of the six
-`voltage_reference_type` values; see [the OPF model](opf.md#IBRs)).
+`voltage_reference_type` values; see [the OPF model](@ref IBRs)).
 
 **Quantity — what the magnitude is taken between.** `PN_*` uses phase-to-neutral
 $\lvert v_\varphi - v_n\rvert$ (the default), `PG_*` phase-to-ground
 $\lvert v_\varphi\rvert$, and `PP_*` phase-to-phase. The phase-to-ground vs
-phase-to-neutral choice is exactly the **`Connection`** switch of the source
-study — on a four-wire feeder the neutral is displaced from ground, so the two
+phase-to-neutral choice matters because on a four-wire feeder the neutral is displaced from ground, so the two
 references make the IBRs see different voltages and dispatch differently.
 
 **Aggregation — how phases combine.** A three-phase (`FOUR_LEG`) IBR can respond
 to **each phase's own** magnitude (the `_PER_PHASE` suffix, the default) or to the
 **mean** of the three (the `_AVERAGED` suffix, like a single three-phase unit that
-regulates on its average terminal voltage). (The legacy IBR-level
-`voltage_aggregation = "PER_PHASE" | "AVERAGE"` field still selects the
-aggregation and overrides the enum's suffix when present.)
+regulates on its average terminal voltage).
 
 To see both effects we use a deliberately unbalanced minimal feeder — a stiff
 source, one four-wire line, 8 kW on phase 1 and 2 kW on phase 3, and a 3 × 10 kVA
@@ -449,7 +446,7 @@ Reading the three rows:
   is a four-wire phenomenon.
 
 This appendix is also a concrete face of the caveat from
-[PV IBRs as distributed control](#PV-IBRs-as-distributed-control): the
+[PV inverters as distributed control](@ref vvwo-distributed-control): the
 laws give materially different dispatches *because the bus is unbalanced*. The
 balanced-network equivalence of [[1]](@ref refs-vvwo), [[2]](@ref refs-vvwo) is
 silent on which one is "optimal" — on a single-phase equivalent there is only one
@@ -477,5 +474,5 @@ cannot.
 5. S. Mhanna, F. Geth, L. Quiertant, P. Mancarella, *Volt-VAr-Watt Optimization in
    Four-Wire Low-Voltage Networks: Exact Nonlinear Models and Smooth
    Approximations*, IEEE Transactions on Power Systems, 2026.
-6. AS/NZS 4777.2:2020, *Grid connection of energy systems via IBRs, Part 2:
-   IBR requirements*, Standards Australia / Standards New Zealand, 2020.
+6. AS/NZS 4777.2:2020, *Grid connection of energy systems via inverters, Part 2:
+   Inverter requirements*, Standards Australia / Standards New Zealand, 2020.

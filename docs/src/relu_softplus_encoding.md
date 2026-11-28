@@ -25,7 +25,7 @@ refer to the [references](@ref relu-refs) below. The implementation lives in
 
 ## 1. The ReLU-sum encoding
 
-Any continuous PWL function $f$ defined by non-decreasing breakpoints
+Any continuous PWL function $f$ defined by strictly increasing breakpoints
 $(\bar x_1,\bar y_1),\dots,(\bar x_n,\bar y_n)$ and clamped flat outside
 $[\bar x_1,\bar x_n]$ can be written as a single baseline plus a sum of
 shifted/scaled **rectified linear units** $\operatorname{ReLU}(z)=\max(0,z)$:
@@ -136,7 +136,7 @@ with `MOI.UnsupportedNonlinearOperator` at `optimize!` rather than solving
 something else. Gurobi (12.0 or newer) is the motivating backend, where
 `:logistic` maps to `GRB_OPCODE_LOGISTIC`; it is also the only one of the
 three encodings Gurobi accepts, so see
-[the solver guide](solvers.md#Gurobi:-the-quadratic-compatible-local-NLP-path)
+[the solver guide](@ref solvers-gurobi)
 before running a control-curve case there.
 
 ## 3. Closed-form first and second derivatives

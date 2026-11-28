@@ -69,6 +69,37 @@
         @test d["top_buses"][1]["total_load_kW"] > 0.0
     end
 
+    @testset "bus shares of the squared slack sum to one; near-bound label" begin
+        # total_slack_magnitude_A is the L2 norm over all slack terminals.
+        vm = Dict{String,Any}("1" => Dict{String,Any}("vm" => 222.01))
+        res = Dict{String,Any}(
+            "is_feasibility_opf"       => true,
+            "feasible"                 => true,
+            "total_slack_magnitude_A"  => 5.0,                       # √(3² + 4²)
+            "slack_injections" => Dict{String,Any}(
+                "a" => Dict{String,Any}("1" => Dict{String,Any}("cs_mag" => 3.0)),
+                "b" => Dict{String,Any}("1" => Dict{String,Any}("cs_mag" => 4.0))),
+            "bus" => Dict{String,Any}("a" => vm, "b" => vm),
+        )
+        net2 = Dict{String,Any}("bus" => Dict{String,Any}(
+            "a" => Dict{String,Any}("terminal_names" => ["1", "n"],
+                                    "perfectly_grounded_terminals" => ["n"],
+                                    "v_min" => [222.0], "v_max" => [253.0]),
+            "b" => Dict{String,Any}("terminal_names" => ["1", "n"],
+                                    "perfectly_grounded_terminals" => ["n"],
+                                    "v_min" => [222.0], "v_max" => [253.0])))
+        d = diagnose_infeasibility(res, net2)
+        shares = [b["fraction_of_total"] for b in d["top_buses"]]
+        @test sum(shares) ≈ 1.0 rtol=1e-6
+        @test d["top_buses"][1]["bus"] == "b"
+        @test d["top_buses"][1]["fraction_of_total"] ≈ 0.64 rtol=1e-6   # 4²/5²
+        lbl = only(d["top_buses"][1]["voltage_violations"])
+        @test startswith(lbl, "at_lower_bound:1 ")
+        @test occursin("v_min 222.0 V", lbl)
+        # Near a bound is not a violation: the global pass reports none.
+        @test d["n_voltage_violations"] == 0
+    end
+
     @testset "voltage-bound infeasibility flags under/over voltage" begin
         res = Dict{String,Any}(
             "is_feasibility_opf"       => true,
@@ -167,6 +198,47 @@
             @test d["n_infeasible_buses"] >= 1
             @test d["top_buses"][1]["bus"] == "bus1"
             @test d["total_infeasibility_A"] > 1.0
+        end
+    end
+
+    @testset "integration: per-unit and SI feasibility solves converge alike" begin
+        if !_HAS_JUMP_IPOPT
+            @test_skip "JuMP/Ipopt not in load path"
+        else
+            # 230 V feeder: at a 1 MVA base the LV current base is ~4.3 kA, so a
+            # per-unit slack penalty used to leave mA residuals on feasible cases.
+            lv(v_min) = parse_bmopf("""
+            {"bus":{
+                "src":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"]},
+                "b1":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],
+                      "v_min":[$(v_min)],"v_max":[253.0]},
+                "b2":{"terminal_names":["1","n"],"perfectly_grounded_terminals":["n"],
+                      "v_min":[$(v_min)],"v_max":[253.0]}},
+             "voltage_source":{"vs":{"bus":"src","terminal_map":["1"],
+                 "v_magnitude":[230.0],"v_angle":[0.0]}},
+             "linecode":{"lc":{"R_series_1_1":0.4,"X_series_1_1":0.08}},
+             "line":{"l1":{"bus_from":"src","bus_to":"b1","terminal_map_from":["1"],
+                           "terminal_map_to":["1"],"linecode":"lc","length":1.0},
+                     "l2":{"bus_from":"b1","bus_to":"b2","terminal_map_from":["1"],
+                           "terminal_map_to":["1"],"linecode":"lc","length":1.0}},
+             "load":{"ld1":{"bus":"b1","terminal_map":["1","n"],
+                            "configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]},
+                     "ld2":{"bus":"b2","terminal_map":["1","n"],
+                            "configuration":"SINGLE_PHASE","p_nom":[2000.0],"q_nom":[0.0]}}}
+            """; from_string=true)
+            opt = optimizer_with_attributes(Ipopt.Optimizer, "print_level" => 0)
+            for (v_min, feasible) in ((207.0, true), (222.0, false))
+                pu = solve_feasibility_opf(lv(v_min); optimizer=opt, per_unit=true)
+                si = solve_feasibility_opf(lv(v_min); optimizer=opt, per_unit=false)
+                if feasible
+                    @test pu["total_slack_magnitude_A"] < 1e-6
+                    @test si["total_slack_magnitude_A"] < 1e-6
+                    @test diagnose_infeasibility(pu, lv(v_min))["is_feasible"]
+                else
+                    @test pu["total_slack_magnitude_A"] ≈
+                          si["total_slack_magnitude_A"] rtol=1e-6
+                end
+            end
         end
     end
 end

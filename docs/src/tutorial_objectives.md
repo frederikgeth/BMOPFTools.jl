@@ -133,7 +133,7 @@ few targets to zero rather than shrinking all of them. That behavior needs the
 targets to be **independently controllable**. On this radial feeder `mid` and
 `end` sit on the same path with one compensator between them, so their `V₂` move
 together: there is effectively one degree of freedom and nothing to choose
-between. Both norms find the same point, at every STATCOM rating.
+between. Both norms find the same point here.
 
 Reach for `:magnitude` when your targets genuinely compete — several laterals
 with their own compensators and a shared budget, or a control-effort penalty
@@ -141,22 +141,8 @@ where you want *few devices moving* rather than *all devices moving slightly*.
 On a single controllable axis, prefer `:squared`: it is exact, cheaper, and has
 no ε to size.
 
-!!! danger "Finalize KCL before solving"
-    `build_opf_model` defers KCL so a `model_hook!` can still contribute to the
-    nodal accumulators. Until [`enforce_kcl!`](@ref) runs the network is
-    **electrically disconnected** — bus voltages are free variables and your
-    objective is minimized without physics; an unbalance objective in particular
-    reaches exactly zero with every compensator idle, which reads as a triumph.
-
-    Skipping it is now an error rather than a wrong number: `JuMP.optimize!`
-    refuses a model holding any unstamped context, and `extract_result` refuses
-    an unstamped context.
-
-    The harness uses [`optimize_opf!`](@ref) to validate readiness and finalize
-    KCL explicitly before its single solve. Configure the objective and solver
-    attributes first. In a shared-model study pass every unfinished snapshot as
-    `optimize_opf!(ctxs...)`. After supported parameter-value changes use
-    [`resolve_opf!`](@ref), which refreshes the cached optimizer.
+The harness calls [`optimize_opf!`](@ref), which finalizes KCL before solving;
+see the [KCL note](@ref objectives) on the objectives page for why that matters.
 
 ## What you combined is recorded
 
@@ -182,14 +168,12 @@ so the same specification gives the same answer in `per_unit = true` and
 
 ## The traps that bite hardest
 
-Three of these cost real debugging time while this feature was built, and all
-three were silent when we hit them — nothing errored, and the numbers looked
-plausible.
+All three of these are silent: nothing errors and the numbers look plausible.
 
-1. **Forgetting `enforce_kcl!`** gives a disconnected network in which an
-   unbalance objective reaches exactly zero with every compensator idle. It
-   reads as a triumph. This one is now guarded: it raises rather than returning
-   a plausible answer.
+1. **Solving before KCL is finalized** gives a disconnected network in which an
+   unbalance objective reaches exactly zero with every compensator idle. The
+   engine guards against it (`JuMP.optimize!` and `extract_result` refuse an
+   unfinalized context), but `kcl_guard=false` turns the optimize-time check off.
 2. **Sizing `ε` from a unit-conversion factor** rather than the quantity's
    characteristic magnitude makes one specification give two different answers
    in the two unit modes.

@@ -31,8 +31,9 @@ can bind a parameter to a profile via its own `"time_series"` map
 Everything downstream — [`analyze`](@ref), [`solve_opf`](@ref),
 [`solve_pf`](@ref), [`profile_solution`](@ref) — accepts a `t_index` keyword
 and snapshots internally, so a time-series case drops into the ordinary
-single-period pipeline. Every code block below runs when the docs are built,
-so the numbers are real.
+single-period pipeline. The code blocks need the restricted dataset (see the
+note above) and are not run by the docs build; the numbers quoted in the text
+were produced by running them.
 
 !!! note "Prerequisites"
     A Julia environment with `BMOPFTools`, `JuMP` and `Ipopt`, and familiarity
@@ -43,7 +44,8 @@ so the numbers are real.
 
 This tutorial solves snapshots independently. To reuse a parameterized model,
 follow [Repeated solves and parameter updates](repeated_solves.md). To impose
-inter-temporal constraints, use the [coupled-snapshot route](advanced.md#How-do-I-construct-a-different-study?).
+inter-temporal constraints, use the [staged API](@ref staged-api), which builds
+several snapshots into one JuMP model.
 
 ## 1. A feeder with a day attached
 
@@ -201,9 +203,8 @@ against that hour's bounds.
     limits linking one hour's dispatch to the next, no inter-temporal
     constraints of any kind. `get_snapshot` + `t_index` give you a *sequence
     of single-period problems* — the right tool for hosting-capacity envelopes
-    and worst-hour screening, and the wrong one for battery scheduling or
-    unit commitment, which need a genuinely multi-period model that BMOPFTools
-    does not currently build.
+    and worst-hour screening. Battery scheduling or ramp limits need the
+    snapshots coupled in one model: use the [staged API](@ref staged-api).
 
 This sweep-the-parameter pattern is the same one the
 [tap-optimization tutorial](tutorial_tap.md) uses to trace an OLTC tap
@@ -238,10 +239,11 @@ the power factor constant while the magnitude varies.
 Each `t_index` is an **independent snapshot** with no coupling between steps — no
 stored energy, no ramp constraints, no inter-temporal terms (see the scope
 warning above). Time series answer *hosting-capacity envelopes* and *worst-hour
-screening*; battery arbitrage and unit commitment need a genuinely multi-period
-model, which BMOPFTools does not currently build. A battery still appears as an
-`ibr` with `prime_mover = "BATTERY"` in each snapshot, but its state of charge is
-not carried across hours.
+screening*. For battery arbitrage or ramp limits, couple the snapshots in one
+model with the [staged API](@ref staged-api), which shows a state-of-charge
+example. In an independent sweep a battery still appears as an `ibr` with
+`prime_mover = "BATTERY"` in each snapshot, but its state of charge is not
+carried across hours.
 
 **Why scale `p_max` rather than inject a fixed `p`?** Scaling the *bound* keeps
 the OPF free to curtail below the ceiling when the network requires it (the whole
