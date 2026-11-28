@@ -72,7 +72,13 @@ construction (as below) rather than carrying unit fields around.
   critique in the impedance-modeling literature concerns a different,
   higher-frequency code path.) `cap_radius` (default `radius`) enters the
   electrostatic terms; mixing GMR into capacitance is the classic implementation
-  bug.
+  bug. The electrostatic terms treat each conductor as a line charge at its
+  center (the thin-wire approximation), which is accurate while conductor
+  radii are small against their spacing. For touching insulated cores, as in an
+  aerial bundled cable, the mutual capacitance between diagonally opposite
+  cores comes out small and positive rather than small and negative, and the
+  profiler reports `I.PROV.B_OFFDIAG` (see
+  [the Maxwell sign pattern](@ref Methodology-notes)).
 
 ## Overhead example: original synthetic four-wire line
 

@@ -1226,8 +1226,8 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
         @test any(x -> x.code == "I.PROV.NEGATIVE_MUTUAL_R" &&
                        x.component_id == "lc_negm", f3)
 
-        # positive off-diagonal B but PSD: soft INFO (screen-elimination
-        # artifacts are legitimate); non-PSD B: WARNING
+        # positive off-diagonal B but PSD: soft INFO (passive, but not an
+        # exact Maxwell matrix); non-PSD B: WARNING
         net4 = deepcopy(base)
         net4["linecode"]["lc_boff"] = Dict{String,Any}(
             "R_series_1_1" => 0.3, "R_series_2_2" => 0.3,
@@ -1247,6 +1247,33 @@ const SYNTHETIC_FEEDER_FIXTURE = read(
                        x.component_id == "lc_bpsd", f4)
         @test !any(x -> x.code == "W.PROV.B_SIGN" &&
                         x.component_id == "lc_boff", f4)
+
+        # witness: the thin-wire Maxwell kernel on four touching insulated
+        # cores (aerial bundled cable, r = 5.5 mm, 14 mm centers) gives a
+        # positive mutual between diagonally opposite cores with C PSD, so the
+        # profiler reports INFO, not WARNING; widely spaced conductors keep
+        # the sign pattern and raise nothing
+        let r = 5.5e-3, s = 7e-3
+            for (cid, h) in (("lc_abc", s), ("lc_open", 0.3))
+                C = overhead_line_constants(fill(0.32e-3, 4), fill(0.78r, 4),
+                        fill(r, 4), [-h, h, h, -h], 6 .+ [-h, -h, h, h];
+                        frequency = 50).C
+                lc = Dict{String,Any}()
+                for i in 1:4
+                    lc["R_series_$(i)_$(i)"] = 0.3; lc["X_series_$(i)_$(i)"] = 0.9
+                    for j in 1:4
+                        lc["B_from_$(i)_$(j)"] = 2π * 50 * C[i, j] * 1e3  # S/km
+                    end
+                end
+                net6 = deepcopy(base); net6["linecode"][cid] = lc
+                f6 = Finding[]; provenance_analysis(net6, f6)
+                @test (C[1, 3] > 0) == (cid == "lc_abc")
+                @test any(x -> x.code == "I.PROV.B_OFFDIAG" &&
+                               x.component_id == cid, f6) == (cid == "lc_abc")
+                @test !any(x -> x.code == "W.PROV.B_SIGN" &&
+                                x.component_id == cid, f6)
+            end
+        end
 
         # bus shunt: asymmetric matrix (the printed Eq. 98 form!) → reciprocity ERROR
         net5 = deepcopy(base)

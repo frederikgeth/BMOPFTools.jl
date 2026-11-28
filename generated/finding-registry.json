@@ -3,7 +3,7 @@
   "registry_id": "bmopftools-findings-0.1.0",
   "source": {
     "path": "docs/src/findings.md",
-    "sha256": "5b9959c2c35a7f6fccc5650449327e158289afdec08fdd4de406023c88d58eb9"
+    "sha256": "b511650e30334eb715710f453ead8f348fa935fc329799123dad304a431b1645"
   },
   "finding_count": 394,
   "findings": [
@@ -1487,7 +1487,7 @@
       "namespace": "PROV",
       "catalogue_section": "PROV",
       "section_title": "provenance & conventions",
-      "meaning": "Positive mutual susceptance with PSD intact — deviates from the Maxwell sign pattern. Clean electrostatic pipelines (including grounded-screen elimination and bundling) preserve the pattern, so this marks fitted/averaged provenance rather than an error.",
+      "meaning": "Positive mutual susceptance with PSD intact — deviates from the Maxwell sign pattern. Exact electrostatics and its reductions (grounding, floating elimination, bundling, transposition) preserve the pattern, so this marks how the matrix was computed or entered: typically a thin-wire calculation for closely spaced cable cores (a positive mutual between diagonally opposite cores), sequence data with C₀ > C₁, or a sign-convention mix-up. The matrix remains passive.",
       "contract_id": null,
       "knowledge_ids": []
     },

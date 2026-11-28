@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "25cbb7bb65509fe16b24b1899032fc5bb256225098a5a8cf064649fb93a35c98",
+  "corpus_sha256": "0a04a3033b064ba233ba2c6dfb0fd8efdc29f84b940e85914bbc7065a79a4995",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -130,7 +130,7 @@
     },
     {
       "path": "docs/src/findings.md",
-      "sha256": "5b9959c2c35a7f6fccc5650449327e158289afdec08fdd4de406023c88d58eb9"
+      "sha256": "b511650e30334eb715710f453ead8f348fa935fc329799123dad304a431b1645"
     },
     {
       "path": "docs/src/first_case.md",
@@ -318,7 +318,7 @@
     },
     {
       "path": "generated/finding-registry.json",
-      "sha256": "1b3db661eb0f0457af7c4d431724dfb5a109693c04e0a0ea0519bc8151b6df9b"
+      "sha256": "d2879d25631c83c8ac39c3590fea950f80f47c547c650816250214a7f41edbcf"
     },
     {
       "path": "knowledge/executable.toml",
@@ -482,7 +482,7 @@
     },
     {
       "path": "src/analysis/provenance/linecodes.jl",
-      "sha256": "1439ee1cb8b3dab052c273308cbb6e53239b7963bc64f28afbd50f4efa49992e"
+      "sha256": "6bab73292e66701fc8d2eafedabd05466b8e188df4f70f3475c95f7146d8d91e"
     },
     {
       "path": "src/analysis/provenance/wires_grounding.jl",
@@ -670,7 +670,7 @@
     },
     {
       "path": "src/report/finding_registry_generated.jl",
-      "sha256": "4078719ee0d43d652927de2a5c67be693151675a2cf348d0d250127441355ed2"
+      "sha256": "b134a094831ba4acde733dd1b1c184277059bb601ff0b9faab6ff39cb27c5ebf"
     },
     {
       "path": "src/report/formatting.jl",

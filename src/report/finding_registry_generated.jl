@@ -2,7 +2,7 @@
 const _FINDING_REGISTRY_SCHEMA_VERSION = "0.1.0"
 const _FINDING_REGISTRY_ID = "bmopftools-findings-0.1.0"
 const _FINDING_REGISTRY_SOURCE_PATH = "docs/src/findings.md"
-const _FINDING_REGISTRY_SOURCE_SHA256 = "5b9959c2c35a7f6fccc5650449327e158289afdec08fdd4de406023c88d58eb9"
+const _FINDING_REGISTRY_SOURCE_SHA256 = "b511650e30334eb715710f453ead8f348fa935fc329799123dad304a431b1645"
 const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
     "W.EXPORT.DSS_RATING_UNVERIFIED" => (
         severity="WARNING",
@@ -1332,7 +1332,7 @@ const _FINDING_EXPLANATIONS = Dict{String,NamedTuple}(
         namespace="PROV",
         catalogue_section="PROV",
         section_title="provenance & conventions",
-        meaning="Positive mutual susceptance with PSD intact — deviates from the Maxwell sign pattern. Clean electrostatic pipelines (including grounded-screen elimination and bundling) preserve the pattern, so this marks fitted/averaged provenance rather than an error.",
+        meaning="Positive mutual susceptance with PSD intact — deviates from the Maxwell sign pattern. Exact electrostatics and its reductions (grounding, floating elimination, bundling, transposition) preserve the pattern, so this marks how the matrix was computed or entered: typically a thin-wire calculation for closely spaced cable cores (a positive mutual between diagonally opposite cores), sequence data with C₀ > C₁, or a sign-convention mix-up. The matrix remains passive.",
         contract_id=nothing,
         knowledge_ids=String[],
     ),

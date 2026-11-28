@@ -85,14 +85,34 @@ in fact a Stieltjes matrix [5]. OpenDSS `Cmatrix` is exactly this form;
 The classic data error is entering the *pairwise* capacitance c_ij = −C_ij
 with the wrong sign. Severity calibration:
 
-- **PSD / nonnegative diagonals** are invariant — Stieltjes (symmetric
-  M-) matrices are closed under Schur complementation (grounded-screen
-  elimination) and under bundling congruences [11] — so violations are
+- **PSD / nonnegative diagonals** are invariant, so violations are
   warnings (`W.PROV.B_SIGN`).
-- A **positive mutual with PSD intact** cannot arise from a clean
-  geometry → P⁻¹ → reduction pipeline; it marks fitted, averaged or
-  otherwise processed provenance (`I.PROV.B_OFFDIAG`, informational), since
-  grounded-screen elimination and bundling preserve the sign pattern.
+- The **sign pattern** is invariant under every exact reduction. Grounding a
+  conductor (a screen bonded to earth, V = 0) keeps a principal submatrix of
+  C; eliminating a floating conductor (zero net charge) takes a Schur
+  complement of C; bundling conductors at equal potential is the congruence
+  SᵀCS with a 0/1 aggregation matrix S; transposition averages permuted
+  copies. Principal submatrices, congruences by S and convex combinations
+  keep off-diagonals ≤ 0 directly, and Schur complements of Stieltjes
+  matrices are Stieltjes [11]. A check on 400 randomly placed conductor
+  groups, computed with an accurate (charge-simulation) solver and put
+  through about a thousand random grounding, floating, bundling and
+  transposition steps, found no off-diagonal above zero.
+- A **positive mutual with PSD intact** (`I.PROV.B_OFFDIAG`, informational)
+  therefore comes from how the matrix was computed or entered, not from a
+  reduction. The common cause is the thin-wire potential-coefficient formula
+  ``P_{ii} = \ln(2h_i/r_i)/(2\pi\varepsilon)`` applied to thick conductors
+  at close spacing, which ignores the redistribution of charge around each
+  conductor's surface. For four touching insulated cores (an aerial bundled
+  cable or a four-core underground cable) it puts a small *positive* mutual
+  between diagonally opposite cores, where an accurate solution gives a
+  small negative one (about +2.5 pF/m against −3.4 pF/m for 95 mm² aerial
+  bundled cores). LineConstants-style tools, including
+  [`overhead_line_constants`](@ref), use this formula, so matrices for
+  tightly bundled conductors carry the finding by construction; the
+  error is in the opposite-core mutual, and the matrix stays passive.
+  Sequence data with C₀ > C₁ (the mutual is (C₀ − C₁)/3) and a sign-convention
+  mix-up give the same pattern.
 
 ## Kron reduction, grounding and earthing zones
 
