@@ -1,7 +1,7 @@
 # Data model conventions
 
 This page documents the BMOPF data-model conventions as implemented by
-BMOPFTools, following the Task Force specification ([ref. 1](methodology.md#refs)) with the
+BMOPFTools, following the Task Force specification ([ref. 1](references.md#refs)) with the
 implementation choices called out explicitly.
 
 ## Structure and identifiers
@@ -691,7 +691,7 @@ steady-state OPF, all reduce to the same idealization. The intended scope:
 | **Recloser** | As above — a breaker with reclosing control; only its open/closed conduction state matters here. |
 | **Tie switch** | Normally-open reconfiguration link between feeders. |
 | **Busbar section / jumper / bus-tie** | A near-zero-impedance metallic connection between nodes; an explicit object instead of merging the buses. |
-| **Near-zero-impedance line** | A line whose $\|Z\|$ is below the conditioning threshold is reported as `W.DOM.LINE_LOW_IMPEDANCE`; the opt-in [`fix_case`](@ref) pass `apply_low_impedance_to_switch` (off by default) converts it to a closed switch ([ref. 2](methodology.md#refs)). |
+| **Near-zero-impedance line** | A line whose $\|Z\|$ is below the conditioning threshold is reported as `W.DOM.LINE_LOW_IMPEDANCE`; the opt-in [`fix_case`](@ref) pass `apply_low_impedance_to_switch` (off by default) converts it to a closed switch ([ref. 2](references.md#refs)). |
 
 What it is **not**: a switch never carries impedance, losses, shunt admittance,
 tap or phase-shift (use a `line`, `shunt`, or `transformer`); it never connects
@@ -706,7 +706,7 @@ Inserting a zero- or near-zero-impedance branch into an admittance (bus-injectio
 formulation produces an infinite entry in **Y** and an ill-conditioned or
 rank-deficient system; the classic remedies are either *bus merging* (contract
 the branch and fuse its endpoints into a "super bus") or special zero-impedance
-branch handling [ref. 2](methodology.md#refs). The branch-flow / current–voltage
+branch handling [ref. 2](references.md#refs). The branch-flow / current–voltage
 formulation used here sidesteps this: a closed switch is expressed as an exact
 voltage-equality constraint with explicit current variables, so it is represented
 without an admittance and without losing the two distinct buses (and their
@@ -745,7 +745,7 @@ range of names:
   not represented because it does not change the steady-state equations.
 - **General power-flow literature** calls these **zero-impedance branches**
   (ZIB) or zero-impedance lines, and discusses the super-bus / branch-contraction
-  treatment they require in admittance formulations [ref. 2](methodology.md#refs).
+  treatment they require in admittance formulations [ref. 2](references.md#refs).
 
 The takeaway: most tools either (a) reuse a line with a flag (OpenDSS) or (b)
 provide a dedicated ideal switch with an open/closed state (PMD, CIM). BMOPF

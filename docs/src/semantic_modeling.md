@@ -11,7 +11,7 @@ real assets with stable identities. The data model aims to carry *those* objects
 not whichever encoding a particular solver found convenient. This is the same
 stance taken at ingest (ingestion is a [semantic projection](conversion.md#ingest-philosophy),
 not a transcode); here we state it as a model-wide principle, because it governs
-the validation findings and the [fix recipes](augmentation.md#fix) just as much as
+the validation findings and the [fix recipes](@ref fix) just as much as
 `from_dss`.
 
 The goal hierarchy is the same one stated for ingest:
@@ -24,7 +24,7 @@ level?* — on a model that has dissolved the asset into a generic admittance, a
 negative load, or a per-unit line. Reconstructing the named object is the price of
 being able to reason about the network at all, and it is exactly what makes the
 benchmark-grade data model more than a re-encoding of the source
-([ref. 2](methodology.md#refs), [ref. 14](methodology.md#refs)).
+([ref. 2](references.md#refs), [ref. 14](references.md#refs)).
 
 ## Why tools abuse representation
 
@@ -39,27 +39,27 @@ conveniences of a particular solver**, frozen into the data:
   worked example below traces this through to the solver numerics).
 - **Backward-forward sweep wants negative loads.** Embedding a DER as a negative
   `PQ` load lets an unmodified distribution load-flow handle generation
-  ([ref. 5](methodology.md#refs)) — at the cost of erasing that it is a
+  ([ref. 5](references.md#refs)) — at the cost of erasing that it is a
   generator/IBR with its own bounds and controls
-  ([ref. 28](methodology.md#refs)).
+  ([ref. 28](references.md#refs)).
 - **`Ybus` embeds a constant-impedance load as a shunt.** A constant-`Z` load is
-  `Sⱼ/|Vⱼ|²` on the bus admittance diagonal ([ref. 26](methodology.md#refs)); once
+  `Sⱼ/|Vⱼ|²` on the bus admittance diagonal ([ref. 26](references.md#refs)); once
   there it is indistinguishable from a real shunt or capacitor.
 - **Per-unit "eliminates" the transformer.** Textbooks choose voltage bases on the
   turns ratio so the ideal transformer disappears and only a series impedance
   remains — a line. This is sound for a balanced single-line study and disastrous
   for a four-wire model, where the transformer is a *galvanic boundary* carrying
   the vector group, the grounding, and the voltage-level change
-  ([ref. 16](methodology.md#refs), [ref. 17](methodology.md#refs)).
+  ([ref. 16](references.md#refs), [ref. 17](references.md#refs)).
 - **Coordinate transforms discard conductor identity.** Symmetrical components and
   Kron reduction are projections that throw away the per-conductor, per-terminal
   data a four-wire model and a non-expert data collector actually need
-  ([ref. 10](methodology.md#refs), [ref. 17](methodology.md#refs)); see the
+  ([ref. 10](references.md#refs), [ref. 17](references.md#refs)); see the
   [buses & terminals primer](terminals_primer.md).
 
 The IEC Common Information Model takes the opposite, asset-first stance — explicit
 objects, terminals and connectivity nodes as the unit of exchange
-([ref. 23](methodology.md#refs), [ref. 27](methodology.md#refs)) — and is the
+([ref. 23](references.md#refs), [ref. 27](references.md#refs)) — and is the
 closest external precedent for what this data model reconstructs.
 
 ## [From representation to data artifacts to weak numerics](@id From-representation-to-data-artefacts-to-weak-numerics)
@@ -88,8 +88,8 @@ unconstrained by that equation — a near-flat direction that ill-conditions the
 Jacobian and the reduced Hessian, forcing inertia corrections and slowing or
 failing convergence — whereas **exact zero** collapses cleanly to the well-posed
 ideal-transformer constraint `V_fr = N·V_to`
-([ref. 3](methodology.md#refs), [ref. 19](methodology.md#refs),
-[ref. 20](methodology.md#refs)). So the admittance-era workaround (small ≠ 0) is
+([ref. 3](references.md#refs), [ref. 19](references.md#refs),
+[ref. 20](references.md#refs)). So the admittance-era workaround (small ≠ 0) is
 exactly the encoding a modern NLP solver wants least; the representation that is
 *honest about the data* (zero, or an explicit "unknown") is also the one with the
 best numerics.
@@ -169,7 +169,7 @@ blob. See the [line-geometry workflow](tutorial_line_geometry.md) and the
 Each row is a place where one real asset is commonly encoded as another. The data
 model projects back onto the canonical object; where a detector exists it emits a
 finding (see the [finding-code reference](findings.md)), and some collisions also
-have an opt-in [fix-recipe](augmentation.md#fix) conversion.
+have an opt-in [fix-recipe](@ref fix) conversion.
 
 | Encoded as | Real asset | Why it happens | Detector / fix |
 |---|---|---|---|
@@ -226,12 +226,12 @@ rather than in place of it; until then, retain the source.
 
 ## References
 
-See the [methodology references](methodology.md#refs). The central citations for
-this page are [ref. 14](methodology.md#refs) (data-quality challenges in existing
-distribution datasets — the catalog of real abuses), [ref. 2](methodology.md#refs)
-(maintaining semantics in the benchmark data model), [ref. 16](methodology.md#refs)
-and [ref. 17](methodology.md#refs) (why the transformer and the conductor-level
-model cannot be dissolved), and [ref. 23](methodology.md#refs)/[ref. 27](methodology.md#refs)
-(the CIM asset-first precedent), with [ref. 26](methodology.md#refs) (constant-`Z`
-load ≡ shunt admittance) and [ref. 28](methodology.md#refs) (inverter-based
+See the [Bibliography](references.md#refs). The central citations for
+this page are [ref. 14](references.md#refs) (data-quality challenges in existing
+distribution datasets — the catalog of real abuses), [ref. 2](references.md#refs)
+(maintaining semantics in the benchmark data model), [ref. 16](references.md#refs)
+and [ref. 17](references.md#refs) (why the transformer and the conductor-level
+model cannot be dissolved), and [ref. 23](references.md#refs)/[ref. 27](references.md#refs)
+(the CIM asset-first precedent), with [ref. 26](references.md#refs) (constant-`Z`
+load ≡ shunt admittance) and [ref. 28](references.md#refs) (inverter-based
 resources as a distinct asset class) grounding specific rows.

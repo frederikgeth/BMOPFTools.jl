@@ -54,6 +54,7 @@ makedocs(
             ],
         ],
         "Inspect & prepare cases" => [
+            "Overview" => "inspect_prepare.md",
             # Profiling, ordered tutorial -> how-to -> explanation -> reference.
             "Profile a case" => [
                 "Tutorials" => [
@@ -61,7 +62,7 @@ makedocs(
                     "System types & regional practice" => "tutorial_system_types.md",
                     "Porting an OpenDSS feeder" => "tutorial_opendss_port.md",
                     "Spatial cleanup" => "tutorial_spatial_cleanup.md",
-                    "Findings triage at scale" => "tutorial_triage.md",
+                    "Case study: findings triage at scale" => "tutorial_triage.md",
                 ],
                 "How-to" => [
                     "Tune profiler thresholds" => "howto_thresholds.md",
@@ -76,20 +77,25 @@ makedocs(
                 ],
                 "Reference" => [
                     "Analysis result keys" => "analysis_results.md",
+                    "Spatial analysis settings & result keys" => "spatial_reference.md",
                 ],
             ],
-            "Prepare and recheck" => [
-                "From nameplate data to a model" => "tutorial_nameplate.md",
+            # Overview first, then focused tutorials, then guide and reference.
+            "Prepare a case" => [
+                "From OpenDSS to a solved OPF benchmark" => "tutorial_end_to_end.md",
+                "Reading augmentation provenance" => "tutorial_nameplate.md",
                 "From test report to transformer model" => "tutorial_transformer_tests.md",
-                "Simplification tutorial" => "tutorial_simplify.md",
-                "Case augmentation" => "augmentation.md",
-                "DER placement tutorial" => "tutorial_ders.md",
-                "Utility-data end-to-end tutorial" => "tutorial_end_to_end.md",
+                "Placing DERs and reading the binding constraint" => "tutorial_ders.md",
+                "Case augmentation guide" => "augmentation.md",
+                "Augmentation reference" => "augmentation_reference.md",
             ],
+            # Decision guide, exact simplification, then Opti-KRON from the
+            # six-bus tutorial to the four-wire walkthrough and the theory.
             "Reduce the network" => [
                 "Network reduction: which tool?" => "network_reduction.md",
+                "Simplifying a network" => "tutorial_simplify.md",
+                "Reducing a feeder with a voltage guarantee" => "tutorial_opti_kron.md",
                 "Reducing a four-wire feeder" => "tutorial_network_reduction.md",
-                "Opti-KRON tutorial" => "tutorial_opti_kron.md",
                 "Error-bounded bus reduction (Opti-KRON)" => "opti_kron.md",
             ],
         ],
@@ -142,6 +148,7 @@ makedocs(
             "Finding-code reference" => "findings.md",
             "Scientific-contract reference" => "scientific_contracts.md",
             "Engine validation evidence" => "validation.md",
+            "Bibliography" => "references.md",
             "Developer guide" => [
                 "Contributing & workflow" => "dev/contributing.md",
                 "Style guide" => "dev/style_guide.md",

@@ -4,8 +4,10 @@ Not every finding is a defect. A dangling bus can be a deliberate spare way; a
 uniform load allocation can be the study design. This page shows how to live
 with such a finding without losing track of it.
 
-BMOPFTools has **no suppression switch**. A finding you accept is still raised
-on the next run. That is intentional: a silenced finding is invisible to the
+BMOPFTools has **no switch that silences a code**;
+[report consolidation](analysis.md#Report-consolidation) only merges findings
+that state the same fact. A finding you accept is still raised on the next
+run. That is intentional: a silenced finding is invisible to the
 next person, and to you in six months. What you keep instead is a short record
 of the decision, and a check that tells you when something *new* appears.
 
@@ -75,9 +77,9 @@ by recording the evidence the decision was about, and comparing it:
 
 ```@example accept
 decided_buses = ["spare"]
-now = sort(later.results[:connectivity]["dangling_buses"])
-println(now == decided_buses ? "decision still applies" :
-        "evidence changed: review again (now $(now))")
+current_buses = sort(later.results[:connectivity]["dangling_buses"])
+println(current_buses == decided_buses ? "decision still applies" :
+        "evidence changed: review again (now $(current_buses))")
 ```
 
 ## Gate on what is new
@@ -107,11 +109,8 @@ println("new codes: ", sort(collect(setdiff(Set(f.code for f in later.findings),
 
 ## Roll-ups and per-component decisions
 
-When one code is raised on more than 25 components, `analyze` reports it as a
-single roll-up Finding whose `component_id` is `nothing` and whose
-`detail["components"]` lists the components
-([Report consolidation](analysis.md#Report-consolidation)). To decide about
-individual components, expand the report first:
+A [roll-up](analysis.md#Report-consolidation) Finding has `component_id`
+`nothing`, so a per-component ledger cannot match it. Expand the report first:
 
 ```julia
 per_component = expand_findings(report)       # one Finding per component

@@ -151,8 +151,9 @@ println("legs            : ", split.detail["legs"], ", high leg: ", split.detail
 - The bus has no single nominal voltage to neutral. Its level is reported as
   the leg voltage, and it is listed as a mixed-level bus.
 
-The power flow agrees. Legs `a` and `b` solve at 120 V and the high leg `c` at
-√3 × 120 V:
+The power flow agrees. Legs `a` and `b` solve at about 120 V and the high leg
+`c` at about √3 × 120 ≈ 208 V; the small shortfall is the voltage drop across
+the transformer impedances under load:
 
 ```@example systems
 using JuMP, Ipopt
@@ -195,7 +196,8 @@ for t in ("a", "b", "c")
 end
 ```
 
-100 V on the two legs and 173 V on the third conductor.
+About 100 V on the two legs and about 173 V on the third conductor, again
+slightly below nominal under load.
 
 !!! note "What the source pins"
     A `voltage_source` fixes the voltage of each of its terminals to the

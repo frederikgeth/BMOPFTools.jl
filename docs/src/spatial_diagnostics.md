@@ -1,296 +1,83 @@
 # Spatial diagnostics and cleanup review
 
-Use spatial evidence to decide **what to inspect and which source records to
-consult** while cleaning an electrical model. The analysis does not merge buses,
-rewire circuits, delete parallel branches or certify a repair.
+Bus coordinates and route geometry describe a network a second time,
+independently of its electrical declarations. Where the two descriptions
+disagree — a line shorter than the distance between its buses, a route that ends
+away from its bus, two lines drawn on the same segment — something deserves a
+look. Spatial analysis finds those disagreements and tells you **what to inspect
+and which source records to consult**. It cannot tell you which declaration is
+wrong; that is a decision for a reviewer with access to the sources.
 
-```julia
-using BMOPFTools
-report = analyze("NetworkModel.bmopf.json")
-render(report, "report.md")  # spatial section is included automatically
-spatial = get(report.results[:connectivity], "spatial", nothing)
-if spatial !== nothing && haskey(spatial, "cleanup_review")
-    review = spatial["cleanup_review"]
-    paths = export_spatial_review(review, "cleanup"; item_limit=100)
-end
-```
+!!! warning "What spatial analysis never does"
+    It does not merge buses, snap or transform coordinates, rewire circuits,
+    delete parallel branches, edit the model, suppress Findings or certify a
+    repair. Reviewer decisions are records kept outside the model, and a
+    `resolved` disposition is the reviewer's assertion. A small or empty review
+    queue is not an all-clear: check coordinate coverage and scan limits first.
 
-The Markdown report starts with a coordinate-coverage banner: eligible and excluded
-bus counts, the resolved frame and reported-accuracy coverage. Queue completeness
-never implies complete geometry coverage. A linked candidate index lists the
-attention items shown below it; both respect `item_limit`, with explicit shown/total
-counts. Full IDs remain in each detail entry and JSON; row numbers are navigation
-aids and can change after regeneration. Context-only items stay in their separate
-inventory rather than entering the attention index.
+To work through a case, follow the [spatial cleanup tutorial](@ref spatial-cleanup).
+Every setting, threshold and result key is listed in
+[Spatial analysis settings and result keys](@ref spatial-reference).
 
-The standalone bundle contains Markdown, the complete captured JSON queue,
-WGS84 evidence points in GeoJSON, and a decision-ledger template. The display
-limit applies independently to attention, context and reviewed sections; it does
-not enlarge the analysis capture budget. Existing reports are replaced and an
-existing decision template is preserved. Save actual decisions in a separate ledger.
-For an IO stream, use `render_spatial_review(review, io; item_limit=100)`.
-See the [public API reference](api.md#Spatial-cleanup-review).
+## What the evidence can and cannot establish
 
-## Read the evidence before choosing a disposition
+Coordinates are useful because some relations between position and length are
+nearly physical laws. A conductor cannot be shorter than the straight line
+between its ends, and it is rarely several times longer. A ratio between length
+and distance that sits on a unit factor across a whole network is a unit slip,
+not a set of individual errors. A bus at longitude 0, latitude 0 has lost its
+position. These contradictions are strong enough to raise registered `W.GEO.*`
+Findings, but only once the coordinate frame is declared.
 
-### Shared locations can be intentional
+Other observations are weaker and enter a review queue instead: buses close
+together without a direct branch, a direct line alongside a series path between
+the same buses, lines sharing an exact route segment or a source identifier,
+unusually long spans. Each has legitimate explanations, so the queue records the
+observation, its alternatives and what to check, without a verdict.
 
-![Separate MV and LV circuits share pole locations; transformer ports can coincide without being the same bus.](assets/spatial/shared-infrastructure.svg)
+What geometry cannot settle:
 
-MV and LV often share poles. Same-voltage parallel circuits may also share a route.
-These observations alone do not imply duplication. The report retains distinct
-bus/line identities and voltage labels; it does not infer that poles are shared.
-A transformer can have several ports at one physical location. An open switch
-can separate buses with identical coordinates. Neither requires a spatial repair.
-Independent length or endpoint contradictions still warrant inspection.
+- **Which side is wrong.** A length/chord contradiction implicates the length, the
+  two bus positions, or the bus references. The evidence names the pair.
+- **Electrical equivalence.** Matching endpoints or shared routes say nothing about
+  conductor maps, attachments or operating state.
+- **Physical infrastructure.** Coordinates and voltage labels do not verify shared
+  poles, independent circuits or conductor continuity.
 
-### A nearby series path is not a redundant circuit
+Spatial analysis runs by default within the connectivity pass whenever a bus has
+`longitude`, `latitude`, `x` or `y`. Coordinate fields trigger it; a supported
+frame declaration and valid coordinates decide which comparisons apply. Unsupported
+evidence and disabled checks are reported as such, never as passes.
 
-![A direct A-to-B line has four terminal labels; an A-to-J-to-B path has two and an intermediate grounding shunt.](assets/spatial/direct-series.svg)
+## Coordinate frames
 
-The direct/series detector compares bus chords and declared incidence. To decide
-whether a candidate is a duplicate representation, inspect conductor maps,
-intermediate attachments, circuit identifiers, operating state and source records.
-A grounding shunt or load at J can make removal consequential even when the
-endpoint geometry looks identical. The diagram is illustrative, not a reduction rule.
+A field named `longitude` may hold feet from a drawing. Guessing the frame would
+produce confident nonsense, so metric comparisons — chords, route endpoints,
+transformer extents, proximity — run only in a declared frame:
 
-Each direct/series item now includes `interpretation_evidence`:
+- a **geographic** frame (WGS84 or an accepted national datum), where distances
+  are great-circle lengths;
+- a **local Cartesian** frame with declared length units, where distances are
+  Euclidean;
+- **route evidence**: with no declaration, a valid WGS84 route whose ends match
+  its bus coordinates supports the frame for those two buses only.
 
-- Direct and series line maps oriented along the candidate path, plus comparisons
-  of declared terminal **sets at the same bus**. Equal sets do not compose conductor
-  paths or prove electrical equivalence; malformed/missing maps are indeterminate.
-- Intermediate load, shunt, capacitor, source, generator and IBR references, with
-  terminal maps, and explicit bus `perfectly_grounded_terminals`. Shunts may model
-  grounding, but the report does not assign a grounding role from their names.
-- Each line's declared, physical, chord and route lengths, with its comparison basis.
-- Literal source declarations with metadata paths. The supported scalar keys are
-  `origin`, `evidence_status`, `claim`, `attachment_mode`, `method`, `source_ref` and
-  `placeholder`, read directly under `meta` or one dictionary level below it.
-  Historical nested models are not searched. Missing fields mean unavailable
-  provenance, not observed construction. Claims such as `inferred_not_observed`
-  or “placeholder” remain statements made by the producer, not verified facts.
+Any other declaration is recorded and leaves metric checks inapplicable;
+conflicting declarations are ambiguous and suppress them. Without any
+declaration, distances are indeterminate while length statistics and exact
+coincidence remain available.
 
-This enrichment does not alter candidate identities, classifications or priorities.
-It is included in evidence fingerprints, so earlier decisions on enriched items
-require renewed review rather than silently applying to changed evidence.
+### [Which declaration do I write?](@id spatial-crs-declaration)
 
-### Keep the different lengths separate
+| Your coordinates | Declare | Result |
+|---|---|---|
+| Longitude/latitude in WGS84 | `"crs": "EPSG:4326"` | great-circle distances |
+| Longitude/latitude in a national datum: GDA94/GDA2020 (Australia), JGD2000/JGD2011 (Japan), NAD83 (North America), ETRS89 (Europe), NZGD2000 | its EPSG code or name, e.g. `"crs": "EPSG:7844"` | great-circle distances; `datum` records the frame |
+| Easting/northing on a projected grid (MGA, Japan plane rectangular, State Plane, British National Grid, UTM) | either the EPSG code, which is recorded but not interpreted (`declared_other`, metric checks inapplicable), **or** a local Cartesian frame with the grid's length unit if you accept the plane as locally Euclidean | Cartesian: Euclidean distances |
+| OpenDSS `Buscoords` in feet or meters | `sideload_coordinates!(net, csv; frame=:cartesian, units="ft")` | Euclidean distances |
+| A schematic drawing | nothing, or `coordinate_provenance = "schematic"` | no metric checks |
 
-![Bus chord, routed polyline, route endpoint gap and distinct declared physical and electrical lengths.](assets/spatial/length-evidence.svg)
-
-An endpoint gap can arise from bus placement, stale route geometry or an incorrect
-bus reference. Check CRS, reported accuracy and source provenance before deciding
-which declaration to change. The default candidate tolerance is 5 m; the registered
-route-endpoint Finding uses `max(20 m, 10% of chord)`. Reported coordinate accuracy
-does not silently change either threshold. A nearby alternative bus is an inspection
-lead, never an automatically selected replacement.
-
-Physical length, stored route length, recomputed route length and electrical
-modeling length may have different meanings. In particular, regularized electrical
-length is not automatically evidence of physical distance. The length section below
-specifies which value participates in each comparison.
-
-### Separate observation, assessment and human decision
-
-![Evidence categories, P3-to-P1 inspection order and human dispositions are separate axes; incomplete coverage remains visible.](assets/spatial/review-workflow.svg)
-
-`W.GEO.*` codes are registered Findings, documented in the
-[GEO reference](findings.md#GEO-—-declared-geographic-coordinates).
-`S.*` codes label spatial candidates and `R.LINE_LENGTH_CONTEXT` labels reviewable
-length context; these are **not additional Finding codes**. An automated
-`data_inconsistency` can identify conflicting declarations without determining
-which source is wrong. Only a reviewer records `confirmed_issue`.
-
-Priorities run from P3 (inspect first) to P1; they are not probabilities. Category
-counts count observations, not unique defects. Check applicability, eligible
-coordinate coverage and scan/capture limits before interpreting a small or empty
-queue. Unsupported evidence and disabled checks are never an all-clear.
-
-## Activation and coordinate semantics
-
-Geospatial analysis is **enabled by default** within the connectivity pass. With
-normal settings, `results[:connectivity]["spatial"]` appears when at least one bus
-has `longitude`, `latitude`, `x`, or `y`. Coordinate fields trigger inspection;
-valid coordinates and supported frame declarations still determine which metrics
-are applicable. Cases without bus coordinate fields skip spatial analysis.
-
-The JSON execution API accepts `execute_analysis(net; spatial_enabled=false)`.
-The CLI accepts `bin/bmopf analyze-case --input CASE.json --no-spatial`, and the
-MCP `bmopf_analyze` tool accepts `"spatial_enabled": false`. These are Boolean
-opt-outs; the response records the effective value. See
-[JSON execution](execution_interface.md#Suppressing-geospatial-analysis).
-
-To suppress the entire spatial pass while keeping the other analyses:
-
-```julia
-config = load_config()
-config["spatial"]["enabled"] = false
-report = analyze("NetworkModel.bmopf.json"; config=config)
-render(report, "report.md")
-```
-
-Alternatively, save the override in a TOML file and pass
-`config=load_config("analysis-config.toml")`:
-
-```toml
-[spatial]
-enabled = false
-```
-
-The same configuration works with `connectivity_analysis`. Suppression happens
-before coordinate inventory, route processing, proximity searches, topology
-candidates and cleanup capture. It produces no `W.GEO.*` Findings. JSON retains
-only an `inapplicable` / `disabled` spatial record with `analysis_performed=false`;
-Markdown explains that geographic checks were not run. This explicit disabled
-record is present even for a coordinate-free case. Other analysis and validation
-results are unaffected. A non-boolean `enabled` or non-object spatial section
-returns `indeterminate` / `invalid_configuration`, rather than silently enabling
-the pass. Omitted settings retain the enabled default.
-
-### PowerIO GeoLayer geometry
-
-PowerIO-written BMOPF keeps geometry in `extras.geojson`, a GeoJSON
-FeatureCollection whose `powerio_geo` member declares the coordinate space.
-Spatial analysis reads only bus `longitude`/`latitude` (or a declared Cartesian
-`x`/`y`), `line.meta.route_geometry` and the network CRS declaration, so it does
-not read that layer implicitly. A coordinate-free case that carries one reports
-spatial status `indeterminate` / `unapplied_geolayer`. Apply the layer explicitly:
-
-```julia
-net = parse_bmopf("powerio_case.bmopf.json")
-layer = sideload_geolayer!(net)   # counts of applied, unmatched and invalid features
-report = analyze(net)
-```
-
-[`sideload_geolayer!`](@ref) applies only a geographic WGS84 layer: bus
-`Point` features become `longitude`/`latitude`, line `LineString` features become
-`WGS84_geodesic_polyline` route geometry with a recomputed geodesic `length_m`,
-and `meta.crs` is declared when the network has none. Projected, diagram and
-unknown spaces, other CRSs, and conflicting network declarations are reported
-and left unapplied; coordinates are never transformed or relabeled. Existing
-positions and routes are kept unless `overwrite=true`.
-
-The existing `proximity_enabled`, `discrepancy_enabled` and `review_enabled`
-settings control individual parts when the whole pass is enabled. The standalone
-cleanup bundle requires an available cleanup report and reports an error when the
-entire spatial pass is disabled.
-
-When enabled and coordinates exist, the report includes coordinate and route coverage,
-line-length distributions by voltage tier, and bounded long-line witnesses.
-The long-line ranking compares each section with its own tier's 99th-percentile
-declared length; a high rank is an inspection cue, not an error threshold.
-Line chord, route endpoint, and transformer separation measurements are computed
-only in a metric frame: network metadata (`crs`, `coordinate_system`, or
-`coordinate_reference_system`) declares a geographic longitude/latitude frame or
-a [local Cartesian frame](@ref spatial-crs-declaration), or a matching
-`WGS84_geodesic_polyline` route provides coordinate-frame evidence. The latter
-is explicitly labeled as route evidence and applies only to bus endpoints
-matched to a fully valid route; it does not establish the frame of other buses.
-`n_metric_eligible_buses` and `distance_scope` expose this coverage.
-Out-of-range and incomplete coordinate pairs are counted but excluded from
-geodesic calculations.
-
-By default [`sideload_coordinates!`](@ref) copies OpenDSS `x,y` into fields named
-`longitude,latitude` without transforming or verifying them. Plausible numeric
-values therefore do not establish a geographic CRS. For `Buscoords` that are a
-plane in feet or meters, load them as a local Cartesian frame instead:
-`sideload_coordinates!(net, csv; frame=:cartesian, units="ft")` writes `x`/`y`
-and the matching frame declaration. When the frame remains
-unspecified, spatial distances remain indeterminate; a declared unsupported CRS
-makes bus geodesic comparisons inapplicable. Line-length statistics remain available. The result makes no
-automatic asset-error claim when the CRS is unspecified. With a network-level
-geographic or local Cartesian declaration, sufficiently large contradictions
-between line lengths and bus positions raise `W.GEO.*` Findings, in both
-directions: a line shorter than its chord, a line several times longer than its
-chord with no route that accounts for it, and a network-wide length-to-distance
-ratio that sits on a unit factor. Out-of-range coordinates, positions at the
-geographic origin and positions far outside the network extent are reported
-too, as are route-endpoint contradictions in a geographic frame. For the chord
-Finding, `line.meta.physical_length_m` takes precedence over `line.length`.
-If `electrical_length_regularized = true` and no physical length is supplied,
-the physical chord check is indeterminate and emits no length Finding.
-Invalid explicit physical metadata also prevents fallback to declared length.
-Without these metadata fields the declared length remains the comparison basis.
-A line's equivalent electrical length can differ from its physical route, so
-these warnings call for source-data review rather than automatic repair.
-Route `length_m` and declared line `length` may come from the same upstream
-geometry calculation, so their agreement is an internal-consistency check,
-not independent confirmation of the physical route.
-
-The spatial result groups fields as follows:
-
-| Key | Contents |
-|---|---|
-| `coordinate_reference` | `status`, declared CRS if any, caution text, matching WGS84 route count, and whether geodesic distances apply. Status is `declared_wgs84` (any accepted geographic frame; `coordinate_semantics.datum` names it), `declared_cartesian`, `wgs84_route_evidence`, `declared_other`, `ambiguous`, or `unspecified`. |
-| `coordinate_coverage` | Counts of complete longitude/latitude pairs, x/y fields, partial and invalid pairs, and pairs outside WGS84 numeric ranges. |
-| `routes` | Route and basis coverage, numbers of endpoint and length comparisons, mismatch counts, and bounded endpoint-gap witnesses. |
-| `lines` | Length quantiles by voltage tier, chord comparison count, shorter-than-chord count, and bounded absolute and tier-relative length witnesses. |
-| `coincidence` | Exact-coordinate groups, counts by direct branch context, and bounded bus/terminal/component witnesses. |
-| `coordinate_semantics` | Resolved frame, units, axis order, declarations, conflict reasons, provenance/accuracy coverage and bounded bus issue witnesses. |
-| `proximity` | Radius-neighbor counts, exact metric-location counts, single-linkage clusters, bounded evidence, and explicit search-budget/coverage status. |
-| `length_context` | Separate declared, physical, endpoint, stored-route and recomputed-route lengths; per-comparison status counts and bounded contextual witnesses. |
-| `length_scale` | Network-level median of declared length over bus-to-bus distance, and the unit factor it matches, if any (`status` `passed`, `suspect` or `indeterminate`). |
-| `coordinate_outliers` | Buses at the geographic origin or far outside the network extent, with the reason per bus and the extent rule used. |
-| `discrepancy_candidates` | The `S.*` geometry/topology candidates per check, with coverage and limits. |
-| `cleanup_review` | The evidence-bound review queue, its coverage and the decision audit. |
-| `transformers` | Maximum all-winding bus separation per transformer, quantiles, zero-extent counts, and bounded assessed/indeterminate witnesses. |
-
-Exact coincidence is descriptive equality within a coordinate field family,
-including `x/y` buses when they have no longitude/latitude fields. It needs no
-metric CRS and does not snap almost-equal coordinates. Invalid pairs and points
-outside an explicitly declared WGS84 range are excluded. A group may carry
-multiple context tags: `transformer_ports`, `line_connected`, `open_switch`,
-`closed_switch`, or `unknown_switch_state`. `no_direct_branch` means no line,
-switch, or transformer directly relates two distinct members; it says nothing
-about paths through other buses. None of these tags proves intent, duplication,
-or a need to merge buses. No Finding is emitted solely for coincidence.
-
-Witnesses retain bus voltage tiers and terminal names, plus declared component
-ports and terminal maps. Selection is deterministic and keeps examples for each
-context (five per context admission limit), with at most 20 member buses and 20
-internal components per group. Exact totals and truncation flags accompany
-bounded lists. Many legitimate transformer ports therefore cannot hide all
-groups without direct branch context.
-
-Transformer extent uses the maximum pairwise separation across **all** winding
-buses, including `n_winding`, rather than only distances from winding 1. Every
-winding must have eligible coordinates; missing or unsupported evidence yields
-an indeterminate witness instead of a partial extent. Zero extent is counted
-as descriptive context and is not an anomaly by itself.
-
-`length_context` compares the physical length (or eligible declared-length
-fallback) against the endpoint distance, recomputes WGS84 route lengths from
-all vertices, compares stored versus recomputed route length, and separately
-compares declared versus physical length. Each comparison reports `passed`,
-`failed`, `indeterminate`, or `inapplicable`; these are data-consistency statuses,
-not scientific preservation or feasibility claims. Unknown bus frames and
-missing measurements are indeterminate; explicitly unsupported bus frames or
-route bases are inapplicable. A separately labeled WGS84 route can be measured
-internally without establishing the coordinate frame of its buses.
-
-Each comparison uses `max(5 m, 10% of reference distance)`; the endpoint test is
-one-sided and the other comparisons are symmetric. Witnesses preserve the basis,
-threshold, regularization flag, source references, and whether declared length
-scales impedance. Invalid route vertices or lengths never enter a calculation.
-Five examples per context admission limit keep output bounded while retaining
-exact counts. No new Finding codes are emitted by these contextual comparisons.
-The older `lines` and `routes` counters still compare **declared** lengths; they
-are descriptive and may differ from the physically qualified Finding count.
-For example, splitting a line may leave parent-level `physical_length_m` on
-each child section. The declared/physical comparison exposes that discrepancy
-without identifying which value should change or inferring a transformation
-mapping from shared source IDs. `test/data/spatial_split_lengths.json` is a
-package-owned synthetic witness of this metadata pattern.
-
-Coordinate declarations are resolved across the root and `meta` fields
-`coordinate_reference_system`, `crs`, and `coordinate_system`. Equivalent WGS84
-aliases agree; conflicting or malformed declarations yield `ambiguous` and
-suppress metric comparisons. Named `longitude`/`latitude` fields always mean
-those axes. A conflicting `coordinate_axis_order` is reported, never used to
-silently swap values. WGS84 defaults to degrees; a conflicting explicit
-`coordinate_units` suppresses its metric interpretation.
-
-Local Cartesian frames must be declared explicitly, for example:
+A local Cartesian frame is declared as an object:
 
 ```json
 {"meta": {"coordinate_reference_system": {
@@ -299,384 +86,188 @@ Local Cartesian frames must be declared explicitly, for example:
 }}}
 ```
 
-These frames use named bus `x`/`y` fields, with `m`, `km`, international `ft`,
-US survey feet (`ftUS`, exactly 1200/3937 m), `kft` or `mi` units. Axis/unit declarations may also use
-`coordinate_axis_order`/`coordinate_units` on the root or in `meta`; multiple
-declarations must agree. A Cartesian frame without units is indeterminate.
-Projected EPSG codes are not interpreted; no projection or map-scale assumption
-is inferred, and the string `"EPSG:28356"`, the integer `28356` and the object
-`{"type": "projected", "epsg": 28356}` are the same declaration. Cartesian
-distances feed the length and transformer extent reports and raise the same
-length Findings as a geographic frame; route checks remain geographic-only.
+The national datums are accepted because the checks compare great-circle lengths
+against tolerances of `max(5 m, 10 %)`: the difference between those datum
+realizations is at most a couple of meters and common to both ends of a line.
+Coordinates are used as declared; nothing is transformed between datums, and a
+case that mixes declarations is reported as a conflict. Treating a projected grid
+as a local plane ignores its scale factor, at most about 0.1 % inside a zone of
+the grids listed above and far below the tolerances; you make that choice by
+declaring the Cartesian frame, the package does not make it for you. Route checks
+remain geographic-only.
 
-### [Which declaration do I write?](@id spatial-crs-declaration)
+By default [`sideload_coordinates!`](@ref) copies OpenDSS `x,y` into
+`longitude,latitude` without transforming or verifying them, so plausible numbers
+do not establish a geographic frame. Use `frame=:cartesian` with the source unit
+when the values are a plane.
 
-| Your coordinates | Declare | Result |
-|---|---|---|
-| Longitude/latitude in WGS84 | `"crs": "EPSG:4326"` | geodesic distances |
-| Longitude/latitude in a national datum: GDA94/GDA2020 (Australia), JGD2000/JGD2011 (Japan), NAD83 (North America), ETRS89 (Europe), NZGD2000 | its EPSG code or name, e.g. `"crs": "EPSG:7844"` | geodesic distances; `datum` records the frame |
-| Easting/northing on a projected grid (MGA, Japan plane rectangular, State Plane, British National Grid, UTM) | either the EPSG code, which is recorded but not interpreted (`declared_other`, metric checks inapplicable), **or** a local Cartesian frame with the grid's length unit if you accept the plane as locally Euclidean | Cartesian: Euclidean distances |
-| OpenDSS `Buscoords` in feet or meters | `sideload_coordinates!(net, csv; frame=:cartesian, units="ft")` | Euclidean distances |
-| A schematic drawing | nothing, or `coordinate_provenance = "schematic"` | no metric checks |
+Bus-level declarations must agree with the network frame; they cannot define a
+transformation, and conflicting buses are excluded from metric and exact-group
+comparisons. Named `longitude`/`latitude` fields always mean those axes: a
+conflicting axis-order declaration is reported, never used to swap values.
+`coordinate_provenance` and `coordinate_accuracy_m` describe reported data
+quality. `schematic` and `displaced` positions are excluded from metric checks;
+other labels are kept without upgrading them to surveyed evidence, and accuracy
+never widens a threshold.
 
-The national geographic datums are accepted because the checks compare
-great-circle lengths against tolerances of `max(5 m, 10 %)`: the difference
-between those datum realizations is at most a couple of meters and common to
-both ends of a line. Coordinates are used as declared; nothing is transformed
-between datums, and a case that mixes declarations is reported as a conflict.
-Treating a projected grid as a local plane ignores its scale factor, well under
-0.1 % inside a zone and far below the tolerances; you make that choice by
-declaring the Cartesian frame, the package does not make it for you.
+### PowerIO GeoLayer geometry
 
-Bus-level CRS, axis, or unit declarations must agree with the network frame
-(or the WGS84 route evidence supporting that bus); they cannot silently define
-a transformation. Conflicting buses are excluded from metric and exact-group
-comparisons. Network-level ambiguity also suppresses exact groups, rather than
-combining positions from unresolved frames. Unknown undeclared frames still
-permit descriptive raw coordinate equality without a metric interpretation.
-
-`coordinate_provenance` (a string) and `coordinate_accuracy_m` (a finite
-nonnegative number) may appear on a bus or its `meta`, with network-level
-defaults in the same locations. Conflicting declarations within one scope are
-reported; explicit bus values override network defaults. `schematic` and
-`displaced` coordinates are excluded from metric checks. Other provenance
-labels are retained without upgrading them to surveyed evidence. Invalid
-accuracy is reported as unknown while a valid coordinate remains usable.
-Accuracy values describe reported data quality; they do not certify error
-bounds or independent measurement.
-
-Proximity inventory runs on metric-eligible coordinates only. Configure it
-through `load_config` and pass `config=...` to `analyze` or
-`connectivity_analysis`:
-
-```toml
-[spatial]
-proximity_enabled = true
-proximity_radius_m = 1.0
-max_candidate_pairs = 1000000
-witness_limit = 20
-```
-
-The radius must be finite and positive; the candidate and witness limits must
-be positive integers. Invalid settings return `indeterminate` with
-`invalid_configuration`; disabling the pass returns `inapplicable`. The default
-one-meter radius is a review setting, not a survey-accuracy or electrical-rule
-threshold. Coordinate accuracy never expands it implicitly.
-
-A spatial hash indexes unique locations, avoiding all-pairs searches for sparse
-networks. Cartesian points are indexed in meters; WGS84 points are indexed on
-the sphere in three dimensions and then filtered by the same spherical
-geodesic used elsewhere in this report. This handles the antimeridian and
-poles without assuming a local projection. Equivalent positions at ±180° and
-the poles are canonicalized for metric-location counting. Raw exact-coordinate
-groups remain a separate observation.
-
-`n_near_bus_pairs` counts unordered bus pairs at **different** metric locations
-whose separation is at most the radius. Repeated locations are indexed once
-and pair counts use their multiplicity; `n_zero_distance_bus_pairs` reports
-coincident metric positions separately. Clusters use single linkage: A near B
-and B near C may form one cluster even when A is farther than the radius from C.
-They do not imply a common electrical node or a cluster diameter below the
-radius. Pair witnesses identify representative bus pairs and their voltage
-tiers, coordinate provenance, reported accuracy sum, and location multiplicity.
-Accuracy labels apply to the named representatives only, and are descriptive,
-not certified uncertainty bounds.
-
-`max_candidate_pairs` caps work on dense unique locations. If exhausted, or if
-coordinates/radius exceed the index's numerical range, the result is
-`indeterminate`, `counts_complete` is false, and final pair/cluster totals are
-JSON `null`. `n_near_bus_pairs_observed` is a lower bound; observed components
-are partial and may later merge, so their count is **not** a lower bound on
-final cluster count. Cluster witnesses explicitly mark completeness. The
-witness limit bounds pair examples, cluster examples, and members per cluster.
-No coordinates or network connections are changed, and proximity alone emits
-no Finding.
-
-Endpoint gaps are counted with a 5 m descriptive threshold; the route-endpoint
-Finding threshold is `max(20 m, 10% of endpoint chord)`. Route/declaration length
-differences use `max(5 m, 10% of declared length)`; the line/chord lower-bound
-check uses `max(5 m, 10% of chord)`. A mismatch count is JSON `null` when no
-eligible comparison was made, rather than zero. Geographic Findings require
-an explicit WGS84 declaration; matching route evidence alone supports
-measurements but does not assert the CRS of every bus.
-
-
-## Geometry and topology review candidates
-
-`discrepancy_candidates.checks` adds descriptive review categories to the spatial
-report. These `S.*` candidate codes are stable package-local categories, **not
-Finding codes**, electrical-equivalence claims or repair instructions.
-JSON retains terminal maps, voltage tiers, coordinate
-provenance, switch states and branch references; Markdown summarizes bounded
-witnesses. The synthetic `test/data/spatial_discrepancies.json` demonstrates a
-direct line alongside a series path, shared geometry, a repeated explicit source
-interval and a route ending near a different bus.
-
-| Check | Candidate code | Supported evidence |
-|---|---|---|
-| `nearby_topology` | `S.NEARBY_WITHOUT_DIRECT_BRANCH` | Metric-eligible bus pairs within the proximity radius, including exact co-location, with no direct line, switch or supported transformer declaration. |
-| `series_paths` | `S.DIRECT_ALONGSIDE_SERIES_PATH` | A direct line and a line-only path with degree-two interior buses; path chord sum is within `max(route_endpoint_tolerance_m, 10% of endpoint distance)` of the direct chord. |
-| `branch_spans` | `S.LONG_BRANCH_SPAN` | A line, switch or all-winding transformer span exceeds the configured absolute review distance. |
-| `route_endpoints` | `S.ROUTE_ENDPOINT_DISAGREEMENT` | A valid WGS84 route disagrees with its eligible WGS84 bus coordinates under the better of forward/reversed endpoint assignments. Nearby alternative buses are listed without assigning them. |
-| `route_overlaps` | `S.SHARED_ROUTE_SEGMENT` | Two or more lines contain exactly the same nonzero WGS84 vertex-to-vertex segment, allowing reversal. |
-| `source_intervals` | `S.REPEATED_SOURCE_INTERVAL` | An explicit nonempty string ID repeats within `meta.source_interval` or within `meta.backbone_extension.source_interval`. The two namespaces are kept separate. |
-| `route_defects` | `S.INVALID_ROUTE_GEOMETRY`, `S.ROUTE_SEGMENT_DEFECT` | Malformed route data, zero or repeated undirected WGS84 segments, or individual segments above the configured long-span threshold. |
-
-The bus graph is descriptive: lines and all ports of supported transformers join
-bus components regardless of galvanic isolation or terminal mappings. Closed
-switches join the certain graph; switches with missing/non-Boolean state join
-only the possible graph. Known open switches join neither graph but remain
-visible as direct declarations and incident branches. Nearby pairs distinguish
-same components, separate components, and uncertain separation due to unknown
-switch state or invalid branch declarations. This is **not** conductor reachability,
-energization or evidence that buses should be merged. `endpoint_like` means at
-least one bus has at most one incident branch declaration, including open switches.
-
-Series-path searches stop at a branch, switch or transformer port in the interior,
-and never establish a valid series reduction: an interior bus can carry loads or
-other attachments, which are reported. The geometry test uses bus chords; it does
-not assert route coincidence. Shared-segment and repeated-source groups retain
-line identities, feeder labels, bus pairs and orientation-aligned terminal maps;
-separate circuits can legitimately share these attributes. Groups additionally label
-the declared endpoint arrangement as a series chain, parallel bus pair, branched
-or cyclic graph, or disconnected graph. These labels do not infer electrical
-equivalence. Nearby-pair component and voltage-tier counts carry an `_observed`
-suffix and cover the whole scanned subset, independently of witness limits.
-Generic `raw_key`
-parent IDs are not interpreted as source intervals. Routes with different
-segmentation, partial collinear overlaps, geometric crossings, self-intersections
-without a repeated segment, arbitrary alternate paths and inferred source-to-target
-mappings remain unassessed.
-
-```toml
-[spatial]
-discrepancy_enabled = true
-max_topology_pairs = 100000
-max_series_hops = 8
-route_endpoint_tolerance_m = 5.0
-long_span_threshold_m = 10000.0
-```
-
-The proximity radius, location-pair budget and `witness_limit` from the previous
-section also apply. `max_topology_pairs` independently caps nearby bus-pair
-expansion, series path steps, branch-span distance pairs, route-segment processing
-and route-endpoint bus queries. It is a positive integer. `max_series_hops` is an
-integer from 2 through 64. Both distance settings must be finite and positive.
-The 10 km long-span default is an absolute review setting, not a voltage-specific
-engineering limit or statistical outlier test. All counts are within each check's
-stated domain; explicit coverage fields report excluded or unsupported evidence.
-A scan with no eligible geometry is not a zero-candidate success. Disabled passes
-are `inapplicable`; invalid settings and truncated scans are `indeterminate`.
-Incomplete scans retain `n_candidates_observed` as a lower bound and leave
-`n_candidates` null. Witness truncation alone does not invalidate aggregate counts.
-
-WGS84 route-shape evidence is independent of the bus coordinate frame. Unknown or
-conflicting bus frames suppress endpoint distances and alternative-bus searches,
-but an explicitly WGS84 route can still contribute shared-segment or route-defect
-evidence. All algorithms are read-only and make no snapping, rewiring, merging or
-circuit-deletion decisions.
-
-## Cleanup review workflow
-
-`results[:connectivity]["spatial"]["cleanup_review"]` is a review queue over the
-spatial candidate categories and earlier line-length context. A line with
-only `regularized_electrical_length` context is not queued. Coordinate coverage,
-exact-coincidence inventories and transformer extents remain separate context;
-this queue is not a complete inventory of all model defects.
-
-```toml
-[spatial]
-review_enabled = true
-max_review_candidates = 5000
-```
-
-The cap is a positive integer up to 100000. Each check independently captures up
-to that many candidates, regardless of `witness_limit`; the combined ranked queue
-is capped again. `coverage` reports observed/captured counts, scan status and
-capture completeness by check. Each check's `domain_counts` retain exclusions
-such as unavailable branch distances; `coordinate_context` states the frame and
-metric bus coverage, and `analysis_settings` records the spatial configuration.
-Completeness refers to candidates in the declared domain, not to every bus or
-branch having usable geometry. `queue_complete=false` means that scans, capture,
-or the final queue are incomplete. Disabled discrepancy scans also prevent a
-complete queue. Unsupported/inapplicable domains are disclosed, never upgraded
-into validated cases. The queue is ordered **within the captured subset**; a cap
-can hide later candidates of higher priority. Increase the budget and regenerate
-before treating the queue as exhaustive within its stated scope.
-
-Each item has a stable logical `item_id`, its evidence fingerprint, typed bus and
-component references, geometry basis, direct-subject impact counts, and a recorded
-or unreviewed disposition. IDs distinguish shared segments and transformer types;
-a moved segment may have a new identity. Direct/series candidate IDs preserve
-the direct branch role and ordered series path, independent of traversal direction.
-Separate candidates on the same cycle therefore have distinct IDs. Regenerate
-older queues with duplicate IDs before replay; old direct/series IDs remain
-unmatched rather than being assigned to a new candidate. Records bind to canonical SHA-256
-fingerprints of the entire network snapshot, spatial configuration, workflow and
-ranking-policy versions, and item evidence. Only ingestion bookkeeping timestamps
-`_meta.parsed_at` and `meta.provenance.parsed_at` are excluded from the case hash;
-other provenance remains binding. Object key order and equivalent integral JSON number
-spellings do not affect fingerprints. Even an unrelated network edit invalidates
-old decisions conservatively; these hashes are not the raw input file hash.
-
-Location groups use the first sorted evidence point in a supported frame, with
-exact equality only. Unlocated items group by a typed primary asset. Grouping
-organizes inspection; it does not establish physical co-location of all members
-or authorize merging buses. There is no spatial snapping or transitive clustering.
-Group summaries deduplicate identified buses/components and retain evidence classes.
-Their ordering uses maximum item priority, maximum item direct-load count (not a
-sum), unique component count, then location ID; it does not inflate priority from
-multiple diagnostics derived from the same geometry.
-
-### Evidence categories and shared infrastructure
-
-Each item has an `assessment` with a category, observation, interpretation,
-uncertainty, suggested source inspection, and voltage context where available.
-Categories describe evidence, independently of inspection priority and reviewer
-disposition:
-
-| Category | Interpretation |
-| --- | --- |
-| `context_only` | An observation without sufficient conflicting evidence to warrant correction. |
-| `needs_information` | Missing voltage or topology evidence prevents interpretation. |
-| `review_candidate` | Additional declaration evidence warrants inspection; legitimate arrangements remain possible. |
-| `data_inconsistency` | Malformed data or conflicting supported declarations; the responsible field and electrical consequences remain unresolved. |
-
-No automated category means **confirmed issue**. That remains an explicit reviewer
-disposition. `category_counts` count captured observations, not defects;
-`presentation_counts` distinguish `attention`, `context` and `reviewed` items.
-Context alone is excluded from the attention view. Reviewer dispositions
-`confirmed_issue`, `needs_information` and `deferred` put an item in that view even
-when its automated evidence is contextual; `accepted_modeling` and `resolved`
-move it to the reviewed view without deleting it. Category counts remain unchanged
-by decisions. Location groups also retain category counts.
-
-Shared-route and source-interval groups carry each captured line's endpoint
-voltage labels and an aggregate `voltage_context` evaluated over **all members**,
-including members omitted by the witness cap. Labels come from the existing
-source-propagated voltage analysis, never from coordinates. Different known
-voltage systems with matching labels at both ends of each line are compatible
-with shared infrastructure. This does not verify shared poles, independent
-circuits or correctness of voltage propagation. Matching voltage labels and
-parallel bus pairs also do not turn overlap alone into a duplicate-asset claim.
-Unknown labels remain `needs_information` unless an independent series-chain or
-different-terminal-map explanation supplies representation context. A line whose
-endpoint labels differ remains a separate review candidate, even in a mixed-tier
-group. Independent endpoint and length discrepancies are never suppressed by a
-contextual overlap classification.
-
-Inspection priority uses `spatial-review-priority/v2`:
-
-- **P3:** malformed geometry/length declarations, a length below its applicable
-  endpoint bound, or route endpoints disagreeing with connected bus coordinates.
-- **P2:** direct/series declarations, nearby separate same-tier components,
-  missing voltage/topology information, non-regularized length discrepancies,
-  grouped lines crossing voltage labels, unexplained repeated source identities,
-  and degenerate or retraced route segments.
-- **P1:** contextual proximity or shared infrastructure, legitimate parallel-route
-  possibilities, series segmentation, distinct terminal maps, regularization
-  interpretation, and absolute long-span thresholds.
-
-Within a priority, directly attached load count and identified component count
-order inspection, followed by item ID. Counts cover directly referenced subjects,
-can be lower bounds when member lists are truncated, and never estimate downstream
-load, electrical severity, independent evidence strength or error probability.
-`assessment.error_probability` is null; no probability has been calibrated.
-The policy version is bound into the analysis fingerprint, and assessments and
-coordinate evidence into item fingerprints. Decisions from older classification policies do not
-silently apply to newly classified reports. Existing v1 report payloads remain
-readable, but regeneration is required for the new classifications.
-
-Synthetic expectations are executable in `test/data/spatial_review_calibration.json`
-and `test/data/spatial_shared_infrastructure.json` with its companion tests;
-supplied SAPN and Springfield cases provide structural calibration only. No field
-precision/recall is claimed.
-
-### Sidecar dispositions
-
-Use the existing `analyze` report, and keep decisions outside the electrical model:
+PowerIO-written BMOPF keeps geometry in `extras.geojson`, a GeoJSON
+FeatureCollection whose `powerio_geo` member declares the coordinate space.
+Spatial analysis reads only bus position fields, `line.meta.route_geometry` and
+the network frame declaration, so it does not read that layer implicitly; a
+coordinate-free case carrying one reports `unapplied_geolayer`. Apply it
+explicitly:
 
 ```julia
+net = parse_bmopf("powerio_case.bmopf.json")
+layer = sideload_geolayer!(net)   # counts of applied, unmatched and invalid features
 report = analyze(net)
-review = report.results[:connectivity]["spatial"]["cleanup_review"]
-item = first(review["items"])  # select the item you actually reviewed
-record = spatial_review_decision(review, item["item_id"];
-    disposition="needs_information", reviewer="reviewer-id",
-    recorded_at="2026-10-24T01:00:00Z",
-    rationale="Check the source survey and terminal mapping.",
-    evidence_refs=["survey:example-record"])
-# Append record to your saved ledger; replay the entire ledger on a fresh queue.
-reviewed = apply_spatial_review(review, [record])
-report.results[:connectivity]["spatial"]["cleanup_review"] = reviewed  # for report rendering
-geojson = spatial_review_geojson(reviewed)
 ```
 
-Dispositions are `unreviewed`, `needs_information`, `confirmed_issue`,
-`accepted_modeling`, `deferred` and `resolved`. Every record requires a nonempty
-reviewer and rationale, an explicit UTC timestamp at second precision, exact
-fingerprints and a list of evidence references (which may be empty). References
-are preserved as text, never fetched or executed. `resolved` is a reviewer
-assertion, not a verified repair; the candidate remains visible.
+[`sideload_geolayer!`](@ref) applies only a geographic WGS84 layer: bus `Point`
+features become `longitude`/`latitude`, line `LineString` features become
+`WGS84_geodesic_polyline` route geometry with a recomputed great-circle
+`length_m`, and `meta.crs` is declared when the network has none. Projected,
+diagram and unknown spaces, other CRSs and conflicting network declarations are
+reported and left unapplied. Existing positions and routes are kept unless
+`overwrite=true`.
 
-`apply_spatial_review` returns a copy, applies the latest UTC timestamp per item,
-and preserves the entire ledger in `decision_audit`. Identical duplicate records
-are harmless. Contradictory simultaneous records, malformed records targeting an
-item, edited item evidence, or stale fingerprint bindings leave the item unreviewed
-with an explicit status. Older records are retained. Records for absent items are
-unmatched; absence can reflect capture limits or changed identity and never implies
-resolution. Replaying an empty ledger resets dispositions rather than inheriting
-an earlier application. No candidate, model component or Finding is deleted or
-suppressed, and no network changes are proposed or applied by these functions.
+## Reading the kinds of evidence
 
-!!! note "A decision is bound to the case it was made on"
-    Every record carries the fingerprint of the whole case and of the whole
-    `[spatial]` configuration. Correcting one line, or changing any spatial
-    setting, therefore turns every earlier decision into `stale_decision`,
-    including decisions about items your edit did not touch. This is
-    deliberate: a decision is an assertion about evidence, and the package
-    will not assume that evidence is unchanged. Plan the loop accordingly:
-    review a batch, apply the corrections together, re-analyze, then
-    re-record the decisions that still apply. The stale records stay in
-    `decision_audit` so they can be re-read rather than re-derived.
+### Keep the different lengths separate
 
-### Map and report bundle
+![Bus chord, routed polyline, route endpoint gap and distinct declared physical and electrical lengths.](assets/spatial/length-evidence.svg)
 
-`spatial_review_geojson` returns a GeoJSON FeatureCollection containing WGS84
-**MultiPoint evidence**, with item IDs, bus/component references, priorities, impact counts, dispositions
-and fingerprint provenance. `geometry_coverage` reports how many identified buses
-have eligible locations and whether the subject list is complete; a mapped item
-can still have partial bus-coordinate coverage. It never invents routed lines from bus chords or draws
-a line through the antimeridian. Explicit WGS84 route vertices/endpoints can be
-mapped even if bus frames are unknown. Local Cartesian geometry is kept in each
-item's `local_geometry`, with its frame and meter units, and omitted from GeoJSON
-along with unknown coordinates; the omission count is explicit. GeoJSON alone is
-not the complete review queue.
+A line can carry several lengths with different meanings: the physical length
+(`meta.physical_length_m`), the declared electrical length that scales impedance,
+a stored route length and a route length recomputed from vertices. A regularized
+electrical length (`meta.electrical_length_regularized = true`) is not evidence of
+physical distance, so without a physical length the chord check is indeterminate.
+The physical length, when declared, is the basis for the chord comparison.
 
-Markdown export is available through `render(report, "report.md")`. The cleanup
-section presents separate category and disposition counts, coverage limitations,
-and up to 20 attention items grouped by exact review location. Each entry gives
-subjects, measurements where applicable, voltage context, interpretation,
-uncertainty, source inspection guidance, coordinate provenance/accuracy and stable
-IDs. Contextual observations and accepted/resolved items have separate expandable
-inventories, each with its own 20-item display cap and explicit shown/total counts.
-These display caps do not change the captured JSON queue. A group is an inspection
-anchor, not proof that every subject occupies that point. Underlying proximity
-and geometry/topology witnesses are expandable too. Raw Markdown readers still
-see the retained inventories.
+Route `length_m` and the declared length often come from the same upstream
+calculation, so their agreement is an internal-consistency check, not independent
+confirmation. A declared/physical disagreement exposes, for example, a parent
+line's `physical_length_m` inherited by each of its split sections, without
+deciding which value should change.
 
-The public `export_spatial_review(review, outdir; item_limit=20)` API writes `review.json`, `review.geojson`, `review.md` and an
-empty `decisions-template.json` (preserving an existing template). The runnable
-example calls that API after analysis and optional decision replay:
+An endpoint gap between a route and its bus can come from bus placement, stale
+route geometry or a wrong bus reference. Check the frame, reported accuracy and
+source provenance before deciding which declaration to change. A nearby
+alternative bus is listed as a lead, never selected as a replacement.
 
-```sh
-julia --project=. examples/spatial_cleanup_review.jl CASE.json OUTDIR
-julia --project=. examples/spatial_cleanup_review.jl CASE.json OUTDIR DECISIONS.json
-```
+### Shared locations can be intentional
 
-The sidecar envelope is `{"schema_version":"spatial-cleanup-review/v1",
-"decisions":[...]}`. Keep the full records returned by `spatial_review_decision`,
-then append later decisions rather than editing history. Report bundles can be
-regenerated; save the ledger separately. The JSON execution interface continues
-using the existing `analyze_case` adapter, which carries the unreviewed queue.
-Disposition replay and GeoJSON export are Julia APIs and do not introduce a new
-transport operation or scientific contract.
+![Separate MV and LV circuits share pole locations; transformer ports can coincide without being the same bus.](assets/spatial/shared-infrastructure.svg)
+
+MV and LV circuits often share poles, and same-voltage parallel circuits may share
+a route. A transformer has several ports at one location; an open switch can
+separate buses with identical coordinates. None of these requires a spatial
+repair. The queue therefore classifies overlap between lines of different known
+voltage systems as context, using source-propagated voltage labels (never
+coordinates) evaluated over every member of a group. Independent endpoint or
+length contradictions on the same lines are still reported on their own.
+
+Exact coincidence is raw equality within one coordinate field family, with no
+snapping. Groups are tagged by direct branch context (transformer ports, line,
+open/closed/unknown switch, or no direct branch); coincidence alone emits no
+Finding.
+
+### A nearby series path is not a redundant circuit
+
+![A direct A-to-B line has four terminal labels; an A-to-J-to-B path has two and an intermediate grounding shunt.](assets/spatial/direct-series.svg)
+
+The direct/series check compares bus chords and declared incidence: a direct line
+whose endpoints are also joined by a line-only path of similar chord length. That
+may be a duplicate representation or a legitimate parallel path. A grounding
+shunt or load at the interior bus J makes removal consequential even when the
+endpoint geometry is identical. Each such item therefore carries
+`interpretation_evidence`: oriented terminal maps, attachments at interior buses,
+each line's lengths and any source declarations (`origin`, `claim`,
+`placeholder`, …) with their metadata paths. Equal terminal sets at a bus do not
+compose conductor paths, and producer claims such as "placeholder" remain claims.
+
+### Proximity and topology
+
+Proximity groups buses within a radius (default 1 m, a review setting rather than
+a survey tolerance). Clusters use single linkage, so A near B and B near C may form
+one cluster with A far from C; a cluster is not a common electrical node.
+
+The bus graph used for topology candidates is descriptive: lines and all ports of
+supported transformers join bus components regardless of galvanic isolation,
+closed switches join the certain graph, and switches of unknown state join only
+the possible graph. Nearby pairs are then labeled as in the same component, in
+separate components, or uncertain. This is not conductor reachability or
+energization.
+
+## Category, priority and disposition are separate
+
+![Evidence categories, P3-to-P1 inspection order and human dispositions are separate axes; incomplete coverage remains visible.](assets/spatial/review-workflow.svg)
+
+Every queue item is described on three independent axes:
+
+- **Category** — what the automated evidence supports: `context_only`,
+  `needs_information`, `review_candidate` or `data_inconsistency`. A
+  `data_inconsistency` identifies conflicting declarations without saying which
+  is wrong. No automated category means "confirmed issue".
+- **Priority** — the order of inspection, P3 first to P1 last, with directly
+  attached loads and component counts as tie-breakers. Priority is ordinal: it is
+  not an error probability, electrical severity or downstream impact.
+- **Disposition** — the reviewer's decision: `confirmed_issue`,
+  `needs_information`, `deferred`, `accepted_modeling` or `resolved`. Only a
+  reviewer sets it.
+
+Decisions never change categories or counts. They move items between the
+attention, context and reviewed views of the report: unreviewed context sits apart
+from attention items, and accepted or resolved items move to a reviewed inventory
+rather than disappearing. Category counts count observations, not unique defects.
+The mapping from evidence to category and priority is tabulated in the
+[reference](@ref spatial-review-priorities).
+
+`W.GEO.*` codes are registered Findings in the
+[GEO reference](findings.md#GEO-—-declared-coordinate-frames). The `S.*`
+candidate codes and `R.LINE_LENGTH_CONTEXT` label review items; they are not
+Finding codes.
+
+## Completeness and budgets
+
+Every search has a budget, and the queue has a capture cap. Results distinguish
+observed from captured candidates and report scan and capture completeness per
+check. When a budget runs out, totals become `null` and observed counts are lower
+bounds. The queue is ranked within the captured subset only, so a cap can hide a
+higher-priority candidate; `queue_complete = false` means some scan, capture or
+the final queue is incomplete. Completeness also refers only to the declared
+domain: buses without usable geometry are outside it, and the coverage fields say
+how many. Raise the budget and re-analyze before treating a queue as exhaustive.
+
+## Decisions are bound to the evidence
+
+A decision is an assertion about specific evidence, so each record carries three
+fingerprints: of the whole case, of the analysis policy and `[spatial]`
+configuration, and of the item's evidence. Any change to the case — even one
+unrelated to the item — or to any spatial setting turns earlier decisions into
+`stale_decision`. The package will not assume evidence is unchanged.
+
+In practice, review a batch, apply the corrections together, re-analyze, then
+re-record the decisions that still apply. Stale records stay in the audit trail.
+A record whose item no longer exists is reported as unmatched; that is the
+expected outcome after a correction, but absence can also come from a capture
+limit or a changed identity, so unmatched never means resolved. Keep the ledger
+in its own file and replay it whole on each new analysis: a replay never inherits
+dispositions from an earlier one. The ledger schema is in the
+[reference](@ref Sidecar-dispositions); the workflow is in the
+[tutorial](@ref spatial-cleanup).
+
+## Reading the report
+
+`render(report, "report.md")` includes the spatial section. It opens with a
+coordinate-coverage banner — eligible and excluded buses, the resolved frame,
+reported-accuracy coverage — because the queue cannot be read without it. A
+candidate index links to the attention items below; context and reviewed items
+have their own inventories. Each list shows up to 20 entries with shown/total
+counts; [`render_spatial_review`](@ref) and [`export_spatial_review`](@ref) take
+`item_limit` to change this, without changing the captured queue. Full asset IDs
+are in each entry and in the JSON; row numbers are navigation aids that change on
+regeneration. A location group is an inspection anchor, not proof that every
+subject sits at that point.

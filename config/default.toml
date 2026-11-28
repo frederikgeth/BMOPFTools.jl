@@ -57,22 +57,27 @@ z_spread_warn = 1e5
 source_v_margin_frac = 0.05
 
 # ---------------------------------------------------------------------------
-# Operational: feeder electrical-length plausibility  (analysis/operational.jl)
+# Operational: feeder electrical-length plausibility  (analysis/feeder_reach.jl)
 #
-# Per galvanic zone we measure the electrical reach — the longest cable/line
-# distance (Σ line "length", m) from the zone's source/anchor bus to its
-# farthest bus — and compare it to what is typical for the zone's voltage band.
+# Per galvanic zone we measure the boundary reach (`boundary_reach_m`) — the
+# largest, over the zone's buses, of the shortest declared line distance
+# (Σ line "length", m) to the nearest qualified supply boundary — and compare it
+# to what is typical for the zone's voltage band.
 # A zone far longer than the band's `reach_long_m` is flagged (I.OPS.FEEDER_LONG):
 # either a genuinely long rural feeder worth noting for voltage-drop reasons, or
 # a length unit slip (km entered as m, or the OpenDSS default length=1). A zone
 # far shorter than `reach_short_m` is flagged (I.OPS.FEEDER_SHORT): electrically
 # it is a stub/service drop or a substation interconnect rather than a feeder.
-# Set either threshold to 0 to disable that side for a band.
+# Set either threshold to 0 to disable that side for a band. Zones with more
+# than one qualified supply-boundary bus use an optional
+# [operational.feeder_length.<band>.multi_boundary] subtable instead; it is
+# absent by default, so those zones are not flagged unless one is configured.
 #
 # Bands follow the same boundaries as the voltage-level report labels and are
-# applied to the per-conductor (phase-to-neutral) nominal voltage propagated
-# from each source: LV < 1 kV, MV 1–35 kV, HV 35–100 kV, EHV ≥ 100 kV (so an
-# 11 kV-L-L feeder sits in MV, a 400 V-L-L feeder in LV).
+# applied to the per-conductor (phase-to-neutral) nominal voltage of the
+# zone's qualified supply boundaries: LV < 1 kV, MV 1–35 kV, HV 35–100 kV, EHV ≥ 100 kV (so an
+# 11 kV or 33 kV L-L feeder sits in MV, a 400 V L-L feeder in LV, and a 66 kV
+# L-L line in HV).
 #
 # Defaults are order-of-magnitude design norms from the distribution-planning
 # literature, not hard limits — tune to a utility's house standards:
@@ -80,7 +85,8 @@ source_v_margin_frac = 0.05
 #       from ~30–35 m sections; urban LV feeders run to a few hundred m, rural
 #       LV up to ~1 km before voltage drop (IEC 60364-5-52 / NEC ±5 %) bites.
 #   MV  (11 kV class): ~3 km urban, up to ~20 km rural; 22 kV reaches further.
-#   HV/subtransmission (33–66 kV): rural mains up to ~100 km (e.g. 34.5 kV).
+#   HV/subtransmission (66 kV L-L and above; 33 kV L-L is banded MV): rural
+#       mains up to ~100 km.
 # ---------------------------------------------------------------------------
 [operational.feeder_length]
 [operational.feeder_length.LV]
@@ -105,10 +111,11 @@ tolerance = 0.15
 
 # ---------------------------------------------------------------------------
 # Earthing reports use exact zero constraints and finite impedance evidence.
-# Legacy earth_solid_ohm/earth_isolated_ohm thresholds no longer classify
-# protective-earthing systems or turn finite impedances into perfect grounds.
+# The earth_solid_ohm/earth_isolated_ohm keys do not classify protective-
+# earthing systems or turn finite impedances into perfect grounds.
 [provenance.grounding]
-# Retained for configuration-file compatibility; ignored by earthing reports.
+# Accepted for configuration-file compatibility; ignored by earthing reports
+# (load_config warns when a user file sets them).
 earth_solid_ohm = 1.0
 earth_isolated_ohm = 200.0
 
@@ -119,8 +126,8 @@ earth_isolated_ohm = 200.0
 # house standards when importing their models.
 # ---------------------------------------------------------------------------
 [provenance.dss_defaults]
-normamps = 400.0
-emergamps = 600.0
+normamps = 400.0         # I.PROV.DSS_DEFAULT_AMPS matches i_max == normamps
+emergamps = 600.0        # not matched: emergamps does not reach i_max
 xhl_pu = 0.07            # transformer xhl = 7 %
 rw_pu = 0.004            # %r = 0.2 per winding, two windings
 pf = 0.88               # load power factor whose tan(acos(pf)) is fingerprinted

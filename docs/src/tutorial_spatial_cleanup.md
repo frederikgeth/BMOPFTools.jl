@@ -10,8 +10,9 @@ straight distance between its ends, and it is rarely many times longer. This
 tutorial follows that check from start to finish on a small street feeder.
 Every block is executed when the documentation is built.
 
-For the full reference of the spatial result, the candidate codes and the
-evidence model, see [Spatial diagnostics](spatial_diagnostics.md).
+For the evidence model, see [Spatial diagnostics](spatial_diagnostics.md); for
+the result keys, thresholds and candidate codes, see the
+[spatial reference](@ref spatial-reference).
 
 !!! note "Prerequisites"
     Only `BMOPFTools`.
@@ -68,7 +69,10 @@ println("geo findings : ", [f.code for f in report.findings if startswith(f.code
 The first thing to check is the **frame status**. Coordinates are only numbers
 until the case says what they are. Here `meta.crs` declares GDA2020, the
 Australian geographic datum, so distances can be computed and the length
-checks run. On a clean feeder they find nothing.
+checks run. A declared geographic datum such as GDA2020 gets the same status,
+`declared_wgs84`, as WGS84 itself: distances are great-circle lengths on a
+sphere either way, and the datum is recorded alongside. On a clean feeder the
+checks find nothing.
 
 ### Declaring the frame
 
@@ -124,11 +128,14 @@ end
 - `s03` is 0.052 m long against a 50 m chord: a line cannot be shorter than
   the distance between its ends. The factor of a thousand suggests kilometers.
 - `s07` is ten times its chord. Lines are longer than their chord (sag, routing
-  around a corner), but not ten times.
+  around a corner), but not ten times. It trips the longer-than-chord rule: a
+  line is flagged when its length exceeds `max(5 × chord, chord + 100 m)`
+  (250 m here) and no route geometry of matching length accounts for it.
 - `s10` and `s11` both touch bus `p10`, whose position is the problem, not
   their lengths.
-- `s05`, four meters short of its chord, is **not** flagged: the tolerance is
-  `max(5 m, 10 %)`, because coordinates and lengths both carry survey error.
+- `s05`, four meters short of its chord, is **not** flagged: the
+  shorter-than-chord tolerance is `max(5 m, 10 % of the chord)`, because
+  coordinates and lengths both carry survey error.
 
 The misplaced bus has its own finding, which explains the two lines around it:
 
@@ -164,7 +171,10 @@ edit lines one by one.
 
 Beyond the findings, the spatial pass keeps a queue of items for a person to
 look at. Findings are contradictions; queue items also include things that are
-merely unusual and may be perfectly correct.
+merely unusual and may be perfectly correct. Priority is ordinal and runs from
+P3 (inspect first) down to P1 (inspect last), and the queue is already sorted
+that way. The `R.*` and `S.*` codes name review items; they are not Finding
+codes.
 
 ```@example spatial
 review = report.results[:connectivity]["spatial"]["cleanup_review"]
@@ -251,8 +261,9 @@ stays in the audit trail.
   positions. Read the detail before deciding which one is wrong.
 - **Look for the common cause.** One misplaced bus explains every line that
   touches it; one unit explains every line.
-- **Tolerances are generous** (`max(5 m, 10 %)`), so a finding is a real
-  disagreement.
+- **Tolerances are generous** (shorter than the chord by more than
+  `max(5 m, 10 %)`, or longer than `max(5 × chord, chord + 100 m)`), so a
+  finding is a real disagreement.
 - **A decision is a record, not an edit.** The network changes only when you
   change it.
 

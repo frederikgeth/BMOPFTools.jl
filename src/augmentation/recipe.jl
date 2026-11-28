@@ -97,8 +97,10 @@ Base.@kwdef struct AugmentationRecipe
 
     # ── Reactive capability ──────────────────────────────────────────────────
     # EN 50549-1:2019 requires cos φ ≥ 0.90 for LV-connected DERs.
-    # Q_max = P_max × tan(arccos(0.90)) ≈ 0.484 × P_max.
-    # Set to 0.95 for IEEE 1547-2018 (ANSI) deployments.
+    # Q_max = P_max × tan(arccos(0.90)) ≈ 0.484 × P_max (symmetric, P-based).
+    # 0.95 gives Q_max ≈ 0.329 × P_max; it does not reproduce IEEE 1547-2018,
+    # which sets reactive capability as a fraction of nameplate kVA (Category B:
+    # 44 % injecting and absorbing; Category A: 44 % injecting, 25 % absorbing).
     q_capability_pf :: Float64 = 0.90
 
     # ── Slack generator ──────────────────────────────────────────────────────

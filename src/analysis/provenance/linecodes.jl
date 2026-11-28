@@ -291,15 +291,22 @@ function _check_shunt_block_physics!(findings::Vector{Finding}, id,
                 "semidefinite / has negative diagonals — not a physical " *
                 "capacitance matrix.", nothing))
         elseif pos_off
-            # the Maxwell sign pattern (off-diag ≤ 0) is typical but NOT
-            # invariant: screen elimination / bundling can flip small mutuals
-            # positive while preserving PSD
+            # An exact Maxwell matrix has off-diagonals ≤ 0, and grounding,
+            # floating (Kron), bundling and transposition averaging preserve
+            # that. A positive mutual with PSD intact therefore comes from how
+            # the matrix was computed or entered: the thin-wire potential-
+            # coefficient approximation for thick, closely spaced conductors
+            # (multicore and aerial bundled cables: positive mutual between
+            # diagonally opposite cores), sequence data with C0 > C1, or a
+            # sign-convention mix-up. INFO: the matrix stays passive.
             push!(findings, Finding(INFO, "I.PROV.B_OFFDIAG", :provenance,
                 ctype, id,
                 "$label '$id' $(prefix)block has positive mutual susceptance " *
-                "— deviates from the Maxwell sign pattern; typical of " *
-                "screen-eliminated/bundled cable reductions, otherwise a " *
-                "sign-convention suspect.", nothing))
+                "— deviates from the Maxwell sign pattern, which exact " *
+                "electrostatics and its reductions preserve; typical of a " *
+                "thin-wire calculation for closely spaced cable cores, " *
+                "sequence data with C0 > C1, or a sign-convention mix-up.",
+                nothing))
         end
     end
 end

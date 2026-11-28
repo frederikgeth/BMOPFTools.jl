@@ -1,26 +1,29 @@
 # Analysis & reports
 
-For the physical rationale behind these checks, read
-[How network diagnostics work](methodology.md).
-
 [`analyze`](@ref) runs fifteen passes over a network dict and returns a
 [`SummaryReport`](@ref) holding per-pass result dicts (`report.results`)
 and the combined finding log (`report.findings`). For time-series networks
 the snapshot at `t_index` is materialized first.
 
-This page is the overview: what runs, what the report contains and how to read
-a finding. The rest of the profiling material is organized by what you are
-trying to do:
+This page is the overview: what runs, what the report contains, how to read a
+finding and how the report is consolidated. The rest of the profiling material
+is organized by what you are trying to do:
 
 | You want to | Read |
 |---|---|
 | Learn the loop on a small case: run, read, decide, fix, recheck | [Profile your first messy case](tutorial_profile_messy_case.md) |
 | See what the profiler says about your kind of network | [System types and regional practice](tutorial_system_types.md) |
-| Understand a grounding or neutral finding | [Grounding and neutral findings explained](grounding_findings.md) |
+| Bring an OpenDSS feeder in and clean up what the import invented | [Porting an OpenDSS feeder](tutorial_opendss_port.md) |
+| Work through a large messy import end to end | [Findings triage case study](tutorial_triage.md) |
+| Work through coordinates and line lengths | [Spatial cleanup tutorial](tutorial_spatial_cleanup.md) |
 | Change a threshold | [Tune profiler thresholds](howto_thresholds.md) |
 | Accept a finding and keep a record | [Accept and track findings](howto_accept_findings.md) |
-| Work through coordinates and line lengths | [Spatial cleanup tutorial](tutorial_spatial_cleanup.md) |
+| Inspect a case visually, geographically or electrically | [Visualizing with Tellegen](visualization.md) |
+| Understand the physics behind a provenance, integrity or readiness check | [How network diagnostics work](methodology.md) |
+| Understand a grounding or neutral finding | [Grounding and neutral findings explained](grounding_findings.md) |
+| Understand what the spatial checks infer from coordinates | [Spatial diagnostics explanation](spatial_diagnostics.md) |
 | Look up a result key | [Analysis result keys](analysis_results.md) |
+| Look up a spatial setting or result key | [Spatial analysis settings & result keys](spatial_reference.md) |
 | Look up a finding code | [Finding-code reference](findings.md) |
 
 ## The passes
@@ -29,7 +32,7 @@ trying to do:
 |---|---|---|
 | `:inventory` | [`inventory_analysis`](@ref) | component counts, totals (load P/Q, generation capacity), per-type breakdowns |
 | `:voltage_levels` | [`voltage_level_analysis`](@ref) | BFS voltage propagation from sources through transformer ratios; level clustering; transformer transitions; level-crossing violations |
-| `:connectivity` | [`connectivity_analysis`](@ref) | connected components, radial/meshed over phase-carrying branches (physical branch count, parallel-aware; neutral-only bond cycles counted separately), degree statistics, tree depth, dangling buses, galvanic-zone phase topology (split-phase / SWER tagging), voltage-tier and zone cycle-rank decomposition, parallel-line declarations, switch-state bus and mapped-conductor scenarios |
+| `:connectivity` | [`connectivity_analysis`](@ref) | components, radial/meshed verdict, degree and depth statistics, dangling buses, galvanic-zone phase topology (split-phase, SWER), transformer banks, cycle-rank decomposition, switch-state scenarios |
 | `:diversity` | [`diversity_analysis`](@ref) | parameter spread per category (CV, duplicate tuples), phase imbalance, symmetry score |
 | `:operational` | [`operational_analysis`](@ref) | total load/generation, transformer utilization at nominal load (downstream BFS), line thermal-limit coverage |
 | `:load_models` | [`load_model_analysis`](@ref) | load model breakdown by type, voltage-dependent load count, exponential loads that are ZIP-equivalent (integer exponents), nonlinear loads on buses without a lower voltage bound |
@@ -38,29 +41,22 @@ trying to do:
 | `:schema` | [`schema_check`](@ref) | fields present but not in the data model (cataloged, not rejected) |
 | `:completeness` | [`completeness_check`](@ref) | required fields per component type, incl. transformer subtypes; optional-field coverage |
 | `:domain_rules` | [`domain_rules_check`](@ref) | numerical plausibility: bounds signs, power factors, costs, impedance diagonals, transformer step ratios, zero limits/lengths, angle units, load model coefficient validity |
-| `:redundancy` | [`redundancy_check`](@ref) | zero loads/shunts, mergeable series lines (junction-aware), unused/duplicate linecodes |
+| `:redundancy` | [`redundancy_check`](@ref) | zero loads/shunts, mergeable loads and series lines (junction-aware), parallel line records, unused/duplicate linecodes |
 | `:integrity` | [`integrity_check`](@ref) | referential integrity, dimension consistency, padded matrices, voltage reference per galvanic island, wye-without-neutral, low-impedance lines, generator cost symmetry |
 | `:spec` | [`spec_conformance_check`](@ref) | TF-spec rules the JSON Schema cannot express: single source, configuration/arity, transformer map arities, terminal types, matrix storage |
 | `:benchmark` | [`benchmark_readiness_check`](@ref) | objective well-posedness, slack-only detection, bound/limit coverage, **augmentation suggestions** |
 
-Two further result blocks are produced inside these passes rather than by a
-pass of their own:
+When buses carry coordinate fields, the connectivity pass also produces
+`results[:connectivity]["spatial"]`, the geospatial analysis
+([Spatial diagnostics](spatial_diagnostics.md)).
 
-- `results[:connectivity]["spatial"]` — the geospatial analysis, run by the
-  connectivity pass when buses carry coordinate fields
-  ([Spatial diagnostics](spatial_diagnostics.md));
-- `results[:assessment]` — which tracked checks were assessed, skipped, not
-  applicable or indeterminate ([Assessment coverage](analysis_results.md#Assessment-coverage)).
+After the passes, `analyze` builds two further result blocks:
 
-After the passes, `analyze` consolidates the finding log
-(`results[:consolidation]`, [below](#Report-consolidation)).
-
-Note on transformer utilization: the downstream-load estimate excludes the
-transformer under analysis. If its from side remains reachable from its to
-side, the figure is labeled `upper_bound` and does not raise
-`W.OPS.XFMR_OVERLOADED`; parallel siblings and other alternate paths defeat
-the radial attribution. Otherwise `estimate_status` is `radial_component`.
-
+- `results[:assessment]` — the status of each tracked check (assessed, skipped,
+  inapplicable, indeterminate or unknown;
+  [Assessment coverage](analysis_results.md#Assessment-coverage));
+- `results[:consolidation]` — what report consolidation dropped or rolled up
+  ([below](#Report-consolidation)).
 
 ## The report
 
@@ -113,9 +109,11 @@ finishes with a consolidation step so that the report is proportional to the
 number of distinct problems:
 
 - **Roll-up.** An `I.` or `W.` code raised on more than
-  `config["report"]["rollup_threshold"]` components (default 25) becomes one
-  Finding with the same code and severity. Its `detail["components"]` lists the
-  component ids and `detail["count"]` their number.
+  `config["report"]["rollup_threshold"]` components (default 25) of one type,
+  from one pass, becomes one Finding with the same code and severity. Its
+  `component_id` is `nothing`, `detail["components"]` lists the component ids,
+  `detail["count"]` their number and `detail["by_component"]` each original
+  message and detail.
 - **Subsumption.** A Finding is dropped when a stronger one states the same
   fact about the same component: `I.PROV.LINE_SWITCH_LIKE` on a line that also
   raises `W.DOM.LINE_LOW_IMPEDANCE`, and `W.OPS.LINE_UNCONSTRAINED` when
@@ -177,59 +175,6 @@ guide = explain_finding(hint)["interpretation"]
 guide["observations"]["by_linecode"]          # includes pattern_comparison
 ```
 
-### Impedance provenance hints
-
-Linecode matrices provide clues to construction choices. Their engineering
-implications depend on which conductors and couplings the model retains:
-
-| Pattern | Possible origin | Engineering implications |
-|---|---|---|
-| equal self, equal mutual (`I.PROV.SEQ_DERIVED`) | sequence values or a symmetry/transposition assumption | phase-pair asymmetry is absent from the inspected block; retained neutral coupling and other equipment can still create unbalance |
-| negligible phase-block coupling (`I.PROV.DECOUPLED_PHASES`) | per-phase simplification | uniform self terms give approximately Z₀ = Z₁; unequal self terms can still couple sequence networks. Diagonal structure does not exclude prior reduction |
-| three-wire, no PN pattern (`I.PROV.IMPEDANCE_TRANSFORM_KR`) | prior neutral elimination (weak hint) | a zero-neutral-voltage model cannot predict neutral rise when inappropriate; total dissipation can remain represented, while separate neutral attribution needs recovery data |
-| uniform R, mutual ≈ ½ self (`…_PN`) | phase-to-neutral equivalent | exact under the single-grounded/no-earth-current assumptions; similar conductor resistances explain the pattern, while accuracy depends on earth-current assumptions |
-| uniform R and X (`…_MPN`) | modified phase-to-neutral equivalent | review PN earth-current assumptions and the additional reactance-symmetrization approximation |
-
-`observations.by_linecode` records `n_conductors`, `phase_block_only` and the
-relative coupling to conductors outside the inspected block. An extra conductor
-can coexist with a sequence-built phase block: OpenDSS can materialize a coupled
-four-conductor matrix from sequence values, or a modeller can supply neutral
-parameters separately. Shape alone does not select transposition over sequence
-parameterization. A balanced phase block can still have an explicit neutral
-that introduces phase-to-neutral unbalance.
-An extra conductor with negligible coupling to the phases is flagged as a
-possible placeholder or simplified neutral, with its coupling evidence retained.
-
-The per-phase simplification hint also covers unequal diagonal terms, with
-`phase_self_uniform` distinguishing the two cases. Unequal diagonal phase
-impedances may couple the sequence networks. A Schur reduction subtracts its
-correction from the original mutuals and can cancel them. Diagonal data therefore
-retain an unresolved origin, with possible prior reduction listed as an
-alternative; the hint does not declare Kron history impossible.
-
-For the PN transformation, the exact reference domain has no conductor-to-earth shunts,
-no device current injection into earth, and one grounding point per
-continuous neutral section. Neutral current and voltage can be recovered using
-source information in that domain. Multiple earth-return paths can invalidate
-its assumptions; grounding impedance alone does not determine the error. The
-R mutual/self ratio near one half is a fingerprint for similar phase/neutral
-resistances, while the transformation itself also applies to unequal conductors.
-
-The Kron hint is matrix-only, so its context distinguishes known LV use without
-a represented neutral, known MV/HV-only use, unused templates, and unassessed or
-mixed use. Missing nominal-voltage or terminal-map evidence does not establish
-MV/HV use. Context counts retain `n_mv_hv_lines`, `n_lv_with_neutral_lines` and
-`n_unassessed_lines`, with bounded line-ID examples; their sum is the legacy
-`n_other_or_unassessed_lines`. Only positively identified MV/HV-only uses receive
-`known_mv_hv_context`; unused templates receive `unused_linecode_context`.
-Unassessed uses keep conditional neutral implications and an
-`unassessed_use_context` disclosure. Exactly balanced candidates cross-reference
-`I.PROV.SEQ_DERIVED`. `I.PROV.KRON_LIKELY` remains the network-level counterpart
-for an LV level without a neutral carried by any branch.
-
-Converter-generated source equivalents (linecodes whose `source` names a
-Thevenin or source impedance, e.g. from `from_dss`) are classified but never
-flagged; the report counts them. Scientific checks for
-[reduction and positive-sequence applicability](scientific_contracts.md) keep
-their own documented domains; these hints do not widen them. Compatibility
-details are in [Provenance report compatibility](dev/versioning.md#Provenance-report-compatibility).
+The impedance provenance hints (`I.PROV.SEQ_DERIVED`, `I.PROV.DECOUPLED_PHASES`,
+`I.PROV.IMPEDANCE_TRANSFORM_*`) are explained in
+[How network diagnostics work](methodology.md#Impedance-provenance-hints).

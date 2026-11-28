@@ -1,4 +1,4 @@
-# From nameplate data to a defensible network model
+# Reading augmentation provenance: derived, assumed, unknown
 
 !!! note "External dataset"
     This tutorial uses CC BY-NC-SA data kept in BMOPFDraftData. Set
@@ -7,23 +7,22 @@
     bundled with BMOPFTools. These dataset examples are shown as code and
     are not executed by the package documentation build.
 
-*What you can derive, what you must assume, and what has to stay unknown.*
-
 Real network data arrives incomplete. A cable has an impedance but no current
 rating; a bus has a nominal voltage but no operating envelope; a feeder has loads
 but nothing dispatchable to optimize. Turning that into a model an OPF can
-respect means *writing numbers the source never gave you* — and the integrity of
+respect means *writing numbers the source never gave you*, and the integrity of
 the study depends on being honest about where each one came from.
 
-BMOPFTools makes that honesty mechanical. Every value a preparation pass writes
-is recorded in a **manifest** with the rule that produced it and a **confidence
-tag**, so the finished case is self-documenting: you can see at a glance which
-numbers are standards-derived, which are heuristic inferences to double-check,
-and which are design choices you own. This tutorial walks one incomplete feeder
-through that process and reads the provenance back out.
+BMOPFTools records every value a preparation pass writes in a **manifest**,
+together with the rule that produced it and a **confidence tag**. This tutorial
+takes one incomplete feeder through [`augment_case`](@ref) and reads that
+provenance back out, sorting the written values into three groups: what can be
+derived from a standard, what has to be assumed, and what must stay unknown.
 
 *Prerequisites: a Julia environment with `BMOPFTools` — the augmentation passes
-need no solver. See [Case augmentation](augmentation.md) for the reference.*
+need no solver. The [Case augmentation](augmentation.md) guide explains the
+workflow; the [Augmentation reference](augmentation_reference.md) lists every
+pass and rule.*
 
 ## 1. An incomplete case
 
@@ -48,10 +47,12 @@ n_lc_no_rating  = count(lc -> !haskey(lc, "i_max"), values(raw["linecode"]))
 
 [`augment_case`](@ref) fills only what is missing, never overwriting, and returns
 the augmented network together with a [`TransformationManifest`](@ref). It never
-mutates its input.
+mutates its input. The thermal pass is off by default, so the recipe enables it
+here; without `apply_thermal = true` the stripped linecodes stay unrated.
 
 ```julia
-net, mf = augment_case(raw)
+recipe  = AugmentationRecipe(apply_thermal = true)
+net, mf = augment_case(raw; recipe)
 length(mf.entries)   # one entry per value written (or deliberately skipped)
 ```
 
@@ -59,11 +60,10 @@ Each entry carries a `confidence` tag. Grouping the written values by tag sorts
 them onto a spectrum from *fully defensible* to *your call*:
 
 ```julia
-tier(c) = c === :standard             ? "1. standards-derived" :
-          c in (:high, :medium, :low) ? "2. inferred (heuristic estimate)" :
-          c === :heuristic            ? "3. numerical default" :
-          c === :synthetic            ? "4. synthetic (design choice)" :
-                                        String(c)
+tier(c) = c === :standard  ? "1. standards-derived" :
+          c === :heuristic ? "2. heuristic (estimate or numerical default)" :
+          c === :synthetic ? "3. synthetic (design choice)" :
+                             String(c)
 
 byt = Dict{String,Int}()
 for e in mf.entries
@@ -89,27 +89,37 @@ Reading those tiers back as engineering judgment:
 
 - **Standards-derived** (`:standard`) — the rule is traceable to a published
   standard. The voltage envelopes use EN 50160 (`EN50160:2010§3.5`), and the
-  slack convention follows the Task Force spec. This is strong provenance, not
+  slack cost follows the form the Task Force spec fixes
+  (`TFspec_Eq135_slack_generation`); the spec fixes the form of the cost term,
+  not its value, so the 1.0 \$/kWh default (`slack_cost`) is yours to choose.
+  This is strong provenance, not
   universal applicability: confirm the jurisdiction, voltage class, revision,
   planning/operational purpose, and any local connection agreement before using
   the value in a published study.
-- **Inferred, heuristic** (`:high` / `:medium` / `:low`) — the thermal ratings
-  (`heuristic_ampacity_estimate`). The pass reads each conductor's diagonal
+- **Heuristic** (`:heuristic`) — two kinds of value share this tag. The thermal
+  ratings (`heuristic_ampacity_estimate`): the pass reads each conductor's diagonal
   resistance R₁₁ as a *size fingerprint* and looks up a representative ampacity.
   This is **not** a standards-conformant rating: R₁₁ is the series resistance
   (conductor AC resistance **plus** the Carson earth-return term), so it does not
   identify the conductor's material, class, or installation — see the
-  [thermal pass](augmentation.md#Pass-2-—-Thermal-limits). The confidence
-  (`:high` vs `:medium`) mirrors how trustworthy the *impedance provenance* is
-  (a geometry-`distinct` linecode vs a `near_balanced` one), so a `:medium` tag
-  is a flag to check against your real conductor schedule before publishing.
-- **Numerical default** (`:heuristic`) — loose regularization floors added for
-  solver conditioning, not physical claims.
+  [thermal pass](@ref "Pass 2 — Thermal limits"). On this feeder the
+  effect is visible in the notes: a 185 mm² copper linecode matches the 95 mm²
+  row. Only linecodes whose impedance classification meets
+  `thermal_min_confidence` (default `:medium`) are rated; the `:high` /
+  `:medium` / `:low` tags appear only on the skip entries, where they report that
+  classification, not ampacity confidence. Check every estimate against your
+  real conductor schedule before publishing. The second kind is the loose
+  guard bounds (`solver_regularisation` on `v_min`/`v_max`) and the
+  instantaneous unbalance limit `vuf_max`: study policies, not physical claims.
 - **Synthetic** (`:synthetic`) — pure design choices. These appear the moment you
-  place dispatchable generation, which is a *scenario*, not a fact:
+  place dispatchable generation, which is a *scenario*, not a fact. Placement
+  goes before `augment_case`, so the generation pass gives the new generators
+  their reactive bounds (see
+  [Why this sequence](@ref "Why this sequence")):
 
 ```julia
-net_der, der_mf = add_generators(net)
+raw_der, der_mf = add_generators(raw)
+net_der, _      = augment_case(raw_der; recipe)
 [(e.rule, e.confidence) for e in der_mf.entries if e.confidence === :synthetic] |> unique
 ```
 
@@ -119,8 +129,8 @@ The passes fill what can be *defensibly* defaulted and leave the rest — the
 confidence tag is the tell for what to revisit:
 
 - A conductor's **material and installation** cannot be recovered from R₁₁ alone,
-  so the ampacity is a heuristic estimate, tagged as such and capped at
-  `:medium`/`:high` confidence rather than presented as a standard.
+  so the ampacity is a heuristic estimate, tagged `:heuristic` rather than
+  presented as a standard, and written only when the thermal pass is requested.
 - Values a datasheet simply omits — a transformer's core-loss branch, a load's
   true ZIP split — are **not invented**. `augment_case` adds no such field; it
   fills operating *envelopes*, not missing *physics*.
@@ -144,8 +154,8 @@ its least-documented default, and the tag on every number tells the next reader 
 or the reviewer — exactly which ones to trust and which to challenge.
 
 !!! tip "Where to go next"
-    [Case augmentation](augmentation.md) is the full pass-by-pass reference;
-    the [conversion guide](conversion.md) covers getting faithful data *in* from
-    OpenDSS in the first place. Once the model is built and solved, the companion
+    The [Augmentation reference](augmentation_reference.md) documents every
+    pass and rule; the [conversion guide](conversion.md) covers getting
+    faithful data *in* from OpenDSS in the first place. Once the model is built and solved, the companion
     discipline is [Trust but verify](tutorial_trust_but_verify.md) — checking the
     *solution* as rigorously as you documented the *inputs*.

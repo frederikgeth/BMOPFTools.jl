@@ -110,8 +110,8 @@ function base_net(; head_pu::Float64 = HEAD_BASE, drop_m::Float64 = DROP_M,
     # Start from a clean slate — place every DER from a recipe below.
     delete!(net, "ibr"); delete!(net, "generator")
 
-    # Strip any source cost so augment_case prices the slack itself, and tap the
-    # 11 kV source so the LV head sits at head_pu on a 230 V base.
+    # Strip any source cost so augment_case prices the slack itself, and scale the
+    # 11 kV source voltage so the LV head sits at head_pu on a 230 V base.
     for (_, vs) in get(net, "voltage_source", Dict())
         delete!(vs, "cost")
         haskey(vs, "v_magnitude") &&
@@ -288,7 +288,7 @@ _, _, B = run_scenario("B — voltage",
                        set_vpn_limits!(base_net(head_pu = HEAD_HIGH)), RECIPE_LIMITS)
 show_outcome(B)
 println("\n  → The EN 50160 ceiling binds. The IBRs absorb reactive power")
-println("    (negative Q, out to the s_max circle) for voltage support and curtail")
+println("    (negative Q, inside the s_max circle) for voltage support and curtail")
 println("    active power; the dearer generator is shed first. One shot, no outer")
 println("    control loop. P²+Q²≤s_max² trades active headroom for Q.")
 

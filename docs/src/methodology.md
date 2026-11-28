@@ -1,17 +1,21 @@
 # [How network diagnostics work](@id Methodology-notes)
 
-Use this explanation alongside [Analysis & reports](analysis.md) and
-[Findings triage](tutorial_triage.md) when interpreting input-model evidence.
-It develops the physics and linear algebra behind the provenance and integrity
-checks. For solver coordinates and starting values, use
-[Scaling, initialization and diagnostics](numerical_workflows.md).
-Numbered citations refer to the [references](@ref refs) at the bottom.
+This page explains the physics and linear algebra behind three groups of
+profiler checks: **provenance** (what an impedance matrix, a default value or a
+transformer pattern reveals about where the data came from), **integrity**
+(grounding, earthing zones and voltage references) and **benchmark readiness**
+(whether a case poses a well-defined OPF problem). Read it alongside
+[Analysis & reports](analysis.md) when a finding needs more than its message.
+Solver coordinates and starting values are covered in
+[Scaling, initialization and diagnostics](numerical_workflows.md). Numbered
+citations refer to the [Bibliography](@ref refs).
 
 ## Impedance matrix invariants vs fingerprints
 
-The central design principle: enforce **invariants** — properties no
-legitimate transformation of the data can break — as hard checks, and treat
-**typical** properties as soft provenance fingerprints.
+The central design principle: report a violated **invariant** — a property
+no legitimate transformation of the data can break — as a data defect (an
+error or a warning), and treat **typical** properties as soft provenance
+fingerprints.
 
 For the series impedance Z = R + jX of a multiconductor line in wire
 coordinates [1, 5]:
@@ -34,6 +38,14 @@ coordinates [1, 5]:
   geometry-derived data, but only *typical*: reductions and fitting can
   perturb it (`I.PROV.NEGATIVE_MUTUAL_R`, soft).
 
+Severity follows the consequence of a violated invariant. Asymmetry and a
+resistance matrix that is not PSD are errors: the first breaks reciprocity, the
+second lets the line deliver active power. The reactance and susceptance
+checks (`W.PROV.X_NOT_PSD`, `W.PROV.X_NONINDUCTIVE`, `W.PROV.B_SIGN` below) are
+warnings. For a symmetric Z the absorbed active power is Iᴴ R I whatever X is
+(likewise Vᴴ G V for a shunt, whatever B is), so a violation there makes the
+data physically unrealizable without creating an active-power source.
+
 ## Sequence-derived matrices and Z₁/Z₀ recovery
 
 A line parameterized from sequence values and transformed back to phase
@@ -46,8 +58,8 @@ Z = Zₛ·I + Zₘ·(J − I),   Zₛ = (Z₀ + 2Z₁)/3,   Zₘ = (Z₀ − Z�
 Geometric (Carson) parameterizations of *generic asymmetric* untransposed
 geometries do not produce this, because their phase-pair spacings differ.
 (Symmetric untransposed arrangements can also be balanced.) The classifier inverts the
-construction — `Z₁ = Zₛ − Zₘ`, `Z₀ = Zₛ + 2Zₘ` — and reports the implied
-sequence parameters (`I.PROV.SEQ_DERIVED`). The verdict tiers:
+construction — `Z₁ = Zₛ − Zₘ`, `Z₀ = Zₛ + 2Zₘ` — and sorts each linecode
+into a tier:
 
 | tier | structure | reading |
 |---|---|---|
@@ -57,12 +69,66 @@ sequence parameters (`I.PROV.SEQ_DERIVED`). The verdict tiers:
 | `distinct` | otherwise | nonuniform structure; consider geometry and any prior neutral elimination |
 | `unassessed` | missing/incompatible X block | full complex-matrix signature unassessed |
 
-These signatures support useful provenance hypotheses. Exact balance suggests
-sequence parameterization or a transposition/symmetry assumption, while symmetric
-physical constructions are another explanation. `I.PROV.SEQ_DERIVED` reports
-that interpretation and the implied sequence values. Check the source data and
-whether the intended network shares those symmetry assumptions; see
-[profiler interpretation](analysis.md#Evidence-qualified-profiler-results).
+`I.PROV.SEQ_DERIVED` reports `exactly_balanced` linecodes with their implied
+Z₁ and Z₀. If the sequence reading is right, phase-pair asymmetry is absent from
+the inspected block, although retained neutral coupling and other equipment can
+still create unbalance. Check the source data and whether the intended network
+shares the symmetry assumption.
+
+## Impedance provenance hints
+
+Linecode matrices carry clues to construction choices. Their engineering
+consequences depend on which conductors and couplings the model retains:
+
+| Pattern | Possible origin | Engineering implications |
+|---|---|---|
+| negligible phase-block coupling (`I.PROV.DECOUPLED_PHASES`) | per-phase simplification | uniform self terms give approximately Z₀ = Z₁; unequal self terms can still couple sequence networks. Diagonal structure does not exclude prior reduction |
+| three-wire, no PN pattern (`I.PROV.IMPEDANCE_TRANSFORM_KR`) | prior neutral elimination (weak hint) | a zero-neutral-voltage model cannot predict neutral rise when inappropriate; total dissipation can remain represented, while separate neutral attribution needs recovery data |
+| uniform R, mutual ≈ ½ self (`…_PN`) | phase-to-neutral equivalent | exact under the single-grounded/no-earth-current assumptions; similar conductor resistances explain the pattern, while accuracy depends on earth-current assumptions |
+| uniform R and X (`…_MPN`) | modified phase-to-neutral equivalent | review PN earth-current assumptions and the additional reactance-symmetrization approximation |
+
+The equal-self, equal-mutual pattern (`I.PROV.SEQ_DERIVED`) is the
+`exactly_balanced` tier above.
+
+**Extra conductors.** A conductor outside the inspected phase block can coexist
+with a sequence-built phase block: OpenDSS can materialize a coupled
+four-conductor matrix from sequence values, or a modeler can supply neutral
+parameters separately. Shape alone does not select transposition over sequence
+parameterization, and a balanced phase block can still have an explicit neutral
+that introduces phase-to-neutral unbalance. An extra conductor with negligible
+coupling to the phases is flagged as a possible placeholder or simplified
+neutral.
+
+**Diagonal phase blocks.** The per-phase simplification hint also covers
+unequal diagonal terms, which may couple the sequence networks. A Schur
+reduction subtracts its correction from the original mutuals and can cancel
+them, so diagonal data retain an unresolved origin: possible prior reduction is
+listed as an alternative, and the hint does not declare Kron history impossible.
+
+**The PN transformation.** Its exact reference domain has no conductor-to-earth
+shunts, no device current injection into earth, and one grounding point per
+continuous neutral section. Neutral current and voltage can be recovered from
+source information in that domain. Multiple earth-return paths can invalidate
+its assumptions; grounding impedance alone does not determine the error. An R
+mutual/self ratio near one half is a fingerprint of similar phase and neutral
+resistances, while the transformation itself also applies to unequal
+conductors.
+
+**The Kron hint** is matrix-only, so its context separates known LV use without
+a represented neutral, known MV/HV-only use, unused templates, and unassessed or
+mixed use. Missing nominal-voltage or terminal-map evidence does not establish
+MV/HV use, and unassessed uses keep their conditional neutral implications.
+Exactly balanced candidates cross-reference `I.PROV.SEQ_DERIVED`.
+`I.PROV.KRON_LIKELY` is the network-level counterpart, for an LV level without a
+neutral carried by any branch.
+
+Converter-generated source equivalents are classified but never flagged.
+Scientific checks for [reduction and positive-sequence
+applicability](scientific_contracts.md) keep their own documented domains; these
+hints do not widen them. Each hint carries review guidance
+([reading a hint](analysis.md#Evidence-qualified-profiler-results)); its
+evidence keys are listed under
+[Impedance hint evidence](analysis_results.md#Impedance-hint-evidence).
 
 ## The Maxwell sign pattern
 
@@ -76,16 +142,34 @@ in fact a Stieltjes matrix [5]. OpenDSS `Cmatrix` is exactly this form;
 The classic data error is entering the *pairwise* capacitance c_ij = −C_ij
 with the wrong sign. Severity calibration:
 
-- **PSD / nonnegative diagonals** are invariant — Stieltjes (symmetric
-  M-) matrices are closed under Schur complementation (grounded-screen
-  elimination) and under bundling congruences [11] — so violations are
+- **PSD / nonnegative diagonals** are invariant, so violations are
   warnings (`W.PROV.B_SIGN`).
-- A **positive mutual with PSD intact** cannot arise from a clean
-  geometry → P⁻¹ → reduction pipeline; it marks fitted, averaged or
-  otherwise processed provenance (`I.PROV.B_OFFDIAG`, informational). This
-  calibration was validated empirically on the bundled-cable library, where
-  small positive mutuals (+0.0011 vs −0.0114 siblings) occur in PSD
-  matrices.
+- The **sign pattern** is invariant under every exact reduction. Grounding a
+  conductor (a screen bonded to earth, V = 0) keeps a principal submatrix of
+  C; eliminating a floating conductor (zero net charge) takes a Schur
+  complement of C; bundling conductors at equal potential is the congruence
+  SᵀCS with a 0/1 aggregation matrix S; transposition averages permuted
+  copies. Principal submatrices, congruences by S and convex combinations
+  keep off-diagonals ≤ 0 directly, and Schur complements of Stieltjes
+  matrices are Stieltjes [11]. A check on 400 randomly placed conductor
+  groups, computed with an accurate (charge-simulation) solver and put
+  through about a thousand random grounding, floating, bundling and
+  transposition steps, found no off-diagonal above zero.
+- A **positive mutual with PSD intact** (`I.PROV.B_OFFDIAG`, informational)
+  therefore comes from how the matrix was computed or entered, not from a
+  reduction. The common cause is the thin-wire potential-coefficient formula
+  ``P_{ii} = \ln(2h_i/r_i)/(2\pi\varepsilon)`` applied to thick conductors
+  at close spacing, which ignores the redistribution of charge around each
+  conductor's surface. For four touching insulated cores (an aerial bundled
+  cable or a four-core underground cable) it puts a small *positive* mutual
+  between diagonally opposite cores, where an accurate solution gives a
+  small negative one (about +2.5 pF/m against −3.4 pF/m for 95 mm² aerial
+  bundled cores). LineConstants-style tools, including
+  [`overhead_line_constants`](@ref), use this formula, so matrices for
+  tightly bundled conductors carry the finding by construction; the
+  error is in the opposite-core mutual, and the matrix stays passive.
+  Sequence data with C₀ > C₁ (the mutual is (C₀ − C₁)/3) and a sign-convention
+  mix-up give the same pattern.
 
 ## Kron reduction, grounding and earthing zones
 
@@ -166,10 +250,11 @@ fixed branch; the second bundles three benchmark pitfalls of [2] in one
 pattern (self-loop topology, deliberate tiny impedance, a rating that reads
 as 10× overload). Detection (`W.PROV.REGULATOR_PATTERN`): the self-loop is
 near-conclusive on its own; the 1:1 form requires corroboration
-(same-voltage-level endpoints, x_pu < 0.5 %, or a non-unity tap) and is
-restricted to wye-wye-derived subtypes, since regulators are never
-delta-coupled — which keeps genuine 1:1 phase-shifting interconnectors
-silent.
+(same-voltage-level endpoints, x_pu < 0.5 %, or a non-unity tap), a
+winding-voltage ratio `v_nom_to / v_nom_from` between 0.85 and 1.176, and the
+`single_phase` subtype. The delta-coupled `wye_delta` and `delta_wye` subtypes
+are never matched, since regulators are never delta-coupled, which keeps
+genuine 1:1 phase-shifting interconnectors silent.
 
 This heuristic concerns *imported* data where a regulator was hacked into a
 transformer + shunt. The data model itself has **dedicated** regulator objects —
@@ -179,8 +264,8 @@ open-delta with the galvanic straight-through of the shared phase) — so a
 regulator authored natively needs no such pattern-matching. See the
 [OPF reference](opf.md) for their constraints and the
 [conventions](conventions.md) for the field set. The `from_dss` converter does
-not yet emit these subtypes (regulators arriving from OpenDSS are still detected
-via the pattern above rather than converted).
+not emit these subtypes: regulators arriving from OpenDSS are detected via the
+pattern above rather than converted.
 
 ## Benchmark readiness
 
@@ -210,110 +295,3 @@ per-network screens describe features worth inspecting after augmentation:
   for interchangeable controls. The screen does not establish non-uniqueness.
 - **`I.BENCH.LOAD_ZERO_PNOM`** — loads with zero real-power setpoint are
   zero in active power; reactive demand may remain. Inspect both P and Q.
-
-## [References](@id refs)
-
-1. M. Deakin, A. Pandey, F. Geth, *Mathematical Model and Data Model for
-   Up-To-Four-Wire Distribution System OPF*, IEEE Task Force on
-   Benchmarking Multiconductor OPF for Distribution Systems, draft V0.2, 2026.
-2. F. Geth, A. C. Chapman, R. Heidari, J. Clark, "Considerations and design
-   goals for unbalanced optimal power flow benchmarks," *Electric Power
-   Systems Research* 235 (2024) 110646.
-3. F. Geth, F. Pacaud, R. Heidari, "Solving Three-Phase Distribution OPF
-   with Nonlinear Programming," *PSCC 2026*, Limassol.
-4. J. R. Carson, "Wave propagation in overhead wires with ground return,"
-   *Bell System Technical Journal* 5 (1926) 539–554.
-5. W. H. Kersting, *Distribution System Modeling and Analysis*, CRC Press, 2002.
-6. S. Claeys, F. Geth, G. Deconinck, "Optimal power flow in four-wire
-   distribution networks: Formulation and benchmarking," *Electric Power
-   Systems Research* 213 (2022) 108522.
-7. F. Geth, R. Heidari, A. Koirala, "Computational analysis of impedance
-   transformations for four-wire power networks with sparse neutral
-   grounding," *Proc. ACM e-Energy '22*, 2022, 105–113.
-8. R. Heidari, F. Geth, S. Claeys, *Four-wire low voltage power network
-   dataset*, CSIRO Data Collection, 2024, doi:10.25919/jaae-vc35; original
-   data: ENWL *Low Voltage Network Solutions* project (LCNF closedown
-   report, 2014); cable impedances: A. J. Urquhart, M. Thomson, *Cable
-   Impedance Data*, figshare, 2019.
-9. R. C. Dugan, T. E. McDermott, "An open source platform for collaborating
-   on smart grid research," *Proc. IEEE PES General Meeting*, 2011; EPRI
-   OpenDSS documentation, incl. *Modeling Regulators as Autotransformers*.
-10. F. Dörfler, F. Bullo, "Kron reduction of graphs with applications to
-    electrical networks," *IEEE Trans. Circuits and Systems I* 60 (2013)
-    150–163.
-11. F. Zhang (ed.), *The Schur Complement and Its Applications*, Springer,
-    2005 (incl. D. Carlson, T. L. Markham, "Schur complements of diagonally
-    dominant matrices," *Czech. Math. J.* 29 (1979) for the M-matrix
-    closure).
-12. M. Bazrafshan, N. Gatsis, "Comprehensive modeling of three-phase
-    distribution systems via the bus admittance matrix," *IEEE Trans. Power
-    Systems* 33 (2018) 2015–2029.
-13. S. Babaeinejadsarookolaee et al., "The power grid library for
-    benchmarking AC optimal power flow algorithms," arXiv:1908.02788, 2019.
-14. F. Geth, M. Vanin, D. Van Hertem, "Data quality challenges in existing
-    distribution network datasets," *CIRED 2023*, Rome.
-15. D. M. Fobes, S. Claeys, F. Geth, C. Coffrin, "PowerModelsDistribution.jl:
-    An open-source framework for exploring distribution power flow
-    formulations," *Electric Power Systems Research* 189 (2020) 106664;
-    arXiv:2004.10081.
-16. R. C. Dugan, "A Perspective on Transformer Modeling for Distribution
-    System Analysis," *Proc. IEEE PES General Meeting*, 2003, pp. 114–119
-    (the case for solving in actual values rather than per-unit; cites
-    H. W. Dommel, *EMTP Theory Book*, 2nd ed., App. IV, on per-unit
-    obsolescence for computer solution of unbalanced networks).
-17. W. H. Kersting, "The Whys of Distribution System Analysis," *Proc. IEEE
-    Rural Electric Power Conference (REPC)*, 2010 (why the transmission
-    assumptions of transposed lines and balanced loading — and hence the
-    positive-sequence/symmetrical-component model — do not transfer to
-    distribution; worked IEEE 13-node examples of non-transposed-line and
-    neutral/ground-current effects).
-18. A. Wächter, L. T. Biegler, "On the implementation of an interior-point
-    filter line-search algorithm for large-scale nonlinear programming,"
-    *Mathematical Programming* 106 (2006) 25–57 (Ipopt; the solver's
-    initialization, barrier updates and stopping tests are scale-sensitive,
-    and it applies gradient-norm scaling because good scaling cannot be
-    inferred in general).
-19. J. D. Hogg, J. A. Scott, *On the effects of scaling on the performance
-    of Ipopt*, STFC Rutherford Appleton Laboratory technical report
-    RAL-TR-2013-P-001, 2013; arXiv:1301.7283 (the benefit of scaling a
-    nonlinear program is problem-dependent, not universal).
-20. S. A. Sadat, K. Kim, "Numerical Performance of Different Formulations for
-    Alternating Current Optimal Power Flow," *Proc. IEEE PES ISGT*, 2021;
-    arXiv:2107.07700 (IPM numerical performance on AC-OPF is strongly
-    formulation-dependent).
-21. M. D. Wilkinson et al., "The FAIR Guiding Principles for scientific data
-    management and stewardship," *Scientific Data* 3 (2016) 160018 (Interoperable
-    and Reusable data require shared vocabularies and recorded provenance, not
-    raw dumps).
-22. H. Wickham, "Tidy Data," *Journal of Statistical Software* 59 (10) (2014)
-    1–23 (data is usually organized for ease of entry rather than analysis;
-    standardizing the mapping of semantics to representation is what makes
-    reliable, composable tooling possible).
-23. IEC 61968-11:2013, *Application integration at electric utilities — System
-    interfaces for distribution management — Part 11: Common Information Model
-    (CIM) extensions for distribution*; the network "wires model" represents
-    connectivity through explicit `Terminal` and `ConnectivityNode` objects (the
-    structure OpenDSS leaves implicit). See also the OpenDSS CIM100 export of
-    [ref. 9].
-24. F. Wiese et al., "Open Power System Data — Frictionless data for electricity
-    system modelling," *Applied Energy* 236 (2019) 401–409 (a validated,
-    schema-checked, reproducible path from raw data to results for energy-system
-    modeling).
-25. L. Moreau, P. Missier (eds.), *PROV-DM: The PROV Data Model*, W3C
-    Recommendation, 2013 (provenance as the mechanism that makes a non-identity
-    transformation trustworthy; validity is itself defined via a normalization
-    process).
-26. D. K. Molzahn, B. C. Lesieutre, C. L. DeMarco, "Approximate Representation of
-    ZIP Loads in a Semidefinite Relaxation of the OPF Problem," *IEEE Trans.
-    Power Syst.* 29 (4) (2014) 1864–1865 (a constant-impedance load is a shunt
-    admittance `Sⱼ/|Vⱼ|²`; the load/shunt identity is a modeling choice, not a
-    physical one).
-27. H. J. Kim et al., "A Comprehensive Review of Practical Issues for
-    Interoperability Using the Common Information Model in Smart Grids,"
-    *Energies* 13 (6) (2020) 1435 (CIM as an asset-first, object-identity model
-    for semantic interoperability and data exchange).
-28. B. Bahrani et al., "Grid-Forming Inverter-Based Resource Research Landscape:
-    Understanding the Key Assets for Renewable-Rich Power Systems," *IEEE Power &
-    Energy Magazine* 22 (2) (2024) 18–29 (IBR-based resources as a distinct
-    asset class from synchronous generators — capability-limited, inertia-free,
-    control-defined).

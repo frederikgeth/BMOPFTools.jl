@@ -36,10 +36,17 @@ A 2-tuple `(net′, manifest)` where:
    `vpp_min`/`vpp_max`, `vuf_max` on supported buses (instantaneous study policies)
 2. **Thermal limits** — opt-in synthetic `i_max` estimates from R₁₁; no verified ampacity claim
 3. **Generation** — slack generator at source buses; `q_min`/`q_max` on
-   existing generators with `p_max` (EN 50549 / IEEE 1547)
+   existing generators with `p_max` (cos φ capability, EN 50549-1 default)
+4. **IBR bounds** — missing P and Q bounds on IBRs (`apply_ibr`)
+5. **Smart-IBR controls** — Volt-var / Volt-watt defaults (AS/NZS 4777.2;
+   `[augment.smart_ibr]` in `config`)
+6. **DC network** — `dc_bus` bounds and `dc_source` dispatch (`apply_dc`)
 
-Each pass is independently skippable via the recipe's `apply_*` flags.
-Existing values are never overwritten.
+Passes 1b (intra-bus angle-difference bounds, `apply_va_diff_bounds`) and the
+power-to-current conversion after pass 2 also run. Each pass is controlled by
+the recipe's `apply_*` flags or its `config` section.
+Existing values are not overwritten; a scalar single-phase `i_max` is
+reshaped to its per-conductor vector form.
 
 # Example
 ```julia

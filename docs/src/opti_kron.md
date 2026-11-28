@@ -1,10 +1,10 @@
 # [Error-bounded bus reduction (Opti-KRON)](@id opti-kron)
 
-!!! warning "Prototype"
-    This feature is a prototype. Its behavior is tested and validated against
-    the paper's published results, but it is not
-    yet linked to a scientific-knowledge (`PSK-*`) claim or exposed through
-    the JSON execution interface.
+!!! warning "Status"
+    Not yet linked to a scientific-knowledge (`PSK-*`) claim or exposed
+    through the JSON execution interface. Its behavior is tested and compared
+    against the paper's published results
+    ([validation evidence](@ref opti-kron-validation)).
 
 Robust Opti-KRON [1] chooses which buses of a distribution network to keep so
 that the reduced network has as few buses as possible, while every original
@@ -24,7 +24,8 @@ to i, phase by phase, and i's voltage stands in for j's. Moving a load changes
 voltages, so this has an error. Under a linear voltage model the error is
 linear in the injections, which makes "the error stays within Ē for every
 loading in a set" an exact, solvable constraint. With no injection left on
-them, the eliminated buses can then be removed *exactly* by Kron reduction.
+them, the eliminated buses can then be removed *exactly* by Kron reduction
+[4].
 
 ## Linear voltage model
 
@@ -44,8 +45,9 @@ nodes not fixed by the source, and U is the phase-to-neutral voltage (or
 phase-to-earth where there is no ungrounded neutral). This gives v = 1 + K u
 with K = [K_P K_Q] ([`opti_kron_model`](@ref)). For a single-phase radial
 feeder with a flat no-load profile this is exactly LinDistFlow [2]: K_P is the
-resistance shared by the two buses' paths to the source, K_Q the shared
-reactance. The general form also includes neutrals, MEN earthing, mutual
+resistance shared by the two buses' paths to the source divided by U₀², K_Q
+the shared reactance divided by U₀² (each scaled by 1000 for injections in kW
+and kvar). The general form also includes neutrals, MEN earthing, mutual
 coupling, transformers and meshes.
 
 ## The error and the robust problem
@@ -59,7 +61,7 @@ e_{ij}(A, u) = \tilde v_i - v_j = c_{ij}(A)^\top u,
 ```
 
 where b(k) is the super-node of node k. The coefficient c_ij(A) is affine in
-A, so the robust reduction problem is a mixed-integer program:
+A. The robust reduction problem is
 
 ```math
 \begin{aligned}
@@ -72,6 +74,10 @@ A, so the robust reduction problem is a mixed-integer program:
 ```
 
 𝒞 holds the candidate pairs within H hops, and 𝒫_ij is the path between i and j.
+With the convex hull, the inner maxima are over finitely many samples and the
+problem is a mixed-integer linear program; with the ellipsoid and Wasserstein
+sets, its direct robust counterpart is not. BMOPFTools solves every set by
+constraint generation with MILP masters (below).
 
 ## Uncertainty sets
 
@@ -79,7 +85,7 @@ A, so the robust reduction problem is a mixed-integer program:
 |---|---|---|---|
 | Box | per-coordinate range [ℓ, h] | cᵀū + δᵀ\|c\| | [`OptiKronBox`](@ref) |
 | Convex hull | the samples themselves | max_k cᵀuᵏ | [`OptiKronHull`](@ref) |
-| Ellipsoid | mean μ, covariance Σ = LLᵀ (POET), radius Ω | cᵀμ + Ω‖Lᵀc‖₂ | [`OptiKronEllipsoid`](@ref) |
+| Ellipsoid | mean μ, covariance Σ = LLᵀ (POET [5]), radius Ω | cᵀμ + Ω‖Lᵀc‖₂ | [`OptiKronEllipsoid`](@ref) |
 | Wasserstein | empirical distribution, radius ρ/ε, ℓ_p transport cost | CVaR_{1−ε} of cᵀu (eq. 7 of [1]) | [`OptiKronWasserstein`](@ref) |
 
 The box and the hull stay within the sampled range of each coordinate; the
@@ -98,13 +104,21 @@ only).
 [`opti_kron_reduction`](@ref) then runs Algorithm 1 of [1]. A master MILP
 enforces the error bound only at a finite set of loadings 𝒰ᵗ. A closed-form
 adversary finds, for the master's assignment, the worst loading in 𝒰 for each
-bus, and adds those of the K most-violated buses to 𝒰ᵗ. The loop ends when the
-adversary finds no violation (Δ ≤ 0). User-supplied `initial` loadings must
-lie in 𝒰, or the master would over-constrain the problem and its optimum
-would no longer be a lower bound; membership is checked exactly (an LP for
-the hull and the Wasserstein ball). The result is then **certified** for
-the whole set and, if every master was solved to optimality, minimal. The
-master's optimum is always a valid lower bound (`result.lower_bound`). A good
+bus, and adds those of the most-violated buses to 𝒰ᵗ (at most `K` per
+iteration, keyword `K`, default 3; not the sensitivity matrix K). Let Δ be the
+largest worst-case error over the set minus Ē (`result.max_violation`). The
+loop ends when Δ ≤ `tol` (default 10⁻³ Ē), or, when every proposed worst case
+is already enforced in the master, when Δ ≤ 10 `tol` (the residual is then
+solver feasibility tolerance). User-supplied `initial` loadings must lie in 𝒰,
+or the master would over-constrain the problem and its optimum would no longer
+be a lower bound; membership is checked exactly (an LP for the hull and the
+Wasserstein ℓ1 and ℓ∞ balls, a convex QP for the Wasserstein ℓ2 ball). The
+result is then **certified** for the whole set with error at most Ē + Δ. If
+the final master was solved to optimality (`:optimal`), it is also minimal
+among the assignments the master admits: candidate pairs within H hops that
+survive screening, connected clusters, the `keep` buses, and
+`preserve_radial`. The master's optimum (or its proven bound, after a time
+limit) is always a valid lower bound (`result.lower_bound`). A good
 MILP solver matters: on real feeders HiGHS often stalls, and Gurobi solves the
 same masters in seconds to minutes.
 
@@ -148,87 +162,50 @@ eliminated bus keeps its ideal ground.
 original bus. The default linear lift uses the certificate itself:
 v_j = ṽ_i − c_ij(A)ᵀu holds exactly in the linear model, and u (the solved
 device powers) is known after a solve. Only the second-order AC part of the
-error remains; on the feeders tested this cut the error by 10–150×.
+error remains; in the Opti-KRON rows of the comparison on
+[Network reduction](@ref network-reduction) this cut the error by about
+10–200×.
 
 ## What is and is not guaranteed
 
 | Guaranteed | Not guaranteed |
 |---|---|
-| \|ṽ_i − v_j\| ≤ Ē under the linear model for every u in the set (when Δ ≤ 0) | the same bound under AC power flow (it held within a few percent of Ē in all tests) |
+| \|ṽ_i − v_j\| ≤ Ē + Δ under the linear model for every u in the set, with Δ ≤ `tol` (or 10 `tol`, see above) | the same bound under AC power flow (in the comparisons on [Network reduction](@ref network-reduction), Opti-KRON alone reached up to 1.04 Ē, and 1.44 Ē after neutral elimination on a finitely earthed feeder) |
 | exact AC equivalence of the reduced passive network, given the relocated devices | anything for loadings outside the set |
 | eliminated-bus voltage limits, via tightening, within the certificate | currents and current limits of eliminated lines |
-| minimality, if every master solved to optimality (`:optimal`) | minimality when a master hit its time limit (`:feasible`) |
+| minimality among the admitted assignments, if the final master solved to optimality (`:optimal`) | minimality when the final master hit its time limit (`:feasible`) |
 
 ## Validation against the paper
 
-The IEEE European LV test feeder (907 nodes, 1,440 one-minute samples, H = 5,
-ε = 0.01, 95% quantile radii, K = 3), reproduced with
-`scripts/opti_kron_eulv.jl` (Gurobi, at most 1 h per cell).
-
-**Structure.** The candidate set has 11,227 pairs and the structural maximum
-(no error bound) is 88.6% (103 super-nodes), both exactly as in the paper.
-The maximum is reproduced only when the reduced network must stay radial;
-the paper does not state this constraint, and without it the maximum is 91.1%.
-
-**Reduction (% of buses removed) by set and threshold.** Unmarked cells are
-certified for their set and minimal. Cells marked † hit the time limit before
-the adversary certified an assignment; the value shown is a proven upper bound
-on the reduction, the tighter of the master's lower bound and the certified
-result at the next threshold (a larger Ē never needs more super-nodes).
-
-| Set | Ē = 0.001 | 0.002 | 0.003 | 0.004 | 0.005 | Paper, Ē = 0.001 |
-|---|---|---|---|---|---|---|
-| scenario baseline | 86.7 | 88.2 | 88.3 | 88.5 | 88.6 | 86.7 |
-| convex hull | 83.7 | 87.4 | 87.9 | 88.2 | 88.5 | 83.0 |
-| box | 79.4 | 85.2 | 86.7 | 87.5 | 88.0 | ≈ 79.5 |
-| ellipsoid | ≤ 68.8 † | 68.8 | 76.2 | 79.3 | 81.6 | ≈ 76 |
-| Wasserstein ℓ1 | ≤ 83.1 † | 87.1 | 87.7 | 88.4 | 88.6 | 75.0 |
-| Wasserstein ℓ2 | ≤ 84.9 † | 87.4 | 88.2 | 88.3 | 88.5 | ≈ 81 |
-| Wasserstein ℓ∞ | 69.1 | 78.1 | 84.6 | 86.4 | 87.4 | ≈ 80 |
-
-Paper values marked ≈ are read from its Fig. 2(a); the others are stated in
-its text. Screening keeps 64–89% of the candidate pairs at Ē = 0.001 and
-90–100% at Ē = 0.005 (paper: 54–70% and 89–98%).
-
-How to read the comparison:
-
-- **The scenario baseline, convex hull and box agree with the paper** to
-  within 0.7 percentage points. These sets have no tuning: they are fixed by
-  the samples.
-- **The ellipsoid and Wasserstein sets depend on calibration choices the paper
-  does not fully specify** (the POET covariance tuning and the Wasserstein
-  radius). Ours come out more conservative for the ellipsoid and ℓ∞ and less
-  conservative for ℓ1 and ℓ2. All of them approach the structural maximum as
-  Ē grows, as in the paper.
-- **A Wasserstein certificate is a CVaR bound.** With N = 1,440 and ε = 0.01
-  it bounds the average error over the worst 1% of the distribution, not
-  every individual sample, so single training samples can exceed Ē
-  (by up to 1.9 Ē in this sweep).
-
-**AC validation.** On the same feeder (convex hull, Ē = 0.001, 48 loadings)
-the largest actual AC error is 0.96 Ē, against 0.92 Ē for the linear model,
-and 0.07 Ē after the linear lift (`scripts/opti_kron_ac_validation.jl`).
+On the IEEE European LV test feeder, the implementation reproduces the paper's
+candidate count (11,227 pairs) and structural maximum (88.6% of buses
+removed). For the scenario baseline, convex hull and box, the reductions at
+Ē = 0.001 agree with the paper to within 0.7 percentage points; the ellipsoid
+and Wasserstein results depend on calibration choices the paper leaves open.
+The full table, the AC check and the reproduction scripts are in
+[Opti-KRON against the published results](@ref opti-kron-validation).
 
 ## Differences from the paper
 
-- **Linear model.** Ybus-based sensitivities instead of phase-coupled
-  LinDistFlow; identical for single-phase radial feeders, and more general
-  otherwise.
+- **Linear model.** Ybus-based sensitivities of the full multiconductor
+  network instead of phase-coupled LinDistFlow; the two coincide for
+  single-phase radial feeders.
 - **Clusters do not cross transformers,** except that the slack may represent
-  buses within H hops across one (its voltage is fixed). This reproduces the
-  paper's candidate count.
+  buses within H hops across one, since its voltage is fixed.
+- **Radiality.** With `preserve_radial=true` (the default) the reduced network
+  stays radial. The paper does not state this constraint, but its structural
+  maximum is reproduced only with it.
 - **Meshed networks** use the breadth-first spanning tree from the source for
   hops, paths and radiality; the sensitivities come from the meshed Ybus.
-- **Ellipsoid.** POET covariance with an eigenvalue-ratio factor choice
-  (at most five factors) and soft thresholding; the paper does not state its
-  tuning.
-- **Wasserstein radius.** The paper calibrates ρ/ε from distances of the
-  training samples to the d = 0 part of 𝒰_W, which is zero for every training
-  sample whenever 1/(Nε) ≥ 1. BMOPFTools uses leave-one-out distances to the
-  hull of the nearest other samples instead (`radius=:hull`).
-- **Only Algorithm 1** is implemented. Passing all samples as `initial` with
-  the convex hull reproduces the direct model.
-- **Screening test 2** covers the box and the convex hull only.
+- **Set calibration.** The ellipsoid uses POET covariance [5] with an
+  eigenvalue-ratio factor choice (at most five factors) and soft thresholding.
+  The Wasserstein radius uses leave-one-out distances to the hull of the
+  nearest other samples (`radius=:hull`): the paper's calibration, distances
+  to the d = 0 part of 𝒰_W, is zero for every training sample whenever
+  1/(Nε) ≥ 1.
+- **Only Algorithm 1** is implemented; passing all samples as `initial` with
+  the convex hull reproduces the direct model. Screening test 2 covers the box
+  and the convex hull only.
 
 ## References
 

@@ -1,7 +1,5 @@
 # Case augmentation
 
-## From a faithful import to a meaningful benchmark
-
 An imported distribution model needs explicit study assumptions before it can
 serve as an OPF benchmark. Imports can already carry ratings, source controls,
 and limits; missing voltage bounds do not guarantee that the nonlinear power-flow
@@ -10,26 +8,31 @@ be assessed separately.
 
 Augmentation adds selected bounds, costs and capability assumptions reproducibly,
 following the benchmark-curation motivation of PGLib-OPF ([ref. 1](#augrefs)).
-BMOPFTools supports this in the
-four-wire distribution setting with three composable, audited operations:
+BMOPFTools supports this in the four-wire distribution setting with three
+composable, audited operations:
 
 - **`fix_case`** — *structural repairs*. Remove inert elements, drop
-  disconnected islands, collapse near-zero-impedance lines to switches, strip
-  redundant bounds. Make the graph sound before anything is written onto it.
+  disconnected islands, optionally collapse near-zero-impedance lines to
+  switches, strip redundant bounds. Make the graph sound before anything is
+  written onto it.
 - **`add_generators`** / **`add_ibrs`** — *deliberate DER placement*. Create
   dispatchable `generator` elements (or richer inverter-interfaced `ibr`
   elements) at semantically/topologically chosen buses so the OPF has something
   to decide. Never random; every placement is explained.
 - **`augment_case`** — *audited study assumptions*. Inject voltage bounds,
-  optionally estimate synthetic thermal limits, price the slack, and derive reactive capability. Fills
-  only what is missing; never overwrites.
+  optionally estimate synthetic thermal limits, price the slack, and derive
+  reactive capability. Fills only what is missing; never overwrites.
 
 Each returns a `(net′, TransformationManifest)` pair and **never mutates its
 input**. The manifest is the heart of the contract: every value written is
-recorded with the rule that produced it and a confidence tag (standards-derived
-vs `:heuristic`), so the resulting case is self-documenting and the modeler can
-see at a glance exactly which numbers are defensible defaults and which are
-design choices worth revisiting (see [A starting point for fine-tuning](#starting-point)).
+recorded with the rule that produced it and a confidence tag (`:standard`,
+`:heuristic`, `:synthetic`, …), so the resulting case is self-documenting and
+the modeler can see which numbers are defensible defaults and which are design
+choices worth revisiting.
+
+This page explains the workflow and how to read its output. The
+[Augmentation reference](augmentation_reference.md) lists every pass, flag,
+default and recipe field.
 
 ## Why this sequence
 
@@ -48,24 +51,25 @@ is deliberate, and each edge exists for a reason:
 1. **`fix_case` first** — bounds and generators placed on a broken topology are
    wasted or actively wrong. A DER stranded on an islanded bus injects into
    nothing; a thermal limit on a zero-impedance loop is meaningless. Repair the
-   graph — drop the islands, collapse the switch-like lines, remove inert loads
-   — *before* annotating it, so every later pass operates on the network that
-   will actually be solved.
+   graph — drop the islands, optionally collapse the switch-like lines, remove
+   inert loads — *before* annotating it, so every later pass operates on the
+   network that will actually be solved.
 2. **`add_generators` before the final `augment_case`** — placement writes only
    `p_min`/`p_max`/`cost`. The reactive capability of each DER
    (`q_min`/`q_max`) is then filled by `augment_case`'s generation pass from a
-   single power-factor rule. Reversing the order would leave the freshly-placed
+   single power-factor rule. Reversing the order would leave the freshly placed
    DERs with active-power bounds but no reactive capability — silently
    restricting the very flexibility you added them to study. Keeping reactive
-   logic in one place (`augment_case`) is why generators go in first.
+   logic in one place (`augment_case`) is why generators go in first. The same
+   holds for `add_ibrs`, whose nameplates `augment_case` turns into a full
+   dispatch box.
 3. **`augment_case` last** — gap-filling is idempotent and only ever fills
    missing fields, so it should see the *final* element set: the repaired
    topology plus the new DERs. Run last, it bounds everything once and
    completely.
 
-The placement step (`add_generators`, or `add_ibrs` for converter-interfaced
-DERs) is genuinely optional. If you only need a feasible power-flow benchmark
-(CVR, state estimation, maximum-load-delivery studies) you can run
+The placement step is optional. If you only need a feasible power-flow
+benchmark (CVR, state estimation, maximum-load-delivery studies) you can run
 `fix_case → augment_case` and skip placement entirely — the slack remains the
 only injector. Add DERs when you want the *dispatch* itself to be the object of
 study.
@@ -86,375 +90,46 @@ render_manifest(fix_mf)                      # inspect what was repaired
 render_manifest(der_mf)                      # inspect every placement
 render_manifest(aug_mf)                      # inspect what was added
 
-write_bmopf("my_feeder_ready.json", net3)
+write_bmopf(net3, "my_feeder_ready.json")
 
 result  = solve_opf(net3)
 report′ = profile_solution(net3, result)
 ```
 
-Passing the pre-computed `analyze` result to `augment_case` avoids
-re-running voltage-level and provenance analyses internally:
+For converter-interfaced DERs, put [`add_ibrs`](@ref) in the generator slot;
+`augment_case` then derives each placed IBR's `p_max`/`p_min`/`q_min`/`q_max`
+from its nameplate ([Pass 4](@ref pass-4-IBR-dispatch-bounds)):
+
+```julia
+net2, ibr_mf = add_ibrs(net1; recipe = IBRRecipe(strategy = :load_following))
+net3, aug_mf = augment_case(net2)
+```
+
+Passing pre-computed voltage-level and provenance results to `augment_case`
+avoids re-running those analyses internally. The `analysis` keyword takes a
+dict with `"voltage_levels"` and `"provenance"` entries, which an `analyze`
+report holds in its `results`:
 
 ```julia
 report  = analyze(net2)
-net3, aug_mf = augment_case(net2; analysis=report.analysis)
+net3, aug_mf = augment_case(net2;
+                 analysis = Dict("voltage_levels" => report.results[:voltage_levels],
+                                 "provenance"     => report.results[:provenance]))
 ```
 
-For a runnable, build-executed walk through this exact pipeline on a real
-feeder, see the [end-to-end tutorial](tutorial_end_to_end.md); the
+The [end-to-end tutorial](tutorial_end_to_end.md) walks this pipeline on a real
+feeder (external dataset; the docs build does not execute it). The
 [DER placement tutorial](tutorial_ders.md) and [VVWO tutorial](tutorial_vvwo.md)
-then drill into placement strategies and smart-IBR control.
-
-The four `augment_case` passes below run in order. Each can be disabled
-independently via the [`AugmentationRecipe`](@ref) `apply_*` flags.  **No pass
-ever overwrites an existing value** — augmentation only fills gaps.
-
-### Pass 1 — Voltage bounds
-
-Sets `v_min`/`v_max`, `vpn_min`/`vpn_max`, `vpp_min`/`vpp_max`, and
-`vuf_max` on supported three-phase buses that lack it. `vpn_*` are written as per-phase arrays and
-`vpp_*` as per-pair arrays (see [Conventions](conventions.md)); the OPF consumes
-them in those shapes.
-
-Bounds are expressed as fractions of a **declared supply voltage** — the
-nominal voltage defined by the relevant power-quality standard, which may
-differ from the transformer rated voltage in the network model (e.g. a 240 V
-transformer in a grid declared at 230 V per EN 50160).  The declared voltage
-is resolved per bus in priority order:
-
-1. `bus["v_declared"]` — explicit field set at import time (e.g. authored in
-   the BMOPF JSON)
-2. the optional **voltage-snap** pass (see below) — writes `v_declared` by
-   snapping `v_nom` to a standard level; never overrides an explicit value
-3. `AugmentationRecipe` fields `v_declared_lv` / `v_declared_mv` /
-   `v_declared_hv` — regional fallback (e.g. `v_declared_lv = 230.0` for
-   Europe/Australia)
-4. `v_nom` from `voltage_level_analysis` — last resort when none of
-   the above is set
-
-#### Pass 0 — Voltage-level snapping (optional)
-
-Imported cases frequently carry LV transformers rated 240 or 250 V, so the
-derived `v_nom` is non-standard and the bounds would be referenced to it. When
-enabled, `augment_case` first snaps each bus's `v_nom` to the nearest
-standardized level (IEC 60038 / ANSI C84.1) and writes the result as
-`v_declared`, so the bounds below reference the standard voltage (e.g. 230 V).
-
-Configured in the TOML `config` (off by default — no behavior change unless
-opted in):
-
-```toml
-[augment.voltage_snap]
-enabled   = true        # opt-in
-preset    = "IEC_50Hz"  # "IEC_50Hz" | "ANSI_60Hz" | "none"
-tolerance = 0.10        # snap only if |v_nom / std − 1| ≤ tolerance
-levels    = []          # extra phase-to-neutral volts, merged with the preset
-```
-
-A value outside every tolerance band is left unchanged, so genuinely
-non-standard buses (e.g. a real 277 V LV) are preserved. Levels are
-phase-to-neutral (per-conductor) volts — the same basis as `v_nom`; custom
-`levels` follow the same convention (line-to-line ÷ √3). A bus that already
-carries an explicit `v_declared` is never re-snapped. Each snap is recorded in
-the manifest as a `v_declared` entry with rule
-`IEC60038_snap`. Pass the config via
-`augment_case(net; config=load_config("my.toml"))`.
-
-#### [Solver regularization bounds (`v_min` / `v_max`)](@id Solver-regularisation-bounds-(v_min-/-v_max))
-
-`v_min` and `v_max` are **hyperparameters**, not power-quality guarantees.
-They widen the feasible set so the solver can find a feasible point even when
-the operating point sits at the edge of the physical window.  The same values
-are applied to all buses regardless of voltage level.
-
-| Field | Default (pu of `v_declared`) | Purpose |
-|---|---|---|
-| `v_min` | 0.85 | Lower regularization bound — disable with `v_min_pu = nothing` |
-| `v_max` | 1.15 | Upper regularization bound — disable with `v_max_pu = nothing` |
-
-**Source buses** receive `v_min`/`v_max` only — `vpn`/`vpp`/`vuf` bounds
-are meaningless there because the voltage source pins the terminal voltages.
-
-#### Power-quality bounds
-
-Applied to all non-source buses.  Percentage windows follow EN 50160:2010.
-
-**Four-wire buses** (have a neutral terminal) receive `vpn` bounds, since
-customers experience the phase-to-neutral voltage.  `vpp` bounds are also
-set when ≥ 2 phase terminals are present.
-
-| Bound | Level | Default (pu of `v_declared`) | Standard |
-|---|---|---|---|
-| `vpn_min`/`vpn_max` | LV (≤ 1 kV) | 0.90 / 1.10 | EN 50160:2010 §3.5/§3.6, 95 %-of-week ±10 % |
-| `vpn_min`/`vpn_max` | MV (1–35 kV) | 0.94 / 1.06 | DSO planning practice ±6 %, budgets for LV voltage drop |
-| `vpp_min`/`vpp_max` | LV | 0.90 / 1.10 | EN 50160:2010 §3.5, same ±10 % band |
-| `vpp_min`/`vpp_max` | MV | 0.94 / 1.06 | Same ±6 % band as `vpn` |
-| `vpp_min`/`vpp_max` | HV (> 35 kV) | 0.95 / 1.05 | Transmission planning ±5 % |
-
-Pair nominal voltages use `va_nom` when supplied. A center-tapped split-phase
-zone uses twice the per-leg nominal (120 V → 240 V); a full three-phase bus uses
-√3. An ambiguous two-phase bus is skipped with a manifest entry until its
-nominal angles are supplied. Sequence limits require all three phase terminals.
-
-**Three-wire buses** (no neutral terminal) receive `vpp` and, with three phases,
-`vuf_max`; phase-to-ground regularization remains a separate study policy.
-
-**Single-phase buses** (one phase terminal + neutral) receive `vpn` but not
-`vpp` or sequence limits.
-
-**Unassigned buses** (islanded from all voltage sources) are skipped; the
-manifest records a note.
-
-| Bound | Applies to | Default | Standard |
-|---|---|---|---|
-| `vuf_max` | Three-phase, non-source | 0.02 (dimensionless) | Instantaneous study limit on negative/positive sequence magnitude, not time-aggregated standards compliance |
-
-#### Intra-bus angle-difference bounds (opt-in)
-
-Disabled by default (`apply_va_diff_bounds = false`). When enabled, a pass injects
-the centering reference `va_nom` and a symmetric window
-`va_diff_min`/`va_diff_max = ∓va_diff_window_rad` (default ±30°) on multiphase,
-non-source buses whose nominal phasor arrangement is unambiguous:
-
-| Bus | `va_nom` (rad) | Meaning |
-|---|---|---|
-| three-phase (3 phase terminals) | `[0, −2π/3, 2π/3]` | positive-sequence |
-| split-phase (`center_tap`-fed, 2 legs) | `[0, π]` | anti-phase legs |
-
-The OPF bounds the *centered* difference `θⱼ − θₖ − (va_nom[j] − va_nom[k])`, so
-the window pins the correct rotation while staying inside the tangent-valid
-(−90°, 90°) regime (see [Bus limits](opf.md)). Single-phase and ambiguous buses
-are skipped — the offset is never guessed. Enable with
-`AugmentationRecipe(apply_va_diff_bounds = true)`.
-
-### Pass 2 — Thermal limits
-
-Infers a heuristic `i_max` for linecodes that lack it by matching the diagonal
-series resistance R₁₁ against a lookup table of representative conductor
-cross-sections and their ampacities. This is a **synthetic estimate**, not a
-standards lookup: R₁₁ is the *series* resistance (the conductor's AC resistance
-**plus** the Carson earth-return coupling), so on its own it does not uniquely
-identify a conductor's material, construction class, cross-section, or
-installation method. Treat the result as a plausible default; a high-confidence
-rating requires the conductor material/class and installation method to be known
-independently.
-
-The table spans representative cross-sections from 4 mm² to 240 mm²:
-
-| Cross-section (mm²) | R₁₁ (mΩ/m at 20 °C) | Underground XLPE (A) | Overhead (illustrative, A) |
-|---|---|---|---|
-| 4   | 4.950 | 34  | —   |
-| 6   | 3.300 | 41  | —   |
-| 10  | 1.980 | 57  | 70  |
-| 16  | 1.240 | 76  | 95  |
-| 25  | 0.787 | 104 | 130 |
-| 35  | 0.559 | 134 | 160 |
-| 50  | 0.396 | 170 | 200 |
-| 70  | 0.283 | 220 | 260 |
-| 95  | 0.209 | 277 | 320 |
-| 120 | 0.164 | 326 | 375 |
-| 150 | 0.132 | 386 | 430 |
-| 185 | 0.107 | 451 | 490 |
-| 240 | 0.082 | 541 | 600 |
-
-On the columns: the R₁₁ values are representative **maximum DC resistances at
-20 °C** for standard conductor sizes — the quantity IEC 60228:2004 actually
-specifies (its procedure measures DC resistance), used here only as a size
-fingerprint, not an AC or earth-return-inclusive value. The underground column
-is loosely calibrated to IEC 60364-5-52:2009 Table B.52 installation ampacity
-(70 °C conductor, single circuit, in-ground or in-air); the overhead column is
-an illustrative overhead rating, **not** an IEC 60364-5-52 value (that standard
-covers LV installation ampacity, not an overhead-AAC catalog). The table as a
-whole is a heuristic default, not a standards-derived rating, and is
-deliberately *not* tagged as an IEC-conformant result.
-
-The match uses a 15 % relative tolerance on R₁₁.  If no table row falls
-within tolerance the linecode is skipped and the manifest records
-`"R₁₁ outside lookup range"`.
-
-**Opt-in synthetic policy.** Use `AugmentationRecipe(apply_thermal=true)` to
-request estimates. Existing ratings are never overwritten. The legacy
-`thermal_min_confidence` keyword gates impedance classifications (`distinct`:
-`:high`, `near_balanced`: `:medium`, others: `:low`); it does **not** measure
-ampacity confidence. Even a distinct matrix does not establish material,
-conductor size, or installation. Every inferred rating is marked `:heuristic`.
-`meta.provenance.thermal_estimates[linecode_id]` records the impedance classification,
-assumed construction category, equal-conductor-rating assumption, and lack of
-material/installation verification; it survives `write_bmopf`/`parse_bmopf`.
-
-**Neutral conductor rating.**  The neutral conductor is assigned the same
-`i_max` as the phase conductors.  IEC 60364-5-52:2009 §523 permits a reduced
-neutral cross-section above 16 mm² under balanced loading conditions, but the
-appropriate reduction is installation- and load-specific and is not applied
-automatically.  Set the neutral entry of `i_max` in the linecode manually, or
-pass a pre-computed `i_max` vector (which will not be overwritten) if a derated
-rating is required.
-
-**Power → current conversion (opt-in).**  With
-`AugmentationRecipe(apply_power_to_current = true)`, any line or switch that
-carries an apparent-power limit `s_max` but **no** `i_max` gets an equivalent
-per-conductor current limit `i_max = s_max / v_ref`, where `v_ref` is the
-resolved phase-to-ground reference voltage at the from-bus. Current is the
-preferred thermal representation for conductors (no voltage-reference ambiguity,
-no neutral degeneracy — see
-[current vs. apparent-power limits](opf.md#Current-vs-apparent-power-limits)); the
-conversion is exact only at `v_ref`. Transformers are never converted — their
-kVA nameplate stays canonical. Off by default; each write is recorded in the
-transformation manifest.
-
-### Pass 3 — Generation
-
-**Slack cost.**  The voltage source is itself the network's current slack, so no
-slack *generator* is created. If a source has no `cost`, a per-phase cost is
-written onto the `voltage_source` (default 1.0 \$/kWh) so imported power is
-priced in the objective. No flow bounds are added, so the source can absorb the
-network's net active/reactive imbalance. This removes one common cause of
-infeasibility, but does not override voltage, thermal, device, or other hard
-constraints. Controlled by the recipe's `apply_slack_generator` /
-`slack_cost` fields (names kept for backwards compatibility).
-
-**Reactive bounds.**  For each generator that has `p_max` defined but lacks
-`q_min`/`q_max`, symmetric reactive bounds are derived from the recipe
-power-factor setting:
-
-```
-Q_max = P_max × tan(arccos(pf))
-```
-
-Default `pf = 0.90` (EN 50549-1:2019, LV grid-connected DERs):
-Q_max ≈ 0.484 × P_max.  Set `q_capability_pf = 0.95` for IEEE 1547-2018
-(ANSI) deployments: Q_max ≈ 0.329 × P_max.
-
-### [Pass 4 — IBR dispatch bounds](@id pass-4-IBR-dispatch-bounds)
-
-`ibr` (inverter-based resource) elements carry a richer model than generators (an apparent-power
-nameplate `s_max`, a `topology`, a `prime_mover`, and an optional smart-IBR
-`control_profile`). This pass fills their **active and reactive dispatch box**
-from the nameplate, leaving the nameplate itself untouched. Controlled by the
-recipe's `apply_ibr` flag; disabled with `apply_ibr = false`.
-
-**Active power.** If `p_max` is absent it is derived per phase — from `p_avail`
-(split equally across phases) or from the per-phase `s_max` ratings. For `PV`
-prime movers `p_min = 0` is also injected when absent, since PV cannot absorb
-active power.
-
-**Reactive power.** If the IBR references a `control_profile` carrying a
-`power_factor` sub-object, `q_min`/`q_max` are *left absent* — the OPF enforces
-the exact PF coupling `Q = f(P)` as an equality constraint instead. Otherwise,
-for IBRs lacking explicit `q_min`/`q_max`, symmetric bounds are derived from
-`p_max` using the recipe's `ibr_default_pf` (EN 50549-1:2019 default
-cos φ = 0.90), exactly as for generators:
-
-```
-Q_max = P_max × tan(arccos(pf)),   Q_min = -Q_max
-```
-
-This pass only *bounds* IBRs that already exist in the case. To **place**
-IBRs in the first place, see [Adding IBRs](#adding-IBRs-der-placement)
-below; the intended order is `add_ibrs → augment_case`, so this pass turns
-each placed nameplate into a full dispatch box.
-
-## [`fix_case` — structural repairs](@id fix)
-
-Nine passes run in order.  Each is independently controlled by the
-corresponding `apply_*` flag in [`FixRecipe`](@ref). Review the manifest against
-your study: removing disconnected assets changes its scope. Finite-impedance
-idealization and grounding changes are opt-in approximations.
-
-| # | Pass | Default | Notes |
-|---|---|---|---|
-| 1 | Largest connected component | `true` | Drops buses, lines, loads, generators, and shunts that have no path to a voltage source. |
-| 2 | Simplify network | `true` | Merges consecutive same-linecode series lines; removes dangling stub lines (wraps [`simplify_network`](@ref)). |
-| 3 | Remove zero loads | `true` | Deletes loads with `p_nom = q_nom = 0` on all phases — electrically inert. |
-| 4 | Low-impedance lines → switches | `false` | Opt-in idealization below 10⁻⁴ Ω. Retains current ratings; skips shunted lines and unsupported extra branch limits. Small finite impedance is still an approximation to zero. |
-| 5 | Source bus bounds | `true` | Removes satisfied `v_*`, `vpn_*`, and `vpp_*` magnitude bounds only when the required terminal voltages are explicitly fixed. Retains inconsistent, unknown, sequence and angle bounds; preserves `va_nom`. |
-| 6 | Adjacent current bounds | `false` | Infers `i_max` for lines/switches that lack it from directly adjacent elements (one hop). Transformers contribute `s_rating / (√3 × V_ref)`; lines and switches propagate their own `i_max`. Takes the minimum over all adjacent bounds. |
-| 7 | Perfect grounding | `false` | Promotes grounding shunts whose `1/\|Y₁₁\| < threshold` (default 0.1 Ω) to `perfectly_grounded_terminals` and removes the shunt. **Changes OPF physics** (forces `V_n = 0`). |
-| 8 | Remove earthed ideal conductors | `true` | Drops every ideal conductor (a closed switch pole, or a line conductor with zero self and mutual impedance) whose two ends are both perfectly grounded. Such a conductor closes a loop through the earth: nothing determines its current and the OPF rejects the case (`E.INT.IDEAL_LOOP`). Both ends are at zero volts, so the removal is **exact** and no other quantity changes. Runs after passes 4 and 7 because together they create the pattern. The surviving conductors keep their impedance and shunt entries (a shunt matrix written smaller than the conductor count is read with its omitted entries as zero). A line that uses a shared linecode gets a reduced copy; an element left without conductors is removed |
-| 9 | Capacitive shunts → capacitors | `false` | Re-represents a purely capacitive shunt (G ≈ 0; flagged by `I.PROV.SHUNT_LIKELY_CAPACITOR`) as a first-class `capacitor`. The susceptance matrix `B` is **fingerprinted** by sign pattern + sparsity + row sums into `SINGLE_PHASE`, `WYE`, or `DELTA` (or a phase-to-ground bank → WYE/SINGLE_PHASE on a grounded neutral), and the nameplate `q_rated = B·v_nom²` is recovered (`v_nom` = bus P-N nominal, or √3·P-N = L-L for DELTA). The conversion is committed **only when the emitted capacitor's susceptance reproduces `B` exactly** (round-trip guard), so it is faithful by construction; anything ambiguous or unsupported (mixed return paths, `n>3` cyclic banks, a star with no name-resolvable neutral, no grounded return for a phase-to-ground bank, or no resolvable nominal) is left untouched. |
-| 10 | Snap placeholder transformer leakage | `false` | Zeroes a two-winding transformer's **tiny non-zero** series impedance (`\|Z\| < snap_transformer_z_min_pu`, default 0.1 % on the rating base; flagged by `W.DOM.XFMR_LOW_IMPEDANCE`) — a placeholder for zero from an admittance-based tool. Exact zero is better-conditioned in the IVR formulation than a small value (the transformer analogue of the low-impedance-line → switch pass). Genuine leakage (1–15 %) is never touched; n_winding units are skipped (rating base differs). |
-
-!!! note "Why exact zero, not a small ε (passes 4 and 10)"
-    Both passes replace a near-zero impedance with an *exact* zero handled
-    semantically (a switch, or the ideal-transformer constraint) rather than a
-    small numerical placeholder. This is deliberate: a small `ε` impedance is the
-    single most ill-conditioned point on the whole axis, whereas an exact zero is
-    well-conditioned. See
-    [Zero impedance: represent it honestly](@ref zero-impedance) in the developer
-    guide for the conditioning argument and the figure.
-
-```@docs
-fix_case
-FixRecipe
-```
-
-## `augment_case` — audited study assumptions
-
-```@docs
-augment_case
-AugmentationRecipe
-default_recipe
-```
-
-## `TransformationManifest`
-
-```@docs
-TransformationManifest
-TransformEntry
-manifest_to_dict
-render_manifest
-```
-
-## [Serializing the manifest](@id Serialising-the-manifest)
-
-Authors may optionally release the manifest alongside a case. It includes the
-resolved recipe and structured Findings; no Task Force submission requires it.
-For settings, assumptions, source hashes and experiment summaries together, see
-[the case-development log](tutorial_case_development.md). A minimal export is:
-
-```julia
-using JSON3
-
-net′, manifest = augment_case(net)
-write_bmopf(net′, "feeder_aug.json")
-open("feeder_aug_manifest.json", "w") do io
-    JSON3.write(io, manifest_to_dict(manifest))
-end
-```
-
-## Adding generators (DER placement)
-
-`augment_case` fills selected study bounds and policies; it does
-**not** create generation.  Without dispatchable generators the OPF is trivial
-(the slack imports everything).  [`add_generators`](@ref) is a separate, opt-in
-pass that *places* dispatchable `generator` elements using the semantic and
-topological knowledge the library already computes — never randomly — so the OPF
-becomes a meaningful optimization.  Like `fix_case`/`augment_case` it never
-mutates its input and returns a `(net′, manifest)` pair recording every field
-written.
-
-It writes only `bus`, `terminal_map`, `configuration`, `p_min`, `p_max`, and
-`cost`; reactive bounds are intentionally left to `augment_case`'s generation
-pass (this is the ordering constraint from
-[Why this sequence](#why-this-sequence)).
-
-### Why diverse strategies matter
-
-There is **no single correct way to place DERs** — the right placement depends
-on the question the benchmark is meant to probe, and a different question puts a
-different constraint on the binding edge of the feasible set. This mirrors how
-synthetic-network and hosting-capacity practice treats DER scenarios as a
-*designed input*: EPRI's DRIVE hosting-capacity method deliberately contrasts
-*distributed* placement (many small injections spread across the feeder,
-representative of residential rooftop PV) against *centralized* placement (a
-single large interconnection), because the two stress the network in opposite
-ways ([ref. 2](#augrefs)); and the NREL SMART-DS effort treats DER siting and
-sizing as configurable scenario knobs rather than a fixed fact of the network
-([ref. 3](#augrefs)). Offering several placement strategies is therefore a
-matter of *experimental design*, not optional decoration — it lets one base
-feeder generate a family of benchmark instances that exercise distinct physics.
-
-Choose the strategy from the research question:
+then drill into placement strategies and smart-IBR control, and
+[Developing OPF case families](tutorial_case_development.md) builds comparable
+scenario sets with explicit placement.
+
+## Choosing a placement strategy
+
+There is no single correct way to place DERs: the right placement depends on the
+question the benchmark is meant to probe, because each placement makes a
+different constraint the binding edge of the feasible set. Choose the strategy
+from the research question:
 
 | Research question | Strategy | What it stresses (binds first) |
 |---|---|---|
@@ -462,197 +137,37 @@ Choose the strategy from the research question:
 | Voltage-rise limits, embedded-generation hosting capacity | `:topology_targeted`, `topology_mode = :leaves` | Worst-case voltage rise at feeder ends, far from the source |
 | Bulk reverse power flow, upstream thermal limits | `:topology_targeted`, `topology_mode = :near_source` *or* `:hosting_capacity` | Transformer/head-of-feeder loading and reverse flow |
 
-The point of supporting all three is that a *single* base feeder can be turned
-into a family of benchmark instances — a voltage-rise case, a thermal-headroom
-case, a realistic-dispatch case — each making a different constraint the active
-one. That diversity is what makes the resulting set useful for comparing OPF
-formulations and solvers, not just solving one network once.
+Running several strategies on one base feeder yields a family of benchmark
+instances — a voltage-rise case, a thermal-headroom case, a realistic-dispatch
+case — each with a different active constraint. That diversity is what makes the
+set useful for comparing OPF formulations and solvers. The strategies, sizing
+bases and cost options are listed under
+[Adding generators](@ref "Adding generators (DER placement)") and
+[Adding IBRs](@ref adding-IBRs-der-placement) in the reference.
 
-### The recipe knobs
+## [Reading the manifest: where to fine-tune](@id starting-point)
 
-Placement is controlled by a [`GeneratorRecipe`](@ref):
-
-- **`strategy`** — `:load_following` (one DER per load bus, phasing inherited
-  from the load), `:hosting_capacity` (DERs sized to a fraction of the feeding
-  transformer's `s_rating`), or `:topology_targeted` (`topology_mode = :leaves`
-  for embedded generation at feeder ends, or `:near_source` for bulk injection).
-- **filters** — `voltage_levels` (e.g. `[:LV]`), `min_local_load_va`, and
-  `skip_source_buses` compose over any strategy.
-- **sizing** — `size_basis` (`:fraction_of_local_load`,
-  `:fraction_of_transformer_rating`, `:fraction_of_downstream_load`,
-  `:fixed_tiers`) with `der_p_fraction`.
-- **cost** — `cost_basis` (`:cheaper_than_slack`, `:tiered_by_level`,
-  `:uniform`); pricing DERs below the slack makes dispatch non-trivial — the
-  solver uses local generation until a voltage or thermal constraint binds.
-
-Every generator field written is recorded as a `TransformEntry` with rule
-`DER_PLACEMENT/<strategy>` and confidence `:synthetic` (a design choice, not a
-standard), and the run emits `I.DER.PLACED` / `W.DER.NO_CANDIDATES` /
-`W.DER.OVERSUPPLY` findings into the manifest's `findings_after`. Because every
-placement is tagged `:synthetic`, the manifest doubles as the list of knobs a
-modeler will most likely want to tune (see below).
-
-```@docs
-add_generators
-GeneratorRecipe
-default_generator_recipe
-```
-
-## [Adding IBRs (DER placement)](@id adding-IBRs-der-placement)
-
-[`add_ibrs`](@ref) is the inverter-interfaced counterpart to
-[`add_generators`](@ref). Where a `generator` is a thin active-power object, an
-`ibr` carries a richer model — an apparent-power nameplate `s_max`, a
-`topology` (`FOUR_LEG` / `THREE_LEG` / `SINGLE_PHASE`), a `prime_mover`, and an
-apparent-power circle `P² + Q² ≤ s_max²` in the OPF. Use it when the benchmark
-should model PV/storage converters with explicit VA headroom rather than plain
-dispatchable generation.
-
-The division of labor mirrors generators exactly: **placement places, augment
-bounds.** `add_ibrs` writes only the nameplate — `bus`, `terminal_map`,
-`topology`, `prime_mover`, `s_max`, `p_avail`, `cost` — and
-[Pass 4 of `augment_case`](#pass-4-IBR-dispatch-bounds) then derives the
-`p_max`/`p_min`/`q_min`/`q_max` dispatch box from that nameplate. The intended
-order is therefore the same one-line pipeline with `add_ibrs` in the
-generator slot:
-
-```julia
-net1, _   = fix_case(net)
-net2, imf = add_ibrs(net1;
-              recipe = IBRRecipe(strategy = :load_following))
-render_manifest(imf)               # every placement is explained
-net3, _   = augment_case(net2)     # fills p_max/p_min/q_min/q_max on the new IBRs
-```
-
-Placement is controlled by an [`IBRRecipe`](@ref). The strategy, filter and
-cost knobs are identical in meaning to [`GeneratorRecipe`](@ref) (so the
-[strategy-diversity guidance](#why-diverse-strategies-matter) applies unchanged),
-with these IBR-specific additions:
-
-- **`prime_mover`** — `:PV` (the MVP default; drives `p_min = 0` in the augment
-  pass). Battery and grid-forming IBRs are planned but not yet placed.
-- **`inverter_topology`** — `:infer` (FOUR_LEG when the host load has a neutral
-  terminal, else SINGLE_PHASE), or a forced `:FOUR_LEG` / `:THREE_LEG` /
-  `:SINGLE_PHASE`.
-- **sizing targets `s_max`**, not `p_max`: `size_basis` selects *how* the
-  nameplate is derived. The `:fraction_of_*` bases (`:fraction_of_local_load`,
-  `:fraction_of_transformer_rating`, `:fraction_of_downstream_load`) multiply a
-  network quantity by `s_fraction`; `:fixed_tiers` instead reads an **absolute
-  nameplate in VA** from the `fixed_tier_va` dict (per voltage-level family,
-  default `Dict(:LV => 30_000.0, :MV => 1_000_000.0)`). `s_to_p_ratio` then sets
-  `p_avail = s_to_p_ratio × s_max` (1.0 = unity-rated PV; below 1.0 leaves
-  reactive headroom at full irradiance).
-
-!!! tip "Sizing in absolute kVA, and placing at zero-load buses"
-    The default `:fraction_of_local_load` basis is convenient for scaling the
-    fleet to a feeder, but it has two awkward edges the reviewer-style questions
-    keep hitting:
-
-    - **You want to think in kVA, not "× local load."** Use
-      `size_basis = :fixed_tiers` and set the absolute nameplate directly:
-      `IBRRecipe(strategy = :load_following, size_basis = :fixed_tiers,
-      fixed_tier_va = Dict(:LV => 50_000.0))` places a 50 kVA unit on every LV
-      load bus regardless of that bus's load. (The generator analogue is
-      `GeneratorRecipe(size_basis = :fixed_tiers, fixed_tier_w = Dict(:LV => …))`,
-      in **W**.)
-    - **The bus has no local load but you still want a DER there.** A
-      `:fraction_of_local_load` size is *zero* at a zero-load bus, and
-      `min_local_load_va` will skip a low-load bus entirely. Two fixes: size with
-      `:fixed_tiers` (absolute, so load-independent), and/or choose candidates by
-      *topology* rather than by load —
-      `strategy = :topology_targeted, topology_mode = :leaves` (feeder ends) or
-      `:near_source`, which place at buses selected from the graph, not from where
-      demand happens to sit.
-
-!!! note "Modeling PV, batteries, EVs, and other DER technologies"
-    Two knobs are orthogonal and easy to conflate:
-
-    - **`strategy`** decides *where and how many* DERs are placed
-      (`:load_following` = one per load bus, `:topology_targeted`,
-      `:hosting_capacity`). The comment "one PV IBR per load bus" describes the
-      `:load_following` *strategy* — it is not a statement that IBRs are only PV.
-    - **`prime_mover`** decides *what technology* the converter is (`:PV`,
-      `:BATTERY`, `:GENERIC`, `:STATCOM`). `:PV` is the current placement default
-      (and the reason `p_min = 0` is injected — PV cannot absorb active power).
-
-    Mapping technologies onto objects: **PV, battery, or any converter-interfaced
-    DER → an `ibr`** with the matching `prime_mover`; a **synchronous / simple
-    dispatchable unit → a `generator`**. An **EV charger is demand, so it is a
-    `load`** (optionally time-varying via a charging profile — see the
-    [time-series tutorial](tutorial_timeseries.md)); model it as an `ibr` with
-    `prime_mover = "BATTERY"` only for a vehicle-to-grid (V2G) study where it
-    *injects*. `EV` is therefore not a `prime_mover` value — it is either a load
-    or a bidirectional battery, depending on the physics you mean.
-
-    One caveat on *automatic* placement: `add_ibrs` currently emits `:PV`
-    nameplates (the augment pass's `p_min = 0` is PV-specific; battery and
-    grid-forming placement is planned). To study other technologies today, author
-    the `ibr` with the intended `prime_mover` directly — the OPF engine models it
-    once the P/Q box is set — rather than relying on the placement recipe.
-
-Every field written is recorded as a `:synthetic` `TransformEntry` with rule
-`IBR_PLACEMENT/<strategy>`, and the run emits
-`I.IBR.PLACED` / `W.IBR.NO_CANDIDATES` / `W.IBR.OVERSUPPLY` findings into the
-manifest's `findings_after`.
-
-!!! note "I/O converter support"
-    `solve_opf` dispatches placed IBRs once `augment_case` has filled their
-    P/Q box — the OPF engine fully models IBRs (apparent-power circle,
-    topology-dependent voltage reference, constant-PF coupling). PowerIO v0.9
-    can import IBR/control data where the source carries it. BMOPFTools still
-    treats `to_pmd` and `to_dss` IBR export as an explicit follow up.
-
-```@docs
-add_ibrs
-IBRRecipe
-default_ibr_recipe
-```
-
-### STATCOMs and active power circulation
-
-[`add_statcom!`](@ref) places a single shunt converter (a STATCOM / *D-STATCOM*)
-at a named bus as an IBR with `prime_mover = "STATCOM"`. Its dispatch box is left
-to `augment_case`, which fills it according to the `dc_link_coupled` flag:
-
-- **reactive-only** (default) — per-phase active power is clamped to zero
-  (`p_min = p_max = 0`); the full per-phase rating becomes symmetric reactive
-  capability (`q_max = s_max`, `q_min = -s_max`).
-- **active power circulation** (`dc_link_coupled = true`) — per-phase active power
-  is opened to `±s_max` and the net DC-side power is bounded by
-  `p_dc_min … p_dc_max`, defaulted to `0 … 0` for a STATCOM. The OPF then enforces
-  `∑ₖ Pₖ ∈ [p_dc_min, p_dc_max]`, letting the converter move active power between
-  phases (see the [OPF model](opf.md#IBRs) and the
-  [D-STATCOM unbalance study](@ref statcom-unbalance)).
-
-The same `dc_link_coupled` augmentation applies to any IBR: for a non-STATCOM
-source it defaults the band to `0 … p_avail`, so a curtailable PV inverter can
-redistribute its available power across phases. Every derived bound is recorded as
-a `:standard` `TransformEntry`.
-
-```@docs
-add_statcom!
-```
-
-## [A starting point for fine-tuning](@id starting-point)
-
-The three passes do **not** claim to produce the one true benchmark. They
+The three operations do **not** claim to produce the one true benchmark. They
 produce a *defensible default* — every value is either copied from a published
-standard or flagged as a deliberate synthetic choice — and the manifest is the
-map of which is which. That distinction is the whole point: it tells a modeler
-exactly where to spend their fine-tuning effort.
+standard or flagged as a heuristic estimate or a deliberate synthetic choice —
+and the manifest is the map of which is which. That distinction tells a modeler
+where to spend fine-tuning effort.
 
 Read the manifest back by confidence tag:
 
-- **Standards-derived entries** (EN 50160 voltage windows, IEC 60364 ampacities,
-  EN 50549-1 reactive capability) are safe to keep unless the case targets a
-  jurisdiction with different rules — in which case override the relevant
-  recipe field (`v_declared_lv`, `q_capability_pf`, …) and re-run.
-- **`:synthetic` entries** (every DER placement, the slack price) are design
-  choices. These are the first things to revisit: the placement strategy, the
-  `der_p_fraction` sizing, the `cost_basis`. Change them and you change *what
-  the OPF decides*.
+- **`:standard` entries** (EN 50160 voltage windows, EN 50549-1 reactive
+  capability) are safe to keep unless the case targets a jurisdiction with
+  different rules — in which case override the relevant recipe field
+  (`v_declared_lv`, `q_capability_pf`, …) and re-run. The slack price is also
+  tagged `:standard` because the specification fixes the form of the slack cost
+  term; its 1.0 \$/kWh value is a recipe default (`slack_cost`) worth revisiting.
+- **`:heuristic` entries** (synthetic thermal ratings, solver guard bounds) are
+  estimates to check against real data before relying on them.
+- **`:synthetic` entries** (every DER placement) are design choices. These are
+  the first things to revisit: the placement strategy, the `der_p_fraction`
+  sizing, the `cost_basis`. Change them and you change *what the OPF decides*.
 
-The intended loop is therefore iterative, not one-shot:
+The intended loop is iterative, not one-shot:
 
 ```julia
 net3, mf = add_generators(net2;
@@ -666,79 +181,78 @@ net3, mf = add_generators(net2;
                                       der_p_fraction = 0.3))
 ```
 
-Because each pass is pure and re-runnable, and because the manifest records the
-*rule* behind every field, a modeler can converge on a case tailored to their
-study without ever reverse-engineering an opaque, pre-cooked benchmark file.
+Because each pass is pure and re-runnable, and the manifest records the *rule*
+behind every field, a modeler can converge on a case tailored to their study
+without reverse-engineering an opaque, pre-cooked benchmark file. To ship the
+manifest with the case, see
+[Serializing the manifest](@ref Serialising-the-manifest).
 
 ## Why augment? — rationale and literature
 
-The approach here is not ad hoc; it follows established practice in two adjacent
-communities.
+The approach follows established practice in two adjacent communities.
 
 **Curated benchmarks, not raw data.** The AC transmission community learned that
 raw network snapshots make poor optimization benchmarks: they lack generation
 limits, costs and thermal ratings, so an OPF over them is under-constrained and
 non-comparable across studies. PGLib-OPF answered this by *curating* a library
-in which "all networks have reasonable values for key parameters — generation
-injection limits, generation costs, and branch thermal limits"
+in which "all networks have reasonable values for key parameters"
 ([ref. 1](#augrefs)). `augment_case` does the four-wire-distribution equivalent,
 with the added discipline that the source of every value (which standard, or
 "synthetic") is recorded rather than baked in silently. The companion
-design-goals analysis for unbalanced OPF benchmarks argues the same point
-specifically for distribution: a benchmark must make its bounds and assumptions
-explicit to be reproducible ([ref. 4](#augrefs)).
+design-goals analysis for unbalanced OPF benchmarks makes the same point for
+distribution: a benchmark must make its bounds and assumptions explicit to be
+reproducible ([ref. 4](#augrefs)).
 
 **Standards as the source of defaults.** Where a value *can* be grounded in a
-published standard, it should be — so the default is auditable rather than
+published standard, it should be, so the default is auditable rather than
 arbitrary. Voltage windows follow EN 50160:2010 and DER reactive capability
-follows EN 50549-1:2019 (with IEEE 1547-2018 as the ANSI alternative, whose
-minimum 44 % injecting / 44 % absorbing reactive capability motivates the
-`q_capability_pf = 0.95` preset) ([ref. 5](#augrefs)). This is why
-`augment_case` separates standards-derived fills from synthetic ones in the
-manifest. Conductor ampacities are the deliberate exception: the thermal pass is
-a **heuristic estimate** loosely calibrated to IEC 60364-5-52:2009 / IEC 60228:2004
-tables, not a conformant derivation (a bare R₁₁ does not identify the conductor
+follows EN 50549-1:2019. IEEE 1547-2018 ([ref. 5](#augrefs)) specifies
+reactive capability as a fraction of nameplate kVA (Category B: 44 % injecting
+and absorbing; Category A: 44 % injecting, 25 % absorbing); the P-based
+`q_capability_pf` rule does not reproduce it, so ANSI-region studies write those
+bounds from the kVA rating. This is why `augment_case` separates
+standards-derived fills from synthetic ones in the manifest. Conductor
+ampacities are the deliberate exception: the thermal pass is a **heuristic
+estimate** loosely calibrated to IEC 60364-5-52:2009 / IEC 60228:2004 tables,
+not a conformant derivation (a bare R₁₁ does not identify the conductor
 material, class, or installation), and is tagged as such.
 
-**DER scenarios as designed inputs.** Where a value *cannot* be standardized —
-chiefly where to place generation and how large to make it — the literature
-treats it as a deliberately varied scenario rather than a fixed fact. EPRI's
-DRIVE hosting-capacity methodology contrasts distributed against centralized DER
-placement precisely because they stress a feeder differently ([ref. 2](#augrefs)),
-and NREL's SMART-DS program exposes DER siting/sizing as configurable scenario
-knobs over a fixed base network ([ref. 3](#augrefs)). `add_generators` follows
-this practice directly: its strategies (`:load_following`, `:topology_targeted`
-leaves/near-source, `:hosting_capacity`) are the BMOPF analogues of those
-scenario choices, and tagging them `:synthetic` is the acknowledgment
+**DER scenarios as designed inputs.** Where a value *cannot* be
+standardized — chiefly where to place generation and how large to make it — the
+literature treats it as a deliberately varied scenario rather than a fixed fact.
+EPRI's DRIVE hosting-capacity method contrasts *distributed* placement (many
+small injections, representative of residential rooftop PV) with *centralized*
+placement (a single large interconnection), because the two stress a feeder in
+opposite ways ([ref. 2](#augrefs)); NREL's SMART-DS effort exposes DER siting
+and sizing as configurable scenario knobs over a fixed base network
+([ref. 3](#augrefs)). The placement strategies (`:load_following`,
+`:topology_targeted` leaves/near-source, `:hosting_capacity`) are the BMOPF
+analogues of those scenario choices, and tagging them `:synthetic` acknowledges
 that they are design decisions, not measurements.
 
 ## Limitations
 
-The following augmentation tasks are **not** handled by `augment_case`:
-
-- **DER placement** — handled by the separate [`add_generators`](@ref) pass
-  documented above, not by `augment_case`, because where to place generators and
-  how to size them is a deliberate design choice rather than standards-derivable.
+`augment_case` does not handle the following:
 
 - **Zero-sequence voltage bound (`vzero_max`)** — the appropriate limit
   depends on the earthing system (TN, TT, IT have fundamentally different
   zero-sequence behavior) and cannot be standardized without knowing the
-  system's neutral earthing arrangement.  Use [`provenance_analysis`](@ref)
+  system's neutral earthing arrangement. Use [`provenance_analysis`](@ref)
   earthing zone results to choose a value if needed.
-
 - **Reactive load (`q_nom`)** — existing reactive demand is preserved as-is.
   If loads were imported with `pf = 0.88` OpenDSS defaults
   (flagged by `I.PROV.DSS_DEFAULT_PF`) the values should be reviewed
   before treating them as benchmark data.
-
-- **Transformer `s_max`** — `s_rating` already plays this role; the solver
-  uses it directly.  No separate `s_max` augmentation is needed.
+- **Transformer ratings** — no transformer thermal rating is inferred. The
+  nameplate `s_rating` (VA) must come from the source data; when present, the
+  OPF enforces it directly.
 
 ## [References](@id augrefs)
 
-Numbered citations above refer to this list. Power-quality and ampacity
+Numbered citations on this page refer to this list. Power-quality and ampacity
 standards (EN 50160:2010, EN 50549-1:2019, IEC 60228:2004, IEC 60364-5-52:2009)
-are cited inline at their point of use in the tables above.
+are cited at their point of use in the
+[Augmentation reference](augmentation_reference.md).
 
 1. S. Babaeinejadsarookolaee et al., "The power grid library for benchmarking
    AC optimal power flow algorithms," arXiv:1908.02788, 2019. (PGLib-OPF,
@@ -756,22 +270,3 @@ are cited inline at their point of use in the tables above.
 5. IEEE Std 1547-2018, *IEEE Standard for Interconnection and Interoperability
    of Distributed Energy Resources with Associated Electric Power Systems
    Interfaces*, IEEE, 2018.
-
-## Migrating existing augmentation recipes
-
-Synthetic thermal inference now defaults to off. To reproduce the old synthetic
-rating policy, request `apply_thermal=true` and retain the generated provenance.
-The legacy keywords `apply_vneg_bounds` and `vneg_max_pu` now control injection
-of the actual `vuf_max` ratio on three-phase buses. Existing absolute `vneg_max`
-values are preserved; inspect and remove an old synthetic absolute cap explicitly
-if the ratio is the intended policy. Rebuild split-phase bounds from the source
-case: augmentation never overwrites previously generated bounds.
-
-## Explicit placement and comparable scenarios
-
-Both placement recipes accept `bus_ids`, `phase_by_bus` and `capacity_budget`.
-The budget is W for new generators and VA for new IBRs, apportioned using the
-existing sizing weights. Explicit selections that fail filters raise errors.
-Phase overrides support a single declared phase with an explicit neutral only.
-See [Developing OPF case families](tutorial_case_development.md) for worked
-placement, availability, control and reduction comparisons.
