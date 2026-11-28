@@ -4,6 +4,22 @@
 
 Initial General release candidate. Registration has not yet been requested.
 
+- Augmentation and DER placement:
+  - `augment_case`, `add_generators` and `add_ibrs` accept the `SummaryReport`
+    returned by `analyze` (or its Symbol-keyed `results`) as `analysis`. An
+    `analysis` holding none of the sub-results a function uses is an
+    `ArgumentError` instead of being silently recomputed (#499).
+  - The reactive-capability rule for `q_capability_pf = 0.95` was labeled
+    `IEEE1547-2018_cos_phi_0.95` and tagged `:standard`, but IEEE 1547-2018
+    sets reactive capability from nameplate kVA. Any pf other than 0.90 is now
+    recorded as `cos_phi_<pf>_P_based` (IBRs: `…_ibr_default`) with confidence
+    `:heuristic`; the EN 50549-1 labels for pf = 0.90 are unchanged. Manifests
+    that match the old label must be updated (#500).
+  - `add_ibrs` rejects a `prime_mover` outside the data-model values (`PV`,
+    `BATTERY`, `GENERIC`, `STATCOM`, `DSTATCOM`), and the augment pass writes
+    `p_min = -p_max` for a `BATTERY` without one (rule
+    `BATTERY_symmetric_charge`, `:heuristic`) (#501).
+
 - Network models & data documentation review (November 2026): the section is
   checked against the implementation and regrouped into concepts, component
   guides, data model reference, and import & export.

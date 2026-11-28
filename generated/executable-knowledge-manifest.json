@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "5e240ba0b07a064d331cd019b134bac2f2e2f4a8c8f300669ecea9560e66fb3b",
+  "corpus_sha256": "2a5acafb15350a724b52d66fa9c70acf439b87f85bad3044e9726e0689f8ae8f",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -542,11 +542,11 @@
     },
     {
       "path": "src/augmentation/augment.jl",
-      "sha256": "d4f64f95face0e986b6d5edcf773a19b082b4e40e5f0b1a98fdbc2384335e359"
+      "sha256": "9a3367d79989addac97650c2b0692a9631b24c48be362ecc4d5cfe2e840d174e"
     },
     {
       "path": "src/augmentation/der_placement.jl",
-      "sha256": "159d02471b656b55b0d84aa1796dc451ca0329c7db2d229311a74a106f2bcd37"
+      "sha256": "fb388d62de4145f38a0c4968387db10089efbd438440cbd8907514e413d03e93"
     },
     {
       "path": "src/augmentation/fix.jl",
@@ -554,7 +554,7 @@
     },
     {
       "path": "src/augmentation/ibr_placement.jl",
-      "sha256": "f71ea00eca4b3fcb9c2a32df8250be24a09c3cd4a00e065dea796245ddef9837"
+      "sha256": "0aa9baf48d9a882c213a92e55ff90047f48e1148efeb71cbfde22c264692e704"
     },
     {
       "path": "src/augmentation/manifest.jl",
@@ -758,7 +758,7 @@
     },
     {
       "path": "test/augmentation_tests.jl",
-      "sha256": "3c4a7d6c3568d04b5d37c59d34df39815e4aa1ae08c857ff82963fd8dd6e5f64"
+      "sha256": "b19f2d5d82e2f05060e76c0d1da88895225eebfe1ea6bfe6b0d3965c5ee673a5"
     },
     {
       "path": "test/case_development_opf_tests.jl",

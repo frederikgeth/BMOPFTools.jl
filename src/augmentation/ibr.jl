@@ -5,8 +5,9 @@
 # P bounds
 # ────────
 # If p_max is absent, it is derived per phase from p_avail (split in proportion to
-# the per-phase s_max ratings when present, else equally) or from s_max.  For PV prime movers p_min = 0 is also
-# injected when absent (no active-power absorption).
+# the per-phase s_max ratings when present, else equally) or from s_max. When
+# p_min is absent, PV gets p_min = 0 (no active-power absorption) and BATTERY
+# gets p_min = -p_max (charge limit assumed equal to discharge limit).
 #
 # Q bounds
 # ────────
@@ -34,7 +35,11 @@ function _apply_ibr_augmentation!(net′::Dict{String,Any},
     profiles  = get(net′, "control_profile", Dict())
 
     pf      = r.ibr_default_pf
-    rule    = "EN50549-1:2019_cos_phi_$(round(pf, digits=3))_ibr_default"
+    # Keep the published EN 50549-1 label for pf = 0.90; any other pf is a
+    # P-based study choice (see `_q_rule`).
+    rule, q_conf = pf ≈ 0.90 ?
+        ("EN50549-1:2019_cos_phi_$(round(pf, digits=3))_ibr_default", :standard) :
+        ("cos_phi_$(round(pf, digits=3))_P_based_ibr_default", :heuristic)
     tan_phi = tan(acos(pf))
 
     for (inv_id, inv) in ibrs
@@ -156,6 +161,19 @@ function _apply_ibr_augmentation!(net′::Dict{String,Any},
                 "PV cannot absorb active power; p_min = 0 per phase"))
         end
 
+        # A battery charges as well as discharges: without a stated charge
+        # rating, assume the charge limit equals the discharge limit. A study
+        # with an asymmetric converter or a state-of-charge window sets p_min.
+        if !haskey(inv, "p_min") && get(inv, "prime_mover", nothing) == "BATTERY" &&
+           get(inv, "p_max", nothing) isa AbstractVector
+            pmin = -Float64.(inv["p_max"])
+            inv["p_min"] = pmin
+            push!(entries, TransformEntry(
+                :ibr, inv_id, "p_min", nothing, pmin,
+                "BATTERY_symmetric_charge", :heuristic,
+                "battery charge limit assumed equal to discharge limit; p_min = -p_max per phase"))
+        end
+
         # ── DC-link net active-power bounds (shared-DC-link converters) ──────
         _apply_dc_link_bounds!(inv, inv_id, entries, is_statcom)
 
@@ -182,11 +200,11 @@ function _apply_ibr_augmentation!(net′::Dict{String,Any},
 
             push!(entries, TransformEntry(
                 :ibr, inv_id, "q_min", nothing, q_min_vec,
-                rule, :standard,
+                rule, q_conf,
                 "Q_min = -P_max × tan(arccos($(pf)))"))
             push!(entries, TransformEntry(
                 :ibr, inv_id, "q_max", nothing, q_max_vec,
-                rule, :standard,
+                rule, q_conf,
                 "Q_max = P_max × tan(arccos($(pf))) ≈ $(round(tan_phi, digits=3)) × P_max"))
         end
     end

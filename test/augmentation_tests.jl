@@ -510,6 +510,97 @@ end
     @test haskey(net′["bus"]["b1"], "v_min")   # bounds still applied
 end
 
+@testset "T4: analysis keyword accepts analyze() output (#499)" begin
+    net = _lv_net()
+    fields(mf) = Set((e.component_id, e.field) for e in mf.entries)
+    _, mf0 = augment_case(net)
+    rep = analyze(net)
+    _, mf_rep = augment_case(net; analysis = rep)                 # SummaryReport
+    _, mf_res = augment_case(net; analysis = rep.results)         # Symbol keys
+    @test fields(mf_rep) == fields(mf0)
+    @test fields(mf_res) == fields(mf0)
+
+    # the given analysis is used, not recomputed: an empty voltage map means
+    # the bounds pass has no nominal voltages and writes no bus bounds
+    empty_vl = Dict(:voltage_levels => Dict{String,Any}(
+                        "bus_voltage_map" => Dict{String,Float64}()),
+                    :provenance => rep.results[:provenance])
+    net_e, _ = augment_case(net; analysis = empty_vl)
+    @test !haskey(net_e["bus"]["b1"], "v_min")
+
+    # an analysis holding none of the needed entries is an error
+    @test_throws ArgumentError augment_case(net; analysis = Dict("foo" => 1))
+    @test_throws ArgumentError augment_case(net; analysis = "voltage_levels")
+    @test_throws ArgumentError add_generators(net; analysis = Dict(:provenance => 1))
+    @test_throws ArgumentError add_ibrs(net; analysis = Dict("foo" => 1))
+
+    # placement accepts a SummaryReport too
+    _, gmf0 = add_generators(net)
+    _, gmf  = add_generators(net; analysis = rep)
+    @test fields(gmf) == fields(gmf0)
+    _, imf0 = add_ibrs(net)
+    _, imf  = add_ibrs(net; analysis = rep)
+    @test fields(imf) == fields(imf0)
+end
+
+@testset "T3: reactive-capability rule labels (#500)" begin
+    net = _lv_net_with_gen()
+    rule_conf(mf, ct) = only(unique((e.rule, e.confidence) for e in mf.entries
+                                     if e.component_type == ct && e.field == "q_max"))
+    _, mf90 = augment_case(net)
+    @test rule_conf(mf90, :generator) == ("EN50549-1:2019_cos_phi_0.90", :standard)
+    _, mf95 = augment_case(net; recipe = AugmentationRecipe(q_capability_pf = 0.95))
+    rule95, conf95 = rule_conf(mf95, :generator)
+    @test !occursin("1547", rule95) && conf95 === :heuristic
+    @test rule95 == "cos_phi_0.95_P_based"
+
+    inet = parse_bmopf("""
+    {"bus":{"b":{"terminal_names":["1","n"]}},
+     "voltage_source":{"vs":{"bus":"b","terminal_map":["1"],"v_magnitude":[230.0],"v_angle":[0.0]}},
+     "ibr":{"v":{"bus":"b","terminal_map":["1","n"],"topology":"SINGLE_PHASE",
+         "prime_mover":"PV","s_max":[5000.0]}}}
+    """; from_string=true)
+    _, imf90 = augment_case(inet)
+    @test rule_conf(imf90, :ibr) == ("EN50549-1:2019_cos_phi_0.9_ibr_default", :standard)
+    _, imf95 = augment_case(inet; recipe = AugmentationRecipe(ibr_default_pf = 0.95))
+    @test rule_conf(imf95, :ibr) == ("cos_phi_0.95_P_based_ibr_default", :heuristic)
+end
+
+@testset "T5: battery p_min and prime_mover validation (#501)" begin
+    bnet(extra) = parse_bmopf("""
+    {"bus":{"b":{"terminal_names":["1","n"]}},
+     "voltage_source":{"vs":{"bus":"b","terminal_map":["1"],"v_magnitude":[230.0],"v_angle":[0.0]}},
+     "ibr":{"v":{"bus":"b","terminal_map":["1","n"],"topology":"SINGLE_PHASE",
+         "prime_mover":"BATTERY","s_max":[5000.0]$extra}}}
+    """; from_string=true)
+    net′, mf = augment_case(bnet(""))
+    v = net′["ibr"]["v"]
+    @test v["p_min"] == -v["p_max"]
+    e = only(filter(x -> x.component_id == "v" && x.field == "p_min", mf.entries))
+    @test e.rule == "BATTERY_symmetric_charge" && e.confidence === :heuristic
+
+    # an explicit p_min is kept
+    net2′, _ = augment_case(bnet(""","p_min":[-1000.0]"""))
+    @test net2′["ibr"]["v"]["p_min"] == [-1000.0]
+
+    # GENERIC keeps no p_min (no assumption about its active-power range)
+    gnet = bnet("")
+    gnet["ibr"]["v"]["prime_mover"] = "GENERIC"
+    gnet′, _ = augment_case(gnet)
+    @test !haskey(gnet′["ibr"]["v"], "p_min")
+
+    # add_ibrs validates prime_mover against the data-model values
+    lv = _lv_net()
+    @test_throws ArgumentError add_ibrs(lv; recipe = IBRRecipe(prime_mover = :pv))
+    @test_throws ArgumentError add_ibrs(lv; recipe = IBRRecipe(prime_mover = :EV))
+    placed, _ = add_ibrs(lv; recipe = IBRRecipe(prime_mover = :BATTERY))
+    aug, _ = augment_case(placed)
+    for ibr in values(aug["ibr"])
+        @test ibr["prime_mover"] == "BATTERY"
+        @test ibr["p_min"] == -ibr["p_max"]
+    end
+end
+
 # ── T0: Voltage-level snapping ───────────────────────────────────────────────
 
 # LV feeder declared at a non-standard 240 V (e.g. an imported 240/415 V model).

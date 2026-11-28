@@ -13,9 +13,11 @@ does not establish physical feasibility or standards compliance.
                [`from_dss`](@ref))
 - `recipe`   — an [`AugmentationRecipe`](@ref) controlling which passes run
                and what defaults to use; see [`default_recipe`](@ref)
-- `analysis` — output of [`analyze`](@ref) or a dict containing at least
-               `"voltage_levels"` and `"provenance"` sub-results; if `nothing`
-               the relevant sub-analyses are run internally
+- `analysis` — the [`SummaryReport`](@ref) returned by [`analyze`](@ref) on
+               this `net`, its `results`, or a dict with `"voltage_levels"`
+               and/or `"provenance"` entries; a missing entry is computed
+               internally, and an `analysis` holding neither is an
+               `ArgumentError`. If `nothing`, both are computed internally
 - `config`   — tunable thresholds (see `load_config`); currently drives
                optional voltage-level snapping (`[augment.voltage_snap]`), which
                snaps each bus's derived nominal to a standard IEC/ANSI level and
@@ -61,6 +63,8 @@ function augment_case(net::Dict{String,Any};
                        analysis = nothing,
                        config::Dict = _DEFAULT_CONFIG)::Tuple{Dict{String,Any}, TransformationManifest}
 
+    analysis = _normalize_analysis(analysis, ("voltage_levels", "provenance"),
+                                   "augment_case")
     net′   = deepcopy(net)
     entries = TransformEntry[]
 
@@ -122,6 +126,37 @@ function augment_case(net::Dict{String,Any};
 end
 
 # ── Internal helpers ─────────────────────────────────────────────────────────
+
+# Accepted `analysis` keys per sub-result; the first present one is used.
+const _ANALYSIS_KEYS = Dict(
+    "voltage_levels" => ("voltage_levels", "voltage_level_analysis", "levels"),
+    "provenance"     => ("provenance", "provenance_analysis"),
+    "connectivity"   => ("connectivity", "connectivity_analysis"),
+)
+
+# Normalize the `analysis` keyword of augment_case / add_generators / add_ibrs:
+# `nothing`, a `SummaryReport` from `analyze`, its Symbol-keyed `results`, or a
+# String-keyed dict. Returns `nothing` or a String-keyed dict. A given analysis
+# that holds none of the sub-results `caller` uses is an error rather than
+# being silently recomputed; missing individual entries are recomputed.
+function _normalize_analysis(analysis, needed::Tuple, caller::AbstractString)
+    analysis === nothing && return nothing
+    d = if analysis isa SummaryReport
+        Dict{String,Any}(String(k) => v for (k, v) in analysis.results)
+    elseif analysis isa AbstractDict
+        Dict{String,Any}(string(k) => v for (k, v) in analysis)
+    else
+        throw(ArgumentError("$caller: `analysis` must be `nothing`, a " *
+            "SummaryReport from `analyze`, or a dict of analysis results; " *
+            "got $(typeof(analysis))."))
+    end
+    accepted = [k for n in needed for k in _ANALYSIS_KEYS[n]]
+    any(k -> haskey(d, k), accepted) || throw(ArgumentError(
+        "$caller: `analysis` holds none of the expected sub-results " *
+        "($(join(accepted, ", "))); pass the SummaryReport returned by " *
+        "`analyze`, or omit `analysis` to compute them internally."))
+    d
+end
 
 function _resolve_voltage_levels(net, analysis)
     if analysis isa Dict
