@@ -2,8 +2,8 @@
 
 Why this specification exists, what it does and does not cover, and the design choices
 behind it. This page frames the rest of the specification; it introduces no model
-content. Where the scope differs from the older Task Force PDF, the difference reflects
-what BMOPFTools actually implements.
+content. Where the scope differs from the Task Force PDF, the difference reflects
+what BMOPFTools implements.
 
 ## Motivation
 
@@ -71,28 +71,36 @@ The specification covers the common branch and nodal elements, with these capabi
   stations, back-to-back SOPs, and MVDC ties.
 - **Impedance:** direct linecodes/matrices or [geometry-derived](impedance.md) via Carson/Deri.
 - **Time variation:** [time-series](timeseries.md) scaling of parameters (snapshot-based).
+- **Problem classes:** OPF (`solve_opf`), power flow (`solve_pf`), and a feasibility
+  OPF with elastic KCL slacks (`solve_feasibility_opf`); see
+  [OPF formulation](../opf.md).
 
 ## Present limitations
 
 The model deliberately targets features universally required for distribution OPF, not
-every possible device. In this version:
+every possible device:
 
-- A **single voltage source** (one reference bus).
-- **Snapshot** solves — time series scale parameters per instant with no inter-temporal
-  coupling (no storage state-of-charge dynamics, no OLTC time-domain control).
+- The specification assumes a **single voltage source**; BMOPFTools warns otherwise
+  (`W.SPEC.N_SOURCES`) but builds the OPF with every declared source.
+- **Snapshot** data — time series scale parameters per instant, and `solve_opf` solves
+  one snapshot with no inter-temporal coupling. The data model has no storage
+  state-of-charge or OLTC time-domain control; multi-period studies build several
+  snapshots into one JuMP model with `build_opf_model` and add their own coupling
+  constraints.
 - Transformer **saturation** and detailed frequency-dependent effects are not modeled
   (a no-load magnetizing shunt *is* supported).
 - The default objective is linear generation/dispatch cost; quadratic cost terms are not
-  included.
+  provided. Loss, unbalance, and voltage-deviation objectives can be composed instead
+  (see [Choosing an objective](@ref objectives)).
 
-!!! note "Relaxations beyond the original PDF"
-    Several restrictions listed in the older Task Force PDF have been lifted in this
-    implementation and are documented as first-class features here: voltage-dependent
+!!! note "Relaxations beyond the Task Force PDF"
+    Several restrictions listed in the Task Force PDF do not apply to this
+    implementation, which documents these as first-class features: voltage-dependent
     (ZIP/exponential) **loads**; **inline per-line impedance/admittance** matrices as an
     alternative to a linecode; the general **n-winding** transformer and a separate
     **regulator** element (autotransformer, open-delta); a magnetizing **no-load shunt**
     and internal **neutral grounding**; **continuous tap** optimization; and the **IBR**
-    and **DC** subsystems. Each carries a reconciliation note on its page.
+    and **DC** subsystems.
 
 ## Out of scope
 

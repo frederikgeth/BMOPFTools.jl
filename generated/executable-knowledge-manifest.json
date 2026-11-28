@@ -15,7 +15,7 @@
     "transformer_winding_convention_preservation",
     "unit_base_serialization_invariance"
   ],
-  "corpus_sha256": "a7a1a6c32bdbfd0d0b7e1ae4b19c0dda1e7a5c4fbdb3a08067702260042fedae",
+  "corpus_sha256": "47e7ca74bcb148d184e4ff5c775f6d87656e5b0c01bfca27aeaf2854e02cfebc",
   "knowledge_ids": [
     "PSK-000001",
     "PSK-000002",
@@ -186,7 +186,7 @@
     },
     {
       "path": "docs/src/spec/control-profile.md",
-      "sha256": "b461855311408f701d15e8945c46cad37e36291de1ce647bc0c15df2deee4560"
+      "sha256": "998f9943b442eeb27edee254a26a714d12472d1f538ed2d42638b4fc5e5fcf8e"
     },
     {
       "path": "docs/src/spec/nodal-admittance.md",

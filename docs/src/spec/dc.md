@@ -72,16 +72,23 @@ i^{\text{dc}}_{\ell,k} = \frac{v^{\text{dc}}_{b^{\text{fr}},k} - v^{\text{dc}}_{
 
 It enters DC KCL with opposite sign at each end. **Thermal** and **power** limits:
 $(i^{\text{dc}}_{\ell,k})^2 \le (\textcolor{red}{i^{\max}_{\ell,k}})^2$ and, on the
-pole conductor, $(v^{\text{dc}}\,i^{\text{dc}})^2 \le (\textcolor{red}{p^{\max}_\ell})^2$.
+first conductor (taken as the pole) with its from-end voltage,
+$(v^{\text{dc}}_{b^{\text{fr}},1}\,i^{\text{dc}}_{\ell,1})^2 \le (\textcolor{red}{p^{\max}_\ell})^2$.
+A loop of zero-resistance conductors (including one closed through two perfect
+grounds) leaves a circulating current undetermined and is rejected
+(`E.INT.DC_IDEAL_LOOP`).
 
 ## DC groundings, loads, and sources
 
 ### `dc_grounding`
 
-Sets the signed-voltage reference of a DC island. `r = 0` (or omitted) is **perfect**
+Sets the signed-voltage reference of a DC island: fields `dc_bus`, `terminal`
+(required) and `r` [Ω]. `r = 0` (or omitted) is **perfect**
 grounding ($v^{\text{dc}}=0$ with a free earth current); `r > 0` is grounding through
-an impedance, drawing $i^{\text{earth}} = v^{\text{dc}}/\textcolor{red}{r}$ from the
-node. At least one grounding per connected DC island is required.
+a resistance, drawing $i^{\text{earth}} = v^{\text{dc}}/\textcolor{red}{r}$ from the
+node. Each connected DC island needs at least one grounding
+(`E.INT.NO_DC_VOLTAGE_REFERENCE`); more than one warns
+(`W.DOM.DC_MULTIPOINT_GROUNDING`).
 
 ### `dc_load` and `dc_source`
 
@@ -121,15 +128,21 @@ through DC KCL.
 ### DC-side control mode (`dc_control`)
 
 - **`P`** (default): the OPF dispatches the converter power (no extra constraint).
-- **`V`** (DC-voltage master): pins $\Delta v^{\text{dc}}_r = \textcolor{red}{v^{\text{set}}_r}$;
+- **`V`** (DC-voltage master): pins $\Delta v^{\text{dc}}_r = \textcolor{red}{v^{\text{set}}_r}$
+  (`dc_v_set`, defaulting to the pole-to-return `v_dc_nom` of the `dc_bus`);
   the AC power floats to balance the zone.
-- **`droop`** (saturated V–P): $\sum_k P_{r,k} = f(\Delta v^{\text{dc}}_r)$, a
-  piecewise-linear characteristic rising with DC voltage, flat within an optional
-  dead-band around $\textcolor{red}{v^{\text{set}}_r}$, and clamped at the converter
-  power limits.
+- **`droop`** (saturated V–P): $\sum_k P_{r,k} = f(|\Delta v^{\text{dc}}_r|)$, a
+  piecewise-linear characteristic through `dc_p_ref` at $|v^{\text{set}}_r|$ with
+  slope $1/$`dc_droop` (W/V, so `dc_droop` $>0$ is required), rising with DC-voltage
+  magnitude, flat within an optional ±`dc_deadband` around $|v^{\text{set}}_r|$, and
+  clamped at $\sum_k$`p_min`/$\sum_k$`p_max` (or $\mp\sum_k$`s_max` when those are
+  absent).
 
 Each connected DC island needs at least one `V` or `droop` converter, else the DC
-voltage is underdetermined.
+voltage is underdetermined (`E.INT.DC_NO_VOLTAGE_CONTROL`). Two exact voltage
+statements that disagree (for example two masters on one port with different
+setpoints) are a data error (`E.INT.DC_REFERENCE_CONFLICT`); statements that agree
+are stamped once.
 
 ## Implementation in BMOPFTools
 
@@ -166,5 +179,5 @@ voltage is underdetermined.
 !!! warning "The DC subsystem is not in the Task Force PDF"
     `dc_bus`, `dc_branch`, `dc_grounding`, `dc_load`, `dc_source`, and the AC/DC
     converter coupling (via IBR `dc_bus`) are BMOPFTools extensions with no counterpart
-    in the current PDF. They should be added as a first-class DC subsystem in the
+    in the Task Force PDF. They should be added as a first-class DC subsystem in the
     superseding spec.

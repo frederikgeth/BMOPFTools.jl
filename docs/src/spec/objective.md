@@ -1,44 +1,35 @@
 # Objective and feasibility
 
-The component pages define the network's variables and constraints — the *feasible
-set*. This page defines what is optimized over it: the **objective**, and the
-**feasibility relaxation** used to diagnose networks that have no feasible point.
-Unlike the component pages this is a *formulation* page, not a data object. Symbols are
-defined in [Notation](notation.md).
+The component pages define the network's variables and constraints, that is, the
+*feasible set*. This page covers what is optimized over it: the dispatch-cost
+objective and the feasibility relaxation used to diagnose networks that have no
+feasible point. Symbols are defined in [Notation](notation.md).
 
-## Objective
+The foundational model is in the [Objective page of the BMOPF specification](https://distribution-system-opt.github.io/math-and-data-model-specifications/stable/spec/objective/). This page records where BMOPFTools extends it and how BMOPFTools implements it.
 
-The default snapshot objective minimizes total **active-power dispatch cost
-rate**, summed over every dispatchable element (generators, the voltage source,
-IBRs) and every phase:
+## BMOPFTools extensions to the specification
 
-```math
-\min \; \sum_{e} \sum_{k} \textcolor{red}{c_{e,k}}\; P_{e,k}/1000,
-```
+BMOPFTools uses the specification's linear dispatch-cost objective and its
+[sign convention](https://distribution-system-opt.github.io/math-and-data-model-specifications/stable/spec/objective/#Sign-convention)
+(a positive price minimizes the element's injection; the voltage source is not a
+special case). It differs in these points:
 
-where $\textcolor{red}{c_{e,k}}$ (currency/kWh, from each element's per-phase
-`cost` array) is the energy price of phase $k$, and $P_{e,k}$ is that phase's
-injected active power in watts — the same bilinear expression the element defines
-($P_{e,k}=\Delta v^r\,c^r + \Delta v^i\,c^i$). The factor $1/1000$ converts W to
-kW, so this snapshot objective is a cost **rate** in currency/h. For a
-multi-period monetary objective, multiply every snapshot rate by its duration in
-hours before summing.
+- **Field name.** The per-phase price array is read from each element's `cost`
+  field (currency/kWh), not `energy_cost_rate`.
+- **IBRs are priced too.** The sum runs over generators, the voltage source, and
+  IBRs.
+- **Snapshot cost rate.** The objective omits the snapshot duration
+  $\Delta_T$ and is a cost *rate* in currency/h:
 
-### Sign convention
+  ```math
+  \min \; \sum_{e} \sum_{k} \textcolor{red}{c_{e,k}}\; P_{e,k}/1000,
+  ```
 
-$P_{e,k}$ is the power **injected into the network** by the element, uniformly across
-generators, IBRs, and the voltage source (each stamps $+I$ into KCL). Therefore:
-
-- a **positive** cost minimizes that element's injection;
-- a **negative** cost maximizes it.
-
-The voltage source is *not* special: for the slack, positive injection means importing
-from the grid, so a positive source cost is the grid import price (and export, a
-negative injection, is credited at the same price). Maximizing system exports is a
-positive slack cost with free DERs.
-
-The cost is **linear** in the dispatch and is added exactly — there is no
-polynomial/quadratic term. A `cost` must be a per-phase vector; a scalar is rejected.
+  where $P_{e,k}$ is the active power, in watts, injected by phase $k$ of element
+  $e$. For a multi-period monetary objective, multiply every snapshot rate by its
+  duration in hours before summing.
+- **Per-phase vectors only.** A scalar (polynomial-style) `cost` is rejected; there is
+  no quadratic term.
 
 ## Feasibility relaxation
 
@@ -49,13 +40,18 @@ of cost.
 
 ### Elastic slack
 
-At every ungrounded, non-source terminal a free slack current
+At every ungrounded terminal that has a KCL row, a free slack current
 $\textcolor{blue}{s_{i,p}}=s^r_{i,p}+\textcolor{brown}{j}\,s^i_{i,p}$ is added directly
 into that terminal's KCL:
 
 ```math
-\kappa^{\Re}_{i,p} + s^r_{i,p} = 0, \qquad \kappa^{\Im}_{i,p} + s^i_{i,p} = 0.
+\kappa^{\Re}_{i,p} + s^r_{i,p} = 0, \qquad \kappa^{\Im}_{i,p} + s^i_{i,p} = 0,
 ```
+
+where $\kappa^{\Re}_{i,p}$ and $\kappa^{\Im}_{i,p}$ are the real and imaginary parts
+of the unrelaxed KCL current sum at terminal $(i,p)$. Source-bus phase terminals are
+included; there the source's own free current already balances KCL, so the penalty
+drives their slack to zero.
 
 Where a slack pair is present, it can absorb any residual in that terminal's KCL.
 This does **not** guarantee that the complete relaxed NLP is feasible or that a

@@ -1,70 +1,27 @@
 # Voltage sources
 
-A **voltage source** is an ideal voltage reference with a current slack: it fixes the
-bus terminal voltages and injects whatever current the rest of the network requires.
-It is the power-flow reference (slack) bus. This model version permits exactly one.
-Parts 1–5 state the foundational model; [part 6](#6.-Implementation-in-BMOPFTools)
-records how BMOPFTools realizes it. Symbols are defined in [Notation](notation.md).
+A **voltage source** is an ideal voltage reference with a free slack current. It fixes
+the host-bus terminal voltages and is the power-flow reference (slack) bus. Symbols are
+defined in [Notation](notation.md).
+
+The foundational model is in the [Voltage sources page of the BMOPF specification](https://distribution-system-opt.github.io/math-and-data-model-specifications/stable/spec/source/). This page records where BMOPFTools extends it and how BMOPFTools implements it.
 
 ![Voltage source: a fixed line-to-ground voltage reference with a free slack current.](assets/vsource.svg)
 
-## 1. Data model
+## BMOPFTools extensions to the specification
 
-A voltage source is an entry of the top-level `voltage_source` object, keyed by its
-string ID $s$.
+| Field | Type | Unit | Description |
+|-------|------|:----:|-------------|
+| `cost` | number[] | currency/kWh | Per-phase price of imported active power. BMOPFTools reads this field in place of the specification's `energy_cost_rate`; see [Objective](objective.md). |
+| `configuration` | string | – | `"WYE"` (default) or `"SINGLE_PHASE"`; other values are rejected. |
+| `p_min`, `p_max` | number[] | W | Optional per-phase active-power bounds (grid-connection limits). |
+| `q_min`, `q_max` | number[] | var | Optional per-phase reactive-power bounds. |
 
-| Field | Type | Unit | Req. | Description |
-|-------|------|:----:|:----:|-------------|
-| `bus` | string | – | ✔ | Host bus ID $i$ |
-| `terminal_map` | string[] | – | ✔ | Conductor→terminal map $\textcolor{purple}{\mathbf{N}_{s}}$ (phase terminals) |
-| `v_magnitude` | number[] | V | ✔ | Per-terminal voltage magnitude |
-| `v_angle` | number[] | rad | ✔ | Per-terminal voltage angle |
+With the bound fields absent the source is the pure slack of the specification. With
+them, it becomes a bounded grid connection; see
+[Optional grid-connection bounds](@ref source-grid-connection-bounds).
 
-## 2. Input symbols
-
-| Field | Symbol | Notes |
-|-------|:------:|-------|
-| `v_magnitude` | $\textcolor{red}{\lvert\mathbf{U}^{s}_{s}\rvert}$ | per terminal |
-| `v_angle` | $\textcolor{red}{\boldsymbol{\theta}^{s}_{s}}$ | per terminal |
-
-## 3. Variables
-
-The source injects a **slack current** $\textcolor{blue}{I_{s,k}}$ per phase terminal,
-stacked into $\textcolor{blue}{\mathbf{I}_{s}}$. It is otherwise unconstrained — it
-absorbs whatever power balance the network requires, which is what makes this the
-reference bus.
-
-## 4. Equality constraints
-
-### Fixed reference voltage
-
-Each phase terminal is fixed to its polar reference, and the source-bus neutral to
-ground:
-
-```math
-\textcolor{blue}{U_{i,p}} = \textcolor{red}{|U^{s}_{s,p}|}\,\textcolor{brown}{\angle}\,\textcolor{red}{\theta^{s}_{s,p}},
-\qquad
-\textcolor{blue}{U_{i,n}} = 0.
-```
-
-### Slack current injection
-
-The slack current enters KCL at the phase terminals, with its return at the neutral:
-$+\textcolor{blue}{I_{s,k}}$ at phase $t_k$, and $-\sum_k\textcolor{blue}{I_{s,k}}$ at
-the neutral.
-
-## 5. Inequality constraints
-
-### Cartesian variable bounds
-
-**None** — the slack current is free.
-
-### Engineering bounds
-
-**None (foundational).** A pure slack has no rating. (The implementation offers
-optional grid-connection power bounds; see part 6.)
-
-## 6. Implementation in BMOPFTools
+## Implementation in BMOPFTools
 
 ### [Realization](@id Realisation)
 
@@ -75,11 +32,11 @@ optional grid-connection power bounds; see part 6.)
   with the summed return at the neutral (`_kcl_add!`). Because the terminal voltages
   are fixed constants, the per-phase power is **linear** in the slack current.
 
-### Optional grid-connection bounds (implementation extension)
+### [Optional grid-connection bounds (implementation extension)](@id source-grid-connection-bounds)
 
-When `p_min`/`p_max`/`q_min`/`q_max` are supplied, the source becomes a bounded grid
-connection. The per-phase power is **linear** in the slack current (the terminal
-voltages are fixed), and box-bounded:
+When `p_min`/`p_max`/`q_min`/`q_max` are supplied, the per-phase power, which is
+**linear** in the slack current because the terminal voltages are fixed, is
+box-bounded:
 
 ```math
 \textcolor{blue}{S_{s,k}} = \Delta\textcolor{blue}{U_{s,k}}\,(\textcolor{blue}{I_{s,k}})^{*} = P_k + \textcolor{brown}{j}\,Q_k,
@@ -89,7 +46,8 @@ voltages are fixed), and box-bounded:
 \textcolor{red}{Q^{\min}_k}\le Q_k\le\textcolor{red}{Q^{\max}_k}.
 ```
 
-Absent bounds leave a pure slack.
+where $\Delta\textcolor{blue}{U_{s,k}}$ is the phase-to-neutral voltage of phase
+$k$ at the source bus. Absent bounds leave a pure slack.
 
 ### Source map
 
@@ -98,9 +56,9 @@ Absent bounds leave a pure slack.
 | Voltage fixing, neutral fixing | `source.jl:_add_source_constraints!` |
 | Slack current + KCL, optional P/Q bounds | `source.jl:_add_source_constraints!` |
 
-!!! warning "Reconciliation note — source P/Q bound fields absent from schema"
-    The optional grid-connection fields `p_min`, `p_max`, `q_min`, `q_max` (and a
-    `configuration`) are read and enforced by the code, but the schema's
-    `voltage_source` object requires only `v_magnitude`, `v_angle`, `bus`,
-    `terminal_map` and does **not** list them. Add these fields (with units W/var) to
-    make bounded sources expressible in conformant data.
+!!! warning "Reconciliation note — source extension fields absent from schema"
+    The fields `cost`, `configuration`, `p_min`, `p_max`, `q_min`, and `q_max` are
+    read and enforced by the code, but the bundled draft schema's `voltage_source`
+    object lists only `v_magnitude`, `v_angle`, `bus`, `terminal_map`, and
+    `time_series`. Add these fields (with units currency/kWh, W, and var) to make
+    priced and bounded sources expressible in conformant data.

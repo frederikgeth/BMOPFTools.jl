@@ -1,16 +1,15 @@
 # [Modeling notes and FAQ](@id Modelling-notes-and-FAQ)
 
-Practical questions that recur when building cases, with answers sourced from the
-current implementation (some differ from older guidance where BMOPFTools has since added
-support). Symbols are defined in [Notation](notation.md).
+Practical questions that recur when building cases, answered for the BMOPFTools
+implementation (some answers differ from guidance written for the Task Force PDF).
+Symbols are defined in [Notation](notation.md).
 
 ## How do I model a constant-impedance or constant-current load?
 
 Use the [load](load.md) `model` field: `constant_impedance` ($P\propto|V|^2$),
 `constant_current` ($P\propto|V|$), or a full `zip` mix, with `v_nom` giving the
-reference voltage. (Older guidance suggested emulating a constant-impedance load with a
-[shunt](shunt.md); that is no longer necessary now that voltage-dependent load models
-are supported.)
+reference voltage (required for `zip` and `exponential`). A constant-impedance load
+does not need to be emulated with a [shunt](shunt.md).
 
 ## How do I define a triplex (split-phase service) load?
 
@@ -43,9 +42,10 @@ $\texttt{Xhl},\texttt{Xlt},\texttt{Xht}$ (% p.u.). These map to the per-winding
 reactances by the star (T) transform
 $[\texttt{Xh};\texttt{Xl};\texttt{Xt}] = \tfrac12\,\mathbf{S}\,[\texttt{Xhl};\texttt{Xlt};\texttt{Xht}]$
 with $\mathbf{S}=\left[\begin{smallmatrix}1&-1&1\\1&1&-1\\-1&1&1\end{smallmatrix}\right]$,
-then to ohms via the winding voltage/power base. The [transformer](transformer.md#6.-Implementation-in-BMOPFTools)
-page gives the full partitioning (and warns against the common $\texttt{Xhl}/2$ shortcut,
-which is wrong for center-tap under unbalance).
+then to ohms via the winding voltage/power base. [Transformer impedance
+bases](../conversion.md#Transformer-impedance-bases) gives the full partitioning (and
+warns against the common $\texttt{Xhl}/2$ shortcut, which is wrong for center-tap
+under unbalance).
 
 **Gridlab-D** gives per-unit primary `impedance` and secondary `impedance1` with a
 `power_rating` for the *whole* transformer. The per-winding SI impedances are
@@ -59,8 +59,8 @@ which is wrong for center-tap under unbalance).
 where the factor 3 accounts for the total rating being three times the primary-winding
 power, and 1000 converts the kVA rating to VA.
 
-!!! note "These conversions are performed automatically"
-    BMOPFTools' importers (`from_dss`, and the Gridlab-D path) apply these conversions
-    when reading source models, and are validated against the source tool's transformer
-    admittance. The formulas are given here for authors constructing data by hand or
-    auditing an import.
+!!! note "Which conversions are automatic"
+    `from_dss` delivers the OpenDSS star values directly (PowerIO's BMOPF export
+    carries them), so an OpenDSS import needs no manual conversion. BMOPFTools has no
+    native Gridlab-D reader; apply the Gridlab-D formulas by hand. The formulas are
+    given here for authors constructing data by hand or auditing an import.
