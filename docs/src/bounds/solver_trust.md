@@ -118,8 +118,9 @@ the signal toward certainty:
   with a comparable residual, confidence in the diagnosis increases; one
   independently verified feasible point disproves infeasibility — see [Symptom
   5](diagnostics.md).
-- **The slack-current measure.** [`solve_feasibility_opf`](../validation.md) adds an
-  elastic slack current at every non-source terminal and minimizes its norm. For
+- **The slack-current measure.** [`solve_feasibility_opf`](@ref) adds an elastic
+  slack current at every ungrounded terminal (source-bus phases included) and
+  minimizes the sum of squared slacks in amperes, in either unit mode. For
   a converged relaxed solve, a non-zero `total_slack_magnitude_A` localizes where
   that local solution uses residual current. Unlike an IIS for a convex/linear
   problem, it does not certify that no zero-slack solution exists elsewhere.
@@ -264,7 +265,10 @@ dependent gradients, and the Lagrange multipliers are no longer unique.
 A second, entirely **avoidable** cause is a **redundant constraint** — an equation that
 carries no information because the others already imply it. Unlike the over-determined bus,
 which fails LICQ only on a measure-zero parameter set, a structural redundancy breaks it at
-*every* feasible point, so it never solves cleanly.
+*every* feasible point. Interior-point methods can still converge despite dependent
+constraints (Ralph & Wright, 2000), and Ipopt regularizes a rank-deficient equality
+Jacobian (Raghunathan & Biegler, 2020; see [references](references.md)), but the
+multipliers are no longer unique and the iteration can stall.
 
 !!! warning "Don't bolt a system-wide power balance onto nodal KCL"
     The nodal power-balance (KCL) equations are **linearly dependent by construction**:
@@ -278,8 +282,8 @@ which fails LICQ only on a measure-zero parameter set, a structural redundancy b
     So a "sanity" constraint $\sum_g S^g = \sum_d S^d + \text{losses}$ added *on top of*
     full per-terminal KCL is **already implied** — its gradient row is a linear combination
     of the KCL rows. LICQ then fails everywhere: duals become non-unique, and the
-    interior-point iteration stalls or terminates with diverging iterates
-    (`NORM_LIMIT`) on a problem that is otherwise perfectly well posed. This is the same redundancy that makes classical
+    interior-point iteration can stall or terminate with diverging iterates
+    (`NORM_LIMIT`) on a problem that is otherwise well posed. This is the same redundancy that makes classical
     transmission OPF **drop the slack-bus balance** and let the reference absorb the
     mismatch ([cycle-flow formulations](https://arxiv.org/abs/1704.01881)); in this
     package the slack *source* plays that role, so the global balance is never needed.
@@ -311,12 +315,11 @@ which fails LICQ only on a measure-zero parameter set, a structural redundancy b
     generically. The trouble is that **augmentation deliberately steers you onto that
     set**: identical generator costs, zero-cost generators, and pinned injections are
     exactly the structured coincidences that make active-constraint gradients dependent.
-    This is why these are caught structurally *before* you solve, by the benchmark-
-    readiness flags `W.BENCH.GEN_NO_DOF`, `W.BENCH.GEN_ZERO_COST`, and
-    `W.BENCH.GEN_DEGENERATE_COST` ([Methodology § Benchmark readiness](../methodology.md));
-    a zero-cost generator's non-coercive objective surfaces at runtime as diverging
-    iterates (`NORM_LIMIT`) or an unbounded-objective termination — the runtime echo of
-    `W.BENCH.GEN_ZERO_COST`.
+    This is why the benchmark-readiness flags `W.BENCH.GEN_NO_DOF`,
+    `W.BENCH.GEN_ZERO_COST`, and `W.BENCH.GEN_DEGENERATE_COST`
+    ([Methodology § Benchmark readiness](../methodology.md)) screen for them *before*
+    you solve. They flag candidates: losses can still pin a zero-cost dispatch, and
+    equal costs alone do not prove non-uniqueness.
 
 !!! note "From a KKT point to a local minimum"
     First-order KKT conditions are necessary under a suitable constraint
@@ -368,10 +371,12 @@ different starts ([Symptom 5](diagnostics.md)).
     $x \to 0^+$ because the exponent $\gamma/2 - 2 < -1$. An interior-point method building
     the Lagrangian Hessian then sees unbounded curvature, takes vanishing steps, and churns
     in restoration — the symptom in [Trap 8](known_traps.md). The fix is to bound the
-    argument away from zero: BMOPFTools floors $W$ at $(\texttt{\_W\_FLOOR\_FRAC} \cdot
-    V_{\text{nom}})^2$ and $s$ correspondingly (see
-    [`load.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/ext/BMOPFOpfExt/load.jl)),
-    so the load model never reaches its singular point. The volt-var / volt-watt droop
+    argument away from zero. BMOPFTools does this in one of two ways: when a positive
+    lower voltage bound is stamped on the coil, $W \ge (v_{\min}/2)^2$ (and $s \ge
+    v_{\min}/2$); otherwise the load is written in the log-voltage variable
+    $\ell = \log(|\Delta V|/V_{\text{nom}})$, which has no zero-voltage point (see
+    [Loads](../opf.md#Loads)). Either way the load model never reaches its singular
+    point. The volt-var / volt-watt droop
     curves are smoothed the same way, with softplus corners rather than hard ReLU kinks
     ([Smooth droop encoding](../relu_softplus_encoding.md)).
 
@@ -399,10 +404,10 @@ become ill-conditioned ([Molzahn, Lesieutre & DeMarco,
     loadability — and that is right, but it means dropping the **operational** bound
     (e.g. $0.9$ p.u.), not setting it to zero. The low-voltage branch you want to expose
     lives well above zero; the all-zero solution of this section is a different, spurious
-    object. BMOPFTools' feasibility OPF keeps this distinction concretely: it retains the
-    case's own (strictly positive) voltage bounds unchanged and relaxes only nodal current
-    balance, so infeasibility surfaces as localized slack currents rather than as a
-    collapsed voltage solution (see the
+    object. BMOPFTools' feasibility OPF retains whatever voltage bounds the case
+    declares and relaxes only nodal current balance, so with a positive floor in the
+    case, infeasibility surfaces as localized slack currents rather than as a
+    collapsed voltage solution; without one, it adds no floor of its own (see the
     [infeasibility diagnosis tutorial](../tutorial_infeasibility.md)).
 
 ## 7. A trust checklist

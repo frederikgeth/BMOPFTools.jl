@@ -21,11 +21,10 @@ still a parameter; see [substitution boundaries](formulation_substitutions.md).
 
 ## Reuse needs a fresh solution check
 
-The [canonical update workflow](@ref opf-parameter-resolves) documents a measured
-stale-evaluation failure and the tested `resolve_opf!` workaround. It owns the
-code recipe, version-specific evidence, cached/direct-model distinction, and
-reset behavior; follow it rather than assuming another call to `optimize!`
-invalidates all numerical caches.
+After changing parameters, re-solve with [`resolve_opf!`](@ref), not another
+`optimize!`: a reused optimizer can evaluate the nonlinear functions at a stale point
+and still report success. [Updating parameters and resolving](@ref opf-parameter-resolves)
+gives the recipe and its limits.
 
 The reset preserves JuMP handles and algebra but reloads the optimizer. It does
 not retain numerical factorizations. By default `resolve_opf!` warm-starts from

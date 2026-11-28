@@ -6,13 +6,6 @@ a minimal construction, the expected behavior per formulation, and what to look 
 validator can use these as targeted tests: *"give me the input that should expose my
 bug."*
 
-!!! note "For maintainers"
-    These constructions are minimal and self-contained; none are yet shipped as named
-    regression cases in the benchmark library. The *In BMOPFTools* line on each trap
-    points at the closest existing case, test, or tool to build from. When you add a
-    named case, link it from the relevant trap so the gallery and the benchmark library
-    cross-reference.
-
 ## Trap 1 — Unbounded without bounds
 
 **Shows:** [§1](index.md) — a
@@ -44,17 +37,20 @@ the inverse of the [case augmentation](../augmentation.md) step.
 
 **Construction:** the two-bus system of §2 — source $E = 1.0\angle 0$, lossless
 reactance $X$, constant-power load $P + jQ$ chosen so the radicand
-$\tfrac{E^4}{4} - X^2P^2 - XE^2Q$ is small and positive (loaded but below the nose).
+$\tfrac{E^4}{4} - X^2P^2 - XE^2Q$ is positive. A light load gives widely separated
+roots; as the load approaches the nose the radicand shrinks and the two roots
+converge.
 
-**Expected behavior:** two real AC solutions $V_+ \approx 1$ p.u. and
-$V_- \ll 1$ p.u.; an exact relaxation and a high-voltage-started nonconvex solve both
+**Expected behavior:** for a light load, two real AC solutions $V_+ \approx 1$ p.u.
+and $V_- \ll 1$ p.u.; an exact relaxation and a high-voltage-started nonconvex solve both
 return $V_+$; a flat-but-low or adversarially started Newton solve can land on $V_-$.
 
 **Look for:** different solutions from different starts ⇒ multiplicity. The low-voltage
 cluster is the tell ([Diagnostics §4](diagnostics.md)).
 
 *In BMOPFTools:* OPF test **T1** ([Validating the OPF](../validation.md)) solves the
-high-voltage root `V = (V_s + √(V_s² − 4RP))/2` of this same quadratic; a low-`R/X`
+high-voltage root `V = (V_s + √(V_s² − 4RP))/2` of the resistive analog of this
+quadratic; a low-`R/X`
 reactive variant loaded toward the nose exposes the second root.
 
 ## Trap 3 — Relaxation feasible *past* collapse
@@ -79,7 +75,7 @@ load just beyond the nose (radicand $< 0$).
 per-branch cone gap ([Diagnostics §3](diagnostics.md)). This is the headline reason a
 feasible relaxation is only a one-sided certificate.
 
-*In BMOPFTools:* check the AC side with [`solve_feasibility_opf`](../validation.md) — a
+*In BMOPFTools:* check the AC side with [`solve_feasibility_opf`](@ref) — a
 repeatable non-zero `total_slack_magnitude_A` is evidence consistent with the
 analytically predicted collapse, not by itself a global infeasibility certificate.
 
@@ -145,10 +141,13 @@ from a second start returns the same primal point with different multipliers.
 **Look for:** large / start-dependent shadow prices; many iterations for a small problem;
 a primal point that is stable across starts while duals are not.
 
-*In BMOPFTools:* this is exactly what the benchmark-readiness flags `W.BENCH.GEN_NO_DOF`,
+*In BMOPFTools:* the benchmark-readiness flags `W.BENCH.GEN_NO_DOF`,
 `W.BENCH.GEN_ZERO_COST`, and `W.BENCH.GEN_DEGENERATE_COST`
-([Methodology](../methodology.md)) catch *before* you solve; reproduce by augmenting a
-feeder with a zero-cost or pinned generator and reading the flag, then the runtime echo.
+([Methodology](../methodology.md)) screen for these structures *before* you solve.
+They are screening signals, not proofs: losses can still pin the dispatch, and
+equal costs alone do not establish non-uniqueness. Reproduce by augmenting a feeder
+with a zero-cost or pinned generator, reading the flag, and comparing duals across
+starts.
 
 ## Trap 7 — Zero-voltage bifurcation / spurious all-zero solution
 
@@ -166,10 +165,10 @@ currents; Ipopt churns in restoration or returns a physically meaningless point.
 **Look for:** a cluster of terminals at near-zero voltage with large or arbitrary currents;
 restoration thrash that clears the moment a positive floor is restored.
 
-*In BMOPFTools:* strip the positive voltage floor to reproduce; contrast with the
-feasibility OPF, which keeps the case's own (strictly positive) voltage bounds and
-relaxes only nodal current balance — the low-voltage branch is excluded by design,
-and violations show up as slack currents instead (see the
+*In BMOPFTools:* strip the positive voltage floor to reproduce. The feasibility OPF
+keeps whatever voltage bounds the case declares and relaxes only nodal current
+balance, so it excludes the low-voltage branch only when the case declares a positive
+floor; with no `v_min` there is none (see the
 [infeasibility diagnosis tutorial](../tutorial_infeasibility.md)).
 
 ## Trap 8 — Non-smooth ZIP exponent near zero voltage
@@ -187,9 +186,12 @@ Ipopt churning in its `Restoration` phase as the argument nears zero.
 **Look for:** tiny steps and growing curvature reported in the Ipopt log on a feeder that
 should be easy; the symptom disappears when $W$ is floored away from zero.
 
-*In BMOPFTools:* the `_W_FLOOR_FRAC` floor on $W$ (and on $s$) in
-[`load.jl`](https://github.com/frederikgeth/BMOPFTools.jl/blob/main/ext/BMOPFOpfExt/load.jl)
-is the built-in mitigation; removing it reproduces the trap.
+*In BMOPFTools:* a voltage-dependent load never evaluates a fractional power near
+zero voltage. When a positive lower voltage bound is stamped on the coil, $W$ (and
+$s$) get the lower bound $W \ge (v_{\min}/2)^2$; without one, the load is written in
+the log-voltage variable $\ell = \log(|\Delta V|/V_{\text{nom}})$, which has no
+zero-voltage point at all (see [Loads](../opf.md#Loads)). The trap therefore
+reproduces only in your own formulation, written directly in $W$ without a floor.
 
 ## Trap 9 — Redundant constraint breaks LICQ everywhere
 
