@@ -90,7 +90,8 @@ while the shunt at bus `B` grounds the neutral through an impedance. See
 [Grounding](grounding.md) for the full model; the line and shunt additionally carry the
 implicit ground connection of their shunt admittances.
 
-From these sets, the [component pages](index.md#Model-summary) instantiate the variables
+From these sets, the component pages (for example [buses](bus.md) and
+[lines](line.md)) instantiate the variables
 and constraints: a voltage vector per bus terminal, series currents on the line and
 transformer windings, load/generator/source currents, and one KCL equation per terminal
 tying them together.
